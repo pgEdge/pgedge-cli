@@ -11,16 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// instanceListColumns is this command's table. It names the owning
-// database, and drops the ADDRESSES/PORT that `database get` carries:
-// those are for acting on one instance, not surveying a fleet, and the
-// table is already eight columns wide.
+// instanceListColumns drops `database get`'s ADDRESSES/PORT: those are
+// for acting on one instance, not surveying a fleet.
 var instanceListColumns = []string{
 	"DATABASE", "ID", "NODE", "HOST", "STATE", "ROLE", "PG", "SPOCK"}
 
-// instanceListRow renders one instance under `database instance list`.
-// It projects the same instanceFields that `database get` renders, so
-// the ID a reader sees here is the ID they pass to the other verbs.
+// instanceListRow projects the same instanceFields `database get`
+// renders, so the ID shown here is the one the other verbs take.
 type instanceListRow struct{ f instanceFields }
 
 func (r instanceListRow) Columns() []string {
@@ -28,35 +25,24 @@ func (r instanceListRow) Columns() []string {
 		output.ColorStatus(r.f.state), r.f.role, r.f.pg, r.f.spock}
 }
 
-// dbInstance pairs one instance with the database that owns it. The
-// pairing is the whole reason this command exists: the API models
-// instances only as a field of a database, so nothing on the wire
-// carries both.
+// dbInstance exists because the API models instances only as a field
+// of a database, so nothing on the wire carries both.
 type dbInstance struct {
 	dbID string
 	inst api.Instance
 }
 
-// instanceOutput is one entry of `instance list` under -o json/-o
-// yaml. The embedded api.Instance promotes its fields, so an entry is
-// the API instance plus the owning database's ID.
-//
-// This is a CLI view, not an API resource. The settled rule is "no
-// fabricated API RESOURCE objects" — --dry-run already emits a
-// manufactured object — and there is no endpoint returning instances
-// across databases for this to be mistaken for.
-//
-// -o yaml needs no tags of its own: the renderer derives YAML from the
-// JSON shape, which is what makes "-o yaml key = -o json key" true by
-// construction rather than by convention.
+// instanceOutput is the API instance plus its database ID. It is a CLI
+// view, not a fabricated API resource: no endpoint returns instances
+// across databases for it to be mistaken for. No yaml tags: the
+// renderer derives YAML from the JSON shape.
 type instanceOutput struct {
 	DatabaseID string `json:"database_id"`
 	api.Instance
 }
 
-// flattenInstances pairs every instance with its database, in a stable
-// order (database ID, then node name, then instance ID). The Control
-// Plane promises no order for either list.
+// flattenInstances sorts because the Control Plane promises no order
+// for either list.
 func flattenInstances(dbs []api.DatabaseSummary) []dbInstance {
 	out := make([]dbInstance, 0, len(dbs))
 	for _, d := range dbs {
@@ -74,13 +60,8 @@ func flattenInstances(dbs []api.DatabaseSummary) []dbInstance {
 		if out[i].inst.NodeName != out[j].inst.NodeName {
 			return out[i].inst.NodeName < out[j].inst.NodeName
 		}
-		// Instance IDs are unique by construction, so this third key
-		// makes the ordering TOTAL. sort.Slice is not stable, and
-		// (database, node) alone leaves two instances sharing both
-		// keys free to swap between runs — unreachable on valid data,
-		// since Spock node names are unique within a database, but a
-		// guarantee that holds only while the data is well-formed is
-		// not the guarantee this sort exists to make.
+		// Unique IDs make the order total even on malformed data
+		// with a repeated node name; sort.Slice is not stable.
 		return out[i].inst.Id < out[j].inst.Id
 	})
 	return out
@@ -154,14 +135,9 @@ Example:
 	return cmd
 }
 
-// onlyDatabase narrows dbs to the one named id, and reports a
-// not-found rather than an empty table when the ID names nothing.
-//
-// The check is client-side because it can be: the list response
-// carries every database that exists, so "no such database" and
-// "exists but has no instances" are distinguishable from one
-// response. A plain filter would exit 0 on a typo, which reads
-// exactly like an empty database.
+// onlyDatabase reports not-found rather than an empty table: the list
+// carries every database, and a plain filter would exit 0 on a typo,
+// which reads exactly like a database with no instances.
 func onlyDatabase(dbs []api.DatabaseSummary, id string) (
 	[]api.DatabaseSummary, error,
 ) {

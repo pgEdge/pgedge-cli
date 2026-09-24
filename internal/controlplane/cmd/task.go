@@ -17,11 +17,8 @@ import (
 var taskColumns = []string{"TASK-ID", "TYPE", "STATUS", "SCOPE",
 	"ENTITY", "CREATED"}
 
-// scopeRequired is the usage error for `task get`/`task logs` run
-// without a scope entity. It names where to FIND the value, not just
-// which flags exist: this error is met by someone already stuck on a
-// failed create, and naming the flags told them nothing they
-// had not just read.
+// scopeRequired names where to find the value, not just the flags:
+// the reader is usually already stuck on a failed create.
 func scopeRequired() error {
 	return &ExitError{
 		msg: "provide --database or --host: a task belongs to the " +
@@ -48,19 +45,13 @@ func taskRowFrom(t api.Task) taskRow {
 	}
 }
 
-// printTaskError writes a failed task's reason below its summary row,
-// and writes nothing when there is no reason to give.
+// printTaskError is where a provisioning failure explains itself: a
+// failed create marks its instances `failed` with no reason, and a spec
+// that fails planning creates no instance, so `database get` has
+// nothing to show.
 //
-// This is where a *provisioning* failure explains itself. A failed
-// create marks its in-progress instances `failed` without attaching a
-// reason, and a spec that fails during planning never creates an
-// instance at all — so `database get` has nothing to show and the task
-// is the only place left to look.
-//
-// Unlike the table cells in `database get`, the message is printed
-// verbatim: it has a line to itself, so a newline in it costs nothing
-// and these messages are deeply wrapped chains of `%w` that read far
-// better with their structure intact.
+// Printed verbatim, unlike `database get`'s cells: it has a line to
+// itself, and these deeply wrapped `%w` chains read better intact.
 func printTaskError(rt *module.Runtime, t api.Task) error {
 	msg := strings.TrimSpace(output.DerefString(t.Error))
 	if msg == "" {
@@ -70,8 +61,6 @@ func printTaskError(rt *module.Runtime, t api.Task) error {
 	return nil
 }
 
-// parseTaskID parses a CLI task-id argument into the UUID the generated
-// client expects, returning a usage error on a malformed id.
 func parseTaskID(arg string) (uuid.UUID, error) {
 	tid, err := uuid.Parse(arg)
 	if err != nil {
@@ -136,11 +125,8 @@ Example:
 					code: ExitUsage,
 				}
 			}
-			// Before the client, like the --database/--host check
-			// above it: a bad --limit is knowable without a
-			// connection. control-plane.json declares no bounds on
-			// any of its five limit parameters, so the ceiling is
-			// NoUpperBound.
+			// control-plane.json declares no bounds on any of its
+			// five limit parameters.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -369,10 +355,8 @@ Example:
 				return nil
 			}
 			for _, e := range log.Entries {
-				// The message is sanitized and the timestamp is not:
-				// the timestamp is formatted by this process, and a
-				// message carrying a newline would otherwise forge a
-				// log line with no timestamp to give it away.
+				// Only the message is server text; a newline in it
+				// would forge a log line.
 				fmt.Fprintf(rt.Stdout, "%s  %s\n",
 					e.Timestamp.Format(time.RFC3339),
 					output.Sanitize(e.Message))
@@ -421,15 +405,11 @@ Example:
 		if database == "" {
 			return &ExitError{msg: "provide --database", code: ExitUsage}
 		}
-		// A dot segment is not a database id, and letting one through
-		// makes a DRY RUN LIE: `.` and `..` survive path escaping, so
-		// url.Parse resolves them away before the request is built, the
-		// resulting path no longer matches the cancel operation, and
-		// --dry-run therefore sends a request and prints no report. It
-		// cannot land on another state-changing operation — that was
-		// checked exhaustively against every Control Plane path template
-		// — but "the dry run said nothing and made a request" is not a
-		// behaviour worth keeping for a value that was never valid.
+		// `.` and `..` survive path escaping and url.Parse resolves
+		// them away, so the path no longer matches the cancel operation
+		// and --dry-run sends a request instead of reporting. Checked
+		// against every Control Plane path template: it cannot reach
+		// another state-changing operation.
 		if database == "." || database == ".." {
 			return &ExitError{
 				msg: fmt.Sprintf(
@@ -461,10 +441,8 @@ Example:
 		}
 		fmt.Fprintf(rt.Stderr,
 			"Cancellation of task %s requested.\n", tid)
-		// Unlike every other verb's envelope, CancelDatabaseTask's 200
-		// body is a bare *api.Task with no wrapping object — there is no
-		// "task" key to nest under, so -o json's document is the task
-		// itself at the top level.
+		// CancelDatabaseTask's 200 body is a bare Task, not an
+		// envelope, so -o json prints the task at the top level.
 		if resp.JSON200 != nil {
 			if err := emitAccepted(rt, resp.JSON200); err != nil {
 				return err

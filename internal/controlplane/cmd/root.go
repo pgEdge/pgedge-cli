@@ -7,8 +7,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewControlplaneCmd builds the `pgedge controlplane` command tree: the module root, its
-// persistent connection flags, and the resource subcommands.
+// NewControlplaneCmd builds the `pgedge controlplane` command tree: the
+// module root, its persistent connection flags, and the resource
+// subcommands.
 func NewControlplaneCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "controlplane",

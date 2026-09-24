@@ -186,20 +186,15 @@ func (r serviceRow) Columns() []string {
 		r.ready, r.health, r.image, r.addresses, r.ports}
 }
 
-// errorRow renders one failure: what failed, and why.
 type errorRow struct{ subject, message string }
 
 func (r errorRow) Columns() []string {
 	return []string{r.subject, r.message}
 }
 
-// errorRows pairs each subject with its error, skipping the entries
-// that have none.
-//
-// The message is flattened to one line: the Control Plane folds
-// Postgres DETAIL lines and command output into these, and a newline
-// inside a table cell breaks every column to its right. Nothing is
-// dropped, and -o json still carries the message verbatim.
+// errorRows flattens each message to one line: the Control Plane folds
+// Postgres DETAIL lines and command output into these, and a newline in
+// a cell breaks every column to its right. -o json keeps it verbatim.
 func errorRows(subjects []string, messages []*string) []output.Row {
 	rows := make([]output.Row, 0, len(subjects))
 	for i, msg := range messages {
@@ -212,17 +207,11 @@ func errorRows(subjects []string, messages []*string) []output.Row {
 	return rows
 }
 
-// printDatabaseDetail renders a single database in text mode: the
-// summary line, an Instances section and a Services section when the
-// API returns them, each followed by its failures when there are any,
-// then the spec sections (database_detail.go). json/yaml callers never
-// reach here — they marshal the raw struct.
+// printDatabaseDetail renders text mode only; json/yaml marshal the
+// raw struct.
 //
-// The error sections matter more than their size suggests. `get` is
-// the only command that can show either field: the Control Plane has
-// no node or instance list endpoint, so without them a failed instance
-// reads `STATE=failed` and offers no reason, and the only way to find
-// one is to re-run with -o json.
+// The error sections are the only text view of either error field, so
+// without them a failed instance reads `STATE=failed` with no reason.
 func printDatabaseDetail(rt *module.Runtime, d *api.Database3) error {
 	if err := rt.Output.Print([]output.Row{databaseRow{
 		id:      d.Id,

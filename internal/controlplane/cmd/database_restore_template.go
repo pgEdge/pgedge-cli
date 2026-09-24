@@ -11,11 +11,8 @@ import (
 	"golang.org/x/term"
 )
 
-// newDatabaseRestoreTemplateCmd builds `pgedge controlplane database restore
-// template`, the restore-spec generator. It writes an annotated
-// RestoreDatabaseRequest to stdout so it can be redirected to a file,
-// edited, and applied with 'database restore <id> -f'. With
-// -i/--interactive it interviews for the values instead.
+// newDatabaseRestoreTemplateCmd builds `pgedge controlplane database
+// restore template`.
 func newDatabaseRestoreTemplateCmd(rt *module.Runtime) *cobra.Command {
 	var interactive bool
 	cmd := &cobra.Command{
@@ -58,11 +55,8 @@ Example:
 	return cmd
 }
 
-// runRestoreInterview interviews the user for a standalone restore
-// request: restore_config (via the shared interviewRestoreConfig) plus
-// an optional target-nodes list. It returns the RestoreDatabaseRequest
-// YAML via buildRestoreSpec. Prompts write to errOut; nothing prompted
-// or written is a secret.
+// runRestoreInterview collects no secret: interviewRestoreConfig never
+// asks for repository credentials.
 func runRestoreInterview(in io.Reader, errOut io.Writer) (string, error) {
 	r := bufio.NewReader(in)
 	rv, err := interviewRestoreConfig(r, errOut)

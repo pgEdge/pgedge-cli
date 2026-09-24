@@ -22,17 +22,13 @@ func isTerminal(status string) bool {
 	}
 }
 
-// taskSource abstracts polling one task, whether it is scoped to a
-// database or a host. getTask/getLog return the decoded body, the HTTP
-// status, the raw body (for checkResponse), and any transport error.
+// taskSource polls one database- or host-scoped task. getTask/getLog
+// return the decoded body, status, raw body and transport error.
 type taskSource struct {
 	taskID  openapi_types.UUID
 	getTask func(context.Context) (*api.Task, int, string, error)
 	getLog  func(context.Context) (*api.TaskLog, int, string, error)
-	// canceledOK flips a terminal "canceled" status from the
-	// ExitGeneral failure every other verb reports into a success. Only
-	// `controlplane task cancel` sets this — for that verb, the polled task
-	// reaching "canceled" is the expected outcome, not an abort.
+	// canceledOK makes "canceled" a success; only `task cancel` sets it.
 	canceledOK bool
 }
 
@@ -86,8 +82,7 @@ func hostTaskSource(
 	}
 }
 
-// waitFollowOpts binds the async flags per-command (no package-level
-// globals, unlike byoc's wait.go).
+// waitFollowOpts binds the async flags per command, not as globals.
 type waitFollowOpts struct {
 	wait     bool
 	follow   bool
@@ -95,19 +90,14 @@ type waitFollowOpts struct {
 	interval int
 }
 
-// addWaitFollowFlags registers --wait/--follow/--wait-timeout/
-// --wait-interval on an asynchronous command and returns the bound
-// options.
 func addWaitFollowFlags(cmd *cobra.Command) *waitFollowOpts {
 	o := &waitFollowOpts{}
 	cmd.Flags().BoolVar(&o.wait, "wait", false,
 		"Wait for the task to reach a terminal state")
 	cmd.Flags().BoolVar(&o.follow, "follow", false,
 		"Stream the task log until it reaches a terminal state")
-	// --follow is named nowhere in this description because run()
-	// passes o.timeout only to waitForTask: --follow has no overall
-	// bound at all, and saying it honoured this one was a false claim
-	// rendered into every generated flag table.
+	// run() passes o.timeout only to waitForTask: --follow has no
+	// overall bound.
 	cmd.Flags().IntVar(&o.timeout, "wait-timeout", 600,
 		"Max seconds to wait when --wait is set (--follow is unbounded)")
 	cmd.Flags().IntVar(&o.interval, "wait-interval", 3,
@@ -115,8 +105,6 @@ func addWaitFollowFlags(cmd *cobra.Command) *waitFollowOpts {
 	return o
 }
 
-// run performs the async tail for a task-scoped mutation: follow or
-// wait when requested, otherwise return immediately.
 func (o *waitFollowOpts) run(
 	rt *module.Runtime, src taskSource,
 ) error {
@@ -130,9 +118,8 @@ func (o *waitFollowOpts) run(
 	}
 }
 
-// waitForTask polls a task until it is terminal. Progress goes to
-// rt.Stderr. Returns *ExitError(ExitGeneral) if the task fails and
-// *ExitError(ExitTimeout) on deadline.
+// waitForTask polls until the task is terminal, with progress on
+// rt.Stderr.
 func waitForTask(
 	rt *module.Runtime, src taskSource, timeout, interval int,
 ) error {
@@ -158,14 +145,9 @@ func waitForTask(
 		task, status, body, err := src.getTask(ctx)
 		cancel()
 		if err != nil {
-			// The deadline below is this loop's, not the per-request
-			// one, so an error raised after it passed is the WAIT
-			// expiring mid-poll -- the same event the branch above
-			// reports, caught one poll earlier. Sending it to
-			// networkError instead named --timeout for a --wait-timeout
-			// that ran out, which is the timeout misdiagnosis wearing
-			// another flag, and it exited 1 where the skill documents
-			// a timed-out --wait as exit 3.
+			// ctx carries the loop's deadline, so an error after it
+			// is --wait-timeout expiring mid-poll: exit 3, not a
+			// networkError naming --timeout at exit 1.
 			if time.Now().After(deadline) {
 				return waitExpired()
 			}
@@ -189,7 +171,6 @@ func waitForTask(
 	}
 }
 
-// terminalResult reports a finished task's outcome.
 func terminalResult(rt *module.Runtime, t *api.Task) error {
 	switch t.Status {
 	case "failed":
@@ -211,15 +192,11 @@ func terminalResult(rt *module.Runtime, t *api.Task) error {
 	}
 }
 
-// followPollTimeout bounds one log poll under --follow. --wait-timeout
-// does not reach followTask, and --timeout may be 0, so without a
-// bound of its own a --follow could hang on a single request forever.
-//
-// A var only so a test can shorten it; nothing in the CLI writes it.
+// followPollTimeout bounds one log poll under --follow: --wait-timeout
+// does not reach followTask and --timeout may be 0. A var only so a
+// test can shorten it.
 var followPollTimeout = 30 * time.Second
 
-// followTask streams a task's log to rt.Stderr until the task is
-// terminal.
 func followTask(rt *module.Runtime, src taskSource) error {
 	seen := 0
 	for {
@@ -231,9 +208,8 @@ func followTask(rt *module.Runtime, src taskSource) error {
 		pollExpired := ctx.Err() != nil
 		cancel()
 		if err != nil {
-			// This bound is followTask's own, so --timeout is not the
-			// knob and naming it would misdiagnose it: --timeout 0 with
-			// --follow still stops here at 30s.
+			// followTask's own bound, so naming --timeout would
+			// misdiagnose it.
 			if pollExpired {
 				return &ExitError{
 					msg: fmt.Sprintf(

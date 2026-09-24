@@ -124,11 +124,9 @@ Example:
   pgedge controlplane config view -o yaml`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Not propagated: view is where an operator looks to
-			// find out what their profile says, so refusing to print
-			// it because one field will not parse answers the
-			// question with silence. The bad value is shown as a row
-			// instead, with the default that is standing in for it.
+			// Not propagated: view is where an operator looks to see
+			// what the profile says, so a field that will not parse
+			// is shown as a row beside the default standing in for it.
 			c, cerr := resolveConnection(rt, cmd)
 			problem := ""
 			if cerr != nil {
@@ -164,17 +162,9 @@ Example:
 	}
 }
 
-// checkReadableFile refuses a path that names nothing readable.
-//
-// The check belongs where the value is ACCEPTED, not where it is first
-// used: httpClientFor already reports `read ca-cert: ...` at exit 2,
-// but that arrives on a later command, and an operator standing up a
-// self-hosted Control Plane is typing these paths by hand for the
-// first time, the same check --config gets.
-//
-// It opens the file rather than stat-ing it, because a path that
-// exists and cannot be read fails at connection time just as surely as
-// one that does not exist.
+// checkReadableFile checks where the path is accepted, not only where
+// httpClientFor first uses it on a later command. It opens rather than
+// stats, because an unreadable file fails at connection time too.
 func checkReadableFile(flag, path string) error {
 	f, err := os.Open(path) //nolint:gosec // G304: operator-supplied cert path, which is the point
 	if err != nil {

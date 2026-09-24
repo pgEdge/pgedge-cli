@@ -48,18 +48,9 @@ Example:
 				return err
 			}
 			if resp.JSON200 != nil {
-				// With more than one --base-url, clientFromCmd's
-				// selectBaseURL already probed every candidate's
-				// version to pick a live server, and already emitted
-				// this same warning if that server was below floor —
-				// warning again here would double it (both read the
-				// same server's version). Only the single-base-url
-				// fast path — the common case, which never probes —
-				// reaches this point without having warned already.
-				// clientFromCmd above already resolved this
-				// connection and returned any error, so this cannot
-				// fail; checking again would add a branch no test
-				// can reach.
+				// With more than one base URL the failover walk already
+				// warned about the server it picked. clientFromCmd
+				// already returned any resolution error.
 				c, _ := resolveConnection(rt, cmd)
 				if len(c.baseURLs) <= 1 {
 					warnBelowFloor(rt, resp.JSON200.Version)

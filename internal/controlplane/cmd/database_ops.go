@@ -12,18 +12,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// announceAndWait prints the "<verb> task <id> accepted (<status>)."
-// line to stderr, emits the API's own accepted-response object to
-// stdout under -o json/-o yaml, then runs the async tail (wait/follow
-// or return). It is the shared close-out for every task-returning
-// mutation so the operational verbs don't re-inline it eight times.
-//
-// Both task and payload come from the same response: task is the
-// typed api.Task that drives the acceptance message and the poller,
-// while payload is the untyped envelope (e.g. *api.ApplyUpgradeResponse2)
-// rendered verbatim by emitAccepted — it is the API's own response, not
-// a CLI-invented shape, so it carries whatever else the endpoint
-// returned alongside the task (a database, node_tasks, ...).
+// announceAndWait is the shared close-out for task-returning database
+// mutations. task and payload come from the same response: task drives
+// the message and the poller, and payload is the whole envelope (e.g.
+// *api.ApplyUpgradeResponse2), printed verbatim so it carries whatever
+// else the endpoint returned.
 func announceAndWait(
 	rt *module.Runtime, client *api.ClientWithResponses,
 	wf *waitFollowOpts, verb, dbID string, task api.Task, payload any,
@@ -36,9 +29,6 @@ func announceAndWait(
 	return wf.run(rt, databaseTaskSource(client, dbID, task.TaskId))
 }
 
-// parseScheduledAt parses an optional RFC3339 timestamp for
-// --scheduled-at. An empty string yields (nil, nil); a malformed value
-// yields a *ExitError(ExitUsage).
 func parseScheduledAt(s string) (*time.Time, error) {
 	if s == "" {
 		return nil, nil

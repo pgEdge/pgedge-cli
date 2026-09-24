@@ -51,11 +51,9 @@ Example:
   pgedge controlplane doctor -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Not propagated: doctor's own help says to run it first
-			// when a controlplane command cannot connect, so it must not be the
-			// first command to refuse. A profile field that will not
-			// parse is reported as a row -- which is the diagnosis the
-			// operator came for.
+			// Not propagated: doctor is what to run when a command
+			// cannot connect, so a profile field that will not parse
+			// is reported as a row instead.
 			c, cerr := resolveConnection(rt, cmd)
 			problem := ""
 			if cerr != nil {
@@ -65,59 +63,27 @@ Example:
 				url       string
 				reachable bool
 				version   string
-				// warning is floorWarning's message when this server's
-				// version is below SupportFloor, or "" otherwise
-				// (unreachable, unparseable version, or at/above floor).
-				warning string
-				// clusterKnown is false when this server could not be
-				// asked at all, which must stay distinct from a
-				// server that answered "no cluster yet": one names a
-				// remedy and the other must not.
+				warning   string
+				// clusterKnown false (could not ask) must stay distinct
+				// from "no cluster yet": only the second names a remedy.
 				clusterInitialized, clusterKnown bool
 			}
-			// Probe every base_url concurrently rather than walking
-			// the list serially: with several configured servers and
-			// the 30s default timeout, one dead or slow host used to
-			// stall every probe behind it. Results land in probes at
-			// their base_urls index, so the reported order stays
-			// exactly the configured order regardless of which probe
-			// answers first — tests and users depend on that
-			// stability. A WaitGroup over a pre-sized slice keeps this
-			// deterministic without a channel-into-map race.
+			// Concurrent so one dead host does not stall the rest
+			// behind the 30s default timeout. Each result lands at its
+			// base_urls index, keeping the configured order.
 			//
-			// probeVersion builds a fresh *http.Client per call (see
-			// newAPIClient in client.go), so there is no client or
-			// transport state shared across goroutines. The one thing
-			// they do share is rt.Stderr: when --verbose or --debug is
-			// set, httplog.Transport.RoundTrip writes several separate
-			// lines per request straight to it. Those individual
-			// Fprintf calls are not coordinated across goroutines, so
-			// concurrent probes under --verbose/--debug can interleave
-			// their diagnostic lines. That is a cosmetic ordering
-			// issue in opt-in diagnostic output, not a data race
-			// (os.File.Write has no unsynchronized shared Go state for
-			// -race to catch) and not a correctness issue in the
-			// reported results, which is why it is left as-is here
-			// rather than restructuring the shared httplog transport.
+			// Each probe builds its own client (newAPIClient), so only
+			// rt.Stderr is shared: --verbose/--debug lines from
+			// httplog can interleave. That is cosmetic, not a race.
 			probes := make([]probe, len(c.baseURLs))
 			var wg sync.WaitGroup
 			for i, u := range c.baseURLs {
 				wg.Add(1)
 				go func(i int, u string) {
 					defer wg.Done()
-					// The two probes run CONCURRENTLY, not one after
-					// the other. Sequencing them costs a whole extra
-					// round trip per server and puts doctor behind the
-					// slowest one twice over -- reintroducing the
-					// stall the outer concurrency exists to remove.
-					// TestDoctorProbesConcurrently catches it, and did.
-					//
-					// probeCluster runs even against a server whose
-					// version probe fails: it cannot know that yet,
-					// and a server that answers /v1/cluster at all is
-					// reachable by definition. Each goroutine writes
-					// its own variables, so there is nothing shared
-					// to race on.
+					// Both probes run concurrently: sequencing them puts
+					// doctor behind the slowest server twice over
+					// (TestDoctorProbesConcurrently).
 					var (
 						v           string
 						ok          bool
@@ -155,20 +121,10 @@ Example:
 					break
 				}
 			}
-			// The collapsed row is emitted only when every server
-			// that could be asked AGREES.
-			//
-			// Letting the first one speak for the rest was wrong,
-			// and measurably so: with an uninitialized server
-			// listed before an initialized one -- both reachable --
-			// doctor told the operator to run cluster init while a
-			// cluster existed, and reversing the order flipped the
-			// verdict silently. That is the second-cluster outcome
-			// the three-valued handling exists to prevent, produced
-			// by the collapse rather than by the unknown case.
-			//
-			// Per-server state is reported either way, so a caller
-			// can see the disagreement rather than infer it.
+			// The collapsed verdict needs every server that answered
+			// to agree. Letting the first speak for the rest sends an
+			// operator to cluster init when a later server already has
+			// a cluster.
 			clusterInitialized, clusterKnown := false, false
 			clusterAgrees := true
 			for _, p := range probes {
@@ -194,8 +150,6 @@ Example:
 						"server_version": p.version,
 						"warning":        p.warning,
 					}
-					// Absent when this server could not be asked, for
-					// the same reason the top-level key is.
 					if p.clusterKnown {
 						servers[i]["cluster_initialized"] =
 							p.clusterInitialized
@@ -211,9 +165,9 @@ Example:
 				if problem != "" {
 					out["problem"] = problem
 				}
-				// Absent rather than false when unknown: a consumer
-				// keying on cluster_initialized == false would
-				// otherwise read "could not tell" as "needs init".
+				// Absent rather than false when unknown, here and per
+				// server: false would read "could not tell" as "needs
+				// init".
 				if clusterKnown && clusterAgrees {
 					out["cluster_initialized"] = clusterInitialized
 				}
@@ -256,9 +210,8 @@ Example:
 						"each server's cluster_initialized in -o json"
 				case !clusterInitialized:
 					status = "error"
-					// Both remedies, matching the 409 prose: on a
-					// host being added to an existing cluster, init
-					// is the wrong one.
+					// Both remedies: on a host joining an existing
+					// cluster, init is the wrong one.
 					detail = "uninitialized — run 'pgedge controlplane cluster " +
 						"init', or 'pgedge controlplane cluster join' to join an " +
 						"existing cluster"

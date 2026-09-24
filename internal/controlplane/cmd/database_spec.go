@@ -18,25 +18,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// postgresVersionRE matches a Postgres version in the Control Plane's
-// required 'major.minor' form (e.g. "16.14", "17.6"). A bare major
-// like "16" is rejected: the CP returns an opaque 400 for it, so the
-// CLI catches it up front with a clear message.
+// postgresVersionRE is the Control Plane's required 'major.minor' form.
+// A bare major like "16" gets an opaque 400 from the Control Plane, so
+// the CLI refuses it first with a clear message.
 var postgresVersionRE = regexp.MustCompile(`^\d+\.\d+$`)
 
-// nodeVersion pairs a node name with its optional postgres_version
-// override, letting validatePostgresVersions report the offending node
-// without depending on a specific generated spec type (create uses
+// nodeVersion lets validatePostgresVersions name the offending node
+// without depending on either generated spec type (create uses
 // DatabaseSpec2, update DatabaseSpec5).
 type nodeVersion struct {
 	name    string
 	version *string
 }
 
-// validatePostgresVersions rejects any postgres_version — cluster-wide
-// or per-node — that is set but not in 'major.minor' format, returning
-// an ExitUsage error that names the bad value and the expected form. A
-// nil or empty version is left for the Control Plane to default.
+// validatePostgresVersions rejects a cluster-wide or per-node
+// postgres_version that is set but not 'major.minor'. A nil or empty
+// version is left for the Control Plane to default.
 func validatePostgresVersions(cluster *string, nodes []nodeVersion) error {
 	if err := checkPGVersion(cluster, "postgres_version"); err != nil {
 		return err
@@ -50,8 +47,6 @@ func validatePostgresVersions(cluster *string, nodes []nodeVersion) error {
 	return nil
 }
 
-// checkPGVersion validates one optional version value, labelling any
-// error with label (e.g. "postgres_version" or a per-node phrase).
 func checkPGVersion(v *string, label string) error {
 	if v == nil || *v == "" {
 		return nil
@@ -68,9 +63,7 @@ func checkPGVersion(v *string, label string) error {
 	return nil
 }
 
-// loadSpecFile reads path ("-" = rt.Stdin), accepts YAML or JSON, and
-// decodes into dst (a pointer to the appropriate generated spec type)
-// by delegating the conversion to loadSpecBytes.
+// loadSpecFile reads path ("-" = rt.Stdin) as YAML or JSON into dst.
 func loadSpecFile(rt *module.Runtime, path string, dst any) error {
 	raw, err := readSpecFile(rt, path)
 	if err != nil {
@@ -79,19 +72,13 @@ func loadSpecFile(rt *module.Runtime, path string, dst any) error {
 	return loadSpecBytes(raw, dst)
 }
 
-// loadSpecFileUnwrapping is loadSpecFile for the two commands whose dst
-// is a DatabaseSpec: create -f and update -f. It additionally accepts a
-// whole `database get` document and decodes that document's spec:
-// subtree, so the round-trip the help text advertises works as written:
+// loadSpecFileUnwrapping is loadSpecFile for create -f and update -f.
+// It also accepts a whole `database get -o yaml` document and decodes
+// its spec: subtree, which is the round-trip the help text advertises.
+// A bare spec has no top-level spec key, so one marks a wrapper.
 //
-//	pgedge controlplane database get storefront -o yaml > spec.yaml
-//	pgedge controlplane database update storefront -f spec.yaml
-//
-// Deliberately NOT the shared path. restore -f decodes a
-// RestoreDatabaseRequest, which has no spec field, so unwrapping there
-// would silently change what that command accepts. A bare spec cannot
-// carry a top-level spec key of its own, so the presence of one is an
-// unambiguous signal that the document is a wrapper.
+// Not the shared path: restore -f decodes a RestoreDatabaseRequest,
+// and unwrapping there would silently change what it accepts.
 func loadSpecFileUnwrapping(
 	rt *module.Runtime, path string, dst any,
 ) error {
@@ -102,8 +89,7 @@ func loadSpecFileUnwrapping(
 	return decodeSpecInto(raw, dst, true)
 }
 
-// readSpecFile returns the raw bytes of a spec path, reading rt.Stdin
-// for "-". Shared so the two loaders cannot disagree about stdin.
+// readSpecFile is shared so the two loaders cannot disagree about "-".
 func readSpecFile(rt *module.Runtime, path string) ([]byte, error) {
 	var raw []byte
 	var err error
@@ -121,30 +107,22 @@ func readSpecFile(rt *module.Runtime, path string) ([]byte, error) {
 	return raw, nil
 }
 
-// loadSpecBytes decodes YAML or JSON bytes into dst (a pointer to a
-// generated spec type). The generated types carry only json tags, so
-// we normalize YAML to JSON first and let encoding/json honor them. A
-// direct yaml.Unmarshal would lowercase field names and ignore the
-// json tags, silently dropping snake_case keys like database_name.
-// Shared by loadSpecFile (create/update -f) and the init -i JSON
-// output path so the one conversion cannot drift.
+// loadSpecBytes decodes YAML or JSON bytes into dst. The generated
+// types carry only json tags, so YAML is normalized to JSON first: a
+// direct yaml.Unmarshal ignores json tags and silently drops snake_case
+// keys like database_name. Shared by loadSpecFile (restore -f) and
+// emitSpecJSON (init -i).
 func loadSpecBytes(raw []byte, dst any) error {
 	return decodeSpecInto(raw, dst, false)
 }
 
-// decodeSpecInto is the one decode path. It normalizes YAML to JSON,
-// then decodes strictly.
+// decodeSpecInto is the one decode path. unwrap takes the spec:
+// subtree; only loadSpecFileUnwrapping sets it.
 //
-// unwrap takes the document's spec: subtree instead of the document
-// itself, and only loadSpecFileUnwrapping sets it — see that function
-// for why this is not unconditional.
-//
-// The decode rejects unknown fields. Without that, a file whose keys
-// match nothing at all — a whole `database get` document before the
-// unwrap existed, or a typo'd key — decodes to an all-zero spec and is
-// sent as an empty update. The Control Plane does reject such a body
-// (verified live: 400 missing_field), so this is about failing locally
-// with a message naming the file rather than about preventing damage.
+// Unknown fields are rejected so a file whose keys match nothing, such
+// as a typo'd key, fails locally naming the file instead of being sent
+// as an all-zero spec. The Control Plane rejects that body too (verified
+// live: 400 missing_field), so this is about the message, not damage.
 func decodeSpecInto(raw []byte, dst any, unwrap bool) error {
 	var doc interface{}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
@@ -178,18 +156,14 @@ func decodeSpecInto(raw []byte, dst any, unwrap bool) error {
 	return nil
 }
 
-// specDecodeError rewrites encoding/json's wording for a spec file the
-// user most likely wrote as YAML. Left as-is, an unknown key reports
-// `json: unknown field "backupconfig"`, which names a format the user
-// never used. The field name is the useful part, so it is kept.
+// specDecodeError drops encoding/json's `json: unknown field` wording,
+// which names a format a YAML author never used, and keeps the field.
 func specDecodeError(err error) string {
 	msg := err.Error()
 	const prefix = `json: unknown field `
 	if field, ok := strings.CutPrefix(msg, prefix); ok {
-		// This one decode path serves create/update -f (a
-		// DatabaseSpec) and restore -f (a RestoreDatabaseRequest),
-		// which have different generators, so the message names both
-		// rather than sending a restore spec to 'database init'.
+		// Names both generators: this path decodes database specs
+		// and restore specs alike.
 		return fmt.Sprintf(
 			"unrecognized field %s. Check the spelling against the "+
 				"template that generated this spec: 'database init' "+
@@ -201,14 +175,10 @@ func specDecodeError(err error) string {
 }
 
 // requireSpecContent rejects a spec that decoded to nothing useful.
-// Callers pass the two fields the Control Plane requires, because
-// create and update decode into different generated types
-// (DatabaseSpec2 and DatabaseSpec5) that share no interface.
-//
-// path names the offending file in the message, which is the whole
-// point: the server's own rejection quotes Go type names
-// ("[]*server.DatabaseNodeSpecRequestBodyRequestBody(nil)") and never
-// mentions the file the user actually passed.
+// It takes the two required fields because DatabaseSpec2 and
+// DatabaseSpec5 share no interface. The point is naming the file: the
+// server's rejection quotes Go type names
+// ("[]*server.DatabaseNodeSpecRequestBodyRequestBody(nil)") instead.
 func requireSpecContent(path, databaseName string, nodeCount int) error {
 	if databaseName != "" && nodeCount > 0 {
 		return nil
@@ -224,12 +194,9 @@ func requireSpecContent(path, databaseName string, nodeCount int) error {
 	}
 }
 
-// requireRestoreContent is requireSpecContent for restore -f, whose
-// body is a RestoreDatabaseRequest rather than a DatabaseSpec and so
-// has neither database_name nor nodes. `database restore template`
-// emits a file that is entirely comments, which parses to nothing at
-// all, so an unedited template would otherwise be sent as an empty
-// restore.
+// requireRestoreContent is requireSpecContent for restore -f.
+// `database restore template` emits a file that is entirely comments,
+// so an unedited template would otherwise be sent as an empty restore.
 func requireRestoreContent(path string, cfg api.RestoreConfigSpec) error {
 	if cfg.SourceDatabaseId != "" || cfg.SourceDatabaseName != "" ||
 		cfg.SourceNodeName != "" || cfg.Repository.Type != "" {
@@ -246,8 +213,6 @@ func requireRestoreContent(path string, cfg api.RestoreConfigSpec) error {
 	}
 }
 
-// specSource describes a spec path for an error message, since "-"
-// reads better as stdin than as a filename.
 func specSource(path string) string {
 	if path == "-" {
 		return "the spec read from stdin"
@@ -255,31 +220,19 @@ func specSource(path string) string {
 	return path
 }
 
-// checkUnfilledPlaceholders returns an ExitUsage error if any part of
-// the spec still carries secretSentinel, so a template applied without
-// being edited is rejected locally, naming the field, rather than
-// round-tripping to a server error that names nothing useful.
+// checkUnfilledPlaceholders rejects a spec still carrying
+// secretSentinel, naming the field, rather than round-tripping to a
+// server error that names nothing useful. The sentinel is never a real
+// credential, so naming its field leaks nothing.
 //
 // It covers every field `database init` writes a placeholder into:
-// each node's host_ids, each database user's password, the four
-// backup-repository credentials (s3_key, s3_key_secret, gcs_key,
-// azure_key), each service's host_ids, and every service config
-// value at any depth, lists included — rag's credentials sit under
-// config.pipelines[N].embedding_llm.api_key.
+// node and service host_ids, user passwords, the four repository
+// credentials, restore_config, and service config at any depth.
+// Fields are checked in file order so the one error reported is the
+// one a reader editing top-down reaches first.
 //
-// The scan is ordered to report the field a reader hits first when
-// editing the file top-down — nodes, users, backup repositories,
-// restore_config, then services — because one error at a time is more
-// useful when it is the one you were about to fix anyway.
-//
-// The sentinel is never a real credential, so naming the field it sits
-// in leaks nothing.
-// It takes the pieces rather than a spec because `create` and
-// `update` load structurally identical but distinct generated types
-// (DatabaseSpec2 and DatabaseSpec5). Passing the pieces is what lets
-// both share one scan instead of two that drift apart — the services
-// half already applied only to create, which is how update came to
-// accept an unedited template at all.
+// It takes pieces rather than a spec so create (DatabaseSpec2) and
+// update (DatabaseSpec5) share one scan instead of two that drift.
 func checkUnfilledPlaceholders(
 	nodes []nodeHosts, users *[]api.DatabaseUserSpec,
 	repos []api.BackupRepositorySpec, restore *api.RestoreConfigSpec,
@@ -339,9 +292,7 @@ func checkUnfilledPlaceholders(
 }
 
 // checkUnfilledRestorePlaceholders is the restore_config half of the
-// scan: the three source_* fields, and the four repository credentials
-// repoSentinelHit scans on a backup repository. `restore -f` carries a
-// restore_config and nothing else the scan reads.
+// scan, and all of it that `restore -f` reaches.
 func checkUnfilledRestorePlaceholders(
 	cfg *api.RestoreConfigSpec, verb string,
 ) error {
@@ -371,10 +322,9 @@ func checkUnfilledRestorePlaceholders(
 	return nil
 }
 
-// repoSentinelHit names the first backup-repository credential still
-// carrying secretSentinel. Only these four fields are scanned: they
-// are the ones the blank `database init` template writes a
-// placeholder into, and the only repository fields that can hold one.
+// repoSentinelHit names the first repository credential still
+// carrying secretSentinel. These four are the only repository fields
+// the `database init` template writes a placeholder into.
 func repoSentinelHit(r api.BackupRepositorySpec) (string, bool) {
 	for _, f := range []struct {
 		name string
@@ -392,8 +342,7 @@ func repoSentinelHit(r api.BackupRepositorySpec) (string, bool) {
 	return "", false
 }
 
-// sortedConfigKeys returns m's keys in order, so the field a scan
-// reports is stable across runs.
+// sortedConfigKeys keeps the field a scan reports stable across runs.
 func sortedConfigKeys(m map[string]interface{}) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -403,9 +352,8 @@ func sortedConfigKeys(m map[string]interface{}) []string {
 	return keys
 }
 
-// nodeHosts and serviceConfig are the neutral shapes the placeholder
-// scan reads, so the two generated spec types can be adapted into it
-// at the call site.
+// nodeHosts and serviceConfig are the neutral shapes both generated
+// spec types are adapted into for the placeholder scan.
 type nodeHosts struct{ hostIDs []string }
 
 type serviceConfig struct {
@@ -414,9 +362,8 @@ type serviceConfig struct {
 	config  *map[string]interface{}
 }
 
-// unfilledError builds the shared ExitUsage for an unedited
-// placeholder. One phrasing for every field keeps the class of error
-// recognisable.
+// unfilledError gives every unedited placeholder one phrasing, so the
+// class of error stays recognisable.
 func unfilledError(field, remedy string) error {
 	return &ExitError{
 		msg: fmt.Sprintf("%s is still %q; %s",
@@ -425,8 +372,6 @@ func unfilledError(field, remedy string) error {
 	}
 }
 
-// createSpecPlaceholders adapts a create spec into the neutral shapes
-// the placeholder scan reads.
 func createSpecPlaceholders(
 	spec *api.DatabaseSpec2,
 ) ([]nodeHosts, []api.BackupRepositorySpec, []serviceConfig) {
@@ -449,8 +394,6 @@ func createSpecPlaceholders(
 	return nodes, repos, services
 }
 
-// updateSpecPlaceholders is createSpecPlaceholders for update's own
-// generated spec type.
 func updateSpecPlaceholders(
 	spec *api.DatabaseSpec5,
 ) ([]nodeHosts, []api.BackupRepositorySpec, []serviceConfig) {
@@ -473,12 +416,10 @@ func updateSpecPlaceholders(
 	return nodes, repos, services
 }
 
-// configSentinelHit reports whether a config value still carries
-// secretSentinel, returning the dotted-and-indexed path to name in the
-// error. It descends maps AND lists to any depth: rag's credentials
-// sit at config.pipelines[N].embedding_llm.api_key: behind a list
-// index and a second nested map, deeper than a one-level map scan
-// reaches.
+// configSentinelHit returns the dotted-and-indexed path of a config
+// value still carrying secretSentinel. It descends lists as well as
+// maps because rag's credentials sit at
+// config.pipelines[N].embedding_llm.api_key.
 func configSentinelHit(key string, val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:

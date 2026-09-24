@@ -124,22 +124,17 @@ Example:
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Skip the confirmation prompt")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		// Parse before prompting so a bad --scheduled-at is a usage
+		// Parse before prompting, so a bad --scheduled-at is a usage
 		// error rather than a question about a switchover that cannot
-		// run -- the order instance restart records, and the one
-		// database upgrade and restore follow. failover is not
-		// evidence either way: it validates nothing client-side.
+		// run.
 		when, err := parseScheduledAt(scheduledAt)
 		if err != nil {
 			return err
 		}
-		// Planned makes it gentler to the cluster, not invisible to a
+		// Planned is gentler to the cluster, not invisible to a
 		// connected client, and "a client notices" is the bar for a
-		// prompt in this tree. failover -- the unplanned sibling of the same
-		// operation on the same resource -- already prompts.
-		//
-		// Prompt-only: the switchover endpoint takes a JSON body and
-		// no force parameter, so --force sends nothing on the wire.
+		// prompt. The endpoint has no force parameter, so --force only
+		// skips the prompt.
 		if err := cli.Confirm(rt, fmt.Sprintf(
 			"Switch over node %s in database %s? This drops the "+
 				"connections the current leader is holding.",

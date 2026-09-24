@@ -7,31 +7,22 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/output"
 )
 
-// instanceColumns is `database get`'s instance table: the ID leads,
-// because it is the value every other instance verb needs as an
-// argument, and connection detail trails because you are already
-// looking at one database.
+// instanceColumns leads with the ID because every other instance verb
+// takes it.
 var instanceColumns = []string{
 	"ID", "NODE", "HOST", "STATE", "ROLE", "PG", "SPOCK",
 	"ADDRESSES", "PORT"}
 
-// instanceFields holds every rendered value for one instance. It is
-// kept separate from instanceRow so that other row types can project
-// the same fields through newInstanceFields without recomputing
-// anything — the point of the ID column is that the value read in one
-// view is the value passed as an argument to another.
+// instanceFields is separate from instanceRow so every view renders
+// the same values, the ID above all.
 type instanceFields struct {
 	database, id, node, host, state, role, pg, spock string
 	addresses, port                                  string
 }
 
-// newInstanceFields flattens one API instance into rendered strings.
-//
-// Anything the Control Plane has not filled in renders as "-". That is
-// not defensive padding: while a database is `creating` the CP sends
-// `postgres` with no version and `spock` as `{}` (verified live,
-// 2026-08-09), so the version columns are empty precisely when someone
-// is watching a database come up.
+// newInstanceFields renders anything unfilled as "-". While a database
+// is `creating` the Control Plane sends `postgres` with no version and
+// `spock` as `{}` (verified live, 2026-08-09).
 func newInstanceFields(
 	databaseID string, inst api.Instance,
 ) instanceFields {
@@ -54,11 +45,9 @@ func newInstanceFields(
 	if inst.Spock != nil {
 		f.spock = derefOr(inst.Spock.Version, "-")
 	}
-	// ConnectionInfo is the address/port a caller dials to reach this
-	// Postgres instance directly. It never carries credentials — a
-	// database user's password is a separate field on the spec's user
-	// list, and the CP never populates it in a response anyway
-	// (verified live) — so there is nothing here to redact.
+	// Nothing to redact: ConnectionInfo carries no credentials, and
+	// the Control Plane never returns a user's password (verified
+	// live).
 	if ci := inst.ConnectionInfo; ci != nil {
 		if ci.Addresses != nil && len(*ci.Addresses) > 0 {
 			f.addresses = joinStrings(*ci.Addresses)
@@ -70,7 +59,6 @@ func newInstanceFields(
 	return f
 }
 
-// instanceRow renders one instance under `database get`.
 type instanceRow struct{ f instanceFields }
 
 func (r instanceRow) Columns() []string {

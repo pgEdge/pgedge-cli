@@ -169,15 +169,13 @@ Example:
 	wf := addWaitFollowFlags(cmd)
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "",
 		"Schedule the restart at an RFC3339 time (default now)")
-	// Prompt-only, unlike start/stop: the restart endpoint takes a JSON
-	// body and exposes no force query parameter, so there is no
-	// unmodifiable-state check here for --force to also override.
+	// Prompt-only, unlike start/stop: the restart endpoint has no
+	// force parameter.
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Skip the confirmation prompt")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		// Parse before prompting so a bad --scheduled-at is a usage
-		// error rather than a question about a restart that cannot run,
-		// matching database upgrade/restore.
+		// Parse before prompting, so a bad --scheduled-at is a usage
+		// error rather than a question about a restart that cannot run.
 		when, err := parseScheduledAt(scheduledAt)
 		if err != nil {
 			return err

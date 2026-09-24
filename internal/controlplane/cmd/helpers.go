@@ -7,18 +7,11 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 )
 
-// emitAccepted writes payload to stdout under -o json/-o yaml, and
-// does nothing under text/table. It is the one place a task-spawning
-// mutation puts its accepted API response on the machine channel —
-// stdout is for structured data a script can capture; rt.Stderr is
-// for the human-facing acceptance line and any progress/terminal
-// verdict that follows, which stay exactly where they already are.
-//
-// A nil payload is never written: every call site already guards with
-// `resp.JSON200 == nil` (a 200 with no decodable body), and this check
-// is belt-and-braces should a future call site forget that guard. It
-// will not catch a *typed* nil boxed into `any` (e.g. a nil *api.Task)
-// — the guard at the call site is the real defence.
+// emitAccepted is the one place a task-spawning mutation puts its
+// accepted response on stdout, and only under -o json/-o yaml; the
+// human-facing lines stay on rt.Stderr. The nil check misses a typed
+// nil boxed into `any`, so the call sites' JSON200 guard is the real
+// defence.
 func emitAccepted(rt *module.Runtime, payload any) error {
 	if !rt.Output.Structured() || payload == nil {
 		return nil

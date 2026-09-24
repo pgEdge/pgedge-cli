@@ -8,10 +8,8 @@ import (
 	"strings"
 )
 
-// readLineErr prints the label (with its default, if any) and returns
-// the trimmed input plus the underlying read error. Unlike readLine it
-// does NOT swallow io.EOF, so callers that loop (promptRequired) can
-// stop at end-of-input instead of spinning on repeated empty reads.
+// readLineErr keeps io.EOF, unlike readLine, so a looping caller
+// (promptRequired) stops at end of input instead of spinning.
 func readLineErr(
 	in *bufio.Reader, errOut io.Writer, label, def string,
 ) (string, error) {
@@ -24,10 +22,8 @@ func readLineErr(
 	return strings.TrimSpace(line), err
 }
 
-// readLine prints the label with its default and returns the trimmed
-// input, or "" if the user accepted the default with an empty line.
-// io.EOF is treated as an empty line so a short scripted input can
-// drive a longer interview via defaults.
+// readLine treats io.EOF as an empty line so a short scripted input can
+// drive a longer interview through defaults.
 func readLine(
 	in *bufio.Reader, errOut io.Writer, label, def string,
 ) (string, error) {
@@ -38,11 +34,8 @@ func readLine(
 	return s, nil
 }
 
-// promptRequired prints the label and re-prompts until the user enters
-// a non-empty value. For fields the API requires, so the interview
-// never emits a spec with a blank or placeholder required field. On
-// end-of-input (or a read error) with no value it returns that error
-// rather than looping forever.
+// promptRequired re-prompts until it gets a value, so the interview
+// never emits a blank required field.
 func promptRequired(
 	in *bufio.Reader, errOut io.Writer, label string,
 ) (string, error) {
@@ -91,12 +84,8 @@ func promptInt(
 	}
 }
 
-// promptOptionalInt prints the label and returns the trimmed answer:
-// "" when the user enters a blank line (the field is omitted), the
-// canonical integer string when a valid integer is entered, and it
-// re-prompts on any non-integer input. Unlike promptInt, a blank line
-// means "omit" rather than "use a default" — suited to optional
-// numeric fields such as port and retention count.
+// promptOptionalInt differs from promptInt in that a blank line means
+// "omit the field", not "use a default".
 func promptOptionalInt(
 	in *bufio.Reader, errOut io.Writer, label string,
 ) (string, error) {

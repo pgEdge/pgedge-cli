@@ -8,26 +8,18 @@ import (
 	"time"
 )
 
-// The deadlines every Source call runs under. They live here, beside
-// the interface, because a Source implementation must not invent its
-// own budget: the caller decides how long the whole ladder may take,
-// and both rungs share it.
-//
-// A gh rung execs a child process, which has no timeout of its own —
-// an unauthenticated `gh` waiting on a prompt would otherwise hang
-// the command forever.
+// The deadlines every Source call runs under. The caller sets them,
+// not a Source implementation, so both rungs share one budget.
 const (
 	// ListTimeout bounds a release-list fetch made by `self update`.
 	ListTimeout = 30 * time.Second
 
-	// DownloadTimeout bounds one asset download. Generous on purpose:
-	// a release archive on a slow link is legitimately slow, and the
-	// deadline is here to stop a hang, not to police throughput.
+	// DownloadTimeout bounds one asset download. Generous: it stops a
+	// hang, not a slow link.
 	DownloadTimeout = 10 * time.Minute
 
-	// DoctorCheckTimeout bounds doctor's whole latest-version check —
-	// both rungs together. doctor prints a row and moves on, so it
-	// gives up far sooner than an update would.
+	// DoctorCheckTimeout bounds doctor's whole latest-version check,
+	// both rungs together; doctor prints a row and moves on.
 	DoctorCheckTimeout = 5 * time.Second
 
 	// ProbeTimeout bounds the post-swap `pgedge version -o json` exec.
@@ -42,11 +34,9 @@ type Source interface {
 }
 
 // Chain tries primary, falling back to fallback when primary fails.
-// Production wires HTTPSource as primary and GHSource as fallback
-// (the design's "ladder"): the http rung 404s while
-// pgEdge/pgedge-cli stays private, so every fetch rides gh, and the
-// day the repo goes public the http rung starts succeeding with no
-// code change on either side.
+// Production wires HTTPSource as primary and GHSource as fallback:
+// the repository is public, so the unauthenticated HTTP rung serves a
+// user without gh, and gh is tried only when it fails.
 type Chain struct {
 	primary  Source
 	fallback Source
@@ -87,26 +77,22 @@ func (c *Chain) Download(
 	return "", bothFailed(err, fbErr)
 }
 
-// Rungs reports the chain's sources in the order they are tried.
-// It exists so a test can assert the PRODUCTION ladder's order —
-// unauthenticated HTTP first, gh second — which is the property the
-// public flip rests on: the first rung starting to succeed is what
-// makes the gh dependency evaporate with no code change. Reversed,
-// every other test still passes.
+// Rungs reports the chain's sources in the order they are tried, so a
+// test can pin the production order: unauthenticated HTTP first, so a
+// user without gh never needs it. Reversed, every other test still
+// passes.
 func (c *Chain) Rungs() []Source { return []Source{c.primary, c.fallback} }
 
-// bothFailed joins the primary and fallback errors, one per line, via
-// errors.Join so errors.Is still walks both wrapped chains (needed
-// for ErrGHUnauthenticated to answer through the fallback's cause).
+// bothFailed joins both errors, one per line, with errors.Join, so
+// errors.Is still reaches ErrGHUnauthenticated through the fallback.
 //
 // Except when the primary never reached GitHub. gh cannot tell an
-// outage from a bad credential — measured 2026-08-27, gh 2.95.0's
+// outage from a bad credential (measured 2026-08-27: gh 2.95.0's
 // `auth status` says "The token in keyring is invalid" with the
-// network down — so offline, the gh rung classifies the outage as
-// unauthenticated and the command exits 5 for a network failure.
-// The HTTP rung's transport error is the only reachability
-// evidence the ladder has, and when it says unreachable the
-// fallback's auth classification is dropped, keeping gh's message.
+// network down), so offline the command would exit 5 for a network
+// failure. The HTTP rung's transport error is the ladder's only
+// reachability evidence, so then the auth classification is dropped
+// and gh's message kept.
 func bothFailed(primary, fallback error) error {
 	var auth *ghAuthError
 	if unreachable(primary) && errors.As(fallback, &auth) {

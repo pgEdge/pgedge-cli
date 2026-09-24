@@ -7,13 +7,10 @@ import (
 	"os"
 )
 
-// Swap replaces target with newBinary. On every platform but Windows,
-// an executing file can be renamed out from under itself, so this is
-// a chmod (newBinary takes target's existing permission bits) then a
-// single os.Rename onto target. newBinary comes from StageBeside, so
-// it is already in target's own directory: same filesystem, so the
-// rename is atomic and there is never a moment with no binary at
-// target's path.
+// Swap replaces target with newBinary. Outside Windows an executing
+// file can be renamed over, so this is a chmod to target's bits and
+// one os.Rename. StageBeside put newBinary in target's directory, so
+// the rename is atomic and target's path is never empty.
 func Swap(target, newBinary string) error {
 	info, err := os.Stat(target)
 	if err != nil {

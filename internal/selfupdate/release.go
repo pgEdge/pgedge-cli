@@ -1,7 +1,6 @@
 // Package selfupdate implements `pgedge self update`: resolving a
 // release tag from a fetched release list, verifying the downloaded
-// asset, and swapping it into place. This file holds the shapes later
-// tasks' Source ladder, verification and swap steps build on.
+// asset, and swapping it into place.
 package selfupdate
 
 // Asset is one downloadable file attached to a release.

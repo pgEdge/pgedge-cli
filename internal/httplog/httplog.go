@@ -1,12 +1,8 @@
 // Package httplog renders HTTP requests and responses to a diagnostic
 // stream at an ordered level, and is the one place in this CLI that
-// decides what must never be printed.
-//
-// It exists as a shared package rather than a helper in each module
-// because two of the three rules here are security rules. A masking bug
-// fixed in one copy and not the other is invisible until it isn't, and
-// per-module copies of shared rules have drifted in this repo before —
-// that is what internal/testsupport exists to prevent for env lists.
+// decides what must never be printed. It is shared rather than copied
+// per module because a masking fix landed in one copy and not another
+// leaks credentials unnoticed.
 package httplog
 
 import (
@@ -23,8 +19,7 @@ import (
 )
 
 // Level is how much of an exchange reaches the diagnostic stream. The
-// values are ordered, so a comparison against Debug is meaningful and
-// callers never have to enumerate.
+// values are ordered, so callers compare rather than enumerate.
 type Level int
 
 const (
@@ -32,8 +27,7 @@ const (
 	Off Level = iota
 	// Verbose prints the request line, a masked Authorization header
 	// when one is present, and the response status with elapsed time.
-	// It deliberately carries no bodies: a verbose run that dumped
-	// payloads would bury the progress information it exists to show.
+	// No bodies: they would bury the progress it exists to show.
 	Verbose
 	// Debug prints everything Verbose does, plus every request and
 	// response header and both bodies.
@@ -54,12 +48,9 @@ func (l Level) String() string {
 	}
 }
 
-// LevelFor maps the two global flags onto a level. **--debug implies
-// --verbose**: that ordering is the documented contract, and stating it
-// is what stops `--verbose --debug` from being a combination nobody can
-// predict. Two booleans where one is a superset of the other are only
-// coherent if the superset relation is defined somewhere, and this is
-// where.
+// LevelFor maps the two global flags onto a level. --debug implies
+// --verbose; that is the documented contract, and this is where it is
+// defined.
 func LevelFor(verbose, debug bool) Level {
 	switch {
 	case debug:
@@ -71,14 +62,11 @@ func LevelFor(verbose, debug bool) Level {
 	}
 }
 
-// MaxDumpBytes bounds each dumped body.
-//
-// 8 KB rather than the 512 that internal/starfleet/conn uses for error
-// messages: that cap is right for quoting what a proxy said in a
-// one-line error, and wrong here, where it would clip the middle of the
-// cluster payload somebody enabled --debug to read. Unbounded is not an
-// option either — an unbounded echo is a bug this repo has already
-// fixed once, when a 200 KB proxy error page landed whole on stderr.
+// MaxDumpBytes bounds each dumped body; truncate counts it in
+// characters. 8 KB rather than the 512 internal/starfleet/conn uses for
+// one-line error excerpts, which would clip the payload --debug is
+// enabled to read. Unbounded once landed a 200 KB proxy error page
+// whole on stderr.
 const MaxDumpBytes = 8192
 
 // mask replaces a credential rather than eliding it, so the log shows
@@ -86,9 +74,8 @@ const MaxDumpBytes = 8192
 const mask = "████"
 
 // maskedHeaders are the header names whose values are never printed, at
-// any level. Keys are in textproto canonical form; lookups canonicalise
-// first, so a lower-case or oddly-cased spelling in a hand-built
-// http.Header map cannot slip a value through.
+// any level. Keys are in textproto canonical form; HeaderLines
+// canonicalises before the lookup.
 var maskedHeaders = map[string]bool{
 	"Authorization":       true,
 	"Proxy-Authorization": true,
@@ -100,15 +87,14 @@ var maskedHeaders = map[string]bool{
 // secretFieldNames are the JSON object keys whose presence, at any
 // depth, makes a body unsafe to echo into a diagnostic stream.
 //
-// A gap here is a live credential echo: until the service-config names
-// joined this list, `--debug` on a byoc or managed service write
-// printed MCP bearer tokens, LLM API keys and the PostgREST signing
-// secret in clear text — into a terminal, a CI log, or a pasted issue.
+// A gap here is a live credential echo: without the service-config
+// names, `--debug` on a byoc or managed service write prints MCP bearer
+// tokens, LLM API keys and the PostgREST signing secret in clear text,
+// into a terminal, a CI log or a pasted issue.
 //
-// Matching is by EXACT key, which is what lets `token` sit here beside
-// the deliberately-unredacted `token_budget` (an int) and `token_type`
-// ("Bearer"). Adding a substring match would blank bodies that carry
-// neither.
+// Matching is by EXACT key, which lets `token` sit here beside the
+// deliberately unredacted `token_budget` (an int) and `token_type`
+// ("Bearer"). A substring match would blank those too.
 //
 // TestEverySuspiciousAPIFieldIsClassified holds this list against the
 // generated clients: any new field whose name looks credential-bearing
@@ -118,7 +104,7 @@ var secretFieldNames = []string{
 	"access_token", "refresh_token", "client_secret", "auth0_secret",
 	// Database and role credentials.
 	"password",
-	// Cloud-provider credentials, byoc and cp.
+	// Cloud-provider credentials, byoc and controlplane.
 	"credentials", "azure_key", "gcs_key", "s3_key", "s3_key_secret",
 	// Service configs: MCP, RAG and PostgREST.
 	"init_tokens", "init_users", "embedding_api_key", "api_key",
@@ -128,10 +114,8 @@ var secretFieldNames = []string{
 }
 
 // Wrap returns base wrapped so that traffic through it is rendered to
-// out at lvl. At Off, or with no writer, it returns base itself rather
-// than a wrapper that decides to print nothing — the quiet path is every
-// normal command, and it should add neither an allocation nor a layer of
-// indirection.
+// out at lvl. At Off, or with no writer, it returns base itself: the
+// quiet path is every normal command, and gets no extra layer.
 func Wrap(base http.RoundTripper, out io.Writer,
 	lvl Level) http.RoundTripper {
 	if lvl <= Off || out == nil {
@@ -140,8 +124,8 @@ func Wrap(base http.RoundTripper, out io.Writer,
 	return &Transport{Base: base, Out: out, Level: lvl}
 }
 
-// Transport renders each exchange to Out. Use Wrap rather than
-// constructing one directly, so the Off case stays uniform.
+// Transport renders each exchange to Out. Use Wrap, so the Off case
+// stays uniform.
 type Transport struct {
 	Base  http.RoundTripper
 	Out   io.Writer
@@ -149,10 +133,7 @@ type Transport struct {
 }
 
 // RoundTrip renders req, delegates to Base, and renders the response.
-//
-// It never fails a request for a diagnostic reason: a body it cannot
-// read for the dump is reported as unavailable and the exchange
-// continues.
+// It never fails a request for a diagnostic reason.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	base := t.Base
 	if base == nil {
@@ -197,13 +178,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 // the values of maskedHeaders replaced by the mask. Callers add their
 // own prefix.
 //
-// It is exported because the dry-run report renders headers too, and
-// this package's whole reason for existing is that a masking rule with
-// two implementations has one that is wrong. maskedHeaders keeps exactly
-// one consumer path: this function.
-//
-// Sorting is for reproducibility: Go's header map has no order, and an
-// unordered dump is hard to diff between two runs.
+// Exported so the dry-run report masks headers through the same rule;
+// maskedHeaders has no other consumer. Sorted so two runs diff cleanly.
 func HeaderLines(h http.Header) []string {
 	names := make([]string, 0, len(h))
 	for name := range h {
@@ -213,9 +189,8 @@ func HeaderLines(h http.Header) []string {
 
 	lines := make([]string, 0, len(names))
 	for _, name := range names {
-		// Canonicalise before the lookup, so a lower-case or oddly-cased
-		// spelling in a hand-built http.Header map cannot slip a value
-		// through.
+		// A lower-case key in a hand-built http.Header map must not
+		// slip a value through.
 		if maskedHeaders[textproto.CanonicalMIMEHeaderKey(name)] {
 			lines = append(lines, fmt.Sprintf("%s: %s", name, mask))
 			continue
@@ -234,13 +209,9 @@ func (t *Transport) writeHeaders(prefix string, h http.Header) {
 	}
 }
 
-// writeResponseBody dumps resp's body and replaces it with an equivalent
-// reader, so every downstream consumer — the generated response parsers
-// included — still sees an intact body. Reading it here without putting
-// it back would break every command at exactly the moment somebody
-// turned --debug on to diagnose one.
-//
-// The bytes are unchanged, so Content-Length stays honest.
+// writeResponseBody dumps resp's body and puts an equivalent reader
+// back, so the generated response parsers still see an intact body and
+// Content-Length stays honest.
 func (t *Transport) writeResponseBody(resp *http.Response) {
 	if resp.Body == nil {
 		return
@@ -252,8 +223,7 @@ func (t *Transport) writeResponseBody(resp *http.Response) {
 		fmt.Fprintf(t.Out, "< <body unavailable: %v>\n", err)
 		return
 	}
-	// No line at all for an empty body: "< " on its own reads as "the
-	// server sent an empty string", which is a different fact.
+	// No line for an empty body: a bare "< " reads as an empty string.
 	if len(raw) > 0 {
 		fmt.Fprintf(t.Out, "< %s\n", RedactBody(raw, MaxDumpBytes))
 	}
@@ -262,13 +232,11 @@ func (t *Transport) writeResponseBody(resp *http.Response) {
 // requestBody returns req's body for logging, and the request to send
 // onward.
 //
-// It prefers GetBody, which hands back an independent copy and leaves
-// req untouched — the generated oapi-codegen clients always set it,
-// since they build requests over a bytes.Reader. When GetBody is absent
-// the body can only be read by consuming it, so the request is cloned
-// and the replacement given to the clone: RoundTrip is documented as not
-// modifying its argument, and a caller that retried a mutated request
-// would send an empty body the second time.
+// It prefers GetBody, which leaves req untouched; the generated clients
+// build requests over a bytes.Reader, so it is set. Without it the body
+// is consumed and the replacement goes on a clone: RoundTrip must not
+// modify its argument, and a retried mutated request would send an
+// empty body.
 func requestBody(req *http.Request) ([]byte, *http.Request) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return nil, req
@@ -294,8 +262,7 @@ func requestBody(req *http.Request) ([]byte, *http.Request) {
 		return io.NopCloser(bytes.NewReader(raw)), nil
 	}
 	if readErr != nil {
-		// Send what was read rather than failing the request for a
-		// diagnostic reason; the server's own response is the better
+		// Send what was read; the server's response is the better
 		// error.
 		return nil, clone
 	}
@@ -306,31 +273,21 @@ func requestBody(req *http.Request) ([]byte, *http.Request) {
 // characters, with the VALUE of every credential-bearing field masked
 // and everything else passed through byte for byte.
 //
-// Byte-for-byte outside the masked spans is essential, and it is why
-// this does not decode-and-re-encode. Re-encoding erases the difference
+// It does not decode and re-encode, because that erases the difference
 // between an explicit `"plan_expires_at": null` and an omitted key,
-// which is precisely the distinction a typed parser already collapses
-// and the wire dump exists to reveal. So the decoder here is used only
-// to LOCATE each secret value's byte span; the surrounding bytes are
-// never rewritten, reordered or reformatted.
+// which a typed parser already collapses and the wire dump exists to
+// reveal. The decoder only LOCATES each secret value's byte span.
 //
-// Masking values rather than replacing the whole body is what keeps
-// --debug useful. A service write reduced to its top-level key names
-// is the single key "services" — enough to know a secret was present,
-// not enough to debug anything. Masking per value keeps allow_writes,
-// embedding_model and the service id readable while the key beside
-// them is not.
+// Masking per value rather than replacing the body keeps --debug
+// useful: a service write reduced to its top-level keys is the single
+// key "services", while per-value masking keeps allow_writes,
+// embedding_model and the service id readable.
 //
-// Every field in secretFieldNames is masked at any depth: a wrapper
-// object would otherwise smuggle a token past a top-level-only check.
-// A composite value (an object, as with byoc's `credentials`) is masked
-// whole, so nothing nested inside one can survive.
-//
-// It fails CLOSED. If the spans cannot be computed for any reason, it
-// falls back to replacing the whole body rather than risking an echo.
-//
-// HTML does not parse as JSON, so the proxy/SSO-interstitial case that
-// motivates dumping bodies at all is untouched.
+// Secret fields are masked at any depth, so a wrapper object cannot
+// smuggle a token past, and a composite value (byoc's `credentials`) is
+// masked whole. It fails CLOSED: if the spans cannot be computed, the
+// whole body is replaced. HTML does not parse as JSON, so a proxy or
+// SSO interstitial passes through untouched.
 func RedactBody(raw []byte, limit int) string {
 	var doc any
 	if json.Unmarshal(raw, &doc) != nil || !carriesSecret(doc) {
@@ -392,9 +349,8 @@ type span struct{ start, end int }
 // secretValueSpans locates the byte range of every secret field's value.
 //
 // The walk tracks container context because a JSON string is a KEY only
-// in an object and only in the key position; the same bytes inside an
-// array are a value. Getting that wrong would mask an array element
-// that merely happens to equal a secret field's name.
+// in an object's key position; otherwise an array element equal to a
+// secret field's name would be masked.
 func secretValueSpans(raw []byte) ([]span, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
@@ -460,8 +416,7 @@ func secretValueSpans(raw []byte) ([]span, error) {
 			return nil, err
 		}
 		spans = append(spans, span{start: start, end: int(dec.InputOffset())})
-		// The value was consumed whole, so the next token is a key
-		// again — and anything nested inside it is covered by this span.
+		// Consumed whole, so nested content is inside this span.
 		stack[n].expectKey = true
 	}
 	return spans, nil
@@ -545,13 +500,10 @@ func carriesSecret(doc any) bool {
 	return false
 }
 
-// truncate bounds raw at limit *characters*, cutting on a rune boundary
-// so a multi-byte character is never split, and says that it truncated
-// so nobody reads a clipped body as the whole one.
-//
-// Characters, not bytes: this prose is full of em dashes at 3 bytes
-// each, and a byte-wise cut both under-delivers against the limit and
-// can leave a replacement character at the seam.
+// truncate bounds raw at limit characters, never splitting a rune, and
+// says it truncated so nobody reads a clipped body as the whole one. A
+// byte-wise cut under-delivers on multi-byte text and can leave a
+// replacement character at the seam.
 func truncate(raw []byte, limit int) string {
 	runes := []rune(string(raw))
 	if len(runes) <= limit {

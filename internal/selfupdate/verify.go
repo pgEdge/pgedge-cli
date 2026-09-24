@@ -263,16 +263,13 @@ func (e *blobEntity) HasInclusionProof() bool {
 }
 
 // Version reports the bundle version whose semantics this entity
-// follows. v0.3 is accurate for our shape: one certificate, a message
-// signature, and a log entry carrying a promise and/or a proof.
-//
-// The trap is that nothing on this path validates the string. The
-// v1.1.4 verifier reads it in exactly one place — whether to add a
-// compatibility verifier for ECDSA P-384/P-521 keys signed with
-// SHA-256 — so declaring the unreleased v0.4 would silently drop that
-// leniency rather than buy strictness, while claiming a format we do
-// not use. The leniency is inert for the P-256 keys Fulcio issues us
-// anyway.
+// follows; v0.3 fits our shape (one certificate, a message signature,
+// a log entry with a promise and/or a proof). Nothing validates it:
+// the sigstore-go v1.3.0 verifier reads it only to decide whether to
+// add a compatibility verifier for ECDSA P-384/P-521 keys signed with
+// SHA-256, so declaring v0.4 would drop that leniency, not add
+// strictness. The leniency is inert for the P-256 keys Fulcio issues
+// us.
 func (e *blobEntity) Version() (string, error) {
 	return "v0.3", nil
 }

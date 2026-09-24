@@ -45,10 +45,9 @@ func releasesFromAPI(raw []apiRelease) []Release {
 }
 
 // HTTPSource fetches releases and assets from GitHub's unauthenticated
-// REST API — the ladder's first rung. It carries no credentials: an
-// authenticated transport would need the private-asset endpoint dance,
-// and that need disappears the day the repo goes public, so it is
-// deliberately not built (see the design spec).
+// REST API, the ladder's first rung. It carries no credentials: the
+// repository is public, so the private-asset endpoint an authenticated
+// transport would need is deliberately not built.
 type HTTPSource struct {
 	baseAPI string
 	baseDL  string
@@ -64,44 +63,31 @@ type HTTPSource struct {
 // origin, e.g. "https://github.com"). Splitting them lets tests point
 // each at its own httptest server.
 func NewHTTPSource(baseAPI, baseDL string) *HTTPSource {
-	// Downloads have no overall timeout — a release binary on a slow
-	// link can take longer than any fixed guess — but a server that
-	// accepts the connection and then never answers is still bounded:
-	// 10s to see response headers.
+	// The download client has no overall timeout of its own (the
+	// caller's DownloadTimeout context bounds the call), but a server
+	// that accepts and never answers gets 10s to send headers.
 	//
-	// CLONE DefaultTransport rather than building a bare one. A
-	// zero-value http.Transport proxies nothing (Proxy nil, where
-	// DefaultTransport sets ProxyFromEnvironment) and bounds neither
-	// the dial nor the TLS handshake. The proxy half is the one that
-	// reaches a user: an enterprise sitting behind an HTTPS_PROXY
-	// could reach the API fine, because every other client here ends
-	// at DefaultTransport, and then watch `self update` alone fail to
-	// download. Clone is also what newAPIClient does with its own
-	// transport (internal/controlplane/cmd/client.go).
-	//
-	// HTTP/2 was NOT among the losses, though the shape suggests it:
-	// Transport.protocols() only takes its conservative branch when a
-	// TLSClientConfig or a custom dialer is set, and the bare one set
-	// neither, so it fell through and enabled HTTP/2 anyway.
-	// ForceAttemptHTTP2 reads false on it and means nothing there.
+	// CLONE DefaultTransport: a zero-value http.Transport ignores
+	// HTTPS_PROXY (Proxy nil) and bounds neither the dial nor the TLS
+	// handshake, so behind an enterprise proxy `self update` alone
+	// would fail to download while every other client, which ends at
+	// DefaultTransport, works. internal/controlplane/cmd/client.go
+	// clones the same way.
 	dlBase := http.DefaultTransport.(*http.Transport).Clone()
 	dlBase.ResponseHeaderTimeout = 10 * time.Second
 	return &HTTPSource{
 		baseAPI: baseAPI,
 		baseDL:  baseDL,
-		// The list call gets a hard 10s timeout: it is a small JSON
-		// response and a hang here should fail fast.
+		// A small JSON response, so a hang fails fast.
 		list:   &http.Client{Timeout: 10 * time.Second},
 		dl:     &http.Client{Transport: dlBase},
 		dlBase: dlBase,
 	}
 }
 
-// Logging renders this rung's traffic to out at lvl, the way every
-// API client in this CLI answers --verbose and --debug. The
-// download client is capped at Verbose whatever lvl says: a release
-// archive is megabytes of binary, and dumping it would bury the one
-// line --debug was turned on to read. It returns s for chaining.
+// Logging renders this rung's traffic to out at lvl. The download
+// client is capped at Verbose: dumping megabytes of binary archive
+// would bury the line --debug was turned on to read.
 func (s *HTTPSource) Logging(out io.Writer, lvl httplog.Level) *HTTPSource {
 	s.list.Transport = httplog.Wrap(http.DefaultTransport, out, lvl)
 	dlLvl := lvl
@@ -113,10 +99,8 @@ func (s *HTTPSource) Logging(out io.Writer, lvl httplog.Level) *HTTPSource {
 }
 
 // Releases GETs <baseAPI>/repos/pgEdge/pgedge-cli/releases?per_page=30.
-// A 404 reads as "repository not found or private" — the release
-// list may simply be behind auth, never "no releases exist" — and
-// the Chain relies on that distinction to fall through to gh rather
-// than reporting a real "nothing to update" state.
+// A 404 is an error, never an empty list, so Chain falls through to gh
+// rather than reporting nothing to update.
 func (s *HTTPSource) Releases(ctx context.Context) ([]Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=30", s.baseAPI, repoOwner, repoName)
 	resp, err := s.get(ctx, s.list, url)
@@ -163,10 +147,9 @@ func (s *HTTPSource) Download(
 	defer func() { _ = f.Close() }()
 
 	if _, err := io.Copy(f, resp.Body); err != nil {
-		// A truncated body must leave NOTHING behind. The gh rung is
-		// tried next on this same path, and `gh release download`
-		// refuses to overwrite an existing file, so a partial write
-		// here would turn a recoverable failure into a dead ladder.
+		// A truncated body must leave NOTHING behind: the gh rung is
+		// tried next on this path, and `gh release download` refuses to
+		// overwrite an existing file.
 		_ = f.Close()
 		_ = os.Remove(dst)
 		return "", fmt.Errorf("writing %s: %w", dst, err)

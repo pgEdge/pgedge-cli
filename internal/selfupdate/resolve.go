@@ -19,10 +19,9 @@ func canonicalTag(tag string) string {
 }
 
 // newestFirst returns the releases with a valid semver tag, newest
-// first. semver.Compare orders pre-release identifiers numerically
-// when they are digits ("alpha.10" > "alpha.2"); a lexical sort would
-// get that backwards, which is why this goes through x/mod instead of
-// sort.Strings on the raw tag.
+// first. semver.Compare orders numeric pre-release identifiers
+// numerically ("alpha.10" > "alpha.2"), which a lexical sort gets
+// backwards.
 func newestFirst(releases []Release) []Release {
 	var valid []Release
 	for _, r := range releases {
@@ -73,7 +72,7 @@ func Resolve(releases []Release, want string) (Release, error) {
 }
 
 // IsCurrent reports whether tag names the running version, tolerant of
-// a "v" prefix on either side — the same tolerance version/doctor use.
+// a "v" prefix on either side.
 func IsCurrent(tag, current string) bool {
 	return canonicalTag(tag) == canonicalTag(current)
 }

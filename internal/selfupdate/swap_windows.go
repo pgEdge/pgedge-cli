@@ -5,13 +5,11 @@ package selfupdate
 import "os"
 
 // Swap replaces target with newBinary on Windows, where os.Rename
-// cannot land ON a file this process is executing from — it fails
-// with "The process cannot access the file because it is being used
-// by another process." Renaming target ASIDE first (target ->
-// target+".old") frees the name so newBinary can take it while the
-// old file stays mapped into this running process; cmd/pgedge/main.go
-// removes the ".old" file on the next launch, once nothing has it
-// open any more.
+// cannot land ON a file this process is executing from ("The process
+// cannot access the file because it is being used by another
+// process."). Renaming target ASIDE to target+".old" frees the name
+// while the old file stays mapped; cmd/pgedge/main.go removes ".old"
+// on the next launch.
 func Swap(target, newBinary string) error {
 	old := target + ".old"
 	if err := os.Rename(target, old); err != nil {
@@ -19,8 +17,7 @@ func Swap(target, newBinary string) error {
 	}
 
 	if err := os.Rename(newBinary, target); err != nil {
-		// Best-effort restore: put the original back so a failed
-		// second rename does not leave pgedge missing outright.
+		// Best-effort restore, so pgedge is not left missing.
 		_ = os.Rename(old, target)
 		return swapError(target, err)
 	}

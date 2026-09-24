@@ -16,11 +16,9 @@ import (
 // named, so a failed parse there is control flow rather than a bad
 // argument. Every other ID input now goes through parseUUIDArg.
 //
-// The ID-prefix fallback this file used to pin is gone with prefixes,
-// which is why the third sub-test asserts a prefix is REFUSED. Without
-// it, reinstating the fallback would leave every test in the repo
-// green — the same hole a review found in the other
-// direction, when deleting the fallback broke nothing.
+// There is no ID-prefix fallback, which is why the third sub-test
+// asserts a prefix is REFUSED. Without it, reinstating the fallback
+// would leave every test in the repo green.
 func TestResolveNodeIDTakesAUUIDOrAName(t *testing.T) {
 	const (
 		nodeID  = "065e6997-1111-2222-3333-444455556666"

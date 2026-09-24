@@ -210,7 +210,7 @@ func TestIsTimeout(t *testing.T) {
 }
 
 // TestPerRequestTimeoutUnderWaitStillNamesTimeout is the direction the
-// reference has to state and a reviewer found missing: with the shipped
+// reference has to state: with the shipped
 // defaults (--timeout 30s, --wait-timeout 600) the bound that expires
 // first is the PER-REQUEST one, and then the wait does not report
 // itself — the error names --timeout and the wait aborts at exit 1

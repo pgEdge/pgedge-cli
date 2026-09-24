@@ -15,10 +15,8 @@ import (
 // default is what a plain `go build` reports.
 var Version = "dev"
 
-// files holds the controlplane reference: llms.txt is the index and
-// every llms/**/*.txt is one page (see internal/reference). It is
-// embedded here rather than at the repo root so the module carries its
-// own documentation — see module.Module.Reference.
+// files holds the controlplane reference pages, embedded here so the
+// module carries its own documentation.
 //
 //go:embed llms*
 var files embed.FS

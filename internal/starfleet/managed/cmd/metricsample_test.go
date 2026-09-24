@@ -231,11 +231,10 @@ func TestNewestUsableSample(t *testing.T) {
 
 	t.Run("a tie among PARTIAL rows says the shown one is partial",
 		func(t *testing.T) {
-			// This subtest asserted only the COUNT, so it was blind to
-			// the parenthetical — which said "(2 incomplete, so not
-			// shown)" while showing one of the two. Review found that:
-			// the sentence told the reader their sample was whole when
-			// it was not, which inverts the completeness rule.
+			// The parenthetical is asserted, not only the COUNT: "(2
+			// incomplete, so not shown)" while showing one of the two
+			// tells the reader their sample is whole when it is not,
+			// which inverts the completeness rule.
 			s := series(cols,
 				[]interface{}{nil, "db-x-1-1", 5000.0},
 				[]interface{}{nil, "db-x-2-1", 5000.0},
@@ -526,11 +525,10 @@ func managedReference(t *testing.T) string {
 // defect. One place quotes; that place is pinned here.
 const referenceLabel = "the module reference (../llms.txt + ../llms/**)"
 
-// The reference QUOTES this note as sample output, and review found the
-// quoted text did not match what the code prints — wrapped across two
-// lines, and naming the instance the tie-break would not have chosen.
-// A quoted sample nothing runs is the defect class this repo keeps
-// finding, so run it.
+// The reference QUOTES this note as sample output, and a quote can
+// drift from what the code prints (wrapped across two lines, naming
+// the instance the tie-break would not choose). A quoted sample
+// nothing runs is the defect class this repo keeps finding, so run it.
 //
 // This is not two copies agreeing: the reference is quoting literal
 // output, so the only way to keep it true is to produce the output and
@@ -667,12 +665,10 @@ func coveredMarkers(line string, produced []string) int {
 // marker only has to sit inside a produced note, so an inline mention
 // survives whatever surrounds it.
 //
-// Neither rule anchors. The first version of this scan used
-// `(?m)^\d+ samples share time`, and review's bypass was one leading
-// space; re-anchoring on `^\s*` would have moved the hole out one
-// level rather than closing it, since a quote introduced mid-sentence
-// escapes an indent-tolerant anchor exactly as an indented one escaped
-// a column-zero anchor.
+// Neither rule anchors. `(?m)^\d+ samples share time` is bypassed by
+// one leading space, and `^\s*` only moves the hole out one level: a
+// quote introduced mid-sentence escapes an indent-tolerant anchor
+// exactly as an indented one escapes a column-zero anchor.
 func staleNoteQuotes(
 	doc string, produced []string,
 ) (reports []string, hits int) {
@@ -702,8 +698,8 @@ func staleNoteQuotes(
 }
 
 // The INVERSE, and it is the half that matters. Contains can only catch
-// a quote that is MISSING; the defect review found twice was a quote
-// that was STALE — an extra wrong string, not an absent right one. So
+// a quote that is MISSING; the defect that recurs is a quote that is
+// STALE, an extra wrong string rather than an absent right one. So
 // scan the reference for anything shaped like the note and require each
 // to be something the code actually produces.
 func TestReferenceQuotesNoNoteTheCodeCannotProduce(t *testing.T) {
@@ -732,11 +728,10 @@ func TestReferenceQuotesNoNoteTheCodeCannotProduce(t *testing.T) {
 		total, len(staleNoteScanDocs))
 }
 
-// The gate's own cover. Review's bypass on the first version was
-// deleting one character — a leading space — so the cases that matter
-// are the ones where the quote is not at column zero and not alone on
-// its line. Every case below FAILED to be reported by the anchored
-// version.
+// The gate's own cover. One leading space bypasses an anchored scan,
+// so the cases that matter are the ones where the quote is not at
+// column zero and not alone on its line. An anchored scan reports none
+// of the cases below.
 func TestStaleNoteScanIgnoresIndentAndSurroundingProse(t *testing.T) {
 	printed := "2 samples share time 5000; the API publishes no order " +
 		"between them. Use -o json to read them all."

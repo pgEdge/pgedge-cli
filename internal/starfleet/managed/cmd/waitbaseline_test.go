@@ -345,24 +345,22 @@ func TestCaptureTaskBaselineCostsNoReadWithoutWaiting(t *testing.T) {
 }
 
 // TestATwoXXWithNoReadableListIsNotAnEmptyList is the gate for the
-// third baseline state, which review found and which reproduces the
-// failed-read bug verbatim on the fixed tree.
+// third baseline state, a 2xx with no readable list.
 //
 // ParseListManagedTasksResponse sets JSON200 only when the
-// Content-Type contains "json" AND the status is exactly 200 — and its
+// Content-Type contains "json" AND the status is exactly 200, and its
 // catch-all arm is `Contains(Content-Type, "json") && true`, which
-// unmarshals into an Error. So the reachable shape is narrower than it
-// first looks: a 2xx whose Content-Type does NOT contain "json" leaves
-// JSON200 nil with no error, while a 204 or 202 sent as json fails at
-// unmarshal and returns an ordinary error instead. A gateway answering
-// 204 with no Content-Type header, or 200 text/plain, is the real
-// case.
+// unmarshals into an Error. So a 2xx whose Content-Type does NOT
+// contain "json" leaves JSON200 nil with no error, and so does a
+// non-200 json 2xx whose body is a JSON object or null; an empty json
+// 204 or 202 fails at unmarshal instead. A gateway answering 204 with
+// no Content-Type header, or 200 text/plain, is the real case.
 //
-// checkResponse accepts any 2xx, so before the fix that reached
-// captureTaskBaseline as `prior == nil`, which it read as "the subject
-// has no tasks" -- no floor was set, discovery accepted the first task
-// it saw, and `--wait` reported a stale success. The floor was scoped
-// to `err != nil`, and this failure mode arrives without an error.
+// checkResponse accepts any 2xx, so without the guard that reaches
+// captureTaskBaseline as `prior == nil`, read as "the subject has no
+// tasks": no floor is set, discovery accepts the first task it sees,
+// and `--wait` reports a stale success. A floor scoped to `err != nil`
+// misses it, since this failure mode arrives without an error.
 //
 // The distinction the fix rests on: a genuinely empty list is
 // `200 application/json []`, which parses to a non-nil pointer at

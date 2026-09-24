@@ -368,8 +368,8 @@ func withoutForce(args []string) []string {
 // positional map, and the same test polices it.
 //
 // The five in the middle are why byoc's reference carries a table
-// rather than a blanket sentence: an earlier draft said every `--*-id`
-// takes a full UUID, and review probed all five to show it false.
+// rather than a blanket sentence: probing all five showed that not
+// every `--*-id` takes a full UUID.
 var uuidFlagExempt = map[string]idExempt{
 	"service-id": {why: "8-char hex the platform assigns, as " +
 		"byoc.yaml describes it and as `database service list` prints " +
@@ -476,21 +476,12 @@ func TestEveryIDFlagRefusesANonUUID(t *testing.T) {
 		}
 	})
 
-	// 13 against 14 real slots, counted from the tree: 2
-	// --backup-store-id, 2 --cloud-account-id, 3 --cluster-id (byoc's;
-	// controlplane's is exempt), 5 --database-id and 2 --subject-id. One verb's
-	// worth of slack so a new required flag cannot redden the build on
-	// its own, and no more — the old floor of 10 left four slots of
-	// room, which is what let a reviewer delete a real check and stay
-	// green. A round number is not a measurement.
-	// EXACT, not a floor, and that is the round-6 fix. Any floor
-	// leaves slack, and the slack IS the escape: with 13 against 14, a
-	// review added one uuidCommandExempt entry for `cluster update`
-	// and deleted that verb's real --backup-store-id parse, landing on
-	// the floor exactly with build, vet, make test at 91.3% and lint
-	// all green. uuidCommandExempt is read by both arms with a bare
-	// lookup and removes a WHOLE command, so it was the one table
-	// round 5 left unscoped and unfloored.
+	// EXACT, not a floor. Any floor leaves slack, and the slack IS the
+	// escape: with a floor of 13 against 14, one uuidCommandExempt
+	// entry for `cluster update` plus deleting that verb's real
+	// --backup-store-id parse lands on the floor exactly with build,
+	// vet, make test and lint all green. uuidCommandExempt is read by
+	// both arms with a bare lookup and removes a WHOLE command.
 	//
 	// An equality makes both directions deliberate: removing an ID
 	// input reddens the build, and adding one reddens it too, so a new

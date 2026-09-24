@@ -10,11 +10,11 @@ import (
 
 // These pin the PROPERTY the enumerated command gate can only pin by
 // example: an explicitly empty --created-after is a usage error and an
-// OMITTED one sends nothing. A reviewer showed the gate's case-count
-// floor does not hold that property — swapping each row's "" case for
-// another malformed string keeps both the row and case counts intact
-// while the empty-is-absent mutation survives. Asserted here at the
-// source, where no amount of thinning the call-site table can reach.
+// OMITTED one sends nothing. The gate's case-count floor does not hold
+// that property: swapping each row's "" case for another malformed
+// string keeps both counts intact while the empty-is-absent mutation
+// survives. Asserted here at the source, where thinning the call-site
+// table cannot reach.
 func TestApplyCreatedRange(t *testing.T) {
 	newFS := func(t *testing.T, args ...string) *pflag.FlagSet {
 		t.Helper()

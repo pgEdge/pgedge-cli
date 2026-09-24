@@ -1,8 +1,6 @@
 // Package clitest assembles the full pgedge command tree for
-// build-gate tests. It lives in its own package so it can import
-// both internal/cli and the modules (internal/starfleet, internal/controlplane)
-// without the import cycle that would arise if these gates lived in
-// cli itself.
+// build-gate tests. It is its own package so it can import both
+// internal/cli and the modules without an import cycle.
 package clitest
 
 import (
@@ -19,18 +17,15 @@ import (
 )
 
 // Modules is the set of modules the shipped binary carries, in the
-// same order main.go registers them. Both FullTree and the version
-// gate build from this one slice, so adding a module here (as main.go
-// must also do) brings it under every build gate.
+// same order main.go registers them. FullTree and the version gate
+// build from this slice, so a module added here (and in main.go) comes
+// under every build gate.
 func Modules() []module.Module {
 	return []module.Module{&starfleet.Module{}, &controlplane.Module{}}
 }
 
-// FullTree returns the complete pgedge command tree as shipped:
-// the root command plus every registered module, wired the same
-// way main.go wires them. The runtime is a zero-value Runtime,
-// which NewRootCmd and the module constructors accept for the
-// structural checks the gates perform.
+// FullTree returns the pgedge command tree wired as main.go wires it,
+// on a zero-value Runtime, which is enough for structural checks.
 func FullTree() (*cobra.Command, error) {
 	rt := &module.Runtime{}
 	root := cli.NewRootCmd(rt)
@@ -41,19 +36,15 @@ func FullTree() (*cobra.Command, error) {
 		}
 		root.AddCommand(c)
 	}
-	// Mirrors cmd/pgedge/main.go, which calls this after registering
-	// every module. Without it the gates would walk a tree whose
-	// group commands suggest nothing while the shipped binary's do, and
-	// a behavioural gate over the suggestion would pass or fail for a
-	// reason unrelated to the CLI anyone runs.
+	// As in main.go, after every module: without it the group commands
+	// here would suggest nothing while the shipped binary's do.
 	cli.AddUnknownCommandSuggestions(root)
 	return root, nil
 }
 
 // ReferenceDocuments returns every page the shipped modules embed, in
-// module order then scope order. It is the one derivation of the page
-// set the generator and every gate share: a module that ships a page
-// not listed here cannot exist, because this reads the modules.
+// module order then scope order. It reads the modules, so it is the
+// one page set the generator and every gate share.
 func ReferenceDocuments() []module.Document {
 	out := RootPages()
 	for _, m := range Modules() {
@@ -105,10 +96,9 @@ func RoutingFor(all []*cobra.Command, docs []module.Document,
 }
 
 // ReferenceFiles returns every reference document as a path relative
-// to this package: the root index, then every module page. Gates that
-// scan prose walk this rather than globbing for llms.txt, which is how
-// two sweeps missed the nested byoc and managed files and how any glob
-// would now miss the pages under llms/.
+// to this package: the root index, then every module page. Prose gates
+// walk this rather than globbing for llms.txt, which would miss the
+// nested byoc and managed files and the pages under llms/.
 func ReferenceFiles() []string {
 	out := []string{"../../llms.txt"}
 	for _, d := range ReferenceDocuments() {
@@ -119,9 +109,8 @@ func ReferenceFiles() []string {
 
 // ReferenceFilesFor returns the reference files of one module: its
 // index and every page under it, keyed by the directory
-// ReferenceModuleDir returns. A gate that used to read a module's one
-// llms.txt reads this instead, because the split moved prose onto
-// pages without moving it out of that module.
+// ReferenceModuleDir returns. A module's prose spans its index and its
+// pages, so a per-module gate reads all of them.
 func ReferenceFilesFor(moduleDir string) []string {
 	var out []string
 	for _, f := range ReferenceFiles() {
@@ -134,9 +123,8 @@ func ReferenceFilesFor(moduleDir string) []string {
 
 // ReferenceModuleDir returns the module package directory a reference
 // file belongs to, relative to this package
-// ("../../internal/starfleet/byoc"), or
-// "" for the root index. Gates keyed by module use it so a page
-// inherits its module's configuration instead of needing its own row.
+// ("../../internal/starfleet/byoc"), or "" for the root index, so a
+// page inherits its module's gate configuration.
 func ReferenceModuleDir(file string) string {
 	for _, m := range Modules() {
 		d, ok := m.(module.Documented)

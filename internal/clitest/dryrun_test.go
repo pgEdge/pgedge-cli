@@ -304,11 +304,10 @@ func TestMutatingVerbCountIsSane(t *testing.T) {
 			annotated++
 		}
 	}
-	// An EQUALITY, deliberately, not a floor. The first version used a
-	// floor of 60 against a census of 65, which would have let five
-	// annotations vanish silently — and the whole point of this check is
-	// to be the positive control the other five cannot be, since every
-	// one of them passes against an empty tree.
+	// An EQUALITY, deliberately, not a floor: a floor below the census
+	// lets annotations vanish silently, and this check is the positive
+	// control the other five cannot be, since every one of them passes
+	// against an empty tree.
 	//
 	// Adding or removing a verb is expected to fail here. Bump the
 	// number in the same commit: that makes the count a reviewed fact

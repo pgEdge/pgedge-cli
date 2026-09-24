@@ -625,40 +625,34 @@ func isNoEnvelopeSentinel(name string) bool {
 // whether the wrong phrase is present.
 //
 // WHY THIS IS AN AUTHOR-WRITTEN MARKER AND NOT AUTOMATIC DETECTION.
-// Three rounds tried to work it out from the prose, and each round's
-// fix had to be corrected in the next:
+// Each way of inferring polarity from the prose fails:
 //
-//	round 1  no negation awareness at all      → flagged every correct
-//	                                             warning sentence
-//	round 2  negation word anywhere in the      → one unrelated "no"
-//	         sentence excuses the sentence        excused a real
-//	                                             falsehood later in
-//	                                             the same sentence
-//	round 3  negation word within 20 chars of   → ordinary hedged prose
-//	         the flagged phrase                   puts its negation
-//	                                             43-72 chars away and
-//	                                             was flagged anyway
+//	no negation awareness               → flags every correct
+//	                                      warning sentence
+//	negation word anywhere in the       → one unrelated "no"
+//	sentence excuses the sentence         excuses a real falsehood
+//	                                      later in the same sentence
+//	negation word within 20 chars of    → ordinary hedged prose
+//	the flagged phrase                    puts its negation 43-72
+//	                                      chars away and is flagged
 //
-// Round 3's window could not be fixed by moving it: widening reopens
-// round 2's false negative, narrowing makes round 3's false positives
-// worse. So the polarity is no longer inferred. An author who must
-// quote a wrong value says so, at the point of use, once per
-// occurrence:
+// The window cannot be fixed by moving it: widening reopens the
+// whole-sentence false negative, narrowing worsens the false
+// positives. So polarity is not inferred. An author who must quote a
+// wrong value says so, at the point of use, once per occurrence:
 //
 //	<!-- doc-gate: deliberately-wrong task_id — this sentence
 //	documents the field's absence -->
 //
 // THE SECOND VERB, AND WHY THERE ARE EXACTLY TWO.
 // deliberately-wrong asserts the named phrase is WRONG and quoted on
-// purpose. That covers every case where a doc warns against a value,
-// and it covered every case this mechanism was first built for. It does
-// not cover the other reason a correct sentence trips these checks: the
-// phrase is RIGHT, but right under a different module's scope than the
-// section it is written in. ROADMAP.md is a flat planning table with no
-// "## Module:" headers, so moduleSections scopes all of it to byoc,
-// and its row for controlplane's real `controlplane task cancel <task_id>` command names a
-// field that genuinely exists on controlplane's Task type
-// (internal/controlplane/api/client.gen.go). Annotating that row
+// purpose. That covers every case where a doc warns against a value.
+// It does not cover the other reason a correct sentence trips these
+// checks: the phrase is RIGHT, but right under a different module's
+// scope than the section it is written in. A byoc-scoped sentence
+// naming `controlplane task cancel <task_id>` names a field that
+// genuinely exists on controlplane's Task type
+// (internal/controlplane/api/client.gen.go). Annotating it
 // deliberately-wrong would put a FALSE statement into a shipped doc,
 // which is the same defect class these gates exist to catch. So:
 //
@@ -666,20 +660,16 @@ func isNoEnvelopeSentinel(name string) bool {
 //	real task_id field -->
 //
 // The verbs are not interchangeable and neither is a superset of the
-// other. deliberately-wrong keeps its exact original meaning; widening
-// it to mean "do not check this" is the thing to refuse. correct-for
+// other. Widening deliberately-wrong to mean "do not check this" is
+// the thing to refuse. correct-for
 // additionally names the module the phrase is correct for, and that
 // module must be a real gate scope AND must differ from the section's
 // own scope — a `correct-for byoc` marker inside a byoc section is
 // rejected, because "correct under another module's scope" is the only
-// thing this verb is allowed to assert. That rejection is what stops
-// correct-for degrading into the blanket amnesty it replaced.
-//
-// It replaced one, specifically: a prose-derived skip of any sentence
-// naming a controlplane command, under which a genuinely false BYOC task_id
-// claim passed every gate. That amnesty was essential for exactly
-// ONE real site, the ROADMAP.md row above; one annotation bought its
-// deletion.
+// thing this verb is allowed to assert. That rejection stops
+// correct-for degrading into a blanket amnesty, such as a skip of any
+// sentence naming a controlplane command, under which a genuinely
+// false BYOC task_id claim passes every gate.
 //
 // This is deliberately NOT the per-file or per-directory exemption
 // these gates ban, in the same way `//nolint:rule // reason` is not
@@ -1674,8 +1664,8 @@ func TestNoEnvelopeCheckCatchesRewordedCaptureInstructions(t *testing.T) {
 // is a one-line marker rather than a window tweak, and there is
 // nothing left for the gate to guess.
 //
-// The last two cases are the hedged phrasings that broke round 3's
-// 20-character proximity window (measured negation distances 43 and 72
+// The last two cases are the hedged phrasings a 20-character
+// proximity window misreads (measured negation distances 43 and 72
 // characters), in their task_id form. They are the same two shapes
 // TestStatusValueCheckHonoursDeliberatelyWrongMarker uses verbatim for
 // the other detector.
@@ -1749,13 +1739,11 @@ func TestNoEnvelopeCheckHonoursDeliberatelyWrongMarker(t *testing.T) {
 	}
 }
 
-// TestNoEnvelopeCheckRejectsUnannotatedClaim keeps the fixture that
-// exposed round 2's false-negative hole: the "no" governs "doubt", not
-// the task_id claim 34 characters later, so a whole-sentence negation
-// check waved the claim through. Under an explicit opt-out it is
-// simply an unannotated false claim and must fire. Keeping the case
-// costs nothing and catches any future attempt to re-derive polarity
-// from the prose — exactly the three-round cycle this design ended.
+// TestNoEnvelopeCheckRejectsUnannotatedClaim keeps the fixture a
+// whole-sentence negation check waves through: the "no" governs
+// "doubt", not the task_id claim 34 characters later. Under an
+// explicit opt-out it is an unannotated false claim and must fire,
+// which also catches any attempt to re-derive polarity from the prose.
 func TestNoEnvelopeCheckRejectsUnannotatedClaim(t *testing.T) {
 	stray := "There is no doubt you should capture the `task_id` " +
 		"from the create response."

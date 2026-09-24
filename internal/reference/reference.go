@@ -7,8 +7,7 @@
 // the file path with the directory separators and the extension
 // removed: llms/database/mcp.txt under "starfleet byoc" is the page for
 // `pgedge starfleet byoc database mcp`. Nothing declares the set, so
-// there is no list to fall behind the files, and every gate that needs
-// the set reads it from here rather than keeping its own.
+// no list can fall behind the files.
 package reference
 
 import (
@@ -23,11 +22,10 @@ import (
 
 // PageSizeBudget bounds one reference page below the module index.
 //
-// The split exists so an agent working on one resource reads that
-// resource's page and nothing else; a page has to be small enough for
-// that to be a saving. 25 KB is about 6k tokens. The module index is
-// not bound by it: an index carries the cross-cutting prose every
-// resource shares once, and its own budget is a separate question.
+// An agent working on one resource reads only that page, so a page has
+// to be small enough for that to be a saving; 25 KB is about 6k
+// tokens. A module index carries the prose every resource shares and
+// is not bound by it.
 const PageSizeBudget = 25 * 1024
 
 const (
@@ -91,10 +89,9 @@ const (
 
 // TopicSummary reports whether a page is a topic page, one that
 // documents a task spanning several resources rather than a command,
-// and returns the summary its routing-table row shows. A topic page
-// says so on its first line, `<!-- topic: <summary> -->`, because
-// nothing else tells it apart from a resource page whose command was
-// deleted.
+// and returns the summary its routing-table row shows. The first-line
+// marker, `<!-- topic: <summary> -->`, is the only thing that tells it
+// apart from a resource page whose command was deleted.
 func TopicSummary(body []byte) (string, bool) {
 	first, _, _ := strings.Cut(string(body), "\n")
 	inner, ok := strings.CutPrefix(first, topicOpen)

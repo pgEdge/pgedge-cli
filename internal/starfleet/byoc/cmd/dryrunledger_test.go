@@ -107,10 +107,9 @@ func TestGuardServiceIntentToleratesNoDryRun(t *testing.T) {
 // must record nothing, or the report lists a check as passed on the
 // run where it fired.
 func TestDatabaseCreateNameCheckIsRecorded(t *testing.T) {
-	// Driven through the COMMAND, not by calling Pass here. A first
-	// draft of this subtest called rt.DryRun.Pass itself and asserted
-	// the result, which tests nothing: it passes with the production
-	// call deleted, which is the precise hole round 2 reported.
+	// Driven through the COMMAND, not by calling Pass here: a subtest
+	// that calls rt.DryRun.Pass itself tests nothing, since it passes
+	// with the production call deleted.
 	//
 	// The ledger is installed by assigning rt.DryRun directly. These
 	// harnesses build a bare cobra root with no PersistentPreRunE, so
@@ -276,17 +275,14 @@ func assertLedgerHas(t *testing.T, got []string, wants ...string) {
 	}
 }
 
-// TestClusterIDChecksAreRecorded pins the ledger lines round 5 added,
-// which round 5 shipped with no test at all: deleting all three
-// rt.DryRun.Pass calls left build, vet and the whole suite green.
+// TestClusterIDChecksAreRecorded pins the cluster ID ledger lines:
+// without it, deleting all three rt.DryRun.Pass calls leaves build,
+// vet and the whole suite green.
 //
 // The counts are asserted, not just membership, because the ledger's
-// job is completeness. And the expectations record a correction: the
-// premise for adding these was that `cluster create --dry-run`
-// reported "none — this command has no client-side checks". It did not.
-// node_location and the private-subnet check already recorded
-// unconditionally, so the report was INCOMPLETE, not false. Two lines
-// were missing from four, which is why the want lists below are exact.
+// job is completeness. node_location and the private-subnet check
+// record unconditionally, so without the ID lines the report is
+// INCOMPLETE rather than false, which is why the want lists are exact.
 func TestClusterIDChecksAreRecorded(t *testing.T) {
 	t.Run("create records every check it runs", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -329,8 +325,7 @@ func TestClusterIDChecksAreRecorded(t *testing.T) {
 			testClusterID, "--backup-store-id", testClusterID)
 		got := rt.DryRun.Checks()
 		// The cluster ID parse is recorded too: it runs before the
-		// client is built and reported nothing, three lines after the
-		// check round 5 did record.
+		// client is built.
 		want := []string{
 			"at least one of --firewall-rule, --backup-store-id, " +
 				"--regions given",

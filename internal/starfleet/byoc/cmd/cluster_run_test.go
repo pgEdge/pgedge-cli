@@ -407,7 +407,7 @@ func TestClusterUpdateRecordsItsChecks(t *testing.T) {
 			},
 		},
 		{
-			// The case round 3 caught: with no rules, the ledger must
+			// With no rules, the ledger must
 			// still be non-empty, or the report claims the verb has no
 			// client-side checks while one just passed.
 			name: "no rules still records the at-least-one check",

@@ -25,8 +25,8 @@ import (
 
 // tierRoots is the exact set of commands allowed to declare
 // persistent flags, as a written-down decision. Adding a module adds
-// its root here deliberately, in review — not by a leaf quietly
-// calling PersistentFlags().
+// its root here deliberately, not by a leaf quietly calling
+// PersistentFlags().
 var tierRoots = map[string]bool{
 	"pgedge":              true,
 	"pgedge starfleet":    true,

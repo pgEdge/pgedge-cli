@@ -469,14 +469,13 @@ func TestExampleTableScopesCoverEveryScannedReference(t *testing.T) {
 	}
 }
 
-// The monitor-line check below closes the hole that let the one defect
-// this gate's first check could not see through review: a `Monitor
-// with:` line added to `database update`, a verb that calls no
-// trackMutation and registers no --wait. The header check cannot help —
-// the line is a fabricated string, but there is no table to compare.
+// The monitor-line check below catches what the header check cannot: a
+// `Monitor with:` line added to `database update`, a verb that calls
+// no trackMutation and registers no --wait. The line is a fabricated
+// string, but there is no table to compare.
 //
-// The invariant a reviewer found, and it is mechanical: trackMutation is
-// the only caller that prints that line, and every command reaching it
+// The invariant is mechanical: trackMutation is the only caller that
+// prints that line, and every command reaching it
 // gets its wait flags from addWaitFlags. So a section showing the line
 // MUST be a section whose GENERATED flag table declares --wait. The
 // generated half is regenerated from the cobra tree by `make docs`,
@@ -497,11 +496,10 @@ const monitorLinePrefix = "Monitor with:"
 // the first generated command heading. It is not a command path and so
 // cannot collide with one.
 //
-// It exists because that span used to be discarded, and it is not a
-// scrap: byoc's preamble is 234 of its 3844 lines and managed's is 653
-// of 2270 — every hand-written section on what waiting proves, in the
-// document this gate reads to check claims about waiting. A Monitor
-// line pasted there was invisible. Review found it.
+// That span is not a scrap: byoc's preamble is 234 of its 3844 lines
+// and managed's is 653 of 2270, every hand-written section on what
+// waiting proves. Discarding it would leave a Monitor line pasted
+// there invisible.
 const referencePreamble = "(preamble, before the first ##### heading)"
 
 // referenceSections splits a module reference on its generated command

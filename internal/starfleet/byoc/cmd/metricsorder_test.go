@@ -102,22 +102,16 @@ func TestByocNewestSampleReadsTheTimeColumn(t *testing.T) {
 		// A row too short to hold the time cell must not panic and
 		// must not win on a time it does not have.
 		//
-		// GENUINELY short, not empty. A first version passed a
-		// zero-length row here, which the non-empty check skips before
-		// sampleTime is ever called -- so it was a duplicate of the
-		// empty-row case above and sampleTime's bounds guard had NO
-		// coverage at all. Review deleted that guard and the whole
-		// package still passed; with this row the mutated tree panics
-		// with "index out of range [1] with length 1".
+		// GENUINELY short, not empty: the non-empty check skips a
+		// zero-length row before sampleTime is called, leaving
+		// sampleTime's bounds guard uncovered. With that guard deleted,
+		// this row panics with "index out of range [1] with length 1".
 		//
-		// byoc reaches sampleTime's bounds guard through the ranking
-		// loop. managed reaches it too -- through tieNote, which
-		// counts EVERY row at the chosen timestamp regardless of
-		// completeness, and through its non-empty fallback tier -- so
-		// the difference is the ROUTE, not whether it is reachable.
-		// That matters because byoc's route is the one byoc's own
-		// original fixture failed to exercise, while managed's is the
-		// one review found.
+		// byoc reaches the guard through the ranking loop. managed
+		// reaches it through tieNote, which counts EVERY row at the
+		// chosen timestamp regardless of completeness, and through its
+		// non-empty fallback tier, so the difference is the ROUTE, not
+		// whether it is reachable.
 		name: "a row shorter than the time index does not win",
 		s: series([]string{"pg_up", "time"},
 			[]interface{}{"newest", 6.0},

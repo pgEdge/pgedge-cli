@@ -120,10 +120,9 @@ type emptySuccessShape struct {
 // emptySuccessShapes are BOTH shapes this repo has measured, and one
 // fixture cannot stand for the other.
 //
-// A review made a fabricated payload survive by echoing the body only
-// when one arrived, which the 204 pass can never produce. The
-// dimension the first version of this gate did not vary was the
-// response SHAPE.
+// A fabricated payload survives a single-shape gate by echoing the
+// body only when one arrived, which the 204 pass can never produce,
+// so the response SHAPE has to vary.
 var emptySuccessShapes = []emptySuccessShape{
 	// managed's shape.
 	{name: "204 with no body", status: http.StatusNoContent,

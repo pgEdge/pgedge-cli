@@ -49,7 +49,7 @@ import (
 //     check validates existence, nothing else.
 //
 // EXTERNAL TOOLS' FLAGS. The docs legitimately quote flags that belong
-// to other programs: cosign's --certificate, the skills CLI's
+// to other programs: cosign's --bundle, the skills CLI's
 // --global. A doc-gate marker is the wrong instrument for those —
 // deliberately-wrong asserts the phrase is WRONG (these are right),
 // and correct-for asserts it is right under
@@ -110,13 +110,11 @@ var externalToolFlags = map[string]struct {
 	tool  string
 	files map[string]bool
 }{
-	"--certificate": {"cosign verify-blob",
+	"--bundle": {"cosign verify-blob",
 		map[string]bool{"../../README.md": true}},
 	"--certificate-identity-regexp": {"cosign verify-blob",
 		map[string]bool{"../../README.md": true}},
 	"--certificate-oidc-issuer": {"cosign verify-blob",
-		map[string]bool{"../../README.md": true}},
-	"--signature": {"cosign verify-blob",
 		map[string]bool{"../../README.md": true}},
 	"--ignore-missing": {"sha256sum -c",
 		map[string]bool{"../../README.md": true}},

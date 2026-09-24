@@ -240,8 +240,7 @@ func runSelfUpdate(
 
 	// Resolved first: it touches no network, so a run doomed to refuse
 	// (a Homebrew install, a binary inside a git working tree) fails
-	// before a release fetch, a four-asset download and a Rekor round
-	// trip.
+	// before a release fetch and a three-asset download.
 	//
 	// Under --check a refusal is a note on the answer rather than a
 	// reason to withhold it, since --check swaps nothing. --check exits
@@ -333,11 +332,7 @@ func runSelfUpdate(
 	if err != nil {
 		return classifySelfUpdateError(err)
 	}
-	sig, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt.sig", dstDir)
-	if err != nil {
-		return classifySelfUpdateError(err)
-	}
-	certPEM, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt.pem", dstDir)
+	sigBundle, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt.sigstore.json", dstDir)
 	if err != nil {
 		return classifySelfUpdateError(err)
 	}
@@ -352,7 +347,7 @@ func runSelfUpdate(
 	}
 
 	fmt.Fprintln(rt.Stderr, "verifying signature...")
-	if err := selfupdate.VerifySignature(checksums, sig, certPEM, trusted); err != nil {
+	if err := selfupdate.VerifySignature(checksums, sigBundle, trusted); err != nil {
 		return fmt.Errorf("verify signature: %w", err)
 	}
 

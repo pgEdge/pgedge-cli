@@ -120,8 +120,7 @@ VERSION_NUM="${VERSION#v}"
 ARCHIVE="${BINARY}_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
-SIG_URL="${CHECKSUM_URL}.sig"
-CERT_URL="${CHECKSUM_URL}.pem"
+BUNDLE_URL="${CHECKSUM_URL}.sigstore.json"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
@@ -139,11 +138,9 @@ curl -fsSL -o "${TMPDIR}/checksums.txt" "$CHECKSUM_URL"
 # only verification (integrity, not authenticity).
 if command -v cosign >/dev/null 2>&1; then
     echo "Verifying signature with cosign..."
-    curl -fsSL -o "${TMPDIR}/checksums.txt.sig" "$SIG_URL"
-    curl -fsSL -o "${TMPDIR}/checksums.txt.pem" "$CERT_URL"
+    curl -fsSL -o "${TMPDIR}/checksums.txt.sigstore.json" "$BUNDLE_URL"
     if ! cosign verify-blob \
-        --certificate "${TMPDIR}/checksums.txt.pem" \
-        --signature "${TMPDIR}/checksums.txt.sig" \
+        --bundle "${TMPDIR}/checksums.txt.sigstore.json" \
         --certificate-identity-regexp \
             "^https://github\.com/${REPO}/\.github/workflows/release\.yml@refs/tags/" \
         --certificate-oidc-issuer \

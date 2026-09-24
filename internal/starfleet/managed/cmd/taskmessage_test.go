@@ -13,7 +13,7 @@ func intPtr(i int) *int       { return &i }
 
 // TestFormatTaskMessage asserts the WHOLE rendered line rather than the
 // substrings the streaming tests check, because the reference promises
-// these lines are byte-identical across two verbs (#211). A substring
+// these lines are byte-identical across two verbs. A substring
 // assertion cannot see the timestamp or the two-space separator, so an
 // edit dropping either would pass every other gate while making that
 // promise false. managed binds its own generated api.Message, so this

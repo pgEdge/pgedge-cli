@@ -10,7 +10,7 @@ import (
 // TestTaskWaitFollow pins that attaching to a task shows what launching
 // it would have shown. `task wait` is the only way to observe work this
 // CLI did not start, and it used to print bare status polls while the
-// step messages sat unreachable in the payload (#179).
+// step messages sat unreachable in the payload.
 //
 // The two cases are asserted as a PAIR on purpose: the messages
 // appearing under --follow proves the flag does something, and the

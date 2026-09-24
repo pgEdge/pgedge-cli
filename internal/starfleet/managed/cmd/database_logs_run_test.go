@@ -13,10 +13,10 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// managedLogsBody is a devapi response trimmed to two records, verified
+// managedLogsBody is a real response trimmed to two records, verified
 // 2026-08-17. Note the shape: a FLAT list of records, newest first,
 // with time as an epoch in milliseconds. This is NOT byoc's per-node
-// block shape, despite saas describing the two as mirrors.
+// block shape, despite the API describing the two as mirrors.
 const managedLogsBody = `{"logs":[` +
 	`{"level":"log","message":"checkpoint complete",` +
 	`"time":1786988160069},` +

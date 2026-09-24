@@ -2,7 +2,7 @@
 // against real Postgres servers and checks the cell VALUES each
 // analysis returns against rows the suite created itself. The unit
 // tests answer SQL from a scripted fake and never run it, so an alias
-// bound to the wrong expression passes them (#472); only a server
+// bound to the wrong expression passes them; only a server
 // catches it.
 //
 // Skipped unless PGEDGE_INSPECT_LIVE=1. The servers come from

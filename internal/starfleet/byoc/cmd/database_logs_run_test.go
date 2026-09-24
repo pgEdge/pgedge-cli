@@ -31,7 +31,7 @@ const databaseLogsTwoNodeBody = `{"logs":[` +
 //
 // The spec once declared this 200 as an ARRAY of DatabaseLogsResponse
 // while the handler returned a single one, so the generated parser
-// rejected a real success and the command decoded the body itself. saas
+// rejected a real success and the command decoded the body itself. The API
 // fixed the wrapper, the vendored spec carries the fix, and the typed
 // path is now the one the command uses.
 //

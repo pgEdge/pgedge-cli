@@ -432,9 +432,9 @@ Example:
 			}
 
 			// The untyped call: the generated parser decodes 200 into
-			// the array the spec declares, and devapi sends a bare
+			// the array the spec declares, and the API sends a bare
 			// object (measured 2026-08-30), so the typed call fails on
-			// every response the API has ever returned (#218).
+			// every response the API has ever returned.
 			resp, err := client.GetCloudFormationTemplate(
 				context.Background())
 			if err != nil {
@@ -476,7 +476,7 @@ Example:
 }
 
 // decodeCloudFormationTemplates accepts the object the API sends and
-// the array the spec declares, so the command keeps working if saas
+// the array the spec declares, so the command keeps working if the API
 // brings the two into line either way. payload is the value as it
 // arrived, untyped so a field the spec does not know survives into the
 // structured formats; templates is the typed view for text.
@@ -569,7 +569,7 @@ Example:
 				// One zone per line IS the structure here, so a zone
 				// carrying a newline forges an extra zone. This does
 				// not go through the renderer, so it does not get the
-				// renderer's escaping (#323).
+				// renderer's escaping.
 				fmt.Fprintln(rt.Stdout, output.Sanitize(zone))
 			}
 			return nil

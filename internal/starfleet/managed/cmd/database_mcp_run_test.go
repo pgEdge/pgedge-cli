@@ -8,13 +8,12 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// TestMCPEmbeddingProviderRequiresAPIKey covers #551: setting
-// --embedding-provider used to write successfully with no key
-// reachable anywhere, and only the server's later tools/call failed,
-// with "API key is required" reaching the operator through the MCP
-// client rather than this CLI. The check added for #551 asserts a key
-// is available — passed on this invocation or already stored on the
-// deployed service — before the write is sent.
+// TestMCPEmbeddingProviderRequiresAPIKey: setting --embedding-provider
+// used to write successfully with no key reachable anywhere, and only
+// the server's later tools/call failed, with "API key is required"
+// reaching the operator through the MCP client rather than this CLI.
+// The check asserts a key is available — passed on this invocation or
+// already stored on the deployed service — before the write is sent.
 //
 // mcpServiceJSON (deploy/stored) carries an openai provider AND a
 // stored embedding_api_key; mcpWithAllowlistJSON's mcp_config carries

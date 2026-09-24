@@ -94,7 +94,7 @@ func (c *Config) Path() string { return c.path }
 
 // DefaultPath returns ~/.pgedge/cli/config.yaml. The cli/ segment is
 // deliberate: ~/.pgedge is shared with other pgEdge tools, and a file
-// at its root is a file another tool may want (Dave Page, 2026-08-25).
+// at its root is a file another tool may want (decided 2026-08-25).
 func DefaultPath() (string, error) {
 	dir, err := defaultDir()
 	if err != nil {

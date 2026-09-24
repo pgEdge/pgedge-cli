@@ -7,7 +7,7 @@ import "testing"
 // The design comment on internal/cli.NewLLMSCmd used to state the
 // figure directly, and it drifted from 16 KB to 35 KB with nothing
 // measuring it — while that size is the entire reason the index
-// exists rather than a monolith (#306). A number in a comment cannot
+// exists rather than a monolith. A number in a comment cannot
 // hold a budget; this can.
 //
 // The failure message names the remedy in both directions, because

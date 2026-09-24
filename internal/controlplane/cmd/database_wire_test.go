@@ -12,10 +12,10 @@ import (
 // query parameter (--force-unmodifiable, --force-lost) or in the JSON
 // body (--type, --candidate, --scheduled-at, --skip-validation,
 // restore_config, --image) — rather than only that the command exits
-// without error. It also locks --force to its D4 meaning on every
-// verb that sends a wire force: --force alone must NOT put force=true
-// on the wire, and on upgrade, failover and the restarts it cannot
-// (those endpoints have no API force parameter).
+// without error. It also locks --force to its prompt-skip-only meaning
+// on every verb that sends a wire force: --force alone must NOT put
+// force=true on the wire, and on upgrade, failover and the restarts it
+// cannot (those endpoints have no API force parameter).
 func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 	dir := t.TempDir()
 	restoreSpec := filepath.Join(dir, "restore.yaml")
@@ -59,7 +59,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 			// body, so a leak could read "force":true and slip past a
 			// query-shaped assertion. Proven -- with a Force field
 			// added to the request body, the "force=true" form passed
-			// and this form fails (#284).
+			// and this form fails.
 			absent: []string{"force"},
 		},
 		{
@@ -90,7 +90,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 			wantQuery: "force=true",
 		},
 		{
-			// The D4 split: --force skips the prompt and ONLY that.
+			// The --force split: it skips the prompt and ONLY that.
 			// Before 2026-08-24 it also carried the server's
 			// unmodifiable-state override; a script relying on that
 			// now needs --force-unmodifiable.
@@ -132,7 +132,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 				`"restore_config"`, `"source_database_id":"old-store"`},
 		},
 		{
-			// The D4 split, restore's arm.
+			// The --force split, restore's arm.
 			name: "database restore --force alone sends no force",
 			args: []string{"database", "restore", "storefront",
 				"-f", restoreSpec, "--force"},
@@ -147,7 +147,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 			wantQuery: "force=true",
 		},
 		{
-			// The D4 split, delete's arm: --force alone must not
+			// The --force split, delete's arm: --force alone must not
 			// carry the unmodifiable override onto the wire.
 			name: "database delete --force alone sends no force",
 			args: []string{"database", "delete", "storefront",
@@ -163,7 +163,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 			wantQuery: "force=true",
 		},
 		{
-			// The D4 split, host remove's arm — the override here
+			// The --force split, host remove's arm — the override here
 			// waives QUORUM, so an accidental send is the worst of
 			// the six.
 			name:   "host remove --force alone sends no force",

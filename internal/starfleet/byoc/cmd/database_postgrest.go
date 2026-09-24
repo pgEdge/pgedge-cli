@@ -177,7 +177,7 @@ func applyPostgRESTService(
 	// Before the client, deliberately: clientFromCmd resolves
 	// credentials, so a malformed ID checked after it reports exit 5
 	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2 (#194).
+	// managed's identical verbs already answer 2.
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err

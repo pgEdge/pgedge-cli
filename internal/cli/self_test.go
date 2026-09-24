@@ -1349,7 +1349,7 @@ func TestSelfUpdateEmptyTargetIsRefusedNotSwapped(t *testing.T) {
 // install.sh parity test above proves the two DOWNLOADERS agree; this
 // proves they agree with the PRODUCER, so an archives.name_template
 // or format edit cannot break `pgedge self update` for every user
-// with no CI signal (#400). goreleaser's default name_template is
+// with no CI signal. goreleaser's default name_template is
 // `{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}` plus
 // variant suffixes this build never sets, so an unset template is the
 // only one the derivation matches.
@@ -1411,7 +1411,7 @@ func TestReleaseAssetNameMatchesGoreleaser(t *testing.T) {
 // TestLadderAnswersVerboseOnStderr proves the production wiring, not
 // just the rungs: --verbose on the runtime reaches both rungs'
 // diagnostics and they land on rt.Stderr, where every other client's
-// do (#402). The HTTP rung 404s so the gh rung runs too.
+// do. The HTTP rung 404s so the gh rung runs too.
 func TestLadderAnswersVerboseOnStderr(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	defer srv.Close()
@@ -1461,7 +1461,7 @@ func releasesListServerCLI(t *testing.T, body string) *httptest.Server {
 	}))
 }
 
-// --- completion refresh after a swap (#401) ---------------------------
+// --- completion refresh after a swap ----------------------------------
 
 // dispatchRunner stands in for the NEW binary across both calls self
 // update makes of it: `version -o json` answers probeJSON, and

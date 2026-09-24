@@ -132,13 +132,13 @@ func writeProfilesConfig(t *testing.T, home, current string, profiles []string) 
 	}
 }
 
-// TestUnknownProfileFlag is the behavioural matrix for #102: an
-// explicit --profile naming something that is not configured must
-// fail exactly like `pgedge profile use <unknown>`, except for the
-// commands the plan carves out (never read config, or create the
-// named profile). Every case is hermetic: an isolated per-case HOME,
-// no config or a fixture config this test writes itself, and no
-// network beyond a local httptest stub or a closed port.
+// TestUnknownProfileFlag is the behavioural matrix for one rule: an
+// explicit --profile naming something that is not configured must fail
+// exactly like `pgedge profile use <unknown>`, except for the commands
+// that never read config or that create the named profile. Every case
+// is hermetic: an isolated per-case HOME, no config or a fixture config
+// this test writes itself, and no network beyond a local httptest stub
+// or a closed port.
 func TestUnknownProfileFlag(t *testing.T) {
 	testsupport.ClearEnv(t)
 
@@ -221,12 +221,10 @@ func TestUnknownProfileFlag(t *testing.T) {
 		}
 	})
 
-	// The exemption above is from the UNKNOWN-profile rule only. #246
-	// made an EMPTY value a usage error earlier than any of it, so the
+	// The exemption above is from the UNKNOWN-profile rule only. An
+	// EMPTY value is a usage error earlier than any of it, so the
 	// same five commands split: only `--help` survives, because cobra
-	// short-circuits it before setupRuntime runs. Pinned because the
-	// documentation for #246 first claimed completion was unaffected,
-	// and nothing here contradicted it.
+	// short-circuits it before setupRuntime runs.
 	t.Run("exempt commands are not exempt from an EMPTY profile", func(t *testing.T) {
 		cases := []struct {
 			name string
@@ -293,7 +291,7 @@ func TestUnknownProfileFlag(t *testing.T) {
 	})
 
 	t.Run("zero-config machine: default and config-free commands work", func(t *testing.T) {
-		// The plan's matrix names "doctor" here too, but doctor's RunE
+		// "doctor" belongs in this matrix too, but doctor's RunE
 		// builds the production selfupdate.Source ladder (a live
 		// api.github.com call with no flag/env override reachable from a
 		// subprocess) whenever DoctorDeps.Source is nil, unconditionally
@@ -329,9 +327,8 @@ func TestUnknownProfileFlag(t *testing.T) {
 		}
 	})
 
-	// This asserted exit 0 — "behaves as absent" — until #246. An
-	// empty value names no profile, and being handed the active one
-	// instead means being handed another TENANT, so it is now refused
+	// An empty value names no profile, and being handed the active one
+	// instead means being handed another TENANT, so it is refused
 	// the way an empty --config is. See TestUnknownCurrentProfile for
 	// what that cost and why the repair route survives it.
 	t.Run("explicit empty --profile is a usage error", func(t *testing.T) {
@@ -347,21 +344,10 @@ func TestUnknownProfileFlag(t *testing.T) {
 		}
 	})
 
-	// #293: this used to be named for an unknown FLAG, which it does
-	// not exercise. Six siblings in this function carried the same
-	// mistake and are renamed with it -- the issue named one, but the
-	// population is "every subtest in TestUnknownProfileFlag", and
-	// three of the others literally read "unknown flag ... is exit 1",
-	// which is the exact misreading #293 exists to remove. Fixing the
-	// one that was reported and leaving five identical neighbours is
-	// the hand-list-versus-derived-population trap applied to prose.
-	//
-	// This one specifically: --profile exists, and "bogus" is
-	// simply not a configured profile. The distinction is not cosmetic: this subtest is the
-	// standing citation for "a router miss is exit 1", so anyone
-	// reading the old name concluded an unknown flag must stay exit 1
-	// and designed around a constraint that does not exist. The
-	// unknown-flag case is pinned by its own sibling below.
+	// --profile exists, and "bogus" is simply not a configured
+	// profile. This subtest is the standing citation for "a router
+	// miss is exit 1", and says nothing about an unknown flag: that
+	// case is pinned by its own sibling below.
 	//
 	// The behaviour here is right and worth keeping: an unknown
 	// profile is a well-formed reference to something absent, which is
@@ -392,8 +378,7 @@ func TestUnknownProfileFlag(t *testing.T) {
 	// existing rows use the root and two leaves.
 	//
 	// It carries no --profile at all, deliberately: adding one would
-	// make the exit code ambiguous between the two causes, which is
-	// the exact confusion #293 was.
+	// make the exit code ambiguous between the two causes.
 	t.Run("unknown FLAG on the same group router is exit 2", func(t *testing.T) {
 		home := t.TempDir()
 		writeProfilesConfig(t, home, "alpha", []string{"alpha"})
@@ -408,8 +393,7 @@ func TestUnknownProfileFlag(t *testing.T) {
 		}
 	})
 
-	// Also named for the wrong input before #293, and for the same
-	// reason: the input is an unknown profile VALUE.
+	// The input is an unknown profile VALUE, not an unknown flag.
 	t.Run("unknown profile value on profile use is exit 1: not exempt", func(t *testing.T) {
 		home := t.TempDir()
 		writeProfilesConfig(t, home, "alpha", []string{"alpha"})
@@ -744,9 +728,9 @@ func TestExitCodeContract(t *testing.T) {
 // NO_COLOR or a non-default SHELL — without clearing first, either
 // could change this subprocess's output or behavior.
 // Each depth is also run with each help flag appended, which is the
-// half of the contract #241 found missing: every `--help` row below
-// exited 0 having printed the PARENT's help, so `<cmd> --help` — the
-// conventional way to probe whether a command exists — answered yes
+// other half of the contract: without it every `--help` row below
+// exits 0 having printed the PARENT's help, so `<cmd> --help` — the
+// conventional way to probe whether a command exists — answers yes
 // for commands that do not. Why cobra skipped the group's
 // Args: cobra.NoArgs is stated once, in cli.StrayArgsOnHelp, and not
 // restated here.
@@ -808,8 +792,8 @@ func TestRunGroupStrayArgumentIsUsageError(t *testing.T) {
 	}
 }
 
-// TestRunHelpStillWorks is the negative-control set for #241. The fix
-// sits on cobra's --help path, which is also the path every legitimate
+// TestRunHelpStillWorks is the negative-control set for the --help
+// fix. It sits on cobra's --help path, which is also the path every legitimate
 // help lookup and every shell completion takes, and it is reached
 // before the Runtime exists — so nothing here may start failing.
 func TestRunHelpStillWorks(t *testing.T) {
@@ -1015,8 +999,8 @@ func newFlaggingAuthedServer(t *testing.T, hit *int32) string {
 	})
 }
 
-// TestGlobalFlagAsAnotherFlagsValue is the regression matrix for #120:
-// a global flag token that cobra binds as the VALUE of another flag —
+// TestGlobalFlagAsAnotherFlagsValue is the regression matrix for one
+// rule: a global flag token that cobra binds as the VALUE of another flag —
 // one registered on a leaf command, elsewhere in the tree — must have
 // no effect on global behaviour. Deriving the Runtime from cobra's own
 // parsed flags (rather than a pre-cobra scan of os.Args) is what makes
@@ -1037,7 +1021,7 @@ func TestGlobalFlagAsAnotherFlagsValue(t *testing.T) {
 		_, stderr, code := runSubprocess(t, home,
 			[]string{"pgedge", "starfleet", "managed", "database", "get", "X",
 				"--user-type", "--config=" + badConfig})
-		// PR #127's parseUserType validates --user-type client-side,
+		// parseUserType validates --user-type client-side,
 		// before any config or client is touched, so this is a usage
 		// error (2) naming the whole swallowed token — not a config
 		// parse error (1), which is what the old pre-parse produced by
@@ -1126,8 +1110,8 @@ func TestGlobalFlagAsAnotherFlagsValue(t *testing.T) {
 	})
 }
 
-// TestTokensAfterTerminator pins the other half of #120: every global
-// flag appearing after a `--` terminator is a positional argument, not
+// TestTokensAfterTerminator pins the other half of that matrix: every
+// global flag appearing after a `--` terminator is a positional argument, not
 // a flag, and must have no effect on global behaviour. The old
 // os.Args scan did not stop at `--`, so it would still see these
 // tokens and act on them.
@@ -1244,7 +1228,7 @@ func TestGlobalFlagPositions(t *testing.T) {
 	// pflag's combined-shorthand parsing does not accept a
 	// space-separated value for a block ending in a value-taking
 	// flag ("-vo json" fails to route at all, on both the old and new
-	// implementations — this is pflag's own syntax rule, not a #120
+	// implementations — this is pflag's own syntax rule, not a
 	// regression). Only the "=" form is valid combined-shorthand
 	// syntax, which is what the case above exercises.
 	t.Run("bool flags: bare, =true, =false", func(t *testing.T) {
@@ -1528,7 +1512,7 @@ func TestDryRunSurvivesEveryErrorMappingFamily(t *testing.T) {
 // TestDryRunReportsChecksFromReads is the reads-allowed half of the
 // semantics, end to end: a service deploy fetches the database first,
 // and both the resolution and the create-vs-reconfigure intent guard
-// (#117) must appear as passed checks in the report.
+// must appear as passed checks in the report.
 func TestDryRunReportsChecksFromReads(t *testing.T) {
 	testsupport.ClearEnv(t)
 	const dbID = "7f3a5c1e-0000-4000-8000-000000000000"
@@ -1581,7 +1565,7 @@ func TestDryRunOnFailedCheckShowsProgressAndRealExitCode(t *testing.T) {
 	const dbID = "7f3a5c1e-0000-4000-8000-000000000000"
 	var writes atomic.Int64
 	// A database that ALREADY has an mcp service, so `mcp deploy` is
-	// refused by the create-vs-reconfigure guard (#117).
+	// refused by the create-vs-reconfigure guard.
 	srv := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet && r.Method != http.MethodHead &&
@@ -1646,7 +1630,7 @@ func TestDryRunOnFailedCheckShowsProgressAndRealExitCode(t *testing.T) {
 	}
 }
 
-// TestUnknownCurrentProfile is #150's behavioural matrix, and the
+// TestUnknownCurrentProfile is a behavioural matrix, and the
 // counterpart to TestUnknownProfileFlag above: a hand-edited
 // current_profile naming a profile that does not exist must be
 // rejected the same way, everywhere, rather than silently resolving
@@ -1677,7 +1661,7 @@ func TestUnknownCurrentProfile(t *testing.T) {
 		}
 		if strings.Contains(stdout, "api.pgedge.com") {
 			t.Errorf("stdout mentions api.pgedge.com — the silent prod "+
-				"dial this issue is about:\n%s", stdout)
+				"dial this matrix guards:\n%s", stdout)
 		}
 	})
 
@@ -1752,15 +1736,13 @@ func TestUnknownCurrentProfile(t *testing.T) {
 		}
 	})
 
-	// #150 required the opposite of this, and the reasoning is worth
-	// keeping because it is the cost of #246: a wrapper doing
-	// `pgedge --profile="$VAR" ...` with VAR unset sends exactly this,
-	// names no profile, and used to be treated as if the flag were
-	// absent rather than refused over a current_profile the operator
-	// never typed. #246 refuses it instead, so THAT wrapper no longer
-	// repairs — it gets exit 2 and a message naming the fix.
+	// This is the cost of refusing an empty --profile: a wrapper doing
+	// `pgedge --profile="$VAR" ...` with VAR unset sends exactly this
+	// and names no profile, so it is refused rather than treated as if
+	// the flag were absent, and THAT wrapper does not repair — it gets
+	// exit 2 and a message naming the fix.
 	//
-	// What #150 actually protected is the repair being REACHABLE, and
+	// What matters is the repair being REACHABLE, and
 	// the case below is that guarantee restated: with the flag omitted
 	// the route is open, because the carve-out keys on no profile
 	// having been named and omitting the flag still does that.
@@ -1827,7 +1809,7 @@ func TestUnknownCurrentProfile(t *testing.T) {
 		}
 	})
 
-	// #149's argument path, end to end.
+	// The argument path, end to end.
 	t.Run("profile show <unknown> is exit 1 with no report", func(t *testing.T) {
 		home := t.TempDir()
 		writeProfilesConfig(t, home, "alpha", []string{"alpha"})
@@ -1885,7 +1867,7 @@ func TestRemoveStaleSwapBackupIsSilentWithNothingToRemove(t *testing.T) {
 }
 
 // fixtureSSHPublicKey is a real, throwaway ed25519 public key. ssh-key
-// create parses --public-key before sending (#290), so a placeholder
+// create parses --public-key before sending, so a placeholder
 // no longer reaches the request this case asserts on. A public key is
 // not a secret, and this one has no counterpart private half anywhere.
 const fixtureSSHPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII6SfQktsEUrCGgH1nfvXdjb3/W69viNpwNu+XIBjRLH fixture@pgedge"

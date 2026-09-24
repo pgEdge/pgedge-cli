@@ -11,8 +11,9 @@ import (
 )
 
 // multiRegionClusterBody is a cluster whose nodes and networks sit in
-// two regions. Shaped after a real one: on a BYOC dev tenant, 2026-08-22, three
-// `available` clusters had a node in every region they declared.
+// two regions. Shaped after a real one: on a live BYOC tenant,
+// 2026-08-22, three `available` clusters had a node in every region
+// they declared.
 const multiRegionClusterBody = `{"id":"` + testClusterID + `",` +
 	`"name":"prod","status":"available",` +
 	`"regions":["us-east-2","eu-west-1"],` +

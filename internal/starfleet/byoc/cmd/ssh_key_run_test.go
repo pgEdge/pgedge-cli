@@ -132,7 +132,7 @@ func TestSSHKeyDeleteRun(t *testing.T) {
 }
 
 // testPublicKey is a real ed25519 public key in authorized_keys form.
-// ssh-key create parses --public-key before sending (#290), so a
+// ssh-key create parses --public-key before sending, so a
 // placeholder like "ssh-ed25519 AAAA" no longer reaches the handler
 // these fixtures exercise.
 func testPublicKey(t *testing.T) string {

@@ -19,7 +19,7 @@ import (
 // There is no PORT column. Service.Port is the host's INTERNAL port
 // (e.g. 14052) — dialing it directly fails with SSL:WRONG_VERSION_
 // NUMBER, since it isn't the TLS-terminating ingress. Printing it
-// next to a domain invited exactly that mistake (issue #108), so the
+// next to a domain invited exactly that mistake, so the
 // port is folded into ENDPOINT instead: the actual locator a caller
 // can dial.
 var serviceColumns = []string{
@@ -322,7 +322,7 @@ func findService(
 // serviceIntent distinguishes a `deploy` call from an `update` call at
 // the one place both share: the apply helper. deploy and update invoke
 // the same helper with identical arguments, so nothing else can tell
-// them apart (#117).
+// them apart.
 type serviceIntent int
 
 const (
@@ -337,7 +337,7 @@ const (
 // PATCH /databases/{id} has no conditional-create primitive to lean on.
 // This guard is the only thing standing between `mcp deploy
 // --allow-writes` and a silent privilege escalation on a deployed
-// read-only service (#117). See managed/cmd/helpers.go's guard of the
+// read-only service. See managed/cmd/helpers.go's guard of the
 // same name; the two are intentionally parallel.
 //
 // group is the command path through the service group (e.g. "pgedge
@@ -373,7 +373,7 @@ func guardServiceIntent(
 
 	// The check most worth reporting: it is the only thing standing
 	// between `mcp deploy --allow-writes` and a silent privilege
-	// escalation on a deployed read-only service (#117), and the reason
+	// escalation on a deployed read-only service, and the reason
 	// a dry run reads at all — the guard cannot tell deploy from update
 	// without the GET above.
 	if intent == intentDeploy {
@@ -410,7 +410,7 @@ func existingServiceHostIDs(
 // resolveHostIDs when there is nothing deployed to inherit from.
 //
 // It is shared by all three service verbs on purpose. Placement is the
-// half of issue #45 that hit every one of them, and it hit MCP and RAG
+// half of the partial-update bug that hit every one of them, and it hit MCP and RAG
 // precisely because each assembled its own request and only PostgREST
 // had been taught to preserve anything. A fourth service that calls
 // this gets the behaviour; one that hand-rolls resolveHostIDs
@@ -426,7 +426,7 @@ func resolveServicePlacement(
 ) ([]string, error) {
 	hostIDs := existingServiceHostIDs(db, svcType)
 	if len(targetNodes) > 0 || len(hostIDs) == 0 {
-		// Trimming here covers all three service verbs at once (#386);
+		// Trimming here covers all three service verbs at once;
 		// backup and restore trim at their body sites the same way.
 		return resolveHostIDs(client, clusterID, trimSpaces(targetNodes))
 	}
@@ -539,8 +539,7 @@ func serviceEndpoint(svc api.Service) string {
 // UUIDs -- uuid.Parse accepts uppercase and the braced and urn forms --
 // and the canonical id is the one the request carried. An earlier
 // version took both and suppressed a parenthetical when they matched;
-// that existed for prefix and name resolution, which no longer happens
-// (#194).
+// that existed for prefix and name resolution, which no longer happens.
 func databaseResolvedNote(id string) string {
 	return fmt.Sprintf("database %s resolved", id)
 }

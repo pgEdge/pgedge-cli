@@ -40,12 +40,12 @@ func TestServiceListRendersRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("service list: %v", err)
 	}
-	// STATE returned with saas e55b004e, which began deriving it.
-	// ENDPOINT is the uri the API reports, passed through —
-	// the fixture carries one, as a current saas response does for any
-	// database whose domain is assigned. The derivation that runs when
-	// it is absent is pinned by TestServiceEndpoint, which is also the
-	// only place the two are made to disagree.
+	// STATE is derived by the API. ENDPOINT is the uri the API reports,
+	// passed through — the fixture carries one, as a current API
+	// response does for any database whose domain is assigned. The
+	// derivation that runs when it is absent is pinned by
+	// TestServiceEndpoint, which is also the only place the two are
+	// made to disagree.
 	for _, want := range []string{
 		"abc12345", "mcp", "STATE", "running", "ENDPOINT",
 		"https://demo-db.use2.example.com/mcp",
@@ -54,10 +54,10 @@ func TestServiceListRendersRows(t *testing.T) {
 			t.Errorf("output missing %q; got:\n%s", want, out.String())
 		}
 	}
-	// PORT stays absent. saas always sends 443 for a managed service,
-	// so a column would repeat one constant down every row while the
-	// dialable locator already carries it (issue #108). The fixture's
-	// 8080 must not reach the table.
+	// PORT stays absent. The API always sends 443 for a managed
+	// service, so a column would repeat one constant down every row
+	// while the dialable locator already carries it. The fixture's 8080
+	// must not reach the table.
 	for _, unwanted := range []string{"PORT", "8080"} {
 		if strings.Contains(out.String(), unwanted) {
 			t.Errorf("output has %q, which the table folds into "+
@@ -101,7 +101,7 @@ func TestServiceListEmptyIsNotAnError(t *testing.T) {
 }
 
 // TestServiceGetAddressesByType pins the divergence from byoc: a
-// managed service is named by type, because saas matches the stored
+// managed service is named by type, because the API matches the stored
 // list by type and a database carries at most one of each.
 func TestServiceGetAddressesByType(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -189,12 +189,12 @@ func TestServiceRemovePreservesOtherTypes(t *testing.T) {
 			t.Error("mcp survived its own removal")
 		}
 	}
-	// A surviving service is echoed back WHOLE, including the fields the
-	// API declares readOnly. Stripping them is the tempting refactor —
-	// they cannot be written, so why send them — and it is how an
-	// untouched service's config gets half-sent. saas takes uri and
-	// ignores it (probed on devapi 2026-08-17; a body with an
-	// UNDECLARED field is what earns a 400).
+	// A surviving service is echoed back WHOLE, including the fields
+	// the API declares readOnly. Stripping them is the tempting
+	// refactor — they cannot be written, so why send them — and it is
+	// how an untouched service's config gets half-sent. The API takes
+	// uri and ignores it (probed 2026-08-17; a body with an UNDECLARED
+	// field is what earns a 400).
 	if !strings.Contains(rec.Body,
 		`"uri":"https://demo-db.use2.example.com/rag"`) {
 		t.Errorf("the preserved rag service lost its uri; sent:\n%s",
@@ -338,9 +338,9 @@ func TestRAGUpdatePreservesDeployedPipelines(t *testing.T) {
 }
 
 // TestRAGUpdateWithoutDeployedServiceExplainsItself pins the
-// deploy/update guard (#117): updating a database with no RAG service
-// deployed fails client-side, naming `rag deploy` as the fix, rather
-// than sending a request that can only 400.
+// deploy/update guard: updating a database with no RAG service deployed
+// fails client-side, naming `rag deploy` as the fix, rather than
+// sending a request that can only 400.
 func TestRAGUpdateWithoutDeployedServiceExplainsItself(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(
@@ -462,7 +462,7 @@ func TestNoServiceCommandOffersTargetNodes(t *testing.T) {
 // TestServiceWriteCarriesTheExistingServiceID pins the field that makes
 // an update an update.
 //
-// saas splits the incoming service list and validates the halves
+// The API splits the incoming service list and validates the halves
 // differently: a service with an empty or unknown ServiceID is NEW and
 // must supply its API keys; one naming an existing ID is a
 // reconfiguration and may omit them. RAG and PostgREST secrets are
@@ -511,7 +511,7 @@ func TestServiceWriteCarriesTheExistingServiceID(t *testing.T) {
 				}
 				found = true
 				if s.ServiceID == nil {
-					t.Fatalf("%s sent no service_id; saas will treat this "+
+					t.Fatalf("%s sent no service_id; the API will treat this "+
 						"as a NEW service and demand API keys", tc.svcType)
 				}
 				if *s.ServiceID != tc.wantID {
@@ -528,8 +528,8 @@ func TestServiceWriteCarriesTheExistingServiceID(t *testing.T) {
 
 // TestServiceDeployOnEmptyDatabaseSendsNoServiceID is the negative
 // control: a FIRST deploy has no ID to adopt, and must not invent one —
-// saas assigns it, and a fabricated ID would be classified as unknown
-// and rejected anyway.
+// the API assigns it, and a fabricated ID would be classified as
+// unknown and rejected anyway.
 func TestServiceDeployOnEmptyDatabaseSendsNoServiceID(t *testing.T) {
 	rec := &captureRequest{}
 	url := testsupport.NewAuthedServer(t, stubGetThenWrite(

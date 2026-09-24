@@ -88,11 +88,11 @@ Example:
 			if err != nil {
 				return err
 			}
-			// --subject-id names a resource, so it takes a full UUID
-			// (#194). The value used to be forwarded verbatim and the
+			// --subject-id names a resource, so it takes a full UUID.
+			// The value used to be forwarded verbatim and the
 			// API answers a malformed subject_id with 500 "failed to
 			// list tasks", so a short ID cost a round trip to be told
-			// nothing (#240). The sibling ?id= filter is typed in the
+			// nothing. The sibling ?id= filter is typed in the
 			// contract and gets a framework 400 for free.
 			subject, sendSubject, err := cli.OptionalStringFlag(
 				cmd.Flags(), "subject-id",
@@ -135,7 +135,7 @@ Example:
 			// Not validated, deliberately: the endpoint publishes
 			// `name` as a bare string with no enum, so an allowlist
 			// here would refuse a name the API accepts and would rot
-			// the day saas adds a task kind (#231).
+			// the day the API adds a task kind.
 			if name != "" {
 				params.Name = &name
 			}
@@ -211,8 +211,8 @@ Example:
 			// forwarded. The task collection's `?id=` filter IS typed
 			// in the contract, so it answered a clean 400 -- but exit
 			// 1 is not the code for a bad argument, and this verb's
-			// sibling `task list --subject-id` already checks its own
-			// (#194). The canonical spelling is what gets sent: the
+			// sibling `task list --subject-id` already checks its own.
+			// The canonical spelling is what gets sent: the
 			// braced and urn forms parse locally and would 400.
 			id, err := parseUUIDArg(args[0], "task ID")
 			if err != nil {
@@ -253,7 +253,7 @@ Example:
 
 // printTaskDetail renders a single task in text mode: the summary row,
 // then a detail block. See the managed module's copy for why the block
-// exists (#180) and why only the latest message is shown; the two trees
+// exists and why only the latest message is shown; the two trees
 // keep their own copies because each binds its own generated api.Task.
 func printTaskDetail(rt *module.Runtime, t *api.Task) error {
 	if err := rt.Output.Print(
@@ -264,7 +264,7 @@ func printTaskDetail(rt *module.Runtime, t *api.Task) error {
 	out := rt.Output.Out
 	// These three are ONE LINE each, so a newline in the value forges a
 	// line in a block that sits under a sanitized table on stdout —
-	// which is where a caller parses. Escaped for that reason (#345).
+	// which is where a caller parses. Escaped for that reason.
 	fmt.Fprintf(out, "\nCreated  %s\n", output.Sanitize(t.CreatedAt))
 	fmt.Fprintf(out, "Updated  %s\n", output.Sanitize(t.UpdatedAt))
 	if n := len(t.Messages); n > 0 {
@@ -326,8 +326,8 @@ Example:
 			// forwarded. The task collection's `?id=` filter IS typed
 			// in the contract, so it answered a clean 400 -- but exit
 			// 1 is not the code for a bad argument, and this verb's
-			// sibling `task list --subject-id` already checks its own
-			// (#194). The canonical spelling is what gets sent: the
+			// sibling `task list --subject-id` already checks its own.
+			// The canonical spelling is what gets sent: the
 			// braced and urn forms parse locally and would 400.
 			id, err := parseUUIDArg(args[0], "task ID")
 			if err != nil {

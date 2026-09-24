@@ -235,11 +235,10 @@ func applyPostgRESTService(
 // configuration already deployed on the database, or a zero config
 // when no PostgREST service is present.
 //
-// JwtSecret is always absent: saas's postgrestConfigToModel omits it,
-// and saas has tests asserting it must never be returned. As with
-// RAG's keys, saas's CarryForwardManagedSecrets restores an omitted
-// secret on a reconfiguration — see existingRAGConfig for the
-// mechanism and why carrying the service_id is what makes it reach.
+// JwtSecret is always absent: the API omits it, and it must never be
+// returned. As with RAG's keys, the API restores an omitted secret on a
+// reconfiguration — see existingRAGConfig for the mechanism and why
+// carrying the service_id is what makes it reach.
 func existingPostgRESTConfig(
 	db *api.ManagedDatabase,
 ) api.PostgRESTServiceConfig {

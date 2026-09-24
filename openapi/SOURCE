@@ -4,20 +4,16 @@
 # its own section at the BOTTOM of this file.
 #
 # These three are CAPTURED from the published public contracts, which
-# saas serves unauthenticated (saas #1920):
+# the API serves unauthenticated:
 #
 #   GET https://api.pgedge.com/{account,byoc,managed}/v1/openapi.json
 #
 # Each is already filtered to the public, enterprise-maximal surface
-# by saas's own GeneratePublicSpec on the way out — enterprise is the
+# by the API's own public filter on the way out — enterprise is the
 # union of what any tenant can be served, one CLI binary serves every
 # tenant, and a verb outside the caller's plan fails with the API's
 # own entitlement error. So the capture IS the public contract;
-# nothing on this side derives or filters. From 2025 until 2026-09-01
-# these files were instead DERIVED from saas source at a pinned sha,
-# reproducing that filter locally because nothing public existed —
-# that era's procedure, its pins and its measured findings live in
-# this file's git history (#199 closed the derivation).
+# nothing on this side derives or filters.
 #
 # RE-CAPTURE
 #
@@ -25,10 +21,8 @@
 #   make vendor-spec-check    # fetch and report drift, write nothing
 #   make generate             # regenerate the three clients
 #
-# Then record the capture in the log below: the date, anything that
-# changed shape, and whether devapi agreed with prod at capture time.
-# devapi serving a DIFFERENT contract than prod is the early warning
-# that a change is rolling out; capture only what production serves.
+# Then state anything that changed shape in the commit message.
+# Capture only what production serves.
 # Never hand-edit a captured spec.
 #
 # THE CAPTURE IS STILL FAIL-CLOSED, in the tool (cmd/vendorspec):
@@ -36,11 +30,11 @@
 # aborts on an `x-pgedge-*` key anywhere in a contract (the upstream
 # filter should have removed every marker, so one appearing means
 # that filter regressed — do not vendor the regression), on
-# `x-go-type-import` (it names a saas-internal package this module
-# cannot import, so the generated client would not compile; a bare
-# `x-go-type` is expected — it names UUID, which each module's
-# api/types.go supplies), and on a path outside the product's own
-# namespace. TestVendoredSpecsCarryNoVisibilityMarkers and
+# `x-go-type-import` (it names a package internal to the API server's
+# Go module, which this module cannot import, so the generated client
+# would not compile; a bare `x-go-type` is expected — it names UUID,
+# which each module's api/types.go supplies), and on a path outside
+# the product's own namespace. TestVendoredSpecsCarryNoVisibilityMarkers and
 # TestVendoredSpecsAreCanonical assert the first and third invariants
 # over the committed artefacts too, so a hand edit cannot reintroduce
 # either.
@@ -52,112 +46,15 @@
 #
 # WHAT IS DELIBERATELY ABSENT
 #
-#   * POST /account/v1/invites/{id}/accept — dropped by saas's own
+#   * POST /account/v1/invites/{id}/accept — dropped by the API's own
 #     public filter (x-pgedge-omit-public upstream). That costs
 #     nothing: `starfleet invite accept` cannot work from an API client
-#     under any circumstances — saas's edge proxy never sets both an
+#     under any circumstances — the API's edge proxy never sets both an
 #     X-User-ID and an X-Client-ID — so the verb refuses locally with
 #     exit 5. TestVendoredSpecsOmitPrivateOperations pins it.
-#   * /billing/v1 — saas has no billing spec at all; its handlers sit
-#     outside the generated server interface. Deliberately GUI-only.
+#   * /billing/v1 — the API publishes no billing spec at all.
+#     Deliberately GUI-only.
 #
-# 2026-09-22 — recapture for saas #1968, backup
-#   provenance. devapi and prod were compared structurally
-#   (sort-keys JSON diff, servers block excluded): byoc and account
-#   byte-identical; managed differed by exactly one addition, the
-#   optional root-level Backup.purpose string. purpose was NOT yet
-#   served by prod at capture time (confirmed with a direct GET
-#   against both hosts), so the content was captured from devapi
-#   — the one deliberate exception to "capture only what production
-#   serves" this file otherwise holds to — and the servers block was
-#   hand-restored to https://api.pgedge.com afterward so the vendored
-#   file keeps naming the contract customers are actually served
-#   (TestVendoredSpecsAreCanonical pins that literal). Recapture from
-#   prod once purpose ships there, to confirm the two still agree.
-#
-#   The devapi/prod comparison above is about purpose specifically;
-#   it does not mean this capture's diff against the PREVIOUSLY
-#   VENDORED file is purpose-only, because prod itself had drifted
-#   since the 2026-09-18 capture. That drift, all present on prod
-#   already and unrelated to purpose: two new paths,
-#   /managed/v1/databases/{id}/branches/{branch_id}/logs and its
-#   /metrics sibling (GetBranchLogs, GetBranchMetrics), neither yet
-#   called by any CLI command; a new 404 response added to the two
-#   existing database-level operations GetManagedDatabaseLogs and
-#   GetManagedDatabaseMetrics; and description-only rewording on five
-#   fields covering branch AI-service inheritance (Branch.services,
-#   MCPServiceConfig.embedding_api_key, .init_tokens, .init_users, and
-#   ServiceConfig.uri) — a branch now mints or inherits these per the
-#   reworded text, where the prior wording said none of that.
-#
-# CAPTURE LOG (newest first)
-#
-# 2026-09-01 — first capture, replacing the derivation at saas pin
-#   da5674e7. Contract changes against that pin: each product gained
-#   exactly one path, its own self-describing
-#   /{product}/v1/openapi.json (added by saas #1920 itself); every
-#   other path, method, schema and schema body was measured identical
-#   (structural comparison with a planted-mutation positive control,
-#   run 2026-08-31 against devapi and 2026-09-01 against prod).
-#   devapi and prod served byte-identical contracts apart from each
-#   environment's own servers URL. Counts from the capture: byoc 33
-#   paths, managed 17, account 12.
-
-# 2026-09-10 — recapture for saas #1918, source-IP
-#   allowlists, merged to saas main at 7521872d and live on devapi
-#   and prod at capture time (GET /managed/v1/client-ip answered 200
-#   on devapi). Managed gained one path, /managed/v1/client-ip, and
-#   three schemas, IPAllowlist, IPAllowlistRule and ClientIPAddress;
-#   ip_allowlist was added to CreateManagedDatabaseInput,
-#   UpdateManagedDatabaseInput, ManagedDatabase (required) and
-#   ServiceConfig. byoc and account unchanged. devapi and prod served
-#   the same contract apart from the servers URL.
-
-# 2026-09-18 — recapture for Fast Branching. devapi and prod compared
-#   byte-identical apart from the servers URL (path sets equal, Branch
-#   and Size schemas equal). Managed gained two paths,
-#   /managed/v1/databases/{id}/branches and its {branch_id} child, and
-#   two schemas, Branch and CreateBranchRequest. ManagedDatabase
-#   gained two optional properties, branch_count and branch_limit.
-#   Size gained two required properties, shared_memory_size and
-#   temporary_data_size — a breaking addition to a schema the
-#   generated client already used. DeleteManagedDatabase gained an
-#   optional force query param that cascades to a database's branches;
-#   the CLI's --force flag was deliberately kept scoped to the
-#   confirmation prompt, with a separate --delete-branches flag
-#   mapped to it. byoc and account unchanged.
-
-# 2026-09-22 — recapture for #541, branch metrics and
-#   logs. Managed gained exactly two paths,
-#   /managed/v1/databases/{id}/branches/{branch_id}/metrics and its
-#   /logs sibling, both GET-only and both reusing existing schemas
-#   (MetricSeriesContainer, DatabaseLogsResponse) rather than adding
-#   new ones — 20 paths before, 22 after, zero new schema names.
-#   Unrelated drift also landed in this capture, all description text
-#   or additional error responses, none touching a generated Go type:
-#   Branch.services, MCPServiceConfig's embedding_api_key, init_tokens
-#   and init_users, and ServiceConfig.uri picked up prose about branch
-#   MCP token minting/inheritance; the two existing database-level
-#   logs and metrics operations each gained a 404 response alongside
-#   their existing 400/401/default. devapi and prod compared
-#   byte-identical apart from the servers URL and one field on devapi
-#   only, Backup.purpose — not captured, since this still captures
-#   from production only. byoc and account unchanged.
-
-# 2026-09-23 — prod confirmation for the 2026-09-22 saas #1968
-#   exception above. prod now serves Backup.purpose, and
-#   `make vendor-spec-check` against https://api.pgedge.com reported
-#   no drift for byoc, managed or account, so the devapi-sourced
-#   content matches production and the exception is closed. No file
-#   was rewritten.
-
-# 2026-09-23 — recapture for saas #1958, app_read_only on
-#   managed. The user_type enum on the database and branch GETs gained
-#   application_read_only, their descriptions and rotate-password's
-#   now name the read-only role, and no path or schema was added.
-#   Captured from prod after its deploy-prod job succeeded. byoc and
-#   account unchanged.
-
 # =====================================================================
 # CONTROL PLANE (control-plane.json)
 #
@@ -177,22 +74,22 @@ CP_SPECPATH=api/apiv1/gen/http/openapi3.json
 # Vendor from RELEASED TAGS ONLY. The CLI supports Control Plane
 # >= 0.10.0 (decision 2026-08-05); a dev snapshot's info.version
 # lies about what routes it carries — the previous copy claimed
-# v0.9.0 while carrying post-v0.9.0 routes (issue #34).
+# v0.9.0 while carrying post-v0.9.0 routes.
 #
 # Re-vendor:
-#   Step 0: internal/cp/svccfg (issue #124) is a hand-written mirror of
+#   Step 0: internal/controlplane/svccfg is a hand-written mirror of
 #     CP's per-service-type config key sets (mcp/rag/postgrest), pinned
 #     to this same CP_TAG via svccfg.KeysFloor. It is NOT covered by
 #     `make vendor-spec` or `make generate` -- reconcile it BEFORE
 #     bumping CP_TAG below:
 #       scripts/cp-service-keys.sh <control-plane checkout>
-#     Fix any reported drift in internal/cp/svccfg (re-reading the
-#     three source files at the NEW tag -- see that package's doc
+#     Fix any reported drift in internal/controlplane/svccfg (re-reading
+#     the three source files at the NEW tag -- see that package's doc
 #     comment), then bump svccfg.KeysFloor to match.
 #   git -C <control-plane checkout> fetch --tags
 #   git -C <control-plane checkout> show \
 #     ${CP_TAG}:${CP_SPECPATH} > openapi/control-plane.json
-#   make generate    # regenerates internal/cp/api
+#   make generate    # regenerates internal/controlplane/api
 #
 # The OpenAPI 3.0.3 document is openapi3.json; its Swagger 2.0
 # sibling openapi.json is NOT the file to vendor.

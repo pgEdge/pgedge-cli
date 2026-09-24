@@ -12,16 +12,17 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 )
 
-// A malformed UUID the caller typed is a bad invocation, so it exits 2
-// (#277). Before this, cp exited 2 and byoc exited 1 for the same
+// A malformed UUID the caller typed is a bad invocation, so it exits 2.
+// Before this, cp exited 2 and byoc exited 1 for the same
 // mistake, and 25 hand-rolled parses across byoc and account had each
 // picked the general code.
 //
 // THIS LIST USED TO CARRY A SECOND, OPPOSITE HALF, and its removal is
-// the substance of #194. The byoc and managed resolvers accepted an ID
-// PREFIX, so there a failed parse was control flow into prefix
-// matching and the right answer was 4 rather than 2 — which meant a
-// sweep asserting 2 across the tree would have deleted a feature. That
+// the substance of the prefix withdrawal. The byoc and managed
+// resolvers accepted an ID PREFIX, so there a failed parse was control
+// flow into prefix matching and the right answer was 4 rather than 2
+// — which meant a sweep asserting 2 across the tree would have
+// deleted a feature. That
 // feature is gone: every ID-taking input takes a full UUID. So the
 // verbs that used to be listed as prefix-resolved are now listed here,
 // and TestNoIDInputResolvesAPrefix below is what stops the resolvers
@@ -50,7 +51,7 @@ var directUUIDCommands = [][]string{
 	{"starfleet", "byoc", "cluster", "share", "list", "not-a-uuid"},
 	{"controlplane", "task", "get", "not-a-uuid", "--database", "db"},
 
-	// Added by #194, and these are the ones the old second half
+	// These are the ones the old second half
 	// covered. Each was previously a prefix candidate: the value went
 	// to a list call, so with no credentials the answer was 5.
 	{"starfleet", "byoc", "cluster", "get", "not-a-uuid"},
@@ -67,12 +68,12 @@ var directUUIDCommands = [][]string{
 	{"starfleet", "managed", "backup", "get", "not-a-uuid"},
 	{"starfleet", "managed", "backup", "restore", "not-a-uuid", "--force"},
 
-	// #240: --subject-id was forwarded verbatim and the API answered a
+	// --subject-id was forwarded verbatim and the API answered a
 	// malformed one with 500 "failed to list tasks".
 	{"starfleet", "managed", "task", "list", "--subject-id", "not-a-uuid"},
 	{"starfleet", "byoc", "task", "list", "--subject-id", "not-a-uuid"},
 
-	// #257 and #274: --cluster-id reached a request body as a bare
+	// --cluster-id reached a request body as a bare
 	// string, so a prefix came back as "cluster not found or not
 	// available" — which reads like the cluster is busy.
 	{"starfleet", "byoc", "database", "create",
@@ -224,14 +225,14 @@ func TestMalformedUUIDArgumentIsAUsageError(t *testing.T) {
 				t.Errorf("`pgedge %s` exited %d, want %d.\nA malformed "+
 					"UUID the caller typed is a bad invocation. Route "+
 					"the parse through cli.ParseUUIDArg rather than "+
-					"building a general error (#277).",
+					"building a general error.",
 					strings.Join(args, " "), got, cli.ExitUsage)
 			}
 		})
 	}
 }
 
-// The other half of the contract. Prefixes are WITHDRAWN (#194): every
+// The other half of the contract. Prefixes are WITHDRAWN: every
 // ID-taking input takes a full UUID, so a value that is not one is a
 // usage error rather than control flow into prefix matching.
 //
@@ -298,8 +299,8 @@ func TestNoIDInputResolvesAPrefix(t *testing.T) {
 				string(raw)); loc != nil {
 				t.Errorf("%s: case-folded prefix matching at byte %d. "+
 					"ID prefixes are withdrawn: every ID-taking input "+
-					"takes a full UUID, checked locally, exit 2 "+
-					"(#194). A resolver lists ONE page and calls a "+
+					"takes a full UUID, checked locally, exit 2. "+
+					"A resolver lists ONE page and calls a "+
 					"single match on it unique, so a resource on page "+
 					"two is a false unique -- on `database delete` "+
 					"that is a destructive act on a resource the "+
@@ -333,8 +334,8 @@ func TestNodeNameResolutionSurvives(t *testing.T) {
 	if !strings.Contains(src, "func resolveNodeID(") {
 		t.Fatalf("%s: resolveNodeID is gone. A node can only be named "+
 			"-- `cluster get`'s node objects carry no id -- so its "+
-			"name resolution is not part of the prefix withdrawal "+
-			"(#194). If it was renamed, update this gate.", path)
+			"name resolution is not part of the prefix withdrawal. "+
+			"If it was renamed, update this gate.", path)
 	}
 	// The discarded parse is what routes a name on to matching, and
 	// the byoc package's own test proves the matching still works.

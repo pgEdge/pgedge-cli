@@ -296,7 +296,7 @@ func TestDatabaseGetRun(t *testing.T) {
 		}
 	})
 
-	// The item attached to #108: CP 0.10.0's connection_info carried
+	// CP 0.10.0's connection_info carried
 	// addresses/port for a Postgres instance, but text mode never
 	// rendered it — a caller had to drop to -o json to see it. This
 	// pins that it now shows up in the Instances table, matching that

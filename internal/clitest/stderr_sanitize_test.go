@@ -15,7 +15,7 @@ import (
 
 // A server-controlled string reaching stderr with no escaping forges
 // lines: a value carrying a newline produces output a reader — or an
-// agent parsing it — cannot tell from the CLI's own (#323). stdout's
+// agent parsing it — cannot tell from the CLI's own. stdout's
 // table path is covered by output.Sanitize inside the renderer, which
 // no call site can forget. stderr has no such choke point, because the
 // format string's own `\n` must pass through while the ARGUMENT's must
@@ -48,7 +48,7 @@ import (
 // them and makes each one a reviewed entry in
 // stderrComposedMessages. Three live instances were interpolating
 // server text unescaped when that enumeration was first written --
-// tieNote's instance_name cell (#323's own reproduction), byoc's
+// tieNote's instance_name cell, byoc's
 // backup-repository summary, and controlplane's orchestrator note -- so the
 // enumeration is the point rather than paperwork.
 //
@@ -220,7 +220,7 @@ var stderrComposedMessages = map[string]struct {
 			"../controlplane/cmd/floor.go":        true,
 		}},
 
-	// The rt.Stdout sites, reviewed when #349 brought that writer into
+	// The rt.Stdout sites, reviewed when that writer joined
 	// the population. Three carry server bytes and are verbatim on
 	// purpose; the rest carry none.
 	"*ac.Auth0Secret": {"the API client secret, server-controlled and " +
@@ -287,8 +287,8 @@ var stderrComposedMessages = map[string]struct {
 // rather than floors.
 // 143 -> 152 and 19 -> 20: the `managed database allowlist` verbs and
 // the `client-ip` leaf.
-// 156 -> 159 and 20 -> 22: `managed database branch metrics`/`logs`
-// (#541), reusing database_metrics.go/database_logs.go's own sites.
+// 156 -> 159 and 20 -> 22: `managed database branch metrics`/`logs`,
+// reusing database_metrics.go/database_logs.go's own sites.
 // 159 -> 163: `auth login` names where the secret went, and `auth
 // logout` reports a keychain it could not reach.
 const (
@@ -346,8 +346,7 @@ func stderrFormatVerbs(e ast.Expr) ([]string, bool) {
 		// arguments, which slid every later argument onto the wrong
 		// verb and pushed the LAST one off the end of `verbs`, where
 		// the loop skips it. managed's log line is `%s  %-*s  %s` and
-		// the argument that fell off was the server's log MESSAGE
-		// (#349).
+		// the argument that fell off was the server's log MESSAGE.
 		for n := strings.Count(m[0], "*"); n > 0; n-- {
 			verbs = append(verbs, "*")
 		}
@@ -431,12 +430,12 @@ func isStringLiteral(e ast.Expr) bool {
 
 // isNarrationWriter reports the writers this gate governs: stderr, and
 // both of the ways a command reaches stdout. rt.Output.Out is here
-// because #345 found the same defect there — printTaskDetail writing
+// because the same defect was found there — printTaskDetail writing
 // single-line fields under a table the renderer had already sanitized,
 // in the stream a caller parses.
 //
-// rt.Stdout is the THIRD writer and rt.Output.Err the FOURTH, both
-// added by #349. Each is a distinct field, so governing one governed
+// rt.Stdout is the THIRD writer and rt.Output.Err the FOURTH.
+// Each is a distinct field, so governing one governed
 // none of the others — which is how managed's log renderer printed a
 // server-controlled level and message unescaped on the stream a
 // caller parses. Renderer.Err is governed on its own documentation
@@ -461,12 +460,12 @@ func isNarrationWriter(e ast.Expr) bool {
 // `out := rt.Output.Out`, `var out = rt.Stderr`, and `w := out` — so a
 // call through one is still governed. Without it the gate reads the
 // argument as a bare identifier and skips the call, which is exactly
-// how #345's sites hid: aliasing the writer took eight interpolations
+// how printTaskDetail's sites hid: aliasing the writer took eight interpolations
 // out of the population.
 //
 // Three shapes, and the third is why this iterates. Review added
-// `w := out; fmt.Fprintf(w, "Name %s\n", t.Name)` to the very function
-// #345 is about and the gate PASSED with the population unchanged — an
+// `w := out; fmt.Fprintf(w, "Name %s\n", t.Name)` to printTaskDetail itself
+// and the gate PASSED with the population unchanged — an
 // alias of an alias was invisible. So the walk runs to a fixed point:
 // an assignment whose RHS is an identifier already in the set adds its
 // LHS too.

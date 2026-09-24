@@ -99,7 +99,7 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 				// cluster — two entries make it demand an explicit
 				// --target-nodes and exit first. Answering the shared
 				// object instead fails to unmarshal into []ClusterNode
-				// and killed all six (#205).
+				// and killed all six.
 				_, _ = w.Write([]byte(stubNodes))
 			case strings.Contains(r.URL.Path, sweepUUIDWithServices):
 				// The database that already has a service deployed, for
@@ -179,7 +179,7 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 	}
 	// Verbs that must be reached BY NAME, because no floor value can
 	// see them: a verb that never reached a write was never in the
-	// tally, so nothing dips when it leaves (#205). That reason holds
+	// tally, so nothing dips when it leaves. That reason holds
 	// whatever sweepFloor is set to -- see sweepFloor for the floor's
 	// own state -- so this list is not an argument about slack.
 	//
@@ -188,7 +188,7 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 	// covering the bug it was written for.
 	//
 	// backup restore earns its place by having already fallen out once:
-	// its request moved to a database-keyed path (#174), so a field it
+	// its request moved to a database-keyed path, so a field it
 	// already read now had to PARSE as a UUID before the write, and
 	// stubBody did not carry it. That dropped the tally from 42 to 41 —
 	// silently, because 41 clears the floor.
@@ -220,7 +220,7 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 		"pgedge starfleet managed database rag deploy",
 		"pgedge starfleet byoc database rag deploy",
 		// byoc's other five. All six were outside this sweep from the
-		// day it was written (#205), and no floor could ever have seen
+		// day it was written, and no floor could ever have seen
 		// them, so the must-reach list is the only thing that can.
 		"pgedge starfleet byoc database mcp deploy",
 		"pgedge starfleet byoc database mcp update",
@@ -236,7 +236,7 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 		// synthesis cannot reach; seventeen operations across the four
 		// specs declare a 204, so that is not what is unusual here.
 		"pgedge controlplane cluster join",
-		// #230's own argument names this verb: --provider is REQUIRED
+		// This verb's --provider is REQUIRED
 		// and reaches its write only because nothing validates the
 		// value, so a validation added later takes it out of the
 		// tally silently. Holding it by name is the only thing that
@@ -359,8 +359,7 @@ const tokenPath = "/account/v1/oauth/token"
 // removal is the point: at 51 against 54 three verbs could leave in
 // silence, and review demonstrated one doing so — replacing the
 // `kind` arm in valueFor dropped `managed backup create` out of the
-// sweep, 54 to 53, with the whole build green. #230 names that
-// mechanism too.
+// sweep, 54 to 53, with the whole build green.
 //
 // An exact floor means a new required flag reddens the build. That is
 // the intended cost: the author then either fixes the synthesis or
@@ -376,7 +375,7 @@ const tokenPath = "/account/v1/oauth/token"
 // news, which is why this is a note rather than a check.
 //
 // No floor value could have noticed the six byoc service verbs that sat
-// outside this sweep from the beginning (#205). A verb that never
+// outside this sweep from the beginning. A verb that never
 // reached a write was never in the tally, so nothing ever dipped and a
 // floor of 46 would have passed exactly as 44 did. Only the must-reach
 // list can hold a named verb.
@@ -397,7 +396,7 @@ const sweepFloor = 54
 // cluster_id is here for byoc's three service `deploy` verbs. Each parses
 // it out of the FETCHED database and puts it in the request path, so
 // without it all three exited at uuid.Parse with `invalid cluster ID ""`
-// — before their write, and so silently (#205). managed's equivalents
+// — before their write, and so silently. managed's equivalents
 // key on the database alone and never noticed.
 const stubBody = `{"id":"7f3a5c1e-0000-4000-8000-000000000000",` +
 	`"database_id":"7f3a5c1e-0000-4000-8000-000000000000",` +
@@ -440,7 +439,7 @@ const sweepUUIDWithServices = "7f3a5c1e-0000-4000-8000-000000000001"
 // parses the id out of the FETCHED body rather than the argument, so a
 // body echoing the wrong id would send every service write to the wrong
 // database — and a body echoing a non-UUID would lose these verbs at
-// uuid.Parse, the same way #174 lost `backup restore`.
+// uuid.Parse, the same way `backup restore` fell out.
 // It carries all three service types, not just mcp: `rag update` and
 // `postgrest update` are lost to the same guard as `mcp update`, and a
 // list holding only mcp would leave them silent for no reason.
@@ -606,10 +605,9 @@ var sweepOverrides = map[string][]string{
 	},
 
 	// byoc's three, turned away by the same guard for the same reason.
-	// They were never in this sweep at all (#205): #177 restored managed's
-	// four and byoc's were assumed to follow, but byoc's verbs read a
-	// cluster_id off the database as well, so they needed a stub-body fix
-	// before an override could help them.
+	// An override alone did not reach them: unlike managed's four,
+	// byoc's verbs read a cluster_id off the database as well, so they
+	// needed a stub-body fix before an override could help them.
 	"pgedge starfleet byoc database mcp update": {
 		sweepUUIDWithServices,
 	},
@@ -650,10 +648,10 @@ var sweepOverrides = map[string][]string{
 // The values here are realistic anyway. A fixture describing a request
 // the API would reject is the trap this whole change exists to remove.
 //
-// valueFor no longer hands a UUID to the two provider flags -- #230
-// narrowed its id test to whole segments, so "prov-id-er" no longer
-// matches. These explicit values stay regardless: this override exists
-// for --pipeline-config either way, and a realistic provider is worth
+// valueFor does not hand a UUID to the two provider flags -- its id
+// test matches whole segments, so "prov-id-er" does not match. These
+// explicit values stay regardless: this override exists for
+// --pipeline-config either way, and a realistic provider is worth
 // more than a synthesized one whatever valueFor would now return.
 //
 // The file is a checked-in fixture rather than one written at run time,
@@ -733,14 +731,14 @@ var selectorFlags = map[string]bool{
 // hasIDSegment reports whether name carries "id" as a whole SEGMENT,
 // rather than merely containing those two letters somewhere.
 //
-// #230: the test was strings.Contains(n, "id"), and "provider" contains
+// The test was once strings.Contains(n, "id"), and "provider" contains
 // p-r-o-v-**id**-e-r, so every provider flag was handed a UUID. byoc
 // backup create's --provider is REQUIRED and reached its write only
 // because nothing validates the value, which means a validation added
 // later would have dropped that verb out of the sweep silently -- the
 // same class as the --region regression this file already records.
 // rag deploy's two vocabulary-checked provider flags were refused
-// outright, and #205 worked around that with an explicit override
+// outright, and were worked around with an explicit override
 // rather than narrowing the rule here. "candidate" carries the same
 // accident (cand-**id**-ate), and so does "skip-validation", which is
 // spared only because bool flags never reach valueFor.
@@ -869,7 +867,7 @@ func dedupe(in []string) []string {
 	return out
 }
 
-// TestIDSegmentDoesNotMatchAnAccident is the gate for #230.
+// TestIDSegmentDoesNotMatchAnAccident is the gate for hasIDSegment.
 //
 // BEFORE EDITING THIS TABLE: each row states its own purpose AT THE
 // ROW, and nothing up here counts them or characterises them
@@ -880,8 +878,8 @@ func dedupe(in []string) []string {
 // The rule it guards decides WHAT FILLS A FLAG, which decides which
 // verbs this sweep reaches at all. The tally cannot stand in for it:
 // the floor was slack when the --region regression slipped through, and
-// no floor can see a verb that was never in the tally to begin with
-// (#205). So the rule gets a test of its own.
+// no floor can see a verb that was never in the tally to begin with.
+// So the rule gets a test of its own.
 //
 // Both directions are asserted. A test that only checked the accidents
 // were excluded would pass against a rule that matched nothing, which
@@ -925,7 +923,7 @@ func TestIDSegmentDoesNotMatchAnAccident(t *testing.T) {
 		// without BEING "id", so a one-sided partial match --
 		// HasPrefix(seg, "id") or HasSuffix -- also survived. Under
 		// HasPrefix these two would be handed a UUID, which re-opens
-		// exactly the class #230 reports.
+		// exactly the "prov-id-er" class.
 		{"identity-provider", false},
 		{"grid-size", false},
 		// SYNTHETIC, and the degenerate arity case: there is no --id
@@ -949,7 +947,7 @@ func TestIDSegmentDoesNotMatchAnAccident(t *testing.T) {
 		// trims the brackets off a Use token and passes the bare name
 		// in, so a rule splitting only on the hyphen would stop
 		// filling every one of these -- a larger regression than the
-		// one #230 fixes.
+		// one this rule fixes.
 		{"database_id", true},
 		{"cluster_id", true},
 		{"task_id", true},
@@ -971,7 +969,7 @@ func TestIDSegmentDoesNotMatchAnAccident(t *testing.T) {
 			// case to strings.Contains(n, "id") passed it. The
 			// predicate was still correct in isolation, so the
 			// accident half of the test never looked at valueFor at
-			// all, and the exact defect #230 reports walked straight
+			// all, and the exact "prov-id-er" defect walked straight
 			// through the gate written for it.
 			gotUUID := valueFor(tc.name) == sweepUUID
 			if gotUUID != tc.want {

@@ -39,7 +39,7 @@ func run() int {
 
 	// cli.NewRootCmd wires a PersistentPreRunE on root that populates
 	// the rest of rt (Config, Profile, Output, Verbose, Debug) from
-	// cobra's own parsed flags once Execute reaches it (#120). Nothing
+	// cobra's own parsed flags once Execute reaches it. Nothing
 	// below this point may assume rt is fully populated before
 	// Execute runs; every command tree built here is wired for that,
 	// same as internal/clitest.FullTree() proves for the gates.
@@ -95,7 +95,7 @@ func run() int {
 
 	// cobra prints help and returns nil whenever it sees --help, before
 	// it ever validates arguments, so a mistyped subcommand exited 0
-	// with the parent's help at every depth below the root (#241).
+	// with the parent's help at every depth below the root.
 	// ExecuteC is called for its first return value alone: it is the
 	// command cobra actually resolved, and hence the one whose Args
 	// validator cli.StrayArgsOnHelp has to ask. root.HelpFunc already

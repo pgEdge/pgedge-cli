@@ -145,7 +145,7 @@ Example:
 				// splits a line the server already controlled rather
 				// than forging a field the CLI supplies. managed's
 				// renderer IS escaped because it puts a time and a
-				// level on the same line (#323, #349).
+				// level on the same line.
 				fmt.Fprintln(rt.Stdout, e.RawText)
 				printed++
 			}

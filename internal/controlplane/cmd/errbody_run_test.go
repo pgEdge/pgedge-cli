@@ -12,8 +12,8 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// The controlplane half of the error-body contract (#165). The starfleet module got
-// this in #140/#164; controlplane's client was built with the same layering cp
+// The controlplane half of the error-body contract. The starfleet module got
+// this first; controlplane's client was built with the same layering cp
 // had before that fix and the same generated Content-Type catch-all,
 // so the identical failure was live here.
 //
@@ -68,7 +68,7 @@ func TestControlplaneMislabelledErrorBodyReachesCheckResponse(t *testing.T) {
 		wantCode    int
 	}{
 		{
-			// The #165 shape: a proxy in front of a Control Plane
+			// The core shape: a proxy in front of a Control Plane
 			// answering a route miss, mislabelled as JSON.
 			name:        "route miss under a JSON content type",
 			status:      http.StatusNotFound,
@@ -142,7 +142,7 @@ func TestControlplaneMislabelledErrorBodyReachesCheckResponse(t *testing.T) {
 	}
 }
 
-// TestControlplaneErrorBodyExcerptIsBounded pins the second half of #165.
+// TestControlplaneErrorBodyExcerptIsBounded pins the repair's second half.
 //
 // Before the repair, an oversized non-JSON body died in the parser and
 // never reached a message. Now that those bodies are routed to

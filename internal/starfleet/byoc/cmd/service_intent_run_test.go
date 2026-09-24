@@ -10,19 +10,18 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// The deploy/update guard matrix (#117).
+// The deploy/update guard matrix.
 //
 // `deploy` and `update` share one apply helper per service type, and
 // until now that helper never asked whether the type it was about to
 // write already existed. `mcp deploy --allow-writes` against an
 // already-deployed read-only MCP service silently escalated its
-// privileges — the hazard the issue reported. guardServiceIntent closes
-// both directions: deploy refuses when the type is already deployed,
-// pointing at update; update refuses when it is not, pointing at
-// deploy. This file drives that guard directly through the command
-// tree, once per service type, mirroring managed's
-// service_intent_run_test.go over byoc's own fixtures and generated
-// types.
+// privileges. guardServiceIntent closes both directions: deploy refuses
+// when the type is already deployed, pointing at update; update refuses
+// when it is not, pointing at deploy. This file drives that guard
+// directly through the command tree, once per service type, mirroring
+// managed's service_intent_run_test.go over byoc's own fixtures and
+// generated types.
 //
 // dbWithServiceBody (mcp only) and dbWithRAGBody (rag only) already
 // exist; postgrestOnlyDBBody fills the third gap so every "a different
@@ -172,7 +171,7 @@ func TestServiceIntentMCP(t *testing.T) {
 			}
 		})
 
-	// cell 6: the privilege-flip regression this issue exists to close.
+	// cell 6: the privilege-flip regression this guard exists to close.
 	// A deployed MCP service with allow_writes:false must not be
 	// silently escalated by `mcp deploy --allow-writes`.
 	t.Run("cell 6: deploy --allow-writes on a read-only mcp is refused",

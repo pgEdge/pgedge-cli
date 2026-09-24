@@ -89,8 +89,8 @@ func (e *ExitError) Code() int { return e.code }
 // handler: it is a route miss unless the body parses as a JSON object
 // with a "code" field. Every Starfleet handler 404 carries one, since the
 // vendored specs declare Error with `required: [code, message]`, while
-// saas's Echo router answers an unregistered path with
-// {"message":"Not Found"} (devapi, 2026-08-06). A proxy's HTML page, a
+// the API's router answers an unregistered path with
+// {"message":"Not Found"} (measured 2026-08-06). A proxy's HTML page, a
 // reformatted copy of that body and an empty body all count as misses.
 //
 // Content-Type is not consulted. CheckResponse never sees headers
@@ -111,26 +111,26 @@ func isRouteMiss(body string) bool {
 	return len(probe.Code) == 0
 }
 
-// planDenialPhrase opens the 400 saas returns when the tenant's plan
-// lacks a byoc or managed capability. Its one producer is
-// fmt.Sprintf("plan does not allow creating %s", b.name), so the tail
+// planDenialPhrase opens the 400 the API returns when the tenant's plan
+// lacks a byoc or managed capability. The message is "plan does not
+// allow creating <resource>", so the tail
 // varies per resource ("... creating cloud account read") and only this
-// prefix is stable (devapi, 2026-08-06). saas's other plan refusal,
+// prefix is stable (measured 2026-08-06). The API's other plan refusal,
 // "database limit for plan reached", is left as a plain 400.
 const planDenialPhrase = "plan does not allow"
 
 // busyStatusPhrase marks a managed 400 that means "not available yet,
 // retry". Backup checks the status itself and answers `backup requires
-// status %q, current status is %q` (devapi, 2026-08-22, 3 of 3), where
-// the writes that go through repo.Reserve answer 409 instead (6 of 6,
+// status %q, current status is %q` (measured 2026-08-22, 3 of 3), where
+// the writes that take a status reservation answer 409 instead (6 of 6,
 // same day). Matching the shared head rather than a verb catches the
-// next status-gated write too: of saas's 259 NewBadRequestError sites
+// next status-gated write too: of the API's 400s
 // only status-gated ones carry it, and none is on a byoc or account path.
 const busyStatusPhrase = "requires status"
 
 // byocBusyStatusPhrase is byoc rotate-password's refusal when the
 // database is not available. It includes "database" because five of the
-// six "not in available status" producers in saas's database_service.go
+// API's six "not in available status" refusals
 // report the cluster's status, and a failed cluster never becomes
 // available, so "wait and retry" would never end (three of the five also
 // spell it "cluster in not in"). The database check runs before the
@@ -146,10 +146,10 @@ const byocBusyStatusPhrase = "database is not in available status"
 // means the resource is mid-operation.
 //
 // It names no verb or resource kind because the 409 has several
-// sources: a lost repo.Reserve on restore, resize, a services write or
-// rotate-password, and on delete saas's billing teardown, which answers
+// sources: a lost status reservation on restore, resize, a services write or
+// rotate-password, and on delete the API's billing teardown, which answers
 // "database provisioning in progress; retry shortly" while a provision
-// is still running (devapi, 2026-08-18, 3 of 3). byoc and account share
+// is still running (measured 2026-08-18, 3 of 3). byoc and account share
 // this path too, so the server's own message, quoted, says what was
 // refused.
 //
@@ -167,9 +167,9 @@ func busyResourceError(status int, excerpt string) *ExitError {
 	}
 }
 
-// branchGatedPhrase is the head saas gives the three managed 409s that
+// branchGatedPhrase is the head the API gives the three managed 409s that
 // a branch causes: a create at the branch limit, and a database delete
-// or resize while branches exist. Live-verified on devapi 2026-09-18
+// or resize while branches exist. Live-verified 2026-09-18
 // for the first two. These never settle, so busyResourceError's "wait
 // and retry" would hold a user forever; the remedy is to delete a
 // branch. No "wait" 409 carries the phrase: those say "requires the
@@ -212,7 +212,7 @@ func CheckResponse(status int, body string) error {
 	case http.StatusBadRequest:
 		if strings.Contains(body, planDenialPhrase) {
 			// ExitAuth, as for a 403: the credential is fine but the
-			// action is not permitted. saas just sends it as a 400.
+			// action is not permitted. The API just sends it as a 400.
 			return &ExitError{
 				msg: fmt.Sprintf(
 					"this tenant's plan does not allow this resource: "+
@@ -289,8 +289,8 @@ func ResolveAPIURL(ap *config.StarfleetProfile, flagAPIURL string) string {
 // call sites pass context.Background(), so without it a server that
 // never answers hangs the command.
 //
-// 30s matches controlplane and is ~8x the slowest call measured on
-// devapi (2026-08-22): 3639 ms for `database metrics --window 30,days`,
+// 30s matches controlplane and is ~8x the slowest call measured
+// (2026-08-22): 3639 ms for `database metrics --window 30,days`,
 // a 3.67 MB body. Wider windows return the same body, because retention
 // bounds it.
 const RequestTimeout = 30 * time.Second

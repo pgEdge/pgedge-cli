@@ -39,25 +39,24 @@ the one test that waits for a query to turn five minutes old.
 
 The CLI vendors three per-product OpenAPI specs in `openapi/`
 (`byoc.yaml`, `managed.yaml`, `account.yaml`), captured from the
-published public contracts rather than fetched at build time. saas
-serves each one unauthenticated at
+published public contracts rather than fetched at build time. The
+API serves each one unauthenticated at
 `https://api.pgedge.com/{product}/v1/openapi.json`, already filtered
-to the public, enterprise-maximal surface by its own
-`GeneratePublicSpec` — enterprise is the union of what any tenant can
-be served, one CLI binary serves every tenant, and a verb outside the
-caller's plan fails with the API's own entitlement error.
-`openapi/SOURCE` records every capture. Re-capture with
-`make vendor-spec` (production by default; both it and
-`make vendor-spec-check`, which reports drift without rewriting, hit
-the network) and regenerate with `make generate`; do not hand-edit
-either the specs or the generated clients.
+to the public, enterprise-maximal surface — enterprise is the union
+of what any tenant can be served, one CLI binary serves every tenant,
+and a verb outside the caller's plan fails with the API's own
+entitlement error. Re-capture with `make vendor-spec` (production by
+default; both it and `make vendor-spec-check`, which reports drift
+without rewriting, hit the network) and regenerate with
+`make generate`; do not hand-edit either the specs or the generated
+clients. Record what changed shape in the commit message.
 
 The capture is fail-closed: every product is validated before any
 file is written, and the run aborts on an `x-pgedge-*` key anywhere
 in a contract (the upstream filter should have removed every
 visibility marker, so one appearing means that filter regressed), on
-`x-go-type-import` (it names an `internal` package of the saas module,
-which Go will not let this module import, so the generated client
+`x-go-type-import` (it names an `internal` package of the server's own
+Go module, which Go will not let this module import, so the generated client
 would not compile — a bare `x-go-type` is expected: it names `UUID`,
 which each module's `api/types.go` supplies locally), and on a path
 outside the product's own namespace.
@@ -84,11 +83,11 @@ on the catch-all and `json.Unmarshal` of zero bytes fails. A call that
 succeeded is then reported as `unexpected end of JSON input`.
 
 Whether it fires depends only on whether the server sends a JSON
-`Content-Type` alongside the empty 2xx. It is not hypothetical: saas's
-`DeleteClient` handler answers `ctx.JSON(http.StatusNoContent, nil)`,
-and because echo writes the content type before setting the status
-while `net/http` keeps it on a 204, `pgedge starfleet client delete`
-reported successful deletions as failures until it was fixed.
+`Content-Type` alongside the empty 2xx. It is not hypothetical: the
+API answers some empty 2xx responses with a JSON `Content-Type`,
+including the 204 from deleting a client, so without this handling
+`pgedge starfleet client delete` reports each successful deletion as
+a failure.
 
 Commands whose success carries no body therefore call the *untyped*
 generated operation and pass the status and body to

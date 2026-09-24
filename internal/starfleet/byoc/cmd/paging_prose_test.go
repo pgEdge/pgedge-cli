@@ -46,10 +46,9 @@ var pagedByocVerbs = map[string]cli.PageDefaults{
 // printTruncationHint.
 //
 // Nothing tied the two together, and the reference drifted away from
-// the binary while every gate stayed green (#198): three sections were
+// the binary while every gate stayed green: three sections were
 // rewritten to say the default was unknown, while the table driving
-// printTruncationHint recorded it with a saas file:line citation for
-// each endpoint. A doc claim about a number the CLI itself holds should
+// printTruncationHint recorded it for each endpoint. A doc claim about a number the CLI itself holds should
 // not be checkable only by reading.
 //
 // Both fields are bound, because both drive the hint. An earlier
@@ -231,8 +230,8 @@ func TestEveryPaginatedByocVerbHasAProseClaim(t *testing.T) {
 			"paginated verb needs a cli.PageDefaults entry in "+
 			"pagination.go with its provenance, a row in that map, and "+
 			"a page-size claim in its section of llms.txt — a verb "+
-			"that hints with no documented page size is the drift #198 "+
-			"and #269 were both about. If a verb genuinely cannot "+
+			"that hints with no documented page size is the drift "+
+			"this test exists to catch. If a verb genuinely cannot "+
 			"carry one, say why in this file — there is deliberately "+
 			"no exemption map to add a line to.", path)
 	})

@@ -187,7 +187,7 @@ func TestValidatePipelines(t *testing.T) {
 	}
 }
 
-// TestRAGUpdateIsPartial is the acceptance test for issue #45. It was
+// TestRAGUpdateIsPartial is the acceptance test for partial update. It was
 // committed skipped, describing the behaviour we wanted rather than the
 // behaviour we had; applyRAGService now does the read-modify-write and
 // the skip is gone.

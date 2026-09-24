@@ -20,7 +20,7 @@ var apiClientColumns = []string{
 	"ID", "NAME", "DESCRIPTION", "AUTH0 ID", "CREATED", "UPDATED",
 }
 
-// "Only create renders a secret" is enforced structurally by saas's
+// "Only create renders a secret" is enforced structurally by the API's
 // split response types: POST /clients answers CreateApiClientResponse,
 // which carries auth0_secret, and every read answers ApiClient, which
 // has no such field at all — a read cannot render a secret because its
@@ -409,12 +409,8 @@ Example:
 			// "restore" the WithResponse call — it reports a successful
 			// delete as a failure.
 			//
-			// saas's handler is
-			// `return ctx.JSON(http.StatusNoContent, nil)`
-			// (internal/starfleet/api/clients.go:118, at the pinned SHA
-			// in openapi/SOURCE and at saas HEAD). echo's
-			// (*context).json writes the json Content-Type before
-			// setting the status, and net/http suppresses only
+			// The API answers a delete with a 204 that still carries
+			// the json Content-Type: net/http suppresses only
 			// Content-Length and Transfer-Encoding on a 204 — not
 			// Content-Type. The wire shape is therefore 204 +
 			// `Content-Type: application/json` + a 0-byte body.

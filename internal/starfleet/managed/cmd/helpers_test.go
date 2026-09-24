@@ -25,12 +25,12 @@ import (
 // fixtures over managed's own generated client and the adapters that
 // name managed's root command.
 
-// testOtherDBID and testOtherBackupID went with the resolvers: a
-// SECOND id existed only so a prefix could be ambiguous between two of
-// them, and there is no ambiguity in a full UUID (#194). newTestClient
-// went the same way — it wired a client straight to a stub so the
-// resolvers could be driven without a command, and what replaced them
-// is parseUUIDArg, which needs no client at all.
+// testOtherDBID and testOtherBackupID went with the resolvers: a SECOND
+// id existed only so a prefix could be ambiguous between two of them,
+// and there is no ambiguity in a full UUID. newTestClient went the same
+// way — it wired a client straight to a stub so the resolvers could be
+// driven without a command, and what replaced them is parseUUIDArg,
+// which needs no client at all.
 const (
 	testDatabaseID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 	testSizeID     = "01952c3a-0000-7000-8000-000000000001"
@@ -222,17 +222,17 @@ const mcpNoAllowlistJSON = `[
 
 // mcpServiceJSON is a deployed MCP service carrying secrets, as
 // GetManagedDatabase returns them.
-// The port here is deliberately NOT 443. saas always sends 443 for a
-// managed service, so a fixture using it could not tell a real
+// The port here is deliberately NOT 443. The API always sends 443 for
+// a managed service, so a fixture using it could not tell a real
 // pass-through from a hardcoded constant. public_domain is the bare
-// database domain, as saas sends it.
+// database domain, as the API sends it.
 //
-// uri is what saas #1868 added and is the locator the CLI renders. It
-// is reproduced here exactly as observed live on 2026-08-17 — the
-// database domain plus the service segment, and no port, even though
-// port is sent alongside. TestServiceEndpoint is where a uri that
-// DISAGREES with the derived segment is exercised; this fixture's job
-// is to look like the real response.
+// uri is the locator the CLI renders. It is reproduced here exactly as
+// observed live on 2026-08-17 — the database domain plus the service
+// segment, and no port, even though port is sent alongside.
+// TestServiceEndpoint is where a uri that DISAGREES with the derived
+// segment is exercised; this fixture's job is to look like the real
+// response.
 const mcpServiceJSON = `[{
 	"service_id":"abc12345","service_type":"mcp","state":"running",
 	"port":8080,

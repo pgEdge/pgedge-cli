@@ -104,7 +104,7 @@ Example:
 			}
 			// Returned as is: cli.ExitCode maps a plain error to 1 and
 			// a usage error to 2, and rebuilding it here would flatten
-			// the second (#309).
+			// the second.
 			return cli.RunInspect(cmd.Context(), rt, inspectDeps, a, cs.URI)
 		},
 	}

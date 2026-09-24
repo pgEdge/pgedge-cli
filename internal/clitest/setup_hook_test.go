@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestRootOwnsTheOnlySetupHook is the fragility gate for #120's
-// design: root's PersistentPreRunE (internal/cli.setupRuntime, wired
+// TestRootOwnsTheOnlySetupHook is the fragility gate for the
+// setup-hook design: root's PersistentPreRunE (internal/cli.setupRuntime, wired
 // in NewRootCmd) is the ONLY place in the tree that populates the
 // Runtime from cobra's parsed flags. The failure mode this guards
 // against: a future command defines its own PersistentPreRun(E) or
@@ -25,7 +25,7 @@ func TestRootOwnsTheOnlySetupHook(t *testing.T) {
 		t.Fatal(err)
 	}
 	if root.PersistentPreRunE == nil {
-		t.Fatal("root has no PersistentPreRunE: the #120 setup hook " +
+		t.Fatal("root has no PersistentPreRunE: the setup hook " +
 			"is missing from internal/cli.NewRootCmd")
 	}
 

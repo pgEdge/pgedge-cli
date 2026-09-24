@@ -186,7 +186,7 @@ func TestStrayArgsOnHelpHybrid(t *testing.T) {
 // the diagnostic and the exit code are main.run's, but the help dump
 // has to be suppressed here or the error lands underneath a screenful
 // of the parent's help and a caller reading stdout still sees a
-// successful-looking lookup (#241).
+// successful-looking lookup.
 func TestRootHelpSuppressedForStrayArgument(t *testing.T) {
 	tests := []struct {
 		name     string

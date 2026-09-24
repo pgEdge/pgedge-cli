@@ -609,9 +609,9 @@ func TestLoadTokenFailures(t *testing.T) {
 	})
 }
 
-// TestFingerprint covers D1: the digest is stable, varies with any one
-// input on its own, never leaks an input as a substring, and the
-// domain-separating NUL between every field actually does its job.
+// TestFingerprint covers the connection fingerprint: the digest is stable,
+// varies with any one input on its own, never leaks an input as a substring,
+// and the domain-separating NUL between every field actually does its job.
 func TestFingerprint(t *testing.T) {
 	const url = "https://api.example.test"
 
@@ -639,7 +639,7 @@ func TestFingerprint(t *testing.T) {
 		}
 	})
 
-	// Issue #146: the digest must move with the endpoint, or a token
+	// The digest must move with the endpoint, or a token
 	// minted by one host stays acceptable when another is dialled.
 	t.Run("differs when only the api url changes", func(t *testing.T) {
 		a := Fingerprint("https://api.example.test", "client-x", "secret-x")
@@ -699,8 +699,8 @@ func TestFingerprint(t *testing.T) {
 	})
 }
 
-// TestSaveTokenRejectsEmptyFingerprint guards D2's "unforgeable
-// invariant": there must be no path that writes a cache file without
+// TestSaveTokenRejectsEmptyFingerprint guards the binding invariant:
+// there must be no path that writes a cache file without
 // a Fingerprint, so the guard lives in SaveToken itself, the one
 // writer.
 func TestSaveTokenRejectsEmptyFingerprint(t *testing.T) {
@@ -757,10 +757,10 @@ func TestSaveLoadRoundTripPreservesFingerprint(t *testing.T) {
 	}
 }
 
-// TestMintedBy covers D3's accept rule in isolation from conn: true
-// only for the exact triple that minted the fingerprint, false for a
-// rotated secret, a different id, a different API URL, or — the legacy
-// case — an empty Fingerprint, which must never match anything.
+// TestMintedBy covers the token accept rule in isolation from conn: true only
+// for the exact triple that minted the fingerprint, false for a rotated
+// secret, a different id, a different API URL, or — the legacy case — an empty
+// Fingerprint, which must never match anything.
 func TestMintedBy(t *testing.T) {
 	const url, other = "https://api.example.test", "https://evil.example.test"
 	tok := &CachedToken{
@@ -775,7 +775,7 @@ func TestMintedBy(t *testing.T) {
 	if tok.MintedBy(url, "client-b", "secret-a") {
 		t.Error("MintedBy true despite a different client id")
 	}
-	// Issue #146: identical credentials, different host. Accepting
+	// Identical credentials, different host. Accepting
 	// this is what let a live bearer token be replayed to a host that
 	// never minted it.
 	if tok.MintedBy(other, "client-a", "secret-a") {
@@ -788,9 +788,9 @@ func TestMintedBy(t *testing.T) {
 	}
 }
 
-// TestSaveTokenIsAtomic covers D5. os.WriteFile truncates in place, so
-// a reader arriving mid-write saw an empty or half-written file and a
-// crash mid-write left one behind permanently. A temp file plus rename
+// TestSaveTokenIsAtomic covers the atomic cache write. os.WriteFile truncates
+// in place, so a reader arriving mid-write saw an empty or half-written file
+// and a crash mid-write left one behind permanently. A temp file plus rename
 // makes the replacement all-or-nothing.
 //
 // Two of the three subtests fail against os.WriteFile and so are

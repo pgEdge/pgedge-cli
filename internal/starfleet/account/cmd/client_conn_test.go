@@ -126,7 +126,7 @@ func TestClientFromCmdReusesCachedToken(t *testing.T) {
 	// same connection or the MintedBy check on the hot path would
 	// (correctly) treat it as a mismatch and force a fresh exchange,
 	// defeating this test's point. That is also why the seed happens
-	// after the stub exists: the binding covers the endpoint (#146), so
+	// after the stub exists: the binding covers the endpoint, so
 	// it cannot be written before the endpoint has an address.
 	if err := conn.Store(rt).SaveToken(&auth.CachedToken{
 		AccessToken: "cached-tok",
@@ -197,7 +197,7 @@ func TestClientFromCmdNoCredentials(t *testing.T) {
 // still has to map statuses to the documented exit codes.
 func TestCheckResponse(t *testing.T) {
 	// body defaults to "body" for every row except 404: a bare,
-	// code-less string is no longer a resource miss (issue #101), so
+	// code-less string is no longer a resource miss, so
 	// the 404 row needs a realistic handler-shaped body to still
 	// exercise ExitNotFound here.
 	tests := []struct {

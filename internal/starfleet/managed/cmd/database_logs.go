@@ -29,9 +29,9 @@ const logLevelWidth = 7
 // databaseLogRecord is one log line lifted out of the generated bare
 // object. The spec declares each item as `type: object` with no
 // properties, so Logs is []map[string]interface{}. "level", "message"
-// and "time" were observed on devapi 2026-08-17, not contracted, so a
-// key that is missing, empty or wrongly typed renders a placeholder
-// rather than an error; -o json carries whatever really arrived.
+// and "time" were observed on 2026-08-17, not contracted, so a key that
+// is missing, empty or wrongly typed renders a placeholder rather than
+// an error; -o json carries whatever really arrived.
 type databaseLogRecord struct {
 	Time    string
 	Level   string

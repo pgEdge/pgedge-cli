@@ -36,7 +36,7 @@ func TestTaskListRun(t *testing.T) {
 
 	// byoc had NO query assertion at all, so a flag could ship
 	// declared but never reaching the wire — which is how `--name`
-	// would have arrived here (#231). The value carries a hyphen, so a
+	// would have arrived here. The value carries a hyphen, so a
 	// plain Contains works: only the separators get percent-encoded.
 	t.Run("filters reach the query", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")

@@ -12,7 +12,7 @@ import (
 // would make the error-body repair invisible on a normal run.
 // HTTPClientFor used to short-circuit to http.DefaultClient whenever
 // logging was off and no dry run was active — which is every ordinary
-// command, precisely the case issue #140 was reported against.
+// command, precisely the case the repair exists for.
 //
 // It lives here rather than beside the transport because it is a claim
 // about THIS module's client layering, not about the repair itself.

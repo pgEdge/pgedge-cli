@@ -134,9 +134,9 @@ Example:
 			return err
 		}
 		// Planned makes it gentler to the cluster, not invisible to a
-		// connected client, and "a client notices" is the bar #253 set
-		// for this tree. failover -- the unplanned sibling of the same
-		// operation on the same resource -- already prompts (#284).
+		// connected client, and "a client notices" is the bar for a
+		// prompt in this tree. failover -- the unplanned sibling of the same
+		// operation on the same resource -- already prompts.
 		//
 		// Prompt-only: the switchover endpoint takes a JSON body and
 		// no force parameter, so --force sends nothing on the wire.

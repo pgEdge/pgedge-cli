@@ -160,7 +160,7 @@ func TestPagingFlagsRefuseAboveTheDeclaredMaximum(t *testing.T) {
 // above 100 everywhere. That would refuse a value the API accepts, in
 // the direction this repo treats as the serious error: the CLI would
 // be enforcing a bound the contract never promised, and would keep
-// enforcing it after saas raised the cap.
+// enforcing it after the API raised the cap.
 //
 // If someone "tidies" the three NoUpperBound call sites into one shared
 // ceiling, this test is what fails.

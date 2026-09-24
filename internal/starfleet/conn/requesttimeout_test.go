@@ -23,7 +23,7 @@ import (
 )
 
 // hangingServer accepts, completes the TLS handshake and then never
-// writes a response header — the shape #348 is about. It answers the
+// writes a response header — the shape these tests guard. It answers the
 // request context so the test's own goroutines unwind.
 func hangingServer(t *testing.T) string {
 	t.Helper()
@@ -187,8 +187,8 @@ func TestClientTimeoutIsIndistinguishableFromAWaitExpiry(t *testing.T) {
 const starfleetHTTPClientSites = 5
 
 // TestEveryStarfleetHTTPClientSetsATimeout derives its population by
-// walking internal/starfleet rather than naming the three clients #348
-// found, so a client added later is covered the day it lands. The
+// walking internal/starfleet rather than naming the three known
+// clients, so a client added later is covered the day it lands. The
 // point-assertions above cannot do that: they can only check what
 // somebody remembered to list.
 //
@@ -254,7 +254,7 @@ func TestEveryStarfleetHTTPClientSetsATimeout(t *testing.T) {
 						t.Errorf("%s: this http.Client literal sets no "+
 							"non-zero Timeout, so a server that "+
 							"accepts and never answers hangs the "+
-							"command (#348)",
+							"command",
 							fset.Position(node.Pos()))
 					}
 				case *ast.ValueSpec:
@@ -265,8 +265,8 @@ func TestEveryStarfleetHTTPClientSetsATimeout(t *testing.T) {
 					}
 					sites++
 					t.Errorf("%s: http.Client declared without a "+
-						"Timeout; build it as a literal that sets one "+
-						"(#348)", fset.Position(node.Pos()))
+						"Timeout; build it as a literal that sets one",
+						fset.Position(node.Pos()))
 				case *ast.CallExpr:
 					// `new(http.Client)` — same zero value.
 					id, ok := node.Fun.(*ast.Ident)
@@ -277,13 +277,13 @@ func TestEveryStarfleetHTTPClientSetsATimeout(t *testing.T) {
 					}
 					sites++
 					t.Errorf("%s: new(http.Client) has a zero Timeout; "+
-						"build it as a literal that sets one (#348)",
+						"build it as a literal that sets one",
 						fset.Position(node.Pos()))
 				case *ast.AssignStmt:
 					if zeroesTimeoutAfterConstruction(node) {
 						t.Errorf("%s: Timeout is set to zero after "+
 							"construction, which unbounds a client the "+
-							"literal above appears to bound (#348)",
+							"literal above appears to bound",
 							fset.Position(node.Pos()))
 					}
 					return true
@@ -297,7 +297,7 @@ func TestEveryStarfleetHTTPClientSetsATimeout(t *testing.T) {
 						t.Errorf("%s: http.DefaultClient is unbounded "+
 							"and shared, so it cannot be given a "+
 							"Timeout without bounding every other "+
-							"caller in the process (#348)",
+							"caller in the process",
 							fset.Position(node.Pos()))
 					}
 				}

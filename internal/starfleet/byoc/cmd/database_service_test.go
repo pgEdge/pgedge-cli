@@ -7,7 +7,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/byoc/api"
 )
 
-// TestServiceEndpointPrefersPublicDomain pins the fix for issue #108:
+// TestServiceEndpointPrefersPublicDomain pins the internal-port fix:
 // the table must never surface the internal port as a dialable
 // locator. When a public domain is registered, ENDPOINT is the
 // TLS-terminated address a caller can actually dial — the internal

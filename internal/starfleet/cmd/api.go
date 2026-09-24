@@ -12,7 +12,7 @@ import (
 )
 
 // newAPICmd builds `pgedge starfleet api`, the raw call to any path
-// under the Starfleet API base over the module's own connection (#434).
+// under the Starfleet API base over the module's own connection.
 func newAPICmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
 	var (
 		data    string

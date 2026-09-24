@@ -1,6 +1,6 @@
 // Package inspect runs read-only diagnostic queries against a Postgres
 // database and renders the rows. It is the one place the CLI connects
-// to Postgres rather than to a pgEdge API (#431).
+// to Postgres rather than to a pgEdge API.
 //
 // Every query is a literal with no interpolated input, reads only
 // catalog and statistics views, and writes nothing. The SQL follows

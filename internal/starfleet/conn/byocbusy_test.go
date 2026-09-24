@@ -9,13 +9,13 @@ import (
 )
 
 // TestByocBusyPhraseSeparatesDatabaseFromCluster pins the discrimination
-// the whole phrase choice rests on (#204).
+// the whole phrase choice rests on.
 //
 // byocBusyStatusPhrase's own comment carries the census; this is the
 // executable half of it.
 //
-// The bodies are the literals from saas's database_service.go at the
-// revision openapi/SOURCE pins, typo included. They are duplicated here
+// The bodies are the API's literal error bodies as the API returned
+// them when read, typo included. They are duplicated here
 // because the CLI cannot import them, and two independent statements of
 // the same fact are what make a divergence visible.
 func TestByocBusyPhraseSeparatesDatabaseFromCluster(t *testing.T) {
@@ -30,8 +30,8 @@ func TestByocBusyPhraseSeparatesDatabaseFromCluster(t *testing.T) {
 	}{
 		{
 			// The one producer keyed on the database. Live-verified on
-			// a BYOC dev tenant against two `failed` databases and one `deleting`
-			// database on a `failed` cluster.
+			// a live BYOC tenant against two `failed` databases and one
+			// `deleting` database on a `failed` cluster.
 			name: "rotate-password, database status",
 			message: "database update cannot be completed." +
 				" database is not in available status",
@@ -102,7 +102,7 @@ func TestByocBusyPhraseSeparatesDatabaseFromCluster(t *testing.T) {
 }
 
 // TestByocBusyPhraseIsNotSubstringOfTheClusterOnes is the direct
-// statement of the trap: the shorter phrase the issue considered first
+// statement of the trap: the shorter phrase considered first
 // matches every one of these. Three spellings are listed rather than
 // all five producers, because the other two differ only by verb.
 func TestByocBusyPhraseIsNotSubstringOfTheClusterOnes(t *testing.T) {
@@ -119,7 +119,7 @@ func TestByocBusyPhraseIsNotSubstringOfTheClusterOnes(t *testing.T) {
 			t.Errorf("byocBusyStatusPhrase %q matches a CLUSTER-status "+
 				"message: %q", byocBusyStatusPhrase, m)
 		}
-		// The control: the phrase the issue rejected does match, which
+		// The control: the rejected phrase does match, which
 		// is why this test exists rather than a simpler one.
 		if !strings.Contains(m, "not in available status") {
 			t.Errorf("control failed — %q no longer carries the shorter "+

@@ -25,8 +25,7 @@ self-hosted Control Plane).
 > resource names, missing help text, non-kebab flags). Keep both green
 > alongside any command change.
 >
-> Two more gate the examples themselves, which nothing read until
-> #297:
+> Two more gate the examples themselves:
 >
 > - `TestShippedRecipesDoNotDiscardAPgedgeStatus` fails when a
 >   `pgedge` call's exit status is swallowed by a pipeline, a
@@ -68,11 +67,11 @@ self-hosted Control Plane).
 - `make vendor-spec` — capture the three per-product Starfleet specs
   from the published public contracts
   (`https://api.pgedge.com/{product}/v1/openapi.json`, already
-  filtered by saas's own public filter). Fail-closed on any
+  filtered by the API's own public filter). Fail-closed on any
   `x-pgedge-*` extension, on `x-go-type-import` and on a
   foreign-namespace path, so the vendored specs can only ever
-  describe the public API. Hits the network; record each capture in
-  `openapi/SOURCE`. Never hand-edit a spec: `make vendor-spec-check`
+  describe the public API. Hits the network; record what changed in
+  the commit message. Never hand-edit a spec: `make vendor-spec-check`
   reports drift, and `TestVendoredSpecsCarryNoVisibilityMarkers`
   fails the build on a marker that a hand edit reintroduced
 - `make test-integration` — env-gated live-API suite
@@ -208,11 +207,9 @@ restatement of the rules.
 nonconforming. If you find one, fix it while you are in the file.
 
 **Prose beats a pasted block because it's measured, not a style
-preference:** #220 swept the **75** example-output blocks the five
-references carried and found **36 wrong**, while the two references
-that pasted none had none to fix. (How many of the 36 were byoc's is
-not settled — that PR's body and its commit message disagree — but the
-concentration is not what the rule rests on.) A prose claim naming a
+preference:** a sweep of the **75** example-output blocks the five
+references carried found **36 wrong**, while the two references
+that pasted none had none to fix. A prose claim naming a
 field or a status IS machine-checked: the field-claims and
 status-value gates in `internal/clitest` scan every reference, and
 `TestEveryModuleReferenceIsScanned` derives that set from the modules
@@ -270,10 +267,6 @@ Never re-review a fix that touched only comments.
 Tell every reviewer this in its prompt, and have it report prose as a
 single non-blocking list at the end rather than as findings.
 
-This rule was written after #336 took five review cycles and produced
-eleven findings, every one a comment and none of them a defect in the
-rule the comment described. The functional work was done in round one.
-
 ## Standards
 
 - gofmt mandatory; golangci-lint must pass (`make lint`)
@@ -285,7 +278,7 @@ rule the comment described. The functional work was done in round one.
   at length, or repeating a fact already given on a sibling
   declaration. Keep the facts, cut the words around them: the
   16-line comment `internal/metricfmt.Value` replaced said no more
-  than its 5-line successor does. Repo-wide sweep is #200
+  than its 5-line successor does
 - **A doc comment must not outgrow the code it explains.** Review
   history, case history and "an earlier version of this said"
   belong in git and in the PR, never in the file
@@ -298,7 +291,7 @@ rule the comment described. The functional work was done in round one.
 - **A success carrying no body prints nothing to stdout.** The
   acknowledgement is exit 0 and a sentence on stderr; stdout stays
   byte-empty in text, json and yaml. Never fabricate a response
-  object to fill it (#141)
+  object to fill it
 - Resource commands: singular names with plural aliases;
   destructive verbs go through `cli.Confirm` with `--force`;
   every leaf needs Short (<60 chars) and Long with an Example.

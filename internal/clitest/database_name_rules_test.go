@@ -23,7 +23,7 @@ import (
 // comparison belongs here, and it is made through the shipped command
 // tree rather than through symbols neither package exports.
 //
-// The rules differ because saas's do:
+// The rules differ because the API's do:
 //
 //   - byoc names go through pgutil.ValidateDatabaseName. A byoc
 //     database name is a Postgres identifier and nothing else: up to 63
@@ -56,7 +56,7 @@ func TestByocAndManagedDatabaseNameRulesDiverge(t *testing.T) {
 		{
 			name:  "unicode letter",
 			input: "café",
-			why: "byoc mirrors saas's unicode.IsLetter; the managed " +
+			why: "byoc mirrors the API's Unicode-letter rule; the managed " +
 				"check narrows to ASCII",
 		},
 	}

@@ -20,8 +20,8 @@ import (
 // their own copies: every leaf reads them off its inherited flag set
 // (connFlags in each sub-tree's client.go), which resolves against the
 // nearest ancestor that declared them — this command. --timeout bounds
-// one HTTP exchange, exactly as controlplane's flag of the same name does
-// (#356); the wait bound is the per-leaf --wait-timeout.
+// one HTTP exchange, exactly as controlplane's flag of the same name does;
+// the wait bound is the per-leaf --wait-timeout.
 func NewStarfleetCmd(rt *module.Runtime) *cobra.Command {
 	f := &conn.Flags{}
 
@@ -89,10 +89,9 @@ Example:
 	cmd.AddCommand(accountcmd.NewTenantCmd(rt))
 	cmd.AddCommand(newAPICmd(rt, f))
 
-	// No `cloud user` verbs, deliberately. GetCurrentUser
-	// (saas internal/starfleet/api/users.go:14) returns 401 when
-	// EITHER the tenant or the user is missing from the request —
-	// not only when both are absent — verified in source. A
+	// No `cloud user` verbs, deliberately. GetCurrentUser returns
+	// 401 when EITHER the tenant or the user is missing from the
+	// request — not only when both are absent. A
 	// client-credentials token carries a tenant but never a user,
 	// so it is rejected by design, not by accident. The generated
 	// client does carry GetCurrentUser/UpdateCurrentUser, so this

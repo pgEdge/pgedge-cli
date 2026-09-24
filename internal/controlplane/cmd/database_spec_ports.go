@@ -69,7 +69,7 @@ func anyPortMissing(nodes []nodePorts) bool {
 }
 
 // warnSystemdPortsMissing is the create/update-side twin of
-// detectOrchestrator (Task 7 in the plan): it shares
+// detectOrchestrator: it shares
 // classifyOrchestrator's EqualFold matching against the same ListHosts
 // data, but keeps its own policy, since the two call sites differ on
 // purpose --

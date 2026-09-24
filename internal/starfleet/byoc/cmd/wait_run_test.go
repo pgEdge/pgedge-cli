@@ -132,7 +132,7 @@ func TestDatabaseMCPDeployWaitRun(t *testing.T) {
 			testsupport.JSONHandler(200, nodes)(w, r)
 		case r.Method == http.MethodGet &&
 			!strings.Contains(r.URL.Path, "/tasks"):
-			// No MCP service deployed: the deploy/update guard (#117)
+			// No MCP service deployed: the deploy/update guard
 			// refuses `deploy` outright against a database that already
 			// carries one, so a genuine deploy test needs a fixture
 			// without it.

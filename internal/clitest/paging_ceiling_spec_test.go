@@ -144,7 +144,7 @@ func TestPagingCeilingsAreSpecDerived(t *testing.T) {
 	declared := declaredPagingMaxima(t)
 
 	// Positive control. Two maxima exist today, both on managed's
-	// `limit`. Zero means the walk broke rather than that saas removed
+	// `limit`. Zero means the walk broke rather than that the API removed
 	// them — and a broken walk would make an empty allowlist "correct".
 	if len(declared) == 0 {
 		t.Fatal("no paging maximum found in any vendored spec; " +

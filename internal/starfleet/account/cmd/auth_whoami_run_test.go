@@ -156,7 +156,7 @@ func TestAuthWhoamiRun(t *testing.T) {
 		}
 	})
 
-	// The credential authenticated, so saas's principal check already
+	// The credential authenticated, so the API's principal check already
 	// found a live client for the tenant — but the list is a separate
 	// read, and whoami must report the identity it DOES have rather
 	// than fail or invent a name.

@@ -10,7 +10,7 @@ import (
 )
 
 // SupportFloor is THE minimum Control Plane server version this CLI
-// module supports (decision 2026-08-05; issue #34's dev-snapshot
+// module supports (decision 2026-08-05; dev-snapshot version
 // mislabeling is why the policy exists at all). It must be kept in
 // sync with the `CP_TAG=` pin in openapi/SOURCE — that file is what
 // `make vendor-spec` actually vendors from, and this constant is what
@@ -100,7 +100,7 @@ func floorWarning(version string) string {
 	// the first character that is not a digit or a dot and parses only
 	// that PREFIX, so "0.9.0\nforged line" parses as 0.9.0, reports
 	// below-floor, and arrives here whole. The version is whatever the
-	// server put in its /version response (#323).
+	// server put in its /version response.
 	return fmt.Sprintf(
 		"control-plane server version %s is below the supported "+
 			"floor %s (supported: >= %s)",

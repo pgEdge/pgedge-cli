@@ -125,7 +125,7 @@ func TestOptionalIntFlag(t *testing.T) {
 	// An explicit 0 and a negative are both refused. "Omitted" stays
 	// the way to say "let the API choose"; an explicit out-of-range
 	// number is a typo, and the API answers it by substituting a
-	// default and reporting success (#256).
+	// default and reporting success.
 	for _, v := range []string{"0", "-5"} {
 		t.Run("explicit "+v+" is a usage error", func(t *testing.T) {
 			fs := newFlagSet(t, "--capacity", v)

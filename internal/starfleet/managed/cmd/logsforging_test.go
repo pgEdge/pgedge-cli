@@ -12,12 +12,12 @@ import (
 // TestForgedLogFieldsCannotAddARecord drives `database logs` end to
 // end with a hostile level and message.
 //
-// This is the stdout half of #323, and stdout is what makes it worse
-// than the stderr sites: a caller parses this stream. managed prints
-// time, level and message on ONE line, so a newline in either
+// This is the stdout half of log forging, and stdout is what makes it
+// worse than the stderr sites: a caller parses this stream. managed
+// prints time, level and message on ONE line, so a newline in either
 // server-controlled field produces a second line with no timestamp and
-// no level — which reads as a continuation of a real record rather
-// than as injected text.
+// no level — which reads as a continuation of a real record rather than
+// as injected text.
 //
 // The assertion counts LINES rather than looking for the escaped
 // forms alone. A fix that escaped only the message would still let the

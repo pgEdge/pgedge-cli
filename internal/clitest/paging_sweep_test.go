@@ -15,7 +15,7 @@ import (
 )
 
 // This file exists because per-module fixtures could not see the
-// modules they were not in. The paging sweep (#280) landed with tests
+// modules they were not in. The paging sweep landed with tests
 // in internal/starfleet/managed/cmd only, and a reviewer showed that
 // deleting the whole validation block from `byoc ingress list`, or
 // inventing a ceiling in `controlplane task list`, left the entire suite green.

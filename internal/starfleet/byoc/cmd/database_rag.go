@@ -184,7 +184,7 @@ func applyRAGService(
 	// Before the client, deliberately: clientFromCmd resolves
 	// credentials, so a malformed ID checked after it reports exit 5
 	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2 (#194).
+	// managed's identical verbs already answer 2.
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err
@@ -279,15 +279,13 @@ func applyRAGService(
 //
 // PostgREST's jwt_secret is in the same position.
 //
-// The evidence for those two is saas's response constructors, which is
-// stronger than a probe: ragLLMConfigToModel returns a struct literal
-// carrying only Provider and Model, and postgrestConfigToModel omits
-// JwtSecret, so no code path can populate either field. Identical on
-// saas main and on the pinned #1792 branch, and saas has two tests
-// asserting "jwt_secret must never be returned in the response".
+// The evidence for those two was read from the server's source, which
+// is stronger than a probe: the RAG LLM config it returns carries only
+// provider and model, and its PostgREST config omits jwt_secret, so
+// no code path can populate either field.
 //
 // MCP's secrets are NOT in this position — they come back on
-// GET /databases/{id}, confirmed against the live dev API. The
+// GET /databases/{id}, confirmed against the live API. The
 // asymmetry is deliberate, not an oversight. See existingMCPConfig;
 // do not "unify" the two.
 func existingRAGConfig(db *api.Database) api.RAGServiceConfig {
@@ -345,7 +343,7 @@ func applyRAGFlags(
 		// parsers. The caller named the path, nothing was sent, and
 		// the fix is entirely in what they typed. Read and parse are
 		// deliberately not split: one flag answering two codes for one
-		// class of mistake is what #258 fixed, and #134 before it.
+		// class of mistake is what this avoids.
 		data, readErr := os.ReadFile(opts.pipelineConfigPath)
 		if readErr != nil {
 			return newExitError(fmt.Sprintf(
@@ -370,8 +368,7 @@ func applyRAGFlags(
 	// All three are required by the API. On an update they come from the
 	// deployed service, which guardServiceIntent has already confirmed
 	// exists; this branch is reachable only from `deploy`, when the
-	// flags omit one, as long as the API honours its spec — which is
-	// exactly the failure issue #45 opened with.
+	// flags omit one, as long as the API honours its spec.
 	var missing []string
 	if cfg.EmbeddingLlm.Provider == "" || cfg.EmbeddingLlm.Model == "" {
 		missing = append(missing, "--embedding-llm-provider/--embedding-llm-model")
@@ -387,7 +384,7 @@ func applyRAGFlags(
 		// ExitUsage: cobra answers 2 when one of these flags is simply
 		// omitted, so on deploy only an explicitly empty value reaches
 		// this guard, and reporting that as 1 gave one mistake two
-		// codes (#258). update reaches it only if the API returns a
+		// codes. update reaches it only if the API returns a
 		// rag_config violating its own spec (pipelines is required,
 		// minItems 1) — with "pipelines":[] a faultless command line
 		// gets 2, which is the cost of not forking this guard.
@@ -448,7 +445,7 @@ func validatePipelines(path string, pipelines []api.RAGPipelineConfig) error {
 	fail := func(format string, args ...any) error {
 		// ExitUsage, not ExitGeneral: this is the file the caller named
 		// failing its structural rules — the same class of mistake as
-		// the parse that precedes it, so the same code (#258).
+		// the parse that precedes it, so the same code.
 		return newExitError(fmt.Sprintf("pipeline config %q: ", path)+
 			fmt.Sprintf(format, args...), ExitUsage)
 	}

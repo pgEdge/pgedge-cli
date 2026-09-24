@@ -17,7 +17,7 @@ import (
 
 // execRoot builds a fresh root command, runs it with args, and
 // returns combined stdout/stderr. It isolates HOME: root's setup hook
-// (#120) now runs for any real command reached through root.Execute,
+// runs for any real command reached through root.Execute,
 // including these, and would otherwise load the developer's actual
 // ~/.pgedge/cli/config.yaml.
 func execRoot(t *testing.T, args ...string) (string, error) {

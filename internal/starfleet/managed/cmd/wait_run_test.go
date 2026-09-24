@@ -205,10 +205,10 @@ func TestDatabaseMutationsWithoutWaitHintAtTheTask(t *testing.T) {
 func TestPriorTaskIsCapturedBeforeTheMutation(t *testing.T) {
 	// Table-driven over every verb whose wiring this fixture can
 	// exercise, because it is the ONLY fixture whose database carries
-	// task HISTORY: #364's review deleted rotate-password's
-	// captureTaskBaseline call and the whole suite stayed green — the
-	// other wait tests answer [] to the pre-mutation task list, so a
-	// dropped baseline is invisible to them by construction.
+	// task HISTORY: deleting rotate-password's captureTaskBaseline
+	// call once left the whole suite green — the other wait tests
+	// answer [] to the pre-mutation task list, so a dropped baseline is
+	// invisible to them by construction.
 	cases := []struct {
 		name string
 		args []string
@@ -229,8 +229,8 @@ func TestPriorTaskIsCapturedBeforeTheMutation(t *testing.T) {
 			// alone on the wire, a zero baseline accepts it and
 			// tracks the WRONG operation, while a captured baseline
 			// rejects it and finds the real task one poll later.
-			// #364's review dropped the capture against a lag-free
-			// version of this fixture and everything stayed green.
+			// Dropping the capture against a lag-free version of this
+			// fixture left everything green.
 			listsAfterWrite := 0
 			oldTask := fmt.Sprintf(`{"id":"a93e58c4-d425-4233-adf4-9b668d1eaece","name":"update-managed",
 		"status":"succeeded","subject_id":%q,"subject_kind":"database",

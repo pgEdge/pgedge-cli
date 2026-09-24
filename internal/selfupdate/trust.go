@@ -77,8 +77,8 @@ type TrustedMaterial struct {
 // SigstoreCacheDir is where the refreshed TUF trust root is cached.
 //
 // sigstore-go's own default is ~/.sigstore/root, which this CLI has
-// no business writing: ~/.pgedge/cli is the only directory it owns
-// (#393), and a directory a user has never heard of appearing in
+// no business writing: ~/.pgedge/cli is the only directory it owns,
+// and a directory a user has never heard of appearing in
 // their home is a surprise a verification step should not spring.
 func SigstoreCacheDir() (string, error) {
 	dir, err := config.DefaultCacheDir()

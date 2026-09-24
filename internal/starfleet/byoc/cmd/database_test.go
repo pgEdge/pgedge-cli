@@ -109,14 +109,14 @@ func TestDatabaseCreateRequiresFlags(t *testing.T) {
 	}
 }
 
-// TestValidateByocDatabaseName pins the byoc --name rule to saas's
-// own, which is NOT the managed rule (#135).
+// TestValidateByocDatabaseName pins the byoc --name rule to the
+// API's own, which is NOT the managed rule.
 //
 // The byoc create path validates
 // strings.ToLower(strings.TrimSpace(name)) against
-// pgutil.ValidateDatabaseName: <= 63 bytes, first rune a unicode
+// the API's name check: <= 63 bytes, first rune a unicode
 // letter or underscore, every rune a unicode letter, digit or
-// underscore. Because saas normalises before validating, uppercase and
+// underscore. Because the API normalises before validating, uppercase and
 // surrounding whitespace are ACCEPTED and coerced server-side — so the
 // CLI must accept them too. A pre-check that refuses input the server
 // takes is not a pre-check.
@@ -134,14 +134,14 @@ func TestValidateByocDatabaseName(t *testing.T) {
 		{"leading underscore is legal here", "_internal", false},
 		{"max length", strings.Repeat("a", 63), false},
 
-		// Accepted because saas normalises rather than refuses. Each of
+		// Accepted because the API normalises rather than refuses. Each of
 		// these succeeds against the real API today; rejecting any of
 		// them would be a regression, not a tightening.
 		{"uppercase is downcased by the server", "MyDB", false},
 		{"surrounding whitespace is trimmed by the server", "  mydb  ", false},
 		{"unicode letters are legal", "café", false},
 
-		// Genuinely refused by saas.
+		// Genuinely refused by the API.
 		{"hyphen", "my-db", true},
 		{"space inside", "my db", true},
 		{"dot", "my.db", true},
@@ -150,7 +150,7 @@ func TestValidateByocDatabaseName(t *testing.T) {
 		{"empty", "", true},
 		{"whitespace only", "   ", true},
 		{"too long", strings.Repeat("a", 64), true},
-		// Length is counted in BYTES, as saas's len() is: 32 two-byte
+		// Length is counted in BYTES, as the API counts: 32 two-byte
 		// runes are 64 bytes and over the limit, though only 32 chars.
 		{"too long in bytes though not in runes", strings.Repeat("é", 32), true},
 		// The one case that proves the ToLower in validateByocDatabaseName
@@ -159,7 +159,7 @@ func TestValidateByocDatabaseName(t *testing.T) {
 		// which is 3. Exactly two runes in Unicode grow this way
 		// (U+023A and U+023E); twenty-three shrink. 31 of them are 62
 		// bytes as typed and 93 lowercased, so this is under the limit
-		// before normalisation and over it after. saas measures the
+		// before normalisation and over it after. The API measures the
 		// lowercased form, so it rejects this name; dropping the
 		// ToLower here would accept it and spend a round trip finding
 		// that out.

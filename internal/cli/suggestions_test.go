@@ -28,7 +28,7 @@ func hintOf(err error) string {
 // reproduces an unexported cobra function rather than inventing a
 // message.
 //
-// The whole point of #292 is that the two depths AGREE. So this
+// The whole point is that the two depths AGREE. So this
 // compares a wrapped depth-2 rejection against what cobra's own
 // legacyArgs produces for the identical typo at the root, byte for
 // byte, instead of against a string written here. A cobra upgrade that

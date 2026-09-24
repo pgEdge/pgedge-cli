@@ -119,7 +119,7 @@ func TestCheckResponse(t *testing.T) {
 			body:     "body",
 			wantCode: ExitGeneral,
 		},
-		// #252: control-plane's storage layer reports a key miss as a
+		// control-plane's storage layer reports a key miss as a
 		// 500 server_error instead of a 404; the CLI remaps that one
 		// shape to exit 4 to match the sibling `database get` path.
 		{
@@ -174,7 +174,7 @@ func TestCheckResponse(t *testing.T) {
 			wantCode:     ExitGeneral,
 			wantContains: "does not serve an endpoint this command needs",
 		},
-		// item 4 of issue #106: the route-miss message names the
+		// the route-miss message names the
 		// support floor even though this path fires without ever
 		// knowing the server's actual version.
 		{
@@ -338,7 +338,7 @@ func TestResolveConnection(t *testing.T) {
 //
 // Every assertion in this file about the TLS config or the diagnostic
 // layer goes through it, which makes each of them ALSO an assertion
-// that the repair is installed — the repair is unconditional (#165),
+// that the repair is installed — the repair is unconditional,
 // so a chain without it is a defect wherever it is noticed. That is
 // deliberate: these tests exist to catch a client that silently lost a
 // layer, and adding one more layer they are blind to would be the same
@@ -417,7 +417,7 @@ func TestHTTPClientFor(t *testing.T) {
 	})
 
 	// Neither flag: the DIAGNOSTIC layer is absent. The error-body
-	// repair is still there — it is unconditional (#165), which is why
+	// repair is still there — it is unconditional, which is why
 	// controlplaneInnerTransport peels it first — so this is "no httplog layer",
 	// not "no layers at all". It used to be both.
 	t.Run("no flags adds no diagnostic layer", func(t *testing.T) {
@@ -790,9 +790,9 @@ func TestFailoverSingleURLNoProbe(t *testing.T) {
 // A malformed timeout: used to be dropped on the floor, leaving the
 // connection on its 30s default with nothing said. An operator who set
 // ten minutes for a slow restore got thirty seconds and a timeout they
-// could not explain (#288).
+// could not explain.
 //
-// The three values are the ones the issue names: each is a plausible
+// Each of the three values is a plausible
 // spelling of a duration and none is a Go duration.
 func TestResolveConnectionRejectsAMalformedProfileTimeout(t *testing.T) {
 	for _, v := range []string{"30sec", "5", "2 minutes"} {
@@ -829,7 +829,7 @@ func TestResolveConnectionAcceptsAProfileTimeout(t *testing.T) {
 	}
 }
 
-// TestBodyExcerptTrimsTrailingWhitespace pins #576 for this module.
+// TestBodyExcerptTrimsTrailingWhitespace pins the trim for this module.
 func TestBodyExcerptTrimsTrailingWhitespace(t *testing.T) {
 	if got := bodyExcerpt("{\"message\":\"x\"}\r\n\n"); got != `{"message":"x"}` {
 		t.Errorf("bodyExcerpt = %q", got)

@@ -27,7 +27,7 @@ var namedDocs = append([]string{
 	"../../examples/config.yaml",
 	// The spec-vendoring and generated-parser notes moved here from
 	// docs/index.md; without this entry the move would have taken
-	// them out of the scanned universe (proven by mutation on #377's
+	// them out of the scanned universe (proven by mutation in
 	// review: a fabricated flag in CONTRIBUTING.md passed while the
 	// same sentence in docs/ failed).
 	"../../CONTRIBUTING.md",
@@ -92,7 +92,7 @@ func scanDocFiles(t *testing.T) []string {
 // docsTreeFiles returns every .md file under docs/, at any depth. The
 // population was a flat docs/*.md glob until the module directories
 // landed, and that flat glob left all 22 workflow pages and the five
-// reference preambles outside every claim gate (#469). Two self-checks
+// reference preambles outside every claim gate. Two self-checks
 // stop the widening being lost again: no files at all, and no file
 // below the top level, are both fatal.
 func docsTreeFiles(t *testing.T) []string {
@@ -235,7 +235,7 @@ var removedCommands = []string{
 }
 
 // removedTopLevelSpellings are the top-level module words the
-// 2026-08-07 cloud restructure (#126) deleted outright. The four
+// 2026-08-07 cloud restructure deleted outright. The four
 // "pgedge byoc <verb>" entries above only cover the verbs the earlier
 // account split moved; the restructure went further and removed the
 // module words themselves, so `pgedge byoc cluster list` — a spelling
@@ -374,7 +374,7 @@ func TestRemovedCommandGateCatchesTopLevelSpellings(t *testing.T) {
 //  1. task_id: BYOC never wraps a mutation's result in a task/envelope
 //     object (verified live 2026-07-30: `byoc cluster list`,
 //     `database list`, `task list` and `ingress list` responses on the
-//     dev tenant contain no `task_id` key at any nesting depth, and
+//     live tenant contain no `task_id` key at any nesting depth, and
 //     `internal/starfleet/byoc/api` + `internal/starfleet/account/api` contain zero
 //     `task_id` JSON tags). The default posture for a field that does
 //     not exist is that ANY mention of it is wrong — so this scans
@@ -466,7 +466,7 @@ var generatedRoutingRe = regexp.MustCompile(
 //
 // The stripper trusts any marker it finds, so it is only safe because
 // TestGeneratedMarkersSitOnlyWhereTheGeneratorWrites fails on a marker
-// outside the file and form the generator writes (#477).
+// outside the file and form the generator writes.
 func stripGeneratedBlocks(text string) string {
 	blank := func(m string) string {
 		return strings.Repeat("\n", strings.Count(m, "\n"))
@@ -757,10 +757,9 @@ var docGateMarkerRe = regexp.MustCompile(
 // The asymmetry is the feature. Too NARROW fails loudly — the phrase
 // still fires and the marker is ignored, which is how the gap in this
 // map gets found. Too WIDE fails silently, accepting a false
-// assertion. That is why the default is to leave this alone: #341 was
-// filed after a correct-for marker for an undeclared column was
-// ignored, and widening the map would have made that marker pass
-// rather than making it honest.
+// assertion. That is why the default is to leave this alone: when a
+// correct-for marker for an undeclared column is ignored, widening the
+// map would make that marker pass rather than making it honest.
 //
 // It is deliberately NOT every scope docSection can produce —
 // moduleSections also emits "starfleet" and "managed". There is no account
@@ -1194,8 +1193,8 @@ var healthCheckValues = map[string]bool{
 // was deleted. Service `.state` lives in
 // byocStateFieldValues instead: the two vocabularies overlap without
 // matching, and a membership check against their union cannot catch a
-// value quoted for the WRONG field — #467 records the escape that
-// allowed (`state` reading `degraded` passed every gate).
+// value quoted for the WRONG field — the measured escape was
+// `state` reading `degraded`, which passed every gate.
 // This is one flat set per FIELD, not one per resource, so it cannot
 // record "this value is confirmed for resource X but not resource Y"
 // as a map entry — the two comment groups below record the
@@ -1203,12 +1202,12 @@ var healthCheckValues = map[string]bool{
 // that every entry's confidence must stay legible rather than silently
 // assumed.
 //
-// Live-verified against the dev tenant, each against at least one
+// Verified against a live tenant, each against at least one
 // real resource (not necessarily every resource that reports the
 // value):
 //   - "available": `byoc cluster list -o json` (cluster) returned it.
 //     UNVERIFIED FOR INGRESS SPECIFICALLY: `byoc ingress list -o json`
-//     on the dev tenant returned only "failed" and "deleting" (every
+//     on a live tenant returned only "failed" and "deleting" (every
 //     real ingress there is unhealthy right now), and
 //     `openapi/byoc.yaml`'s `Ingress.status` is a bare `type: string`
 //     with no enum to fall back on. Kept in this shared allowlist by
@@ -1241,7 +1240,7 @@ var byocStatusFieldValues = map[string]bool{
 
 // byocStateFieldValues covers service `.state`, the only `state`
 // field these docs quote in a form the detectors see. "running" was
-// returned live by a database's embedded services on the dev tenant;
+// returned live by a database's embedded services on a live tenant;
 // "pending" and "failed" are contract-backed rather than
 // live-observed: openapi/managed.yaml's service `state` description
 // and openapi/byoc.yaml's ServiceConfig.state description each name
@@ -1252,15 +1251,15 @@ var byocStateFieldValues = map[string]bool{
 }
 
 // managedStatusFieldValues: managed shares byoc's resource and task
-// `.status` vocabulary (same saas code paths; "degraded" observed live
-// on devapi 2026-09-10 in the allowlist apply path's contract).
+// `.status` vocabulary (same API code paths; "degraded" observed live
+// 2026-09-10 in the allowlist apply path's contract).
 var managedStatusFieldValues = byocStatusFieldValues
 
 // managedStateFieldValues covers two `state` fields the managed docs
 // quote: a service's runtime state (running/pending/failed, as byoc)
 // and an allowlist's posture. The allowlist values are contract-backed
 // (openapi/managed.yaml IPAllowlist.state enum) and "open" was
-// observed live on devapi 2026-09-10 on a pre-feature database.
+// observed live 2026-09-10 on a pre-feature database.
 var managedStateFieldValues = map[string]bool{
 	"running": true, "pending": true, "failed": true,
 	"closed": true, "restricted": true, "open": true,
@@ -1300,7 +1299,7 @@ var controlplaneStatusFieldValues = map[string]bool{
 }
 
 // fieldVocabulary holds one allow-set per field name. The split is the
-// #467 fix: `status` and `state` overlap without matching, so a check
+// point: `status` and `state` overlap without matching, so a check
 // against their union accepted a value quoted for the wrong field.
 type fieldVocabulary struct {
 	status map[string]bool
@@ -1404,7 +1403,7 @@ func checkValueAllowed(violations *[]string, path, module, field, label,
 	// The set is derived HERE from the same field string the message
 	// prints, so the two cannot disagree — a call site passing a
 	// pre-picked set beside a field name would be two hand-written
-	// expressions that must agree (#468 review, M1).
+	// expressions that must agree.
 	allowed := vocab.forField(field)
 	value = strings.ToLower(value)
 	if value == "" || allowed[value] {
@@ -1451,12 +1450,12 @@ const tableValueRemedy = "A table or FIELD/VALUE row has no opt-out — it " +
 // NEITHER MAY GROW A POLARITY HEURISTIC OF ITS OWN — this is the
 // sibling note to the one on checkNoEnvelopeClaims above, and it must
 // keep saying the same thing for the same reason: this pairing has
-// already been broken twice in review, in both directions. First,
-// having no polarity awareness at all produced a false positive here —
-// a review round found `... so presence in the list plus a populated
+// already been broken twice, in both directions. First, having no
+// polarity awareness at all produced a false positive here —
+// `... so presence in the list plus a populated
 // \`url\` is the signal, not a \`"status": "registered"\` value` in
 // the byoc reference, a correct warning that quotes a wrong value on
-// purpose, flagged as if it were a claim; the first "fix" was to
+// purpose, was flagged as if it were a claim; the first "fix" was to
 // flatten that concrete example into vaguer prose to dodge the gate,
 // which is backwards. Then, a whole-sentence negation check (rather
 // than one bounded to the phrase it governs) produced a false negative
@@ -1557,7 +1556,7 @@ func checkStatusStateValues(path string, sec docSection) []string {
 
 		// Horizontal table: is this line itself the header row? A row
 		// can name BOTH a STATUS and a STATE column, so every match is
-		// recorded and checked, not only the first (#468 review, M2).
+		// recorded and checked, not only the first.
 		// The match stays exact-uppercase on purpose: `Status` is the
 		// vertical layout's label style, and a case-folded header
 		// match would read a FIELD/VALUE block's Status row as a
@@ -2823,11 +2822,11 @@ func TestNoEnvelopeCheckStillExemptsGenuineCPSentences(t *testing.T) {
 }
 
 // TestStatusValueCheckRejectsValueFromTheOtherFieldsVocabulary pins
-// the #467 fix: a flat union of both vocabularies cannot catch a value
+// the per-field split: a flat union of both vocabularies cannot catch a value
 // quoted for the WRONG field. The first case is the measured escape —
 // `state` reading `degraded` (a legal resource .status, an illegal
 // service .state) planted in docs/workflows/byoc-services.md passed
-// every gate during the #466 review.
+// every gate.
 func TestStatusValueCheckRejectsValueFromTheOtherFieldsVocabulary(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -2859,16 +2858,16 @@ func TestStatusValueCheckRejectsValueFromTheOtherFieldsVocabulary(t *testing.T) 
 			if len(got) == 0 {
 				t.Fatalf("checkStatusStateValues accepted a value from "+
 					"the wrong field's vocabulary in %q — the union-set "+
-					"escape #467 records", tc.fixture)
+					"escape", tc.fixture)
 			}
 		})
 	}
 }
 
-// TestStatusValueCheckReadsEveryStatusStateColumn pins the #468 review
-// finding M2: a header row naming BOTH a STATUS and a STATE column got
+// TestStatusValueCheckReadsEveryStatusStateColumn pins a review
+// finding: a header row naming BOTH a STATUS and a STATE column got
 // only its first match checked, so `degraded` under STATE — the exact
-// #467 escape — survived in the horizontal layout whenever a STATUS
+// measured escape — survived in the horizontal layout whenever a STATUS
 // column sat to its left. Three columns, because a two-field header
 // would be read by the vertical detector instead.
 func TestStatusValueCheckReadsEveryStatusStateColumn(t *testing.T) {

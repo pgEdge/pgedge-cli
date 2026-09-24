@@ -35,11 +35,12 @@ func hungTaskClient(t *testing.T, timeout time.Duration) *api.ClientWithResponse
 }
 
 // TestSlowPollDoesNotForgeAWaitExpiry is the managed copy of the
-// discrimination #348 forced. Bounding the client (conn.RequestTimeout)
-// makes a single slow poll fail with the same error a whole wait
-// expiring raises, so `errors.Is(err, context.DeadlineExceeded)` on its
-// own would report a 300-second wait as timed out 200ms in, with
-// essentially all of --wait-timeout unspent.
+// discrimination a bounded client forces. Bounding the client
+// (conn.RequestTimeout) makes a single slow poll fail with the same
+// error a whole wait expiring raises, so `errors.Is(err,
+// context.DeadlineExceeded)` on its own would report a 300-second wait
+// as timed out 200ms in, with essentially all of --wait-timeout
+// unspent.
 //
 // byoc has its own copy of this loop and its own copy of this test.
 // Mutating one leaves the other green, so neither stands in for the
@@ -81,16 +82,15 @@ func TestSlowPollDoesNotForgeAWaitExpiry(t *testing.T) {
 	})
 }
 
-// TestCaptureTaskBaselineIsBounded is #340: the pre-mutation read used
+// TestCaptureTaskBaselineIsBounded: the pre-mutation read used
 // context.Background() with no deadline, so a hung read blocked the
-// command before the write was even submitted. It inherits the
-// client's bound now rather than getting a flag of its own, which
-// leaves --wait-timeout meaning only what it is documented to mean.
+// command before the write was even submitted. It inherits the client's
+// bound now rather than getting a flag of its own, which leaves
+// --wait-timeout meaning only what it is documented to mean.
 //
-// What a timed-out capture leaves behind is #340's second question,
-// and bounding the client answers it without a new rule: a bounded
-// read that expires IS a failed read, so it takes the age floor #335
-// already built for one.
+// What a timed-out capture leaves behind needs no new rule either: a
+// bounded read that expires IS a failed read, so it takes the age
+// floor already built for one.
 func TestCaptureTaskBaselineIsBounded(t *testing.T) {
 	prevWait := waitFlag
 	waitFlag = true

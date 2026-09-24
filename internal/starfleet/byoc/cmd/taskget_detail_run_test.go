@@ -24,7 +24,7 @@ const byocTaskWithSteps = `[{"id":"7db8f401-0d8d-4daf-889b-f721e395df61","name":
 	"created_at":"2024-03-15T10:30:00Z",
 	"updated_at":"2024-03-15T10:34:00Z"}]`
 
-// TestByocTaskGetShowsDetail is the byoc half of #180. The two modules
+// TestByocTaskGetShowsDetail is the byoc half of the task-detail check. The two modules
 // keep separate copies of printTaskDetail because each binds its own
 // generated api.Task, so each needs its own proof: a fix applied to one
 // tree is invisible to the other's test.

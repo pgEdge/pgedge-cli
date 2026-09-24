@@ -30,10 +30,10 @@ func newTestRuntime(profile string, explicit bool, profiles ...string) *module.R
 // the same input — not merely an equal-looking string — whether or not
 // --profile was the thing that named it.
 func TestProfileGuardCheckProfile(t *testing.T) {
-	// #150: this case used to assert nil. An unknown name reaching
+	// Rejected, not nil: an unknown name reaching
 	// CheckProfile without --profile means current_profile was
 	// hand-edited to something that does not exist, and returning nil
-	// is what let every command silently dial the default production
+	// would let every command silently dial the default production
 	// URL under a profile that was never configured.
 	t.Run("not explicit and unknown: still rejected", func(t *testing.T) {
 		rt := newTestRuntime("bogus", false, "alpha")
@@ -184,11 +184,11 @@ func TestGuardProfile(t *testing.T) {
 }
 
 // TestGuardProfileRepairCarveOut pins the difference between the two
-// annotations, which is the only thing that keeps #150's fix from
-// undoing #147's on the annotated commands: a repair command runs
-// under an unresolvable current_profile, but an explicit --profile
-// naming the same unknown value is still rejected there. A full
-// exemption would swallow both.
+// annotations, which is the only thing that keeps the repair
+// carve-out from undoing --profile validation on the annotated
+// commands: a repair command runs under an unresolvable
+// current_profile, but an explicit --profile naming the same unknown
+// value is still rejected there. A full exemption would swallow both.
 func TestGuardProfileRepairCarveOut(t *testing.T) {
 	repair := &cobra.Command{
 		Use: "repair",

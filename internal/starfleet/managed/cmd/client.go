@@ -55,10 +55,9 @@ func checkResponse(status int, body string) error {
 // "unexpected end of JSON input".
 //
 // Resize hides it: its spec declares a 200 with no content schema, so
-// it has no JSON200 field, yet saas answers with a full ManagedDatabase
-// (`RespondOK(ctx, managedDatabaseModel(...))`). This form accepts
-// either body, and either Content-Type, since checkResponse takes any
-// 2xx.
+// it has no JSON200 field, yet the API answers with a full
+// ManagedDatabase. This form accepts either body, and either
+// Content-Type, since checkResponse takes any 2xx.
 //
 // Only the response parser is bypassed, so the generated request
 // builder stays in play, as in conn.Exchange and byoc's `database

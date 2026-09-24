@@ -4,7 +4,7 @@
 // percent-encodes host, userinfo and path, ShellQuote single-quotes
 // every env value, and encoding/json escapes control characters, so
 // nothing a server string can carry forges a line in any format, and
-// no escaping pass rewrites a legal password (#443).
+// no escaping pass rewrites a legal password.
 package connstr
 
 import (
@@ -40,9 +40,8 @@ type String struct {
 }
 
 // SSLModeRequire is carried on every string. Managed hosts serve TLS
-// 1.3 with a certificate that verifies (measured 2026-08-29 against
-// devapi), so require is safe on every client and stricter is the
-// caller's to add.
+// 1.3 with a certificate that verifies (measured 2026-08-29), so
+// require is safe on every client and stricter is the caller's to add.
 const SSLModeRequire = "require"
 
 // Build assembles the URI. url.URL does the percent-encoding of the

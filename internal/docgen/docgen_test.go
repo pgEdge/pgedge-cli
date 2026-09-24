@@ -115,9 +115,9 @@ func TestFlagCell(t *testing.T) {
 		},
 		{
 			// pflag quotes the optional-value bracket only for string
-			// flags and prints every other type's unquoted (#370). A
+			// flags and prints every other type's unquoted. A
 			// quoted `strings[="a,b"]` here would disagree with the
-			// screen the same way #362's raw type names did.
+			// screen the same way raw type names would.
 			name: "non-string optional value renders unquoted like --help",
 			flag: "columns",
 			register: func(c *cobra.Command) {
@@ -130,7 +130,7 @@ func TestFlagCell(t *testing.T) {
 			// pflag prints a string's optional value RAW inside the
 			// quotes ([="%s"]), never %q-escaped: a default of a"b\c
 			// renders [="a"b\c"] on screen (measured against
-			// FlagUsagesWrapped in #378's review). Every live value
+			// FlagUsagesWrapped). Every live value
 			// today is escape-free, so this row is the only thing
 			// that distinguishes the two mechanisms.
 			name: "string optional value is not re-escaped",
@@ -143,7 +143,7 @@ func TestFlagCell(t *testing.T) {
 		},
 		{
 			// pflag suppresses count's implicit "+1" in --help; the
-			// reference must too (#370).
+			// reference must too.
 			name: "count with its implicit +1 renders no bracket",
 			flag: "verbose",
 			register: func(c *cobra.Command) {
@@ -166,8 +166,7 @@ func TestFlagCell(t *testing.T) {
 		{
 			// The token is what --help prints, not pflag's internal
 			// Value.Type(): UnquoteUsage normalises stringSlice to
-			// `strings`, and the reference must match the screen
-			// (#362).
+			// `strings`, and the reference must match the screen.
 			name: "stringSlice renders --help's strings, not the raw type",
 			flag: "target-nodes",
 			register: func(c *cobra.Command) {
@@ -424,7 +423,7 @@ func TestBlock(t *testing.T) {
 	}
 }
 
-// TestDefaultCell pins the one judgement call in #432: a blank cell is
+// TestDefaultCell pins the one judgement call here: a blank cell is
 // a zero value and nothing else, so a reader can tell "no default"
 // from a default that happens to be empty only because pflag cannot
 // either, and the table says exactly what --help says.

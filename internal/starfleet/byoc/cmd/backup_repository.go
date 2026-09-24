@@ -330,7 +330,7 @@ Example:
 			if rt.Output.Structured() {
 				// Nothing came back, so nothing is printed: a success
 				// carrying no body leaves stdout empty in every format
-				// and says so on stderr (#141). Printing `null` here
+				// and says so on stderr. Printing `null` here
 				// would hand a script a value the API never sent.
 				if info == nil {
 					fmt.Fprintln(rt.Stderr,
@@ -354,7 +354,7 @@ Example:
 			// UUID type on this struct -- so each is escaped. The
 			// composed summary reaches stderr through Fprintln, where
 			// the printer cannot escape for us: its own punctuation is
-			// deliberate, so the builder is the checkpoint (#323).
+			// deliberate, so the builder is the checkpoint.
 			summary := fmt.Sprintf("Repository %s, node %s",
 				output.Sanitize(info.BackupRepositoryId),
 				output.Sanitize(info.NodeName))

@@ -46,15 +46,15 @@ var databaseMetricColumns = []string{"METRIC", "VALUE"}
 //
 // Newest means the largest `time`, not the last row. managed.yaml
 // declares `values` as an array of arrays of `{}`, with no row order,
-// column names or cell types. Rows have been seen oldest-first on
-// devapi, but nothing promises it. With no `time` column, or no
-// readable value in it, row position decides: a missing column is the
-// API changing shape, not a caller error. See sampleTimeOutranks.
+// column names or cell types. Rows have been seen oldest-first, but
+// nothing promises it. With no `time` column, or no readable value in
+// it, row position decides: a missing column is the API changing shape,
+// not a caller error. See sampleTimeOutranks.
 //
 // Completeness comes first because the trailing bucket is still being
-// scraped: 18 of 30 consecutive `--window 2,minutes` pulls on devapi
-// carried a null, every one in the trailing row. A blank cell would
-// read like an empty string value.
+// scraped: 18 of 30 consecutive `--window 2,minutes` pulls carried a
+// null, every one in the trailing row. A blank cell would read like an
+// empty string value.
 //
 // During an instance replacement two samples share one timestamp, one
 // per instance. Nothing published says which is incoming: the
@@ -87,7 +87,7 @@ func newestUsableSample(
 
 // sampleIsComplete reports whether row has a value for every column.
 //
-// It cannot see a column the response never sent. Measured on devapi
+// It cannot see a column the response never sent. Measured
 // 2026-08-22T02:58-03:01Z: a window pinned on a single partly-scraped
 // bucket drops the unfilled metrics from `columns` rather than sending
 // them null, giving 36, 36, 34, 29, 36 and 34 columns across six
@@ -255,14 +255,14 @@ func tieNote(
 // counts distinct times, not rows: two rows at one time are one bucket
 // reported by two instances.
 //
-// It fires on a two-minute window about half the time, by arithmetic.
-// A window longer than the lag holds floor((W-lag)/30) + 1 samples, so
+// It fires on a two-minute window about half the time, by arithmetic. A
+// window longer than the lag holds floor((W-lag)/30) + 1 samples, so
 // with W=120 and a lag of 72 to 101 seconds it holds two at a lag of 90
-// or under, one above, and never zero. Measured 6 of 12 on devapi; the
-// run's apparent period came from the sampling cadence, so only the
-// rate is a fact about the API. The note is right to fire, so the
-// reference recommends three minutes rather than two: 3 minutes
-// measured 4 distinct samples, 5 measured 8 and 10 measured 18.
+// or under, one above, and never zero. Measured 6 of 12; the run's
+// apparent period came from the sampling cadence, so only the rate is a
+// fact about the API. The note is right to fire, so the reference
+// recommends three minutes rather than two: 3 minutes measured 4
+// distinct samples, 5 measured 8 and 10 measured 18.
 //
 // One sample is the riskiest shape, not the only one: a metric null
 // across N samples is omitted as silently. That is unobserved, as the
@@ -314,9 +314,9 @@ func columnIndex(columns []string, name string) int {
 // noMetricsMessage explains an empty series in terms of the window that
 // produced it. `--window 1,minute` answers 200 with an empty series,
 // which at exit 0 reads like a database with no metrics: fifteen
-// consecutive runs across two devapi fixtures on 2026-08-22T02:56Z, on
-// top of nine earlier ones, while `--window 2,minutes` on the same
-// database in the same minute returned rows every time.
+// consecutive runs across two fixtures on 2026-08-22T02:56Z, on top of
+// nine earlier ones, while `--window 2,minutes` on the same database in
+// the same minute returned rows every time.
 //
 // The cause is publication lag, so the emptiness is deterministic, not
 // a race. The newest sample was 98, 99, 100 and 100 seconds behind the
@@ -353,9 +353,9 @@ func noMetricsMessage(
 	}
 	// Name the flag that decides the window. openapi/managed.yaml says
 	// interval "determines the window only when neither start_time nor
-	// end_time is supplied", and on devapi adding --window to a
-	// --start-time call returned the identical empty answer, so a
-	// longer --window there is advice the API ignores.
+	// end_time is supplied", and adding --window to a --start-time call
+	// returned the identical empty answer, so a longer --window there is
+	// advice the API ignores.
 	fix := "a longer --window may reach one"
 	if f.Changed("start-time") {
 		fix = "an earlier --start-time may reach one"

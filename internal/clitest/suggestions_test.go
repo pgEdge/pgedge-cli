@@ -18,7 +18,7 @@ const suggestionHintMarker = "Did you mean this?"
 // It is the ROOT and nothing else, and that is the whole design: cobra
 // only applies legacyArgs' unknown-subcommand rule to a command with no
 // parent, which is why depth 1 already suggested and nothing below it
-// did (#292). Wrapping the root as well would append a second copy of
+// did. Wrapping the root as well would append a second copy of
 // the same hint.
 var groupCommandsWithoutAnArgsValidator = map[string]bool{
 	"pgedge": true,
@@ -37,7 +37,7 @@ var groupCommandsThatAcceptAPositional = map[string]bool{
 	"pgedge controlplane database restore": true,
 }
 
-// TestEveryGroupCommandSuggestsANearMiss is the gate for #292.
+// TestEveryGroupCommandSuggestsANearMiss is the gate for nested suggestions.
 //
 // The population is DERIVED from what the tree declares — every command
 // with subcommands — rather than listed, because a hand list has been

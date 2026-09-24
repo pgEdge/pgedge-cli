@@ -16,7 +16,7 @@ import (
 // managedMetricsBody carries two samples whose values DISAGREE. A
 // fixture whose samples match cannot prove the renderer picked the
 // newest one — it would pass against a renderer that took the first.
-// The API returns samples oldest-first, verified on devapi 2026-08-17.
+// The API returns samples oldest-first, verified 2026-08-17.
 const managedMetricsBody = `{"series":[{"name":"","columns":[` +
 	`"cpu_seconds_total","instance_name","memory_used_bytes","time"],` +
 	`"values":[` +
@@ -68,7 +68,7 @@ func TestDatabaseMetricsRun(t *testing.T) {
 	})
 
 	// A window with no samples answers 200 with an empty series, which
-	// is what an environment without drydock read credentials also
+	// is what an environment without metrics read credentials also
 	// returns. The notice must not imply the endpoint is broken.
 	t.Run("empty reports none found", func(t *testing.T) {
 		rt, out, errb := testsupport.NewRuntime(t, "", "text")
@@ -117,11 +117,10 @@ func TestDatabaseMetricsRun(t *testing.T) {
 	})
 
 	// The trailing bucket is still being scraped, so its container
-	// metrics arrive null while the sample before it is whole. Measured
-	// on devapi: 18 of 30 consecutive `--window 2,minutes` pulls
-	// carried a null, every one in the trailing row. Rendering the last
-	// row regardless blanks exactly the metrics the command exists to
-	// show.
+	// metrics arrive null while the sample before it is whole.
+	// Measured: 18 of 30 consecutive `--window 2,minutes` pulls carried
+	// a null, every one in the trailing row. Rendering the last row
+	// regardless blanks exactly the metrics the command exists to show.
 	t.Run("a partial newest sample falls back to the last complete one",
 		func(t *testing.T) {
 			rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -208,7 +207,7 @@ func TestDatabaseMetricsRun(t *testing.T) {
 }
 
 // TestValidateMetricsWindow covers the pattern's own edges. The space
-// separator is real: devapi answered 200 to `interval=15 minutes` on
+// separator is real: the API answered 200 to `interval=15 minutes` on
 // 2026-08-17.
 func TestValidateMetricsWindow(t *testing.T) {
 	tests := []struct {
@@ -286,8 +285,8 @@ func TestMetricsWindowZeroFailsTheRangeCheckNotThePattern(t *testing.T) {
 // TestMetricsWindowZeroMessageNamesTheBound pins the message shape to
 // its sibling --max-lines, which reports "invalid --max-lines value 0:
 // expected 1 to 1000". A zero interval used to answer 200 with an empty
-// series at exit 0, indistinguishable from a database with no metrics
-// (#243), so the message has to say the value was the problem.
+// series at exit 0, indistinguishable from a database with no metrics,
+// so the message has to say the value was the problem.
 func TestMetricsWindowZeroMessageNamesTheBound(t *testing.T) {
 	rt := &module.Runtime{DryRun: dryrun.New()}
 	err := validateMetricsWindow(rt, "0,minutes")
@@ -359,8 +358,8 @@ func TestManagedMetricsRejectsABadTimeFlag(t *testing.T) {
 }
 
 // tiedMetricsBody is two COMPLETE samples at one timestamp, one per
-// instance — the instance-replacement shape #273 reported. No shipped
-// fixture had it, which is why the defect shipped.
+// instance — the instance-replacement shape. No shipped fixture had it,
+// which is why the defect shipped.
 const tiedMetricsBody = `{"series":[{"name":"","columns":[` +
 	`"cpu_seconds_total","instance_name","memory_used_bytes","time"],` +
 	`"values":[` +
@@ -368,9 +367,8 @@ const tiedMetricsBody = `{"series":[{"name":"","columns":[` +
 	`[283.303779,"db-2-1",930353152,1787168130000]]}]}`
 
 // outOfOrderMetricsBody puts the NEWEST sample first. Rows have been
-// observed oldest-first on devapi, but managed.yaml publishes no
-// ordering at all, so a renderer that trusts position is trusting
-// nothing.
+// observed oldest-first, but managed.yaml publishes no ordering at all,
+// so a renderer that trusts position is trusting nothing.
 const outOfOrderMetricsBody = `{"series":[{"name":"","columns":[` +
 	`"cpu_seconds_total","instance_name","memory_used_bytes","time"],` +
 	`"values":[` +
@@ -426,7 +424,7 @@ func TestDatabaseMetricsTieAndOrdering(t *testing.T) {
 				t.Fatalf("metrics: %v", err)
 			}
 			// 283.303779 carries the LATER timestamp but the earlier
-			// position. Before #273 the older sample was rendered.
+			// position. The older sample used to be rendered.
 			if !strings.Contains(out.String(), "283.303779") {
 				t.Errorf("stdout = %q, want the sample at the later "+
 					"time regardless of its row position", out.String())

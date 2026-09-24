@@ -99,7 +99,8 @@ func TestHostGetServerError(t *testing.T) {
 func TestHostRemoveRun(t *testing.T) {
 	// --force-lost is the quorum waiver, not a second prompt-skip:
 	// the one flag that skips the safety prompt is --force, and a
-	// second one is exactly the regression D4 forbids.
+	// second one is exactly the regression the --force split
+	// forbids.
 	t.Run("force-lost alone still refuses non-interactively",
 		func(t *testing.T) {
 			rt, out, _ := newTestRuntime(t, "", "text")

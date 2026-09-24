@@ -22,7 +22,7 @@ import (
 // loopback or same-VPC Control Plane to answer (the common case --
 // 'make dev-detached' serves :3000 with nothing else listening), short
 // enough that a wrong --base-url does not make a generator feel hung.
-// Revisit if live testing says otherwise (see the PR's Task 10 table).
+// Revisit if live testing says otherwise.
 // It is a CAP, not a fixed wait: detectOrchestrator uses
 // min(resolved-timeout, this), so a user who set a shorter --timeout
 // still gets that shorter value.
@@ -136,7 +136,7 @@ func detectOrchestrator(
 	// 'database init' stays usable with no Control Plane reachable,
 	// and a profile whose timeout: will not parse is as unusable as
 	// an unreachable one. Every verb that actually opens a connection
-	// reports it (#288).
+	// reports it.
 	//
 	// resolveConnection returns a populated config even when it
 	// errors, so the stderr note can still name a URL -- the same
@@ -242,7 +242,7 @@ func orchestratorNote(det detectionResult) string {
 			// api.Host.Orchestrator, lowercased -- server text, and
 			// this branch is the one that renders it with %s rather
 			// than %q. The note reaches stderr through Fprintln, so
-			// the builder escapes (#323).
+			// the builder escapes.
 			output.Sanitize(strings.Join(det.found, ", ")))
 	case det.reachable && len(det.found) == 1:
 		return fmt.Sprintf(

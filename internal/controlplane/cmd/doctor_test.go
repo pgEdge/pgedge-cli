@@ -80,8 +80,8 @@ func versionBodyFor(version string) string {
 
 // TestDoctorFloorWarning drives `controlplane doctor` against a single reachable
 // server at each side of SupportFloor, plus an unparseable dev
-// version, and checks the Reachable row's status and detail — this is
-// item 2 of issue #106: below floor is a warning row naming both
+// version, and checks the Reachable row's status and detail: below
+// floor is a warning row naming both
 // versions and the policy, at/above floor is unchanged, and an
 // unparseable version never warns.
 func TestDoctorFloorWarning(t *testing.T) {
@@ -346,7 +346,7 @@ const uninitializedBody = `{"name":"cluster_not_initialized",` +
 
 // doctor gave a clean bill of health to a Control Plane on which
 // nothing worked: reachable, right version, and every other verb
-// answering 409 (#255). The state is one call away.
+// answering 409. The state is one call away.
 func TestDoctorReportsAnUninitializedCluster(t *testing.T) {
 	t.Run("text", func(t *testing.T) {
 		rt, out, _ := newTestRuntime(t, "", "text")
@@ -422,7 +422,7 @@ func TestDoctorDoesNotReadEveryConflictAsUninitialized(t *testing.T) {
 }
 
 // The 409 body was dumped raw as JSON and never named the remedy,
-// which is a command in the same tree (#255).
+// which is a command in the same tree.
 func TestUninitializedClusterIsRenderedAsProse(t *testing.T) {
 	rt, out, _ := newTestRuntime(t, "", "text")
 	url := newServer(t, jsonHandler(

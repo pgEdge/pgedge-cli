@@ -27,11 +27,11 @@ func parseUUIDArg(arg, kind string) (uuid.UUID, error) {
 // client. It is shared by the service, allowlist, mcp, rag and
 // postgrest command groups, which all read-modify-write a database.
 //
-// It goes through GetManagedDatabase deliberately. saas hydrates the
-// MCP service secrets on that path (hydrateManagedServiceSecrets) and
-// not on the list path, so a service config built from a LIST entry
-// silently arrives with its secrets blanked — indistinguishable from a
-// service that has none set. Never build a merge base from a list.
+// It goes through GetManagedDatabase deliberately. The API hydrates the
+// MCP service secrets on that path and not on the list path, so a
+// service config built from a LIST entry silently arrives with its
+// secrets blanked — indistinguishable from a service that has none set.
+// Never build a merge base from a list.
 func fetchDatabaseWith(
 	rt *module.Runtime, client *api.ClientWithResponses, id uuid.UUID,
 ) (*api.ManagedDatabase, error) {
@@ -62,34 +62,32 @@ func fetchDatabaseWith(
 // wholesale, so a PATCH carrying only an MCP config would tear down the
 // database's RAG and PostgREST services.
 //
-// The ServiceId is what makes the write an update. saas
-// (managed_database_svc.go) treats a service whose ServiceID is empty
-// or unknown as new, which must supply its API keys, and one naming an
-// existing ServiceID as a reconfiguration, which may omit them for
-// CarryForwardManagedSecrets to refill from stored state. RAG and
-// PostgREST secrets never come back on GET, so without the id their
-// write answers `400 services[1]: embedding_llm: api_key is required
-// for provider "openai"`; MCP's do come back and are re-sent. Verified
-// on devapi 2026-08-06, and needs saas #1845, which keys the split on
-// the echoed pair. A stub answering 200 is indifferent to the field,
+// The ServiceId is what makes the write an update. The API treats a
+// service whose ServiceID is empty or unknown as new, which must supply
+// its API keys, and one naming an existing ServiceID as a
+// reconfiguration, which may omit them for the API to refill from
+// stored state. RAG and PostgREST secrets never come back on GET, so
+// without the id their write answers `400 services[1]: embedding_llm:
+// api_key is required for provider "openai"`; MCP's do come back and
+// are re-sent. Verified 2026-08-06; the API keys the split on the
+// echoed pair. A stub answering 200 is indifferent to the field,
 // which is why TestServiceWriteCarriesTheExistingServiceID asserts it
 // is sent.
 //
 // Managed uses api.ServiceConfig for request and response alike, so
 // existing entries are echoed as-is, including the fields the API
-// declares readOnly (`uri` among them since saas #1868). saas's binder
-// is strict, but on devapi 2026-08-17 a PATCH echoing uri, port,
-// public_domain and state answered 200, while one undeclared field
-// answered `400 unknown field`: a declared readOnly field binds and is
-// ignored. Do not strip them; on an untouched service that half-sends
-// its config.
+// declares readOnly (`uri` among them). The API's binder is strict, but
+// on 2026-08-17 a PATCH echoing uri, port, public_domain and state
+// answered 200, while one undeclared field answered `400 unknown
+// field`: a declared readOnly field binds and is ignored. Do not strip
+// them; on an untouched service that half-sends its config.
 //
 // That probe carried a populated uri. The echo cannot produce
 // `"uri":null`: the API omits these fields rather than nulling them
 // ("Omitted until the database's domain is assigned, as public_domain
 // is"), and an unspecified nullable.Nullable is a zero-length map that
-// `omitempty` drops. Only an explicit null from saas would serialise as
-// `"uri":null`, verified by marshalling both.
+// `omitempty` drops. Only an explicit null from the API would serialise
+// as `"uri":null`, verified by marshalling both.
 func buildServiceList(
 	db *api.ManagedDatabase, newSvc api.ServiceConfig,
 ) []api.ServiceConfig {
@@ -101,11 +99,11 @@ func buildServiceList(
 				continue
 			}
 			// Same type: this is the service being reconfigured. Adopt
-			// its identity so saas treats the write as in-place.
+			// its identity so the API treats the write as in-place.
 			if newSvc.ServiceId == nil {
 				newSvc.ServiceId = svc.ServiceId
 			}
-			// Carry the allowlist too. saas keeps a reconfigured
+			// Carry the allowlist too. The API keeps a reconfigured
 			// service's rules when the field is omitted, but relying
 			// on that is one server change away from a lockout.
 			if newSvc.IpAllowlist == nil {
@@ -187,9 +185,8 @@ func printUpdatedDatabase(
 
 // findService returns the deployed service of the given type, or nil.
 //
-// Type is the whole identity of a managed service. saas matches an
-// incoming config against the stored list by ServiceType
-// (existingByType in PrepareManagedServiceUpdate), reusing that
+// Type is the whole identity of a managed service. The API matches an
+// incoming config against the stored list by ServiceType, reusing that
 // service's ServiceID and minting a new one otherwise, so a managed
 // database carries at most one service of each type.
 func findService(
@@ -221,7 +218,7 @@ const (
 // `update` promise: deploy refuses when a service of that type already
 // exists, and update refuses when none does. Both are client-side
 // checks over the GET fetchDatabaseWith already made: PATCH
-// /databases/{id} has no conditional create, and saas's reconciler
+// /databases/{id} has no conditional create, and the API's reconciler
 // matches incoming services by type whatever the CLI asked for. This
 // guard is the only thing standing between `mcp deploy --allow-writes`
 // and a silent privilege escalation on a deployed read-only service.
@@ -328,10 +325,10 @@ func pluralIs(n int) string {
 // number tells a caller nothing they can act on. It is folded into
 // ENDPOINT, the locator they can dial.
 //
-// saas derives STATE since e55b004e. The spec calls it the runtime
-// state observed on the deployment serving the service, so two
-// services on one database can disagree. It is not a readiness signal
-// either way; see the reference.
+// The API derives STATE. The spec calls it the runtime state observed
+// on the deployment serving the service, so two services on one
+// database can disagree. It is not a readiness signal either way; see
+// the reference.
 var serviceColumns = []string{
 	"SERVICE ID", "TYPE", "STATE", "ENDPOINT",
 }
@@ -361,10 +358,10 @@ func serviceRow(svc api.ServiceConfig) svcRowData {
 // servicePathSegments maps a service type to the URL path segment it
 // is served under on the database's hostname.
 //
-// It mirrors saas's dbspec.ServicePathSegment, which is the one
-// definition of this vocabulary. The mapping is NOT the identity:
-// postgrest routes under "rest", so deriving the segment from the type
-// name would build a URL that 404s for one of the three types.
+// It mirrors the API's own path mapping, which is the one definition of
+// this vocabulary. The mapping is NOT the identity: postgrest routes
+// under "rest", so deriving the segment from the type name would build
+// a URL that 404s for one of the three types.
 var servicePathSegments = map[api.ServiceConfigServiceType]string{
 	api.Mcp:       "mcp",
 	api.Rag:       "rag",
@@ -372,18 +369,16 @@ var servicePathSegments = map[api.ServiceConfigServiceType]string{
 }
 
 // serviceEndpoint renders the URL a caller can dial, preferring the
-// `uri` the API reports (added in saas #1868), used verbatim. It
-// carries no port even though `port` reports 443, so never rebuild it
-// by joining domain and port. saas ac682b13 moved it onto the versioned
-// path: devapi measured `https://<domain>/mcp` on 2026-08-17 and
-// `https://<domain>/mcp/v1` on 2026-08-28, and passing it through
-// needed no change for either.
+// `uri` the API reports, used verbatim. It carries no port even though
+// `port` reports 443, so never rebuild it by joining domain and port.
+// It has moved onto the versioned path: `https://<domain>/mcp` on
+// 2026-08-17 and `https://<domain>/mcp/v1` on 2026-08-28, and passing
+// it through needed no change for either.
 //
 // The fallback stays because `uri` is absent on any deployment
-// predating #1868. Prod cannot be shown to be past that revision, since
-// it holds no managed database to read one from, and an empty ENDPOINT
-// there would regress a URL that is right today. The two disagree only
-// if saas moves a service's path, and then the reported value is right.
+// predating the field, and an empty ENDPOINT there would regress a URL
+// that is right today. The two disagree only if the API moves a
+// service's path, and then the reported value is right.
 //
 // The fallback appends the service's path segment to public_domain, the
 // database's bare hostname behind the shared TLS-terminating ingress,

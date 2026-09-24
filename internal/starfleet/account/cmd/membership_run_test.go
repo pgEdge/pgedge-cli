@@ -43,8 +43,8 @@ func TestMembershipListRun(t *testing.T) {
 		}
 	})
 
-	// saas da5674e7 / #1907 added is_owner. The table gained an OWNER
-	// column for it, rendered yes/no like every other boolean column;
+	// is_owner renders as an OWNER column, yes/no like every other
+	// boolean column;
 	// -o json carries the raw boolean through from the generated type.
 	t.Run("owner column", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -65,8 +65,8 @@ func TestMembershipListRun(t *testing.T) {
 	})
 
 	// The CELL POSITIONS, not just the presence of the values. A
-	// review of #408 found that swapping owner and created in
-	// Columns() passed every assertion here: both cells were still
+	// swap of owner and created in
+	// Columns() passes a presence check: both cells are still
 	// somewhere in the output. This walks the rendered row and pins
 	// each cell to its header's index in membershipColumns, so a row
 	// adapter that drifts out of step with the column list reddens.

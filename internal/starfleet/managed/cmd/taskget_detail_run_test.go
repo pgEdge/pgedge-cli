@@ -10,7 +10,7 @@ import (
 // taskWithStepsJSON is a task carrying a step trace, shaped like the
 // live API's: each step is reported twice, once `running` and once
 // `succeeded`, so the newest entry is the one worth showing. Captured
-// from a real create-managed task on devapi, trimmed to four messages.
+// from a real create-managed task, trimmed to four messages.
 const taskWithStepsJSON = `[{"id":"7db8f401-0d8d-4daf-889b-f721e395df61","name":"create-managed",
 	"status":"succeeded","subject_id":"db-1","subject_kind":"database",
 	"messages":[
@@ -42,7 +42,7 @@ const taskFailedJSON = `[{"id":"7db8f401-0d8d-4daf-889b-f721e395df61","name":"re
 	"created_at":"2026-08-18T00:14:25Z",
 	"updated_at":"2026-08-18T00:20:00Z"}]`
 
-// TestManagedTaskGetShowsDetail pins the detail block from #180.
+// TestManagedTaskGetShowsDetail pins the detail block.
 //
 // `task get`'s text output used to be one summary row, which told a
 // reader less about a single task than `task list` tells them about
@@ -74,9 +74,8 @@ func TestManagedTaskGetShowsDetail(t *testing.T) {
 		}
 
 		// The row's CREATED column is a date alone, so the block
-		// prints the times in full — the whole point of the aside on
-		// #180, that two tasks minutes apart are otherwise
-		// indistinguishable.
+		// prints the times in full, since two tasks minutes apart are
+		// otherwise indistinguishable.
 		if !strings.Contains(s, "2026-08-18T00:14:25Z") {
 			t.Errorf("no full created timestamp:\n%s", s)
 		}
@@ -116,10 +115,10 @@ func TestManagedTaskGetShowsDetail(t *testing.T) {
 	})
 
 	// The reason is trimmed before printing, following controlplane's
-	// printTaskError. saas wraps these as chains of %w and one arriving
-	// with surrounding whitespace would otherwise push a blank line into
-	// the middle of the block. Without this case the TrimSpace pins
-	// nothing.
+	// printTaskError. The API wraps these as chains of %w and one
+	// arriving with surrounding whitespace would otherwise push a blank
+	// line into the middle of the block. Without this case the
+	// TrimSpace pins nothing.
 	t.Run("a padded reason is trimmed", func(t *testing.T) {
 		const padded = `[{"id":"7db8f401-0d8d-4daf-889b-f721e395df61","name":"restore-managed",
 			"status":"failed","subject_id":"db-1",

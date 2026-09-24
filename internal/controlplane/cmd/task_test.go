@@ -422,7 +422,7 @@ func TestTaskCancelWaitSucceedsOnCanceled(t *testing.T) {
 	}
 }
 
-// TestTaskScopeIsRequiredAndSaysWhereToFindIt covers #251's dead end:
+// TestTaskScopeIsRequiredAndSaysWhereToFindIt covers a dead end:
 // the reference handed a stuck user `task get <task_id>` with no scope
 // flag. The command must refuse it as usage, name where the value
 // comes from, and refuse it WITHOUT a server — the check runs before

@@ -115,8 +115,8 @@ func TestProfileListIncludesUnconfiguredActiveProfile(t *testing.T) {
 	}
 }
 
-// TestProfileListPhantomRowIsTheGuardsJobNotThisFunctions pins Design
-// decision 8 from the #102 plan: runProfileList itself is deliberately
+// TestProfileListPhantomRowIsTheGuardsJobNotThisFunctions pins a
+// design decision: runProfileList itself is deliberately
 // UNCHANGED by the --profile guard. GuardProfile (profileguard.go),
 // wired only in cmd/pgedge/main.go, is what stops an unknown explicit
 // --profile from ever reaching this function in the real CLI —
@@ -125,8 +125,7 @@ func TestProfileListIncludesUnconfiguredActiveProfile(t *testing.T) {
 // function still synthesises a row for whatever rt.Profile it is
 // given, known or not.
 //
-// This comment used to add that the synthesis path "only fires for
-// 'default' in practice". #150 made that false: `profile list` now
+// The synthesis path fires for more than 'default': `profile list`
 // carries AnnotationProfileRepair, so it is one of the two commands
 // that DOES run under an unresolvable current_profile, and the
 // synthesised row is what an operator sees while diagnosing exactly
@@ -571,9 +570,9 @@ func TestProfileUseCmdUnknownProfileExitCode(t *testing.T) {
 	}
 }
 
-// --- #149: the argument path ---------------------------------------------
+// --- the argument path ---------------------------------------------------
 
-// TestProfileShowUnknownNameRejected is #149: `profile show <unknown>`
+// TestProfileShowUnknownNameRejected: `profile show <unknown>`
 // used to fabricate a complete, default-shaped report naming the
 // production Starfleet URL — which reads as "this profile exists and
 // points at prod" rather than "there is no such profile". It must now
@@ -633,13 +632,13 @@ func TestProfileShowDefaultAccepted(t *testing.T) {
 	}
 }
 
-// --- #150: how list reports an unresolvable active profile ---------------
+// --- how list reports an unresolvable active profile ---------------------
 
 // TestProfileListUnresolvedActiveProfile covers the one state
 // `profile list` can still be reached in with a broken
 // current_profile: the row must say so, and must not print the
-// production URL beside a name nothing can connect with. Before #150
-// this row was indistinguishable from a healthy one.
+// production URL beside a name nothing can connect with. Without that,
+// this row is indistinguishable from a healthy one.
 func TestProfileListUnresolvedActiveProfile(t *testing.T) {
 	rt, out, _ := profileRuntime(t, "text")
 	rt.Profile = "ghost" // as a hand-edited current_profile resolves
@@ -663,7 +662,7 @@ func TestProfileListUnresolvedActiveProfile(t *testing.T) {
 	}
 	if strings.Contains(ghostLine, apidefaults.StarfleetAPIURL) {
 		t.Errorf("ghost row still advertises the production URL — the "+
-			"exact misreport #150 is about: %q", ghostLine)
+			"exact misreport this test guards: %q", ghostLine)
 	}
 	if !strings.Contains(ghostLine, "(not configured)") {
 		t.Errorf("ghost row has no Starfleet URL placeholder: %q", ghostLine)

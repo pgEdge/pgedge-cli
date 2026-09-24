@@ -25,7 +25,7 @@ build:
 # the same script with the same defaults. It used to be duplicated here,
 # which put two filters in two files with only a substring heuristic
 # holding them together — a second filter spelled any other way was
-# invisible to that (#224).
+# invisible to that.
 test:
 	go test -race -coverprofile=coverage.raw.out ./...
 	scripts/coverage-gate.sh
@@ -111,13 +111,12 @@ docs-check:
 # Capture the published per-product OpenAPI contracts into openapi/.
 #
 # Each contract is served unauthenticated at
-# {base}/{product}/v1/openapi.json (saas #1920), already
-# filtered to the public, enterprise-maximal surface by saas's own
-# GeneratePublicSpec — the tool fetches, validates fail-closed and
-# converts to YAML; nothing here derives or filters. Captures from
-# PRODUCTION by default, because the vendored contract must be the one
-# customers are served; override with SPEC_BASE for a comparison
-# capture. Record every capture in openapi/SOURCE.
+# {base}/{product}/v1/openapi.json, already filtered to the public,
+# enterprise-maximal surface by the API — the tool fetches, validates
+# fail-closed and converts to YAML; nothing here derives or filters.
+# Captures from PRODUCTION by default, because the vendored contract
+# must be the one customers are served; override with SPEC_BASE for a
+# comparison capture. Record what changed in the commit message.
 SPEC_BASE ?= https://api.pgedge.com
 
 vendor-spec:

@@ -160,13 +160,13 @@ func TestMCPDeployAppliesEveryFlag(t *testing.T) {
 		}
 	}
 	if _, ok := cfg["ollama_url"]; ok {
-		t.Errorf("ollama_url reached the wire; saas rejects the field "+
+		t.Errorf("ollama_url reached the wire; the API rejects the field "+
 			"on managed and the whole body 400s: %v", cfg)
 	}
 }
 
 // TestMCPManagedRefusesOllama pins the managed/byoc asymmetry from the
-// managed side. saas dropped ollama from the managed contract,
+// managed side. The API dropped ollama from the managed contract,
 // so the provider is refused client-side for exit 2
 // rather than spending a round trip on a 400.
 //

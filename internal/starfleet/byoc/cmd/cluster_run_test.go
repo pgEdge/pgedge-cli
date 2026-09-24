@@ -139,7 +139,7 @@ func TestClusterCreateRun(t *testing.T) {
 	})
 }
 
-// TestClusterCreatePrivateRejectsMissingSubnets pins CLI-24: a private
+// TestClusterCreatePrivateRejectsMissingSubnets pins that a private
 // cluster whose --network carries no private-subnets is rejected with
 // exit 2 before the request reaches the server.
 func TestClusterCreatePrivateRejectsMissingSubnets(t *testing.T) {
@@ -292,7 +292,7 @@ func TestClusterCreatePrivateAcceptsSubnets(t *testing.T) {
 }
 
 // TestClusterCreatePrivateWithoutNetworkPassesThrough is the GCP
-// regression case for CLI-24: a private cluster with NO --network
+// regression case for the private-subnets check: a private cluster with NO --network
 // flag at all is a valid GCP shape (the server synthesizes host
 // groups per region and GCP's own validator never requires
 // private-subnets — it forbids the key outright). The client-side
@@ -541,7 +541,7 @@ func deadAddr(t *testing.T) string {
 // later change cannot tighten or loosen the rule without a test saying
 // so.
 //
-// #256: a `volumeSize > 0` guard OMITTED any non-positive size from the
+// A `volumeSize > 0` guard OMITTED any non-positive size from the
 // request instead of refusing it. The API then applied its own
 // undocumented default of 100 GB and answered 200, so
 // `--volume-size -5` provisioned a 100 GB volume at exit 0 and the
@@ -598,7 +598,7 @@ func TestClusterCreateVolumeSizeBounds(t *testing.T) {
 		// The structured spelling, end to end. It carries the same floor
 		// because it is the same field, and because every worked create
 		// example in llms.txt uses it — an agent following the reference
-		// writes this form, not the shorthand (#282).
+		// writes this form, not the shorthand.
 		{
 			name:      "a non-positive --node volume-size is a usage error",
 			flag:      []string{"--node", "name=n1,volume-size=-5"},

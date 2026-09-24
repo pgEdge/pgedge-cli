@@ -10,7 +10,7 @@ func series(columns []string, rows ...[]interface{}) api.MetricSeries {
 	return api.MetricSeries{Columns: columns, Values: rows}
 }
 
-// TestByocNewestSampleReadsTheTimeColumn is the gate for #322.
+// TestByocNewestSampleReadsTheTimeColumn is the gate for time ordering.
 //
 // TEN cases covering TWO different rule pairs -- worth stating,
 // because a single count invites over-reading the coverage.
@@ -52,7 +52,7 @@ func TestByocNewestSampleReadsTheTimeColumn(t *testing.T) {
 		want: "newest",
 	}, {
 		// An empty row must not become the answer, and must not stop
-		// the walk either -- that combination is #202, which made one
+		// the walk either -- that combination once made one
 		// null row blank the whole table.
 		name: "an empty trailing row does not win",
 		s: series(cols,
@@ -117,7 +117,7 @@ func TestByocNewestSampleReadsTheTimeColumn(t *testing.T) {
 		// the difference is the ROUTE, not whether it is reachable.
 		// That matters because byoc's route is the one byoc's own
 		// original fixture failed to exercise, while managed's is the
-		// one #320 found.
+		// one review found.
 		name: "a row shorter than the time index does not win",
 		s: series([]string{"pg_up", "time"},
 			[]interface{}{"newest", 6.0},
@@ -138,7 +138,7 @@ func TestByocNewestSampleReadsTheTimeColumn(t *testing.T) {
 	}, {
 		// But a short row is still better than nothing: with no
 		// full-length row anywhere, the newest short one is the answer
-		// rather than an empty table (#202's lesson).
+		// rather than an empty table.
 		name: "with no full-length row the newest short one still wins",
 		s: series([]string{"time", "pg_up", "pg_extra"},
 			[]interface{}{1.0, "older"},

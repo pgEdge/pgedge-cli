@@ -13,7 +13,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 )
 
-// This is the DERIVED half of #194's contract, and it exists because
+// This is the DERIVED half of the full-UUID contract, and it exists because
 // three hand-written lists were each proved bypassable at exactly the
 // dimension they did not vary.
 //
@@ -96,7 +96,7 @@ var uuidCommandExempt = map[string]idExempt{
 }
 
 // nameNotUUIDPositionals are positionals that LOOK like ids and are
-// names, so #194 does not govern them.
+// names, so the full-UUID rule does not govern them.
 //
 // This used to exclude cp wholesale, on the grounds that "its ids are
 // NAMES". That is true of `<database_id>`, `<host_id>` and
@@ -217,7 +217,7 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 							"after something else that refuses first "+
 							"— a cli.Confirm that has not read the "+
 							"argument, or a client build. Both were "+
-							"live defects (#194).",
+							"live defects.",
 							strings.Join(full, " "), err.Error(), name)
 					}
 				})
@@ -227,27 +227,26 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 
 	// A walk that found nothing looks exactly like a walk that found no
 	// violations — and a LOOSE floor is barely better. At 30 against a
-	// real population of 72, review dropped every `database` verb in
+	// real population of 72, a mutation dropped every `database` verb in
 	// both modules (32 slots) and this still passed. The floor sits
 	// just under the true count, like the others in this file.
 	// EXACT, for the reason the flag arm gives. The floor here was 70
-	// against a measured 75 -- five slots of room, where round 5's own
-	// argument was that four slots of room is what let a reviewer
-	// delete a real check and stay green. Measured: one added
+	// against a measured 75 -- five slots of room, where four slots of
+	// room had already been shown to let a real check be deleted with
+	// the gate green. Measured: one added
 	// uuidPositionalExempt entry for `ingress_id` removes five real
 	// slots, lands on 70 exactly, and every gate stays green, taking
 	// two verbs with it that no hand list covers either.
 	//
-	// The comment that used to sit here claimed 72 and the PR body
-	// claimed 73; both were wrong when written, and no `Use` string
-	// had changed. Hence a number that cannot drift without failing.
+	// Earlier counts written here were wrong when written, with no
+	// `Use` string changed. Hence a number that cannot drift without failing.
 	// 79 -> 85: the six `managed database allowlist` verbs (get, add,
 	// remove, set, open, clear) each take a `<database_id>` positional;
 	// `client-ip` takes none.
 	// 85 -> 91: `managed database branch` list and create take one
 	// `<database_id>` positional each; get and delete take two
 	// (`<database_id> <branch_id>`).
-	// 91 -> 95: `managed database branch metrics` and `logs` (#541)
+	// 91 -> 95: `managed database branch metrics` and `logs`
 	// each take two (`<database_id> <branch_id>`).
 	if checked != 95 {
 		t.Errorf("%d ID positionals swept, want exactly 95. Adding or "+

@@ -15,8 +15,8 @@ import (
 // Nothing else reads the shell or the procedures we ship to agents:
 // the reference gates walk the cobra tree and the GENERATED blocks,
 // and the example-output gate compares a line that is WRONG against
-// real behaviour. Every #286 idiom was valid shell that ran and
-// exited 0, so none of them could see it (#297).
+// real behaviour. Every status-discarding idiom was valid shell that
+// ran and exited 0, so none of them could see it.
 //
 // These rules are deliberately narrow, and a rule with false
 // positives earns an allowance — which is how a gate rots into the
@@ -147,7 +147,7 @@ func recipeBlocksIn(t *testing.T, path string) []recipeBlock {
 // reasonable and was the gate's worst hole: 31 of the blocks
 // containing `pgedge` carry no info string, every numbered-step
 // workflow in the five SKILL.md files is one of them, and so is
-// Workflow 6 of the controlplane skill — which is one of #286's own eight
+// Workflow 6 of the controlplane skill — which is one of the eight original
 // sites. The gate could be handed that exact defect back and stay
 // green. A document's fences are labelled by whoever wrote them, so
 // the label cannot decide what gets checked.
@@ -232,7 +232,7 @@ var placeholderRe = regexp.MustCompile(`<[^<>\s]*\|[^<>\s]*>`)
 // A first attempt keyed this on there being no whitespace around the
 // `|`, which was an observation about today's formatting dressed up
 // as a property — and it silently regressed the primary rule, because
-// `pgedge … -o json|jq -r .id` is #286's own shape with two spaces
+// `pgedge … -o json|jq -r .id` is the primary rule's own shape with two spaces
 // deleted. Spacing cannot tell the two apart. What can is whether the
 // thing after the pipe is a COMMAND, so the mask is skipped whenever
 // a filter follows.
@@ -345,7 +345,7 @@ var pipelineAllowances = map[string]string{
 	"pgedge controlplane database restore template -i | pgedge controlplane database restore db -f -": "empty stdin makes `restore -f -` exit 2 client-side",
 }
 
-// TestShippedRecipesDoNotDiscardAPgedgeStatus is the #286 class as a
+// TestShippedRecipesDoNotDiscardAPgedgeStatus is the discarded-status class as a
 // rule: in shell we ship, a pgedge call's exit status must reach the
 // reader rather than being swallowed by something whose own status
 // says nothing about whether the CLI succeeded.
@@ -392,7 +392,7 @@ func TestShippedRecipesDoNotDiscardAPgedgeStatus(t *testing.T) {
 					t.Errorf("%s:%d: a pgedge call is the condition "+
 						"of %q and no branch in the block stops:\n"+
 						"  %s\nA failed read then selects a branch "+
-						"on its own, which is how #286's recipes "+
+						"on its own, which is how shipped recipes "+
 						"deployed a second service off a read that "+
 						"404'd. Report the failure and exit, or "+
 						"`case $?` on the one code that means "+
@@ -507,7 +507,7 @@ var stopRe = regexp.MustCompile(`\bexit\s|\breturn\b|\bcase\s+\$\?`)
 
 // branchesOnPgedgeWithoutStopping flags `if pgedge …` where nothing in
 // the block stops on the failure, so the else branch runs on a read
-// that never happened. This is #286's third shape, the one with no
+// that never happened. This is the class's third shape, the one with no
 // pipeline and no `jq` in it, which is why the first sweep's grep
 // could not see it.
 //
@@ -662,7 +662,7 @@ func TestShippedProceduresDoNotWriteOffAnUncheckedRead(t *testing.T) {
 				// pre-fix corpus, where guards are absent and the
 				// prose is short; on the tree that actually ships,
 				// eight of ten sites have their branch at or beyond
-				// eight lines, because #300's own guard paragraph sits
+				// eight lines, because the fix's own guard paragraph sits
 				// between the read and the branch. So the cap, not the
 				// guard, decided whether the rule could see a site —
 				// and it hid a degraded Workflow 5 completely. The

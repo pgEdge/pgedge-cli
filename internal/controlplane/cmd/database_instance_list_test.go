@@ -374,9 +374,8 @@ func TestInstanceListUnknownDatabaseOnEmptyTenant(t *testing.T) {
 }
 
 // TestInstanceListEmptyDatabaseFlagMeansAbsent: an empty value is not a
-// request for a database named "". This cited the --profile= precedent
-// from #166, which #246 has since REVERSED — an empty --profile is now a
-// usage error. The divergence is deliberate: --database narrows a read,
+// request for a database named "". An empty --profile, by contrast, is
+// a usage error. The divergence is deliberate: --database narrows a read,
 // while --profile selects a tenant, so falling through costs nothing
 // here and an account there. Do not "align" this with --profile without
 // that argument changing.

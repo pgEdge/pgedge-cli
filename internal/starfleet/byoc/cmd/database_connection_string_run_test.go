@@ -13,12 +13,12 @@ import (
 
 const (
 	testConnPassword = "p@ss:w/rd?#&'x\\y\u00a0z"
-	testPublicHost   = "n1.dev.pgedge.cloud"
-	testPrivateHost  = "n2.priv-cluster.pgedge.internal"
+	testPublicHost   = "n1.example.com"
+	testPrivateHost  = "n2.internal.example.com"
 )
 
 // byocNodeConnJSON is one entry of a database's nodes array as GET
-// /byoc/v1/databases/{id} returned it on devapi (measured 2026-08-29):
+// /byoc/v1/databases/{id} returned it (measured 2026-08-29):
 // a public node carries host, a private-cluster node internal_host,
 // never both. hostKey names which.
 func byocNodeConnJSON(name, logical, hostKey, host string) string {

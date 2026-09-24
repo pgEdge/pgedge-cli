@@ -34,8 +34,8 @@ const createdSecret = "SUPERSECRET"
 // ApiClient field plus auth0_secret. The reads are deliberately fed this
 // same body even though they answer the narrower ApiClient, so their
 // suppression checks are exercised against a body that DOES contain a
-// secret. It is spec-derived, not observed — the dev tenant is shared,
-// so no client was created to watch the real response.
+// secret. It is spec-derived, not observed — the tenant is shared, so
+// no client was created to watch the real response.
 const apiClientCreatedBody = `{"id":"` + testAPIClientID + `",` +
 	`"name":"ci","description":"CI","auth0_id":"auth0|abc",` +
 	`"auth0_secret":"` + createdSecret + `",` +
@@ -201,7 +201,7 @@ func TestClientGetRun(t *testing.T) {
 // an auth0_secret in the body is discarded at unmarshal and no renderer
 // can reach it. Three hand-written helpers used to clear the field
 // instead, because the old spec shared one response type across
-// POST/PATCH/GET; saas split them, so the type system now enforces what
+// POST/PATCH/GET; the API splits them, so the type system now enforces what
 // those helpers did.
 //
 // This fails if a re-vendor puts a secret-shaped field back on the read
@@ -646,13 +646,9 @@ func TestClientUpdateRun(t *testing.T) {
 // this endpoint, and using it is essential. Do not "simplify" it to
 // a bare w.WriteHeader(http.StatusNoContent).
 //
-// saas's DeleteClient handler is
-// `return ctx.JSON(http.StatusNoContent, nil)`
-// (internal/starfleet/api/clients.go:118 at the pinned SHA in
-// openapi/SOURCE, and at saas HEAD). echo's (*context).json calls
-// writeContentType(MIMEApplicationJSON) before setting the status, and
-// net/http suppresses only Content-Length and Transfer-Encoding on a
-// 204 — not Content-Type. So the wire shape is 204 +
+// The API answers this DELETE with a 204 that still carries the json
+// Content-Type: net/http suppresses only Content-Length and
+// Transfer-Encoding on a 204 — not Content-Type. So the wire shape is 204 +
 // `Content-Type: application/json` + a 0-byte body, which is exactly
 // what JSONHandler(204, "") produces.
 //
@@ -694,7 +690,7 @@ func TestClientDeleteRun(t *testing.T) {
 	})
 
 	// Both 204 wire shapes must work. The json-content-type one is what
-	// saas actually sends and is what the bypass exists for; the bare
+	// the API actually sends and is what the bypass exists for; the bare
 	// one is what a spec-literal 204 looks like, and checkResponse
 	// accepting any 2xx is what makes the bypass correct for both. The
 	// Authorization assertion is the guard on the bypass itself: the
@@ -713,7 +709,7 @@ func TestClientDeleteRun(t *testing.T) {
 		name  string
 		write http.HandlerFunc
 	}{
-		{"204 with a json content-type (what saas sends)",
+		{"204 with a json content-type (what the API sends)",
 			testsupport.JSONHandler(204, "")},
 		{"204 with no content-type", func(
 			w http.ResponseWriter, _ *http.Request) {

@@ -6,7 +6,7 @@ import (
 )
 
 // TestUnknownSubcommandSuggestsANearMiss is what proves main.go calls
-// cli.AddUnknownCommandSuggestions (#292).
+// cli.AddUnknownCommandSuggestions.
 //
 // internal/clitest's gate walks clitest.FullTree, which mirrors this
 // wiring — so it would pass whether or not main.go carried the line.
@@ -35,10 +35,9 @@ func TestUnknownSubcommandSuggestsANearMiss(t *testing.T) {
 		args: []string{"pgedge", "starfleet", "byoc", "databse"},
 		want: "database",
 	}, {
-		// The path #285 made reachable, and the reason this was worth
-		// doing now: appending --help used to print the parent's help
-		// at exit 0, and now reaches the one diagnostic that offered
-		// no near-miss.
+		// Appending --help reaches the unknown-command diagnostic,
+		// not the parent's help at exit 0, so it must carry the
+		// near-miss too.
 		name: "with --help appended",
 		args: []string{"pgedge", "starfleet", "tenat", "--help"},
 		want: "tenant",
@@ -66,7 +65,7 @@ func TestUnknownSubcommandSuggestsANearMiss(t *testing.T) {
 			}
 			// A mistyped subcommand must not print a help dump to
 			// stdout: that is what made the same input read as a
-			// success to anything parsing stdout (#241).
+			// success to anything parsing stdout.
 			if strings.Contains(stdout, "Usage:") {
 				t.Errorf("printed a help dump to stdout:\n%s", stdout)
 			}

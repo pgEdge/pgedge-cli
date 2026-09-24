@@ -16,8 +16,7 @@ import (
 // A shipped example must not be MALFORMED. Copying one is the likeliest
 // way anyone meets an error path at all, and 36 of them named the
 // truncated id `3fa85f64`, which on a direct-parse command is rejected
-// as a bad UUID (#307). The issue said 37; one of its hits was already
-// a full UUID containing the same eight characters.
+// as a bad UUID.
 //
 // The rule is behavioural rather than textual, which is what makes it
 // cover the class: run every example through the real command tree with
@@ -35,7 +34,7 @@ import (
 // The SIX lines on `byoc cluster/database/node` and
 // `managed database/backup` used to keep a deliberately short id,
 // because a prefix was valid syntax there and advertised a real
-// feature. Prefixes are withdrawn (#194), so those six now carry full
+// feature. Prefixes are withdrawn, so those six now carry full
 // UUIDs like every other example and this gate covers them: it caught
 // all 49 example lines the withdrawal invalidated, which is the reason
 // no separate one had to be written for it.
@@ -171,7 +170,7 @@ func exampleInvocations(c *cobra.Command) []string {
 //     a prompt. There is no terminal here, so cli.Confirm refuses.
 //   - A named input file that does not exist. `-f spec.yaml` is the
 //     documented shape and a missing input file is exit 2 in every
-//     module (#258/#276); the harness has no spec.yaml.
+//     module; the harness has no spec.yaml.
 func environmental(err error) string {
 	if err == nil {
 		return ""
@@ -415,7 +414,7 @@ const placeholderValue = "b0c1d2e3-f4a5-6789-bcde-890123456789"
 // a malformed `rag deploy` a reviewer found by ignoring the skip.
 //
 // It substitutes ONLY the bracket form. A bare truncated id like
-// 3fa85f64 is left alone, so #307's own defect is still detected --
+// 3fa85f64 is left alone, so the truncated-id defect is still detected --
 // TestTheExampleGateStillCatchesATruncatedID proves that, because a
 // substitution broad enough to normalise short ids would quietly
 // retire this whole gate.
@@ -436,12 +435,12 @@ func substitutePlaceholders(args []string) []string {
 //
 // substitutePlaceholders is one broadened regex away from normalising
 // every id in every example, at which point the gate above passes
-// whatever the tree says and #307 comes back unnoticed. A reviewer
+// whatever the tree says and truncated ids come back unnoticed. A reviewer
 // demonstrated exactly that: with ids normalised, the planted defect
 // went green and the example count did not move, so the population
 // floor could not see it.
 func TestTheExampleGateStillCatchesATruncatedID(t *testing.T) {
-	// The shape #307 was filed for, on a direct-parse command.
+	// The truncated-id shape, on a direct-parse command.
 	args := substitutePlaceholders(
 		[]string{"starfleet", "client", "get", "3fa85f64"})
 	if got := cli.ExitCode(runForError(t, args...)); got != cli.ExitUsage {

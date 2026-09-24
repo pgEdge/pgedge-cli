@@ -20,12 +20,12 @@ import (
 var flatteningRe = regexp.MustCompile(
 	`newExitError\(\s*err\.Error\(\),\s*ExitGeneral\s*\)`)
 
-// TestNoErrorIsFlattenedToTheGeneralCode closes the class #309
-// describes rather than the one site it found.
+// TestNoErrorIsFlattenedToTheGeneralCode closes the class
+// rather than the one site that showed it.
 //
 // `byoc cluster create` special-cased its own *ExitError and flattened
 // everything else, so a *cli.UsageError passing through would have
-// exited 1 — silently undoing #277's guarantee the moment a parse
+// exited 1 — silently undoing the exit-2 guarantee the moment a parse
 // moved inside buildClusterCreateBody. There was no live defect; the
 // point is that a reasonable future change lands exactly there, and
 // neither existing gate covers it (TestMalformedUUIDArgumentIsAUsageError
@@ -72,8 +72,8 @@ func TestNoErrorIsFlattenedToTheGeneralCode(t *testing.T) {
 					string(raw), -1) {
 					t.Errorf("%s: %s rebuilds an error and assigns it "+
 						"the general code, so a *cli.UsageError "+
-						"passing through would exit 1 instead of 2 "+
-						"(#309). Return the error unchanged: "+
+						"passing through would exit 1 instead of 2. "+
+						"Return the error unchanged: "+
 						"cli.ExitCode already maps UsageError before "+
 						"consulting the coder interface.", path, m)
 				}

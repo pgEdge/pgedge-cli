@@ -14,8 +14,8 @@ import (
 // The gate on shipped examples reads a command's cobra Long text and
 // says of everything else: "a different population". Part of that
 // population is the command a document names mid-sentence, in
-// backticks, and #251 lived exactly there — the controlplane reference told a
-// user whose create had just failed to run
+// backticks, and a real defect lived exactly there — the
+// controlplane reference told a user whose create had just failed to run
 // `pgedge controlplane task get <task_id>`, which exits 2 for want of a scope
 // flag. The working form sat 880 lines further down the same file, and
 // nothing compared either against the command tree.
@@ -74,8 +74,8 @@ func TestInlineDocumentedCommandsAreNotMalformed(t *testing.T) {
 			// one of an enumerated set of words, not for an id, and
 			// substitutePlaceholders has only a UUID to offer: it
 			// turns `completion <shell>` into an unknown command. That
-			// is the harness, not the document. Leaves #251's shape
-			// checked, because `task get <task_id>` resolves to a leaf.
+			// is the harness, not the document. Leaves the scope-flag
+			// shape checked, because `task get <task_id>` resolves to a leaf.
 			if resolved.HasAvailableSubCommands() && len(rest) > 0 &&
 				anglePlaceholderRe.MatchString(rest[0]) {
 				skipped++
@@ -149,9 +149,9 @@ var exitTwoOnPurpose = map[string]string{
 // documents write `controlplane task get --database my-db <task_id>` as readily
 // as they write it out in full, so keying on the prefix left 26
 // placeholder-carrying mentions across six documents invisible —
-// including controlplane's own `task cancel` line and, in the very file #251
-// was filed against, `database create <id> -f spec.yaml`. #251's
-// defect written without the prefix would have passed.
+// including controlplane's own `task cancel` line and, in the very file
+// that held the scope-flag defect, `database create <id> -f spec.yaml`.
+// That defect written without the prefix would have passed.
 //
 // What replaces the prefix as the filter is rootCommandNames below: a
 // mention has to start at a command the tree actually declares.
@@ -238,13 +238,13 @@ func reachesTheNetworkFromRoot(args []string) bool {
 }
 
 // TestTheInlineGateCatchesAMissingScopeFlag is the guard on the guard.
-// The check above passes if nothing reaches its run step, and #251's
-// own shape is the cheapest proof that something does.
+// The check above passes if nothing reaches its run step, and the
+// scope-flag defect's own shape is the cheapest proof that something does.
 func TestTheInlineGateCatchesAMissingScopeFlag(t *testing.T) {
 	broken := substitutePlaceholders(
 		[]string{"controlplane", "task", "get", "<task_id>"})
 	if got := cli.ExitCode(runForError(t, broken...)); got != cli.ExitUsage {
-		t.Errorf("exit = %d, want %d: #251's form must still be "+
+		t.Errorf("exit = %d, want %d: the scope-flag form must still be "+
 			"detectable, or this gate has stopped covering the defect "+
 			"it exists for", got, cli.ExitUsage)
 	}

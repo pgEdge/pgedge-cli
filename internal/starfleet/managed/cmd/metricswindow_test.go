@@ -17,10 +17,10 @@ import (
 // Tuesday that the collector is behind.
 const lagClause = "newest published sample lags behind now"
 
-// TestEmptyMetricsNamesTheWindow is the gate for #324.
+// TestEmptyMetricsNamesTheWindow is the gate for an empty window.
 //
 // `--window 1,minute` answers 200 with an empty series at exit 0,
-// measurably and repeatably -- fifteen consecutive runs on two devapi
+// measurably and repeatably -- fifteen consecutive runs on two
 // fixtures -- because the newest published sample sits 98 to 100
 // seconds behind the wall clock, so a shorter window ends before any
 // sample exists. The value is not refused (see noMetricsMessage), so
@@ -73,7 +73,7 @@ func TestEmptyMetricsNamesTheWindow(t *testing.T) {
 		wantLag: true,
 	}, {
 		// PRECEDENCE. The spec says interval decides the window only
-		// when neither time flag is given, and devapi honours that, so
+		// when neither time flag is given, and the API honours that, so
 		// naming the interval here would name a window the API did not
 		// use. Nothing pinned the switch's arm order until this row:
 		// review hoisted the interval arm above the three time arms and
@@ -128,7 +128,7 @@ func TestEmptyMetricsNamesTheWindow(t *testing.T) {
 			}
 			// The acknowledgement is exit 0 and a sentence on stderr;
 			// an empty series carries no body, so stdout stays
-			// byte-empty (#141).
+			// byte-empty.
 			if out.Len() != 0 {
 				t.Errorf("stdout is not empty: %q", out.String())
 			}
@@ -168,8 +168,8 @@ func TestEmptyMetricsMessageSurvivesEveryFormat(t *testing.T) {
 	}
 }
 
-// TestSingleSampleNote covers the one detection #325 turned out to
-// allow, and the reason the other three were rejected.
+// TestSingleSampleNote covers the one detection that turned out to
+// be allowed, and the reason the other three were rejected.
 //
 // The API omits a metric that is null across the whole requested
 // window. With exactly ONE sample in the window, "null across the
@@ -305,12 +305,11 @@ func TestTieNoteAndSingleSampleNoteBothReachStderr(t *testing.T) {
 	}
 }
 
-// TestMetricsWindowKeepsTheWireName pins the flag/wire seam #358
+// TestMetricsWindowKeepsTheWireName pins the flag/wire seam
 // deliberately created: the flag spells --window, the managed spec's
-// query parameter is still `interval`. Without this, a generated
-// client emitting `window=` survived every test in the tree
-// (measured on #383's review — the query string was asserted by
-// nothing).
+// query parameter is still `interval`. Without this, a generated client
+// emitting `window=` survived every test in the tree (the query string
+// was asserted by nothing).
 func TestMetricsWindowKeepsTheWireName(t *testing.T) {
 	var query string
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")

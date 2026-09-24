@@ -131,7 +131,7 @@ func TestDatabaseRotatePasswordRunRejects(t *testing.T) {
 		}
 	})
 
-	// saas rejects rotation unless both database and cluster are
+	// The API rejects rotation unless both database and cluster are
 	// available; that arrives as a 400 and must not read as success.
 	t.Run("unavailable database surfaces the 400", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")

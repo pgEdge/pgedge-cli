@@ -13,13 +13,12 @@ import (
 
 // fullPageRows is the size of the stub page below.
 //
-// It was FIVE, and review measured what that cost: on a bare read the
-// hint's threshold is the endpoint's default page, so five rows could
-// not have tripped a hint for any default above five — i.e. for any
-// value cp would plausibly adopt. The bare subtest passed under the
-// mutation that was supposed to redden it, and the PR body claimed
-// both subtests failed. 30 is above the 25 that byoc and managed both
-// apply to their own task lists.
+// It was FIVE, and a mutation measured what that cost: on a bare read
+// the hint's threshold is the endpoint's default page, so five rows
+// could not have tripped a hint for any default above five — i.e. for
+// any value cp would plausibly adopt. The bare subtest passed under the
+// mutation that was supposed to redden it. 30 is above the 25 that byoc
+// and managed both apply to their own task lists.
 const fullPageRows = 30
 
 // tasksPage returns a page of n completed tasks.

@@ -6,7 +6,7 @@
 // It exists for the endpoint no verb covers yet, and it is an escape
 // hatch rather than a second interface: gh api and az rest are the
 // precedents that keep their CLI's contract on the raw call, and this
-// does the same (#434).
+// does the same.
 package apicall
 
 import (

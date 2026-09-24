@@ -17,8 +17,8 @@ import (
 // status vocabulary and response fields. None of them gates the other
 // thing a doc asserts on nearly every line: a FLAG. That class shipped
 // a real defect — a troubleshooting row in skills/pgedge-controlplane/SKILL.md
-// citing a fabricated `--cp-url`, which exists nowhere in the CLI
-// (issue #82, fixed by hand in #81's review). The row stayed green
+// citing a fabricated `--cp-url`, which exists nowhere in the CLI.
+// The row stayed green
 // because no gate compared a doc's `--flag` tokens against the flags
 // the cobra tree actually declares. This check is the derived form:
 // every flag-shaped token in hand-written doc text must resolve
@@ -70,7 +70,7 @@ import (
 // workflow code fences, which is exactly where the fabricated
 // `--cp-url` row lived.
 //
-// The letter class is A-Za-z, not just a-z (issue #113): every real
+// The letter class is A-Za-z, not just a-z: every real
 // pgedge flag is lowercase-kebab (knownFlagNames only ever collects
 // names off pflag.Flag.Name, which this codebase always declares in
 // lowercase), so a token this pattern catches with any uppercase
@@ -257,7 +257,7 @@ func checkFlagNameClaims(t *testing.T, path string,
 			// so this lookup is case-sensitive by construction. That is
 			// what makes a mis-cased mention of a real flag — `--Force`
 			// for `--force` — fail to resolve rather than silently
-			// matching after normalisation (issue #113): lowercasing
+			// matching after normalisation: lowercasing
 			// the token here would make `--Force` equal the real
 			// `--force` and erase the very mis-casing this check exists
 			// to catch. name is the lowercased form used only for this
@@ -343,8 +343,8 @@ func TestFlagClaimCheckCatchesFabricatedFlag(t *testing.T) {
 	}
 }
 
-// TestFlagClaimCheckCatchesMisCasedFlag pins issue #113. Before the
-// fix, flagClaimRe only matched a lowercase leading letter, so any
+// TestFlagClaimCheckCatchesMisCasedFlag pins the A-Za-z class. Before
+// it, flagClaimRe only matched a lowercase leading letter, so any
 // flag-shaped token containing an uppercase letter was never even
 // extracted as a candidate — not rejected, invisible — and passed the
 // whole file clean. All three cases here name a REAL flag under the

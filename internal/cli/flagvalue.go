@@ -83,7 +83,7 @@ func OptionalIntFlag(fs *pflag.FlagSet, flag string, lowest int) (
 //
 // The server may still clamp; the contract just publishes no bound, and
 // a bound the CLI invented would refuse a value the API accepts the day
-// saas raises its cap.
+// the API raises its cap.
 //
 // A clamp is visible only where PrintTruncationHint reports it, as
 // `managed task list --limit 500` returning 100 rows does. That is per
@@ -128,7 +128,7 @@ const (
 // The refusal is spec-driven, and its message says only that. What the
 // server does with an over-large value on these two endpoints is
 // unmeasured. The measured clamp (`--limit 500` returning 100 rows on
-// a Managed dev tenant) is on /managed/v1/tasks, which declares no
+// a live managed tenant) is on /managed/v1/tasks, which declares no
 // maximum and never reaches this branch.
 func OptionalIntFlagInRange(
 	fs *pflag.FlagSet, flag string, lowest, highest int,

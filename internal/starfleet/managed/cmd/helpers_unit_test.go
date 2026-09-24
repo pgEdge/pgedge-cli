@@ -12,10 +12,10 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// Prefixes are withdrawn: every ID input takes a full UUID and a
-// value that is not one is a usage error (#194). This replaces
-// TestResolveIDPrefix and the two resolveDatabaseID tests, which
-// pinned the resolution that is gone.
+// Prefixes are withdrawn: every ID input takes a full UUID and a value
+// that is not one is a usage error. This replaces TestResolveIDPrefix
+// and the two resolveDatabaseID tests, which pinned the resolution that
+// is gone.
 //
 // This covers the VALUES. That nothing is sent for a bad one is a
 // property of the command, not of this function, and is pinned where
@@ -110,7 +110,7 @@ func TestParseRole(t *testing.T) {
 // TestParseUserType pins the --user-type normalisation table: every
 // canonical short form and long-form alias maps to the wire value the
 // managed database get endpoint expects, and unknown values fail
-// client-side with ExitUsage (CLI-1).
+// client-side with ExitUsage.
 func TestParseUserType(t *testing.T) {
 	cases := map[string]api.GetManagedDatabaseParamsUserType{
 		"admin":                 api.GetManagedDatabaseParamsUserTypeAdmin,
@@ -174,7 +174,7 @@ func TestParseBranchUserType(t *testing.T) {
 }
 
 // TestValidateManagedDatabaseName pins the client-side --name check
-// against skills/pgedge-managed/SKILL.md's documented rules (CLI-17):
+// against skills/pgedge-managed/SKILL.md's documented rules:
 // lowercase letters and digits only, starting with a letter, 50
 // characters or fewer. The server itself is looser (it accepted a
 // unicode name in the field), so this deliberately narrows what the
@@ -246,7 +246,7 @@ func TestBuildServiceListReplacesByType(t *testing.T) {
 			sawMcp++
 			if s.ServiceId == nil {
 				t.Fatal("the replaced mcp did not adopt the stored " +
-					"service id; saas would treat the write as a NEW " +
+					"service id; the API would treat the write as a NEW " +
 					"service and demand its API keys")
 			}
 			if *s.ServiceId != mcpID {
@@ -305,9 +305,9 @@ func TestFindService(t *testing.T) {
 }
 
 // TestGuardServiceIntent covers all four intent×presence combinations
-// plus the different-type-deployed case (#117): deploy refuses an
-// existing service of the SAME type, and must not be fooled by a
-// different type being present.
+// plus the different-type-deployed case: deploy refuses an existing
+// service of the SAME type, and must not be fooled by a different type
+// being present.
 func TestGuardServiceIntent(t *testing.T) {
 	group := "pgedge starfleet managed database mcp"
 	state := "running"
@@ -519,7 +519,7 @@ func TestServiceEndpoint(t *testing.T) {
 		},
 		want: "https://" + domain + "/mcp",
 	}, {
-		// The whole point of preferring uri: if saas ever moves a
+		// The whole point of preferring uri: if the API ever moves a
 		// service's path, the CLI follows without a release. A derived
 		// value that disagreed would be the stale one.
 		name: "reported uri wins over the derived segment",
@@ -531,7 +531,7 @@ func TestServiceEndpoint(t *testing.T) {
 		},
 		want: "https://" + domain + "/somewhere-else",
 	}, {
-		// An API that predates saas #1868 omits the field entirely.
+		// An API that predates uri omits the field entirely.
 		name: "mcp appends its segment",
 		svc: api.ServiceConfig{
 			ServiceType:  api.Mcp,
@@ -546,10 +546,10 @@ func TestServiceEndpoint(t *testing.T) {
 		},
 		want: "https://" + domain + "/rag",
 	}, {
-		// The mapping is not the identity. saas routes postgrest
+		// The mapping is not the identity. The API routes postgrest
 		// under "rest", so deriving the segment from the type name
-		// would build a URL that 404s. Live check 2026-08-08: the
-		// real /mcp answered 401 while a wrong segment answered 404.
+		// would build a URL that 404s. Live check 2026-08-08: the real
+		// /mcp answered 401 while a wrong segment answered 404.
 		name: "postgrest routes under rest, not its type name",
 		svc: api.ServiceConfig{
 			ServiceType:  api.Postgrest,

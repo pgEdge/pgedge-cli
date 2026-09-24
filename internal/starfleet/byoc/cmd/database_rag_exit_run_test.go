@@ -38,11 +38,11 @@ const (
 	ragPathDir
 )
 
-// The byoc twin of managed's database_rag_exit_run_test.go. byoc was
-// not the module #258 measured, but it shares parsePipelineConfig,
+// The byoc twin of managed's database_rag_exit_run_test.go. byoc
+// shares parsePipelineConfig,
 // validatePipelines and the completeness guard line for line, so it
 // diverged from cp identically — and byoc's own --network, --node and
-// --firewall-rule parsers already answer 2 (#134), which left one
+// --firewall-rule parsers already answer 2, which left one
 // module reporting two codes for one class of mistake.
 func TestRAGPipelineConfigFailuresExitUsage(t *testing.T) {
 	const reservedName = `[{"name":"_default","tables":[` +
@@ -89,7 +89,7 @@ func TestRAGPipelineConfigFailuresExitUsage(t *testing.T) {
 // on the same flag set. cobra catches an OMITTED required flag at exit
 // 2 already, so on deploy an explicitly empty value is what reaches
 // this guard, and reporting the identical mistake as 1 is the
-// divergence #258 names, one flag along from the file itself.
+// same divergence, one flag along from the file itself.
 func TestRAGDeployIncompleteFlagsExitUsage(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t,
@@ -115,8 +115,7 @@ func TestRAGDeployIncompleteFlagsExitUsage(t *testing.T) {
 // required with minItems 1 — which the CLI decodes leniently rather
 // than enforcing. The code is pinned here so that changing it is
 // deliberate: if a real response can carry an empty or absent pipelines
-// array, the honest answer on this path is 1, and that is not settled
-// (#258).
+// array, the honest answer on this path is 1, and that is not settled.
 func TestRAGUpdateServedNoPipelinesExitsUsage(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(

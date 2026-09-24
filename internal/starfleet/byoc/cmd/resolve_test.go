@@ -14,12 +14,12 @@ import (
 
 // resolveNodeID is the ONE resolver left in this module: a node can be
 // named, so a failed parse there is control flow rather than a bad
-// argument (#194). Every other ID input now goes through parseUUIDArg.
+// argument. Every other ID input now goes through parseUUIDArg.
 //
 // The ID-prefix fallback this file used to pin is gone with prefixes,
 // which is why the third sub-test asserts a prefix is REFUSED. Without
 // it, reinstating the fallback would leave every test in the repo
-// green — the same hole a reviewer of #277 found in the other
+// green — the same hole a review found in the other
 // direction, when deleting the fallback broke nothing.
 func TestResolveNodeIDTakesAUUIDOrAName(t *testing.T) {
 	const (
@@ -27,7 +27,7 @@ func TestResolveNodeIDTakesAUUIDOrAName(t *testing.T) {
 		cluster = "a1b2c3d4-1111-2222-3333-444455556666"
 	)
 	// The stub answers only this cluster's node list, so a resolver
-	// that listed some other cluster's nodes fails here (#475).
+	// that listed some other cluster's nodes fails here.
 	nodes, err := json.Marshal([]api.ClusterNode{{Id: nodeID, Name: "n1"}})
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestResolveNodeIDTakesAUUIDOrAName(t *testing.T) {
 			context.Background(), newTestClient(t, handler(t)), cid, "065e6997")
 		if err == nil {
 			t.Fatal("an ID prefix resolved; prefixes are withdrawn " +
-				"(#194) and only a full UUID or an exact name may match")
+				"and only a full UUID or an exact name may match")
 		}
 	})
 
@@ -94,7 +94,7 @@ func TestParseUUIDArgRefusesAPrefixWithoutAClient(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := parseUUIDArg(tc.arg, "cluster ID"); err == nil {
 				t.Fatalf("%q was accepted; every ID input takes a "+
-					"full UUID (#194)", tc.arg)
+					"full UUID", tc.arg)
 			} else if got := cli.ExitCode(err); got != ExitUsage {
 				t.Errorf("exit %d, want %d", got, ExitUsage)
 			}

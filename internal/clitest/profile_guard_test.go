@@ -8,8 +8,8 @@ import (
 )
 
 // exemptProfileGuard pins the commands annotated with
-// cli.AnnotationProfileExempt — the six commands #102 (CLI-4) carves
-// out of the profile guard, per Design decision 6 of the plan: four
+// cli.AnnotationProfileExempt — the six commands carved
+// out of the profile guard: four
 // that never read the config (version, llms, completion, help) and
 // two that create the named profile rather than requiring it to
 // already exist (starfleet auth login, cp config set).
@@ -85,7 +85,7 @@ func TestProfileExemptionsArePinned(t *testing.T) {
 
 // repairCurrentProfile pins the commands annotated with
 // cli.AnnotationProfileRepair — the two that must still run when
-// current_profile names a profile that does not exist (#150).
+// current_profile names a profile that does not exist.
 //
 // The set is deliberately tiny and must stay that way. Every command
 // listed here is one that keeps running against a config the CLI has

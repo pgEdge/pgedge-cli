@@ -99,8 +99,8 @@ func TestManagedEmptyBodySuccessIsNotReportedAsFailure(t *testing.T) {
 // TestResizeAcceptsBothResponseShapes pins the shape mismatch that
 // makes resize the dangerous one.
 //
-// The spec declares 200 with no content, and saas's handler answers
-// RespondOK(ctx, managedDatabaseModel(...)) — a full ManagedDatabase.
+// The spec declares 200 with no content, and the API answers with a
+// full ManagedDatabase.
 // The two disagree, so the command has to survive either. An empty body
 // is what the spec promises; a populated one is what the server sends
 // today. Both must exit 0.

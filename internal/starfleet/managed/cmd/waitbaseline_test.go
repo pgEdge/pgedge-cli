@@ -28,7 +28,7 @@ func taskJSON(id, status, createdAt string) string {
 		id, status, testDatabaseID, createdAt, createdAt)
 }
 
-// failedBaselineHandler reproduces #326: the pre-mutation task read
+// failedBaselineHandler reproduces the bug: the pre-mutation task read
 // returns 500 ONCE, and every later read succeeds.
 //
 // That is the whole reachability of the bug and it is why the stub
@@ -46,8 +46,8 @@ func failedBaselineHandler(includeFresh bool) http.HandlerFunc {
 	mutated := false
 
 	// Old enough that no plausible clock skew reaches it, and it
-	// mirrors the fixture the issue was reproduced on, whose newest
-	// task was two days old.
+	// mirrors the stale-task bug, whose newest task was two days
+	// old.
 	stale := taskJSON(staleTaskID, "succeeded", "2026-08-05T00:00:00Z")
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func failedBaselineHandler(includeFresh bool) http.HandlerFunc {
 }
 
 // TestWaitRefusesAStaleTaskWhenTheBaselineReadFailed is the gate for
-// #326, and it FAILS on the code this replaced.
+// a failed baseline read, and it FAILS on the code this replaced.
 //
 // Before the fix a failed baseline read left no baseline at all, so
 // discovery accepted the first task it saw. On a database with history
@@ -242,7 +242,7 @@ func TestTaskBaselineAccepts(t *testing.T) {
 		want: false,
 	}, {
 		// A shape the API has never sent must not be able to make
-		// waiting impossible, so this falls back to the pre-#326
+		// waiting impossible, so this falls back to the no-baseline
 		// behaviour rather than refusing everything.
 		name: "capture failed, unreadable created_at",
 		base: taskBaseline{notBefore: floor},
@@ -320,9 +320,9 @@ func TestBaselineClockMarginIsPinnedAtBothEnds(t *testing.T) {
 	}
 }
 
-// TestCaptureTaskBaselineCostsNoReadWithoutWaiting pins the #261
-// property the baseline capture has to keep: it is a round trip taken
-// only because the caller asked to wait.
+// TestCaptureTaskBaselineCostsNoReadWithoutWaiting pins the property
+// the baseline capture has to keep: it is a round trip taken only
+// because the caller asked to wait.
 func TestCaptureTaskBaselineCostsNoReadWithoutWaiting(t *testing.T) {
 	reads := 0
 	url := testsupport.NewAuthedServer(t,
@@ -345,8 +345,8 @@ func TestCaptureTaskBaselineCostsNoReadWithoutWaiting(t *testing.T) {
 }
 
 // TestATwoXXWithNoReadableListIsNotAnEmptyList is the gate for the
-// third baseline state, which review found and which reproduces #326
-// verbatim on the fixed tree.
+// third baseline state, which review found and which reproduces the
+// failed-read bug verbatim on the fixed tree.
 //
 // ParseListManagedTasksResponse sets JSON200 only when the
 // Content-Type contains "json" AND the status is exactly 200 — and its

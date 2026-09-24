@@ -53,7 +53,7 @@ func loadGoreleaserConfig(t *testing.T) goreleaserConfig {
 // every user with no other CI signal — surfacing only as "archive
 // does not contain the pgedge binary" after a release shipped:
 // renaming the build's binary, or setting wrap_in_directory so the
-// member becomes "<dir>/pgedge" (#400).
+// member becomes "<dir>/pgedge".
 func TestExtractBinaryMemberNameMatchesGoreleaser(t *testing.T) {
 	cfg := loadGoreleaserConfig(t)
 

@@ -212,8 +212,7 @@ type clusterCreateOpts struct {
 	volumeSize     int
 	// volumeSizeSet records whether --volume-size was given at all.
 	// volumeSize alone cannot say: 0 is both the flag's zero value and
-	// a value an operator can type, and the two are different requests
-	// (#256).
+	// a value an operator can type, and the two are different requests.
 	volumeSizeSet  bool
 	regions        []string
 	backupStoreIDs []string
@@ -261,7 +260,7 @@ Example:
 				// special-cased *ExitError and flattened everything
 				// else to ExitGeneral, which would have silently
 				// returned a *cli.UsageError to exit 1 the moment a
-				// parse moved inside this builder (#309).
+				// parse moved inside this builder.
 				return err
 			}
 
@@ -273,7 +272,7 @@ Example:
 			// One read, on the verb where it is worth the most: a dry
 			// run that passes a nonexistent --cloud-account-id gives
 			// the strongest possible false confidence right before the
-			// CLI provisions real cloud infrastructure (#256).
+			// CLI provisions real cloud infrastructure.
 			//
 			// A missing account answers exit 4 rather than 2 -- the
 			// value is well-formed and names nothing, which is what
@@ -286,8 +285,8 @@ Example:
 			// (/cloud-accounts/{id}/regions/{region}/availability-
 			// zones) and answers an empty list for a region that does
 			// not exist, so it cannot tell a bad region from a real
-			// one with no zones. Measured against a BYOC dev tenant: `mars-1`
-			// returns an empty list at exit 0.
+			// one with no zones. Measured against a live BYOC tenant:
+			// `mars-1` returns an empty list at exit 0.
 			if err := checkCloudAccountExists(
 				context.Background(), rt, client,
 				opts.cloudAccountID); err != nil {
@@ -427,7 +426,7 @@ func buildClusterCreateBody(
 	// spelling, so discarding it and forwarding the raw local put a
 	// braced id on the wire verbatim -- measured, and the API answers
 	// that the same way it answered a prefix. Passing the check and
-	// then sending something else is the #257/#274 defect in a
+	// then sending something else is the unchecked-ID defect in a
 	// different spelling. uuid.UUID.String() is canonical by
 	// construction, so every one of these sites sends one shape.
 	cloudAccountID, err := parseUUIDArg(
@@ -452,7 +451,7 @@ func buildClusterCreateBody(
 	// `backup-store get <backup_store_id>` demands one — and this slice
 	// reached the request body verbatim, so a prefix came back as a
 	// server-side failure naming the store rather than the id. Exactly
-	// the #257/#274 shape, found by the ID-flag sweep in
+	// the unchecked-ID shape, found by the ID-flag sweep in
 	// internal/clitest after byoc's reference had already claimed the
 	// flag was checked.
 	if len(o.backupStoreIDs) > 0 {
@@ -805,7 +804,7 @@ Example:
 // `--regions "us-east-2, eu-west-1"` yields a second element of
 // " eu-west-1". Untrimmed it is sent to the API verbatim, and it also
 // makes the region guard report a region the user plainly did pass.
-// Shared by --regions and every --target-nodes site (#386).
+// Shared by --regions and every --target-nodes site.
 func trimSpaces(values []string) []string {
 	out := make([]string, 0, len(values))
 	for _, v := range values {
@@ -819,8 +818,8 @@ func trimSpaces(values []string) []string {
 //
 // This verb sends regions, nodes and networks in one body and has no
 // --nodes or --networks flag, so dropping a region moves nothing out
-// of it: the body would contradict itself. Measured on a BYOC dev tenant
-// 2026-08-22, clusters with a node in every region they declare exist
+// of it: the body would contradict itself. Measured on a live BYOC
+// tenant 2026-08-22, clusters with a node in every region they declare exist
 // and are `available`.
 //
 // What the API does with such a body is not known, and the refusal
@@ -951,13 +950,13 @@ func buildClusterUpdate(c *api.Cluster,
 // wrong and nothing was sent, so a script must be able to tell it from
 // an API or network failure by the code alone. The three parsers had
 // drifted to ExitGeneral while validatePrivateSubnets — a sibling
-// check on the same flag, added by #131 — already returned ExitUsage,
+// check on the same flag — already returned ExitUsage,
 // so `--network garbage` and `--network region=x,public-subnets=y`
 // under `--node-location private` reported the same class of mistake
-// with two different codes (#134).
+// with two different codes.
 //
-// The alignment covers all three parsers rather than only --network,
-// which #134 named: fixing one leaves the same inconsistency between
+// The alignment covers all three parsers rather than only --network:
+// fixing one leaves the same inconsistency between
 // siblings on the same command, one flag further along.
 
 // parseFirewallRule parses a repeatable structured flag value of the
@@ -1027,7 +1026,7 @@ func parseFirewallRule(s string) (api.ClusterFirewallRuleSettings, error) {
 }
 
 // validFirewallRuleNames is the set of rule names the BYOC API accepts for a
-// firewall rule (saas internal/starfleet/clusters/cluster_validator.go). The
+// firewall rule. The
 // OpenAPI spec types this field as a free-form string with no enum, so the CLI
 // hardcodes the set to give a clear client-side error instead of an opaque API
 // 400. Keep in sync with the server; tracked by CLOUD spec bug.
@@ -1059,11 +1058,11 @@ func defaultRegionFor(regions []string) string {
 // omitted only on single-region clusters.
 //
 // Every key ClusterNetworkSettings declares is accepted, and that
-// completeness is the point rather than a convenience (#134). The flag
+// completeness is the point rather than a convenience. The flag
 // used to parse region, cidr, public-subnets and private-subnets only,
-// which left a GCP network spec inexpressible: saas's Google validator
-// rejects BOTH public_subnets and private_subnets outright ("use
-// subnets instead", cluster_validator_google.go), so the only GCP path
+// which left a GCP network spec inexpressible: the API rejects BOTH
+// public_subnets and private_subnets on Google outright ("use
+// subnets instead"), so the only GCP path
 // through this CLI was to omit --network entirely and accept whatever
 // defaults the server filled in. subnets is what closes that.
 //
@@ -1072,7 +1071,7 @@ func defaultRegionFor(regions []string) string {
 // passed through without interpretation: which combinations are
 // meaningful is per-cloud server-side knowledge (an external network
 // needs its external_id, a fresh one must not carry one), and the CLI
-// duplicating that judgement would go stale against saas the first time
+// duplicating that judgement would go stale against the API the first time
 // a starfleet's rules moved. The keys existing at all is what this flag
 // owes the user; validating them is the API's job.
 func parseClusterNetwork(s, defaultRegion string) (
@@ -1176,7 +1175,7 @@ func parseClusterNode(s, defaultRegion string) (
 			}
 			// The same floor --volume-size carries. One spelling of a
 			// field must not accept what the other refuses, and this is
-			// the spelling every worked example in llms.txt uses (#282).
+			// the spelling every worked example in llms.txt uses.
 			if size < volumeSizeMin {
 				return n, newExitError(fmt.Sprintf(
 					"node: volume-size %d: expected %d or more GB "+
@@ -1225,8 +1224,8 @@ func parseClusterNode(s, defaultRegion string) (
 // "Private clusters on AWS/Azure: add private-subnets=... to
 // --network." The cloud qualifier in that sentence is part of the
 // quote, not a gloss — GCP is governed by the next line of the same
-// block, and an unqualified version of this rule is exactly what #134
-// had to delete. Without this check the CLI sends the request anyway
+// block, and an unqualified version of this rule is wrong for GCP.
+// Without this check the CLI sends the request anyway
 // and the server 400s with "no private subnet for availability zone"
 // — a round trip for a rule the CLI already knows, for AWS and Azure.
 //
@@ -1237,7 +1236,7 @@ func parseClusterNode(s, defaultRegion string) (
 // private_subnets there outright, "use subnets instead" — so a GCP
 // private cluster must be able to pass through this check untouched.
 //
-// The subnets key exists as of #134, so a GCP private cluster is now
+// The subnets key makes a GCP private cluster
 // expressible rather than merely tolerated here. That does NOT make
 // this check able to demand subnets on a private cluster: --network is
 // optional, the server fills defaults when it is omitted, and nothing
@@ -1264,9 +1263,9 @@ func validatePrivateSubnets(
 			region = "(unspecified)"
 		}
 		// The GCP clause is not a nicety. This branch fires on an entry
-		// carrying public-subnets, which a GCP user can reach — saas
+		// carrying public-subnets, which a GCP user can reach — the API
 		// rejects public_subnets on a Google cluster too — and the
-		// AWS/Azure remedy is one saas would refuse a second time. The
+		// AWS/Azure remedy is one the API would refuse a second time. The
 		// CLI cannot tell which cloud is meant (nothing in the flag
 		// values names it, and the cloud-account-id is opaque here), so
 		// it names both remedies rather than guessing.
@@ -1309,7 +1308,7 @@ func buildCreateNetworks(raw, regions []string) (
 // The enum was declared and not enforced: `--node-location sideways`
 // reached the request body unparsed, so a dry run passed it and only
 // the API refused it -- on the most expensive verb in the CLI, right
-// before it provisions real infrastructure (#256). The flag's own help
+// before it provisions real infrastructure. The flag's own help
 // text and its shell completion both already named the two values.
 //
 // TestNodeLocationsMatchTheSpecEnum reads byoc.yaml and is what fails
@@ -1375,7 +1374,7 @@ func checkCloudAccountExists(
 // declares volume_size as a plain optional integer with no minimum and
 // no default, and the API accepts a negative: it substitutes its own
 // undocumented default of 100 GB and answers 200, so `--volume-size -5`
-// provisioned a 100 GB volume at exit 0 (#256).
+// provisioned a 100 GB volume at exit 0.
 //
 // Zero is refused along with the negatives rather than read as "let the
 // API choose". Omitting the flag already says that unambiguously, and a

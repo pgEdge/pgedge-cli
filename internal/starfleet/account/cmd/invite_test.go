@@ -133,7 +133,7 @@ func TestInviteGuardedVerbsIssueNoRequest(t *testing.T) {
 
 // TestInviteGuardPremiseStillHolds is the tripwire. The guard exists
 // only because every credential the CLI accepts is a client ID and
-// secret, which saas maps to X-Client-ID and never X-User-ID. If an
+// secret, which the API treats as a client and never a user. If an
 // interactive or device login ever lands, the premise is false and both
 // verbs should be restored rather than left refusing.
 //

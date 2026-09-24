@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The value from the issue's own end-to-end probe. It forged two metric
+// The value from the original end-to-end probe. It forged two metric
 // rows on stdout that a reader could not tell from real ones, which is
 // the whole defect in one string.
 const forgedInstanceName = "evil-1-1\ncpu_seconds_total\t0\n" +

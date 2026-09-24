@@ -2,7 +2,7 @@
 # Tests for install.sh's checksum verification and PATH warning.
 # Sources install.sh as a library (PGEDGE_INSTALL_SH_LIB=1) so the
 # functions run without the installer body. Checksum focus: the
-# fail-closed contract of issue #25 — no sha256 tool must ABORT,
+# fail-closed contract — no sha256 tool must ABORT,
 # never skip verification.
 set -eu
 
@@ -66,7 +66,7 @@ verify_checksum "$FILE" "missing.tar.gz" "$CHECKSUMS" >/dev/null 2>&1; rc=$?
 set -e
 check "verify_checksum fails on missing entry" "$( [ $rc -ne 0 ] && echo 1 || echo 0 )" 1
 
-# T6 (issue #116 follow-up): goreleaser's sboms: stanza adds a
+# T6: goreleaser's sboms: stanza adds a
 # "<archive>.sbom.json" sidecar line to checksums.txt alongside the
 # archive's own line. An unanchored `grep "$archive_name"` matches
 # BOTH lines (the sidecar name contains the archive name as a
@@ -85,7 +85,7 @@ verify_checksum "$FILE" "$ARCHIVE" "$SBOMSUMS" >/dev/null 2>&1; rc=$?
 set -e
 check "verify_checksum ignores a .sbom.json sidecar entry" "$rc" 0
 
-# T7 (the #25 fix): with no sha256 tool, verify_checksum FAILS CLOSED
+# T7: with no sha256 tool, verify_checksum FAILS CLOSED
 # rather than skipping. Shadow sha256_of to simulate no tool present.
 sha256_of() { return 1; }
 set +e

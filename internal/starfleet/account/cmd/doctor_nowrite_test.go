@@ -17,7 +17,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// `cloud doctor` must not change the state it reports (#168).
+// `cloud doctor` must not change the state it reports.
 //
 // It presents as a read-only diagnostic — its own help says it is
 // "safe to run precisely when authentication is broken" — but its
@@ -69,13 +69,13 @@ func stubTokenAPI(t *testing.T) (url string, paths func() []string) {
 	}
 }
 
-// TestDoctorDoesNotWriteTheTokenCache is the core of #168: on a COLD
+// TestDoctorDoesNotWriteTheTokenCache is the core of the rule: on a COLD
 // cache, doctor authenticates, reports the tenant, and leaves no file
 // behind.
 //
 // The tenant assertion is half the test. Without it the fix could be
 // "stop probing", which would pass a no-write check while destroying
-// the row's reason for existing (#164: plan gating is why an empty
+// the row's reason for existing (plan gating is why an empty
 // byoc list is not a routing failure).
 func TestDoctorDoesNotWriteTheTokenCache(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -114,8 +114,8 @@ func TestDoctorDoesNotWriteTheTokenCache(t *testing.T) {
 	}
 }
 
-// TestDoctorDoesNotEvictAnExistingToken pins the consequence #167
-// sharpened: a cached token is bound to the API base URL, so a doctor
+// TestDoctorDoesNotEvictAnExistingToken pins a sharper
+// consequence: a cached token is bound to the API base URL, so a doctor
 // run against a DIFFERENT endpoint used to replace the profile's
 // working token with one minted elsewhere.
 //
@@ -200,7 +200,7 @@ func TestDoctorReusesAWarmCacheWithoutExchanging(t *testing.T) {
 	// because the write is atomic — a temp file renamed into place — so
 	// any re-save replaces the inode even when the bytes match.
 	//
-	// The distinction is the whole point of #168. A future
+	// The distinction is the whole point. A future
 	// post-migration re-save would put doctor back to writing the cache
 	// it reports on, with the contents unchanged and a byte comparison
 	// none the wiser.

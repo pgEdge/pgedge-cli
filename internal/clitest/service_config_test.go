@@ -10,7 +10,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// This file is issue #124's conformance gate: it ties `pgedge controlplane
+// This file is a conformance gate: it ties `pgedge controlplane
 // database init`'s blank template text to internal/controlplane/svccfg's
 // hand-mirrored Control Plane key sets, so the two cannot silently
 // drift apart. See internal/controlplane/svccfg's package doc comment for why
@@ -190,7 +190,7 @@ func extractConfigKeyTokens(lines []string) []string {
 // TestInitTemplateNamesOnlyKnownServiceKeys is the forward direction:
 // every config key token the blank template names, for every service
 // type, must be a key internal/controlplane/svccfg says CP actually accepts.
-// This is what catches the #109 defect class: the template inventing
+// This is what catches the defect class: the template inventing
 // a key like llm_api_key that CP rejects outright.
 func TestInitTemplateNamesOnlyKnownServiceKeys(t *testing.T) {
 	tmpl := blankDatabaseInitTemplate(t)

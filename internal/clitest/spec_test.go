@@ -20,9 +20,10 @@ type specDoc struct {
 	Paths map[string]any `yaml:"paths"`
 }
 
-// starfleetSpecs are the three specs derived from saas's merged document.
-// control-plane.json is deliberately absent: the self-hosted Control
-// Plane is a different API with its own provenance.
+// starfleetSpecs are the three specs captured from the API's
+// per-product public contracts. control-plane.json is deliberately
+// absent: the self-hosted Control Plane is a different API with its own
+// provenance.
 var starfleetSpecs = []string{"byoc.yaml", "managed.yaml", "account.yaml"}
 
 func specPath(name string) string {
@@ -48,7 +49,7 @@ func loadSpec(t *testing.T, name string) specDoc {
 // path in the file — so a single bare `/v1/...` path reintroduced by a
 // re-vendor fails the build rather than 404ing in the field.
 //
-// The bare paths are not merely deprecated: saas PR #1843 retired the
+// The bare paths are not merely deprecated: the API retired the
 // whole surface, along with the rewriting layer that had kept the old
 // shapes reachable, so every one of them 404s upstream now. Of what used
 // to sit there, `/v1/backups*` was legacy Developer-edition surface BYOC
@@ -93,14 +94,14 @@ func TestVendoredSpecsAreCanonical(t *testing.T) {
 			want: []string{
 				"/managed/v1/databases",
 				"/managed/v1/databases/{id}/size",
-				// The backup surface, relocated off bare /v1 by saas PR
-				// #1843. Pinned here so a re-vendor that lost it fails
+				// The backup surface, relocated off bare /v1 by the API.
+				// Pinned here so a re-vendor that lost it fails
 				// rather than quietly shrinking the managed contract.
 				"/managed/v1/backups",
 				"/managed/v1/backups/{id}",
 				// Restore is keyed on the DATABASE, not the backup —
-				// saas PR #1856 retired the backup-keyed route outright
-				// (issue #174). Pinned in both directions: the old key
+				// the API retired the backup-keyed route outright.
+				// Pinned in both directions: the old key
 				// also sits in unwant, so a re-vendor that rolled the
 				// pin back would fail here rather than resurrect a
 				// route the API answers 405 for.
@@ -237,17 +238,17 @@ func TestVendoredSpecsCarryNoVisibilityMarkers(t *testing.T) {
 	})
 }
 
-// TestVendoredSpecsOmitPrivateOperations pins the one path saas's
+// TestVendoredSpecsOmitPrivateOperations pins the one path the API's
 // public filter drops today.
 //
 // acceptInvite is marked x-pgedge-omit-public, so it is absent from
 // every published spec and must be absent here. Nothing is lost: the
-// verb cannot work from an API client at all — saas's edge proxy sets
+// verb cannot work from an API client at all — the API's edge proxy sets
 // X-User-ID or X-Client-ID and never both — so `starfleet invite accept`
 // refuses locally with exit 5 and never reaches a generated method.
 //
 // If this ever fails because the path came back, the question to ask
-// is whether saas un-marked it, not whether to re-add it by hand.
+// is whether the API un-marked it, not whether to re-add it by hand.
 func TestVendoredSpecsOmitPrivateOperations(t *testing.T) {
 	doc := loadSpec(t, "account.yaml")
 	const private = "/account/v1/invites/{id}/accept"

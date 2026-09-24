@@ -47,10 +47,10 @@ var managedWaitVerbs = []string{
 	"starfleet managed database create",
 	"starfleet managed database delete",
 	"starfleet managed database resize",
-	// #359: rotation spawns rotate-password-managed and returned no
+	// Rotation spawns rotate-password-managed and used to return no
 	// handle; byoc's rotate had the flags all along.
 	"starfleet managed database rotate-password",
-	// Added by #261. All seven service leaves, because applyServices is
+	// All seven service leaves, because applyServices is
 	// the single write behind them: registering on fewer would leave a
 	// verb reaching trackMutation, and printing `Monitor with:`,
 	// without declaring the flag it names.
@@ -77,10 +77,10 @@ var managedWaitVerbs = []string{
 
 // waitFlags are what addWaitFlags registers. All four or none: a verb
 // with --wait but no --wait-timeout would accept a wait it cannot
-// bound. The #356 rename made the two bounds unambiguous:
+// bound. The names keep the two bounds unambiguous:
 // --wait-timeout/--wait-interval govern the wait, --timeout (the
 // starfleet root's) bounds one request — which also freed metrics'
-// `value,unit` lookback (now --window, #358) from needing an
+// `value,unit` lookback (now --window) from needing an
 // exemption here.
 var waitFlags = []string{"wait", "follow", "wait-timeout", "wait-interval"}
 
@@ -170,7 +170,7 @@ func TestManagedWaitFlagsAreExactlyThisSet(t *testing.T) {
 			"A fixture-driven test cannot catch this: guardServiceIntent "+
 			"turns the deploy verbs away before the write, so deleting "+
 			"addWaitFlags from one of them leaves every other gate "+
-			"green (#261). If the removal is deliberate, "+
+			"green. If the removal is deliberate, "+
 			"TestManagedWaitFlagsFollowTheCode is the one that decides "+
 			"whether it is allowed.", path)
 	}
@@ -228,7 +228,7 @@ func TestWaitFlagListsAreLive(t *testing.T) {
 //	its body reaches trackMutation  <=>  its body reaches addWaitFlags
 //
 // Both directions are defects. Reaching trackMutation without the flags
-// is the #261 gap — a verb that prints `Monitor with:` and declares no
+// is the missing-flags gap — a verb that prints `Monitor with:` and declares no
 // --wait. The flags without trackMutation is the opposite promise: a
 // --wait the verb accepts and silently ignores.
 //
@@ -415,7 +415,7 @@ func TestManagedWaitFlagsFollowTheCode(t *testing.T) {
 		case tracks && !waits:
 			t.Errorf("%s (%s) reaches trackMutation but never "+
 				"addWaitFlags. That verb prints `Monitor with:` and "+
-				"declares no --wait, which is the #261 gap. Register "+
+				"declares no --wait, which is the missing-flags gap. Register "+
 				"addWaitFlags(cmd), or stop reaching trackMutation.",
 				name, where)
 		case waits && !tracks:

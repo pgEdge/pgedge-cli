@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// This mirrors internal/starfleet/byoc/cmd/wait.go on purpose: saas
+// This mirrors internal/starfleet/byoc/cmd/wait.go on purpose: the API
 // serves one task resource under both prefixes, `GET /managed/v1/tasks`
 // and `GET /byoc/v1/tasks` take the same seven query parameters, and
 // both answer the same `Task` schema. Both copies have the
@@ -161,13 +161,13 @@ func newestOf(tasks []api.Task) *api.Task {
 // is sized for that skew, which can be most of one.
 //
 // Too tight rejects the mutation's own task, and the wait times out
-// naming the floor. Too loose widens a chained-write window: after
-// `mcp deploy` without --wait, `rag deploy --wait` on the same database
+// naming the floor. Too loose widens a chained-write window: after `mcp
+// deploy` without --wait, `rag deploy --wait` on the same database
 // finds a task under a minute old, and if its capture fails the floor
 // admits the first write's still-running task and reports its outcome.
 // The id path excludes that; an age floor cannot. A minute still
 // rejects the stale task this guards against: the newest task on the
-// devapi fixture that reproduced it was two days old.
+// fixture that reproduced it was two days old.
 const baselineClockMargin = time.Minute
 
 // taskBaseline is what a mutation records about a subject's tasks

@@ -17,8 +17,8 @@ import (
 // .golangci.yml keeps linters off them, and scripts/coverage-gate.sh keeps
 // them out of the coverage profile. Neither was tied to the tree, so a
 // re-vendoring that moves a package left one rule matching a path that no
-// longer exists and three generated packages outside every exclusion
-// (#212). These tests make the tree the truth source: a moved package
+// longer exists and three generated packages outside every exclusion.
+// These tests make the tree the truth source: a moved package
 // fails the build instead of silently changing what is linted and what is
 // measured.
 //
@@ -175,7 +175,7 @@ func compilePatterns(t *testing.T, source string, patterns []string) []*regexp.R
 	return res
 }
 
-// TestGolangciExcludesEveryGeneratedClient is the #212 regression: the
+// TestGolangciExcludesEveryGeneratedClient is the moved-package regression: the
 // config named internal/byoc/api, a path the tree lost when the modules
 // moved under internal/starfleet, and reached only one of the four clients.
 func TestGolangciExcludesEveryGeneratedClient(t *testing.T) {
@@ -221,7 +221,7 @@ func TestNoGolangciExclusionReachesHandWrittenCode(t *testing.T) {
 }
 
 // TestEveryGolangciExclusionMatchesSomething catches the other half of
-// #212: a pattern that matches nothing. A dead rule is invisible — lint
+// the drift: a pattern that matches nothing. A dead rule is invisible — lint
 // stays green — but whatever it was added to exclude is unprotected, and
 // the check above cannot see it.
 func TestEveryGolangciExclusionMatchesSomething(t *testing.T) {
@@ -254,7 +254,7 @@ func TestEveryGolangciExclusionMatchesSomething(t *testing.T) {
 //
 // This measures the filter's EFFECT, never its spelling — a substring
 // heuristic over an unparsed script can only bound one spelling, which is
-// what let a second filter drop 461 lines undetected (#224).
+// what let a second filter drop 461 lines undetected.
 //
 // The invariant is that the filter must be a function of the IMPORT PATH
 // alone. Nothing can prove that from a sample, so the sample is chosen to
@@ -373,7 +373,7 @@ func stubGoOnPath(t *testing.T, work string) {
 
 // TestMakefileDelegatesTheCoverageFilter holds the shape that makes the
 // test above sufficient: one filter, in the script. The Makefile used to
-// duplicate it (#224). A reinstated copy there would not fail the effect
+// duplicate it. A reinstated copy there would not fail the effect
 // check — that runs the script, not `make test` — so the absence is
 // asserted directly.
 func TestMakefileDelegatesTheCoverageFilter(t *testing.T) {
@@ -401,7 +401,7 @@ func TestMakefileDelegatesTheCoverageFilter(t *testing.T) {
 		}
 		if m := filterTool.FindStringSubmatch(line); m != nil {
 			t.Errorf("the `test` target runs %q — the profile filter belongs "+
-				"in scripts/coverage-gate.sh alone (#224):\n%s", m[2], recipe)
+				"in scripts/coverage-gate.sh alone:\n%s", m[2], recipe)
 		}
 	}
 }

@@ -13,7 +13,7 @@ import (
 // The args-vs-flags contract (ruled 2026-08-23/24) settled one name
 // per concept: the wait bound is --wait-timeout, the managed metrics
 // lookback is --window while byoc's keeps --interval, the API
-// parameter's own name (both are lookbacks, #279), the node
+// parameter's own name (both are lookbacks), the node
 // list is the plural --target-nodes, and --force skips the prompt and
 // nothing else. Each ruling retired a spelling, and nothing stopped a
 // future flag from quietly reviving one.
@@ -34,9 +34,9 @@ var lostSpellings = []struct {
 	scope string
 	ruled string
 }{
-	// Multi-value rule, 2026-08-24 (#384): plural + comma-splittable.
+	// Multi-value rule, 2026-08-24: plural + comma-splittable.
 	{"target-node", "*", "--target-nodes (a comma-splittable Slice)"},
-	// #358, 2026-08-24 (#383): managed's lookback is --window; byoc's
+	// 2026-08-24: managed's lookback is --window; byoc's
 	// bucket keeps --interval. Each name is banned in the OTHER's
 	// scope, so the two meanings can never share a spelling again.
 	{"interval", "managed", "--window (the managed lookback)"},
@@ -72,7 +72,7 @@ func lostSpellingViolations(root *cobra.Command) []string {
 		// Local, own-persistent AND inherited: a banned name
 		// registered persistently ABOVE the banned scope is usable
 		// inside it, and LocalFlags alone never visits it — measured
-		// on #388's review (an --interval on the starfleet group reached
+		// in review (an --interval on the starfleet group reached
 		// managed leaves with the gate green).
 		c.LocalFlags().VisitAll(check)
 		c.PersistentFlags().VisitAll(check)

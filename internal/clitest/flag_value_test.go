@@ -16,7 +16,7 @@ import (
 )
 
 // A flag value the caller got wrong is a bad invocation, so it exits 2
-// and nothing is sent (#287, #291, #282, #290). Three shapes were
+// and nothing is sent. Three shapes were
 // reaching the API instead:
 //
 //   - byoc parsed --created-after inline and returned the GENERAL code,
@@ -46,7 +46,7 @@ var flagValueCases = []struct {
 	bad  []string
 	good string
 }{
-	// #287 — byoc's four inline time parses, now cli.ParseTimeFlag.
+	// byoc's four inline time parses, now cli.ParseTimeFlag.
 	{
 		args: []string{"starfleet", "byoc", "ingress", "list"},
 		flag: "--created-after",
@@ -86,7 +86,7 @@ var flagValueCases = []struct {
 		bad:  []string{"notatime", ""},
 		good: "2026-08-01T00:00:00Z",
 	},
-	// #291 — a backup store's region has no update path anywhere in
+	// A backup store's region has no update path anywhere in
 	// the spec, the generated client or the CLI, so a dropped --region
 	// is permanent.
 	{
@@ -97,7 +97,7 @@ var flagValueCases = []struct {
 		bad:  []string{""},
 		good: "us-east-1",
 	},
-	// #382 — a blank region here does not send an empty value: URL
+	// A blank region here does not send an empty value: URL
 	// resolution collapses the empty path segment, so the request
 	// addresses /regions/availability-zones at exit 0.
 	{
@@ -108,9 +108,9 @@ var flagValueCases = []struct {
 		bad:  []string{"", "   "},
 		good: "us-east-1",
 	},
-	// #282 — the third behaviour for a negative numeric flag in one
-	// module. --volume-size refuses (#281), --node volume-size= refuses
-	// (#281), and this one forwarded.
+	// The third behaviour for a negative numeric flag in one
+	// module. --volume-size refuses, --node volume-size= refuses,
+	// and this one forwarded.
 	{
 		args: []string{"starfleet", "byoc", "cluster", "share", "create",
 			"3f2a9c1e-0000-4000-8000-000000000000"},
@@ -172,11 +172,10 @@ func TestAMalformedFlagValueIsAUsageError(t *testing.T) {
 	}
 }
 
-// #288 and #289 live in cp, whose validation runs with no server and
-// no credentials for a different reason: these are read before any
-// connection is resolved at all. They are here so the gate covers the
-// set it claims — a reviewer counted 4 of 6 when they were only in
-// internal/controlplane/cmd unit tests.
+// The profile timeout and cert checks live in cp, whose validation
+// runs with no server and no credentials for a different reason:
+// these are read before any connection is resolved at all. They are
+// here so the gate covers the set it claims, not only internal/controlplane/cmd's unit tests.
 func TestControlplaneProfileAndCertValuesAreUsageErrors(t *testing.T) {
 	t.Run("a malformed profile timeout", func(t *testing.T) {
 		home := t.TempDir()
@@ -224,7 +223,7 @@ func TestControlplaneProfileAndCertValuesAreUsageErrors(t *testing.T) {
 	})
 }
 
-// #290 — an SSH key that is not a key used to be stored and reported
+// An SSH key that is not a key used to be stored and reported
 // as created. It is discovered when someone cannot reach a node, which
 // is the furthest point from the cause, and the value is copied into
 // node configuration so it outlives the mistake.
@@ -245,11 +244,11 @@ func TestSSHKeyCreateRejectsAValueThatIsNotAPublicKey(t *testing.T) {
 		// everything after the base64 field back as the comment; the
 		// CR form truncates the line and hides the remainder. Both
 		// registered key one and discarded the rest at exit 0, which
-		// is the silent drop #290 is about.
+		// is the silent drop this test is about.
 		// x/crypto decodes the blob and never checks it against the
 		// token the caller typed -- its own source says the
 		// duplicated type "is ignored here". OpenSSH does check:
-		// ssh-keygen -l on this line exits 255. Storing it is #290's
+		// ssh-keygen -l on this line exits 255. Storing it is this test's
 		// failure mode, discovered when someone cannot reach a node.
 		"type token disagrees with the blob": "ssh-rsa " +
 			strings.Fields(good)[1],

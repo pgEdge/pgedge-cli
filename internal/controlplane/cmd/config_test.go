@@ -11,7 +11,7 @@ import (
 func TestConfigSetPersists(t *testing.T) {
 	rt, out, _ := newTestRuntime(t, "", "text")
 	// Real files: config set checks a cert path is readable before it
-	// writes the profile (#289), so the fictional paths this fixture
+	// writes the profile, so the fictional paths this fixture
 	// used to pass now fail the command rather than exercising it.
 	caPath, keyPath := writeCertPair(t)
 	certPath := caPath
@@ -158,9 +158,9 @@ func TestConfigSetPersistsMultipleBaseURLs(t *testing.T) {
 	}
 }
 
-// A cert path is checked where it is accepted, not one command later
-// (#289). Before this, `config set --ca-cert /typo.crt` exited 0 and
-// the failure surfaced on the next verb that built a client — a
+// A cert path is checked where it is accepted, not one command later.
+// Otherwise `config set --ca-cert /typo.crt` exits 0 and
+// the failure surfaces on the next verb that built a client — a
 // different command, possibly a different session.
 func TestConfigSetRejectsAnUnreadableCertPath(t *testing.T) {
 	for _, flag := range []string{

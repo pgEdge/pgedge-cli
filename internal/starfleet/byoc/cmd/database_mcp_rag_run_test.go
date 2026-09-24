@@ -16,7 +16,7 @@ import (
 // nodes, then accept the PUT that applies the new service list. dbBody
 // is the database the GET returns, letting a caller choose one with or
 // without a pre-existing service of the type under test — the
-// deploy/update guard (#117) refuses `deploy` outright when one is
+// deploy/update guard refuses `deploy` outright when one is
 // already present, so a genuine deploy test needs a fixture without it.
 func serviceApplyHandlerFor(dbBody string) http.HandlerFunc {
 	nodes := `[{"id":"host-1","name":"n1","region":"us-east-1",` +
@@ -163,9 +163,9 @@ func TestDatabaseRAGUpdateRun(t *testing.T) {
 	// Against one that does not, the CLI now says so instead of sending
 	// a request that can only 400. This used to "succeed" against a stub
 	// while failing against the real API with "rag_config must have at
-	// least one pipeline" — the exact report that opened issue #45.
+	// least one pipeline".
 	//
-	// Since #117, this is the deploy/update guard firing, not the
+	// This is the deploy/update guard firing, not the
 	// required-flags check: the guard runs before flag validation, so
 	// the message names `rag deploy` rather than the flags a first
 	// deploy needs.
@@ -194,11 +194,10 @@ func TestDatabaseRAGUpdateRun(t *testing.T) {
 // embedding provider, and its server-side secrets set.
 //
 // The secrets belong in this fixture: the CLI reads services through
-// GET /databases/{id}, which saas converts with includeSecrets=true, so
+// GET /databases/{id}, which the API answers with them included, so
 // embedding_api_key and init_tokens really do come back. Verified live
-// against --profile dev. (ListDatabases converts with
-// includeSecrets=false and omits them — so a fixture modelled on a LIST
-// response would understate what the merge has to preserve.)
+// against --profile dev. (A LIST response omits them — so a fixture
+// modelled on one would understate what the merge has to preserve.)
 const dbWithMCPConfig = `{"id":"` + testDatabaseID + `",` +
 	`"name":"mydb","status":"available","pg_version":"16",` +
 	`"cluster_id":"` + testClusterID + `",` +
@@ -210,8 +209,8 @@ const dbWithMCPConfig = `{"id":"` + testDatabaseID + `",` +
 	`"embedding_api_key":"sk-deployed","init_tokens":"tok-deployed",` +
 	`"init_users":"alice:pw"}}]}`
 
-// TestMCPUpdatePreservesConfig covers the half of issue #45 that the
-// issue itself got wrong. It recorded `mcp update` as faring better
+// TestMCPUpdatePreservesConfig covers the half of the partial-update
+// bug that looked safe: `mcp update` seemed to fare better
 // than `rag update` "because its config fields are all optional
 // pointers" — but AllowWrites was assigned unconditionally from a bool
 // flag defaulting to false, so any unrelated change silently sent
@@ -370,8 +369,8 @@ func TestRAGUpdateOverlayDetails(t *testing.T) {
 		})
 }
 
-// TestMCPEmbeddingProviderRequiresAPIKey covers #563, the byoc port of
-// managed's #551 check: openai or voyage with no key passed or stored
+// TestMCPEmbeddingProviderRequiresAPIKey covers the byoc port of
+// managed's check: openai or voyage with no key passed or stored
 // is refused before the write, while ollama, which takes --ollama-url,
 // is not. dbWithMCPConfig stores a key; dbWithServiceBody's MCP service
 // carries no config at all.

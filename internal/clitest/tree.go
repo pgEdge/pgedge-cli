@@ -42,7 +42,7 @@ func FullTree() (*cobra.Command, error) {
 		root.AddCommand(c)
 	}
 	// Mirrors cmd/pgedge/main.go, which calls this after registering
-	// every module (#292). Without it the gates would walk a tree whose
+	// every module. Without it the gates would walk a tree whose
 	// group commands suggest nothing while the shipped binary's do, and
 	// a behavioural gate over the suggestion would pass or fail for a
 	// reason unrelated to the CLI anyone runs.

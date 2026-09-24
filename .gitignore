@@ -30,7 +30,7 @@ REPO_READY_AUDIT.md
 # Superpowers/SDD scratch artifacts (not core docs)
 .superpowers/
 
-# saas's per-product specs, extracted by `make vendor-spec` and deleted
+# The API's per-product specs, extracted by `make vendor-spec` and deleted
 # again once the vendored specs have been derived from them
 
 # Planning, not product: the roadmap lives outside the repo so it can

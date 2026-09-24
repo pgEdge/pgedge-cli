@@ -173,7 +173,7 @@ Example:
 			// mistake then surfaced when someone could not reach a
 			// node, which is the furthest point from the cause, and
 			// the value is copied into node configuration so it
-			// outlives the moment it could have been corrected (#290).
+			// outlives the moment it could have been corrected.
 			if err := validatePublicKey(publicKey); err != nil {
 				return err
 			}
@@ -321,7 +321,7 @@ func sshKeyRowFrom(k api.SshKey) sshKeyRow {
 //     duplicated type "is ignored here" (keys.go). So
 //     `ssh-rsa <ed25519 blob>` parses, and OpenSSH does not:
 //     `ssh-keygen -l` on that line exits 255 with "is not a public key
-//     file". Storing it is #290's failure mode exactly -- discovered
+//     file". Storing it is the bad-key failure mode exactly -- discovered
 //     when someone cannot reach a node, long after the cause.
 //   - authorized_keys OPTIONS (`no-pty,command="..." ssh-ed25519 ...`).
 //     They are a server-side access rule, not part of a key.

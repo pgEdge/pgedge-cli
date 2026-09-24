@@ -50,7 +50,7 @@ func Pages() ([]module.Document, error) {
 // little more like the monolith it replaced, and before this budget
 // there was no signal that a writer was spending against anything --
 // the design comment above cited a figure that had drifted to more
-// than twice its stated value (#306).
+// than twice its stated value.
 //
 // It is set at the current size plus headroom, not at some ideal: the
 // point is to make growth deliberate and visible, not to force a

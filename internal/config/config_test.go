@@ -28,7 +28,7 @@ func TestLoadMissingDefaultPathReturnsEmpty(t *testing.T) {
 // default path may be absent, because first run has no config file
 // yet. Falling back silently re-aims the CLI at the built-in default
 // profile, which points at production, so a typo in --config fails
-// OPEN in the dangerous direction — see issue #239.
+// OPEN in the dangerous direction.
 func TestLoadExplicitMissingPathIsAnError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	missing := filepath.Join(t.TempDir(), "nope.yaml")
@@ -799,7 +799,7 @@ func TestSaveToThenSetCurrentProfileRoundTrip(t *testing.T) {
 
 // An unreadable --config named its operation and path twice, because
 // the wrapper added both and the wrapped *os.PathError already
-// carried them (#265):
+// carried them:
 //
 //	config: read /tmp: read /tmp: is a directory
 //
@@ -867,7 +867,7 @@ func TestDefaultCacheDirIsBesideConfig(t *testing.T) {
 }
 
 // The config file is the only copy of every profile and credential, so
-// it is replaced by rename rather than truncated in place (#437). Two
+// it is replaced by rename rather than truncated in place. Two
 // observable consequences: no staging residue after a write, and a
 // write into a read-only directory is refused even when the file itself
 // is writable, the documented behaviour change. (Where the staging

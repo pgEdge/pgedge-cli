@@ -277,7 +277,7 @@ func TestNewestSubjectTaskIDRanksByInstant(t *testing.T) {
 	}
 }
 
-// TestNewestSubjectTaskIDRefusesAnUnreadable2xx is the #339 state: a
+// TestNewestSubjectTaskIDRefusesAnUnreadable2xx pins this state: a
 // 2xx the generated client cannot parse leaves the typed body nil with
 // NO error, and collapsing that into "" makes it indistinguishable
 // from "this subject has no tasks". Discovery then accepts the first
@@ -383,8 +383,8 @@ func TestNewestSubjectTaskIDIsOrderIndependent(t *testing.T) {
 }
 
 // TestForgedTaskFieldsCannotForgeADetailLine is byoc's copy of the
-// #345 test. printTaskDetail is written twice, once per module, and a
-// mutation on #344 showed a single-route test leaves the other copy
+// managed test. printTaskDetail is written twice, once per module, and a
+// mutation showed a single-route test leaves the other copy
 // undefended — so each module pins its own.
 //
 // This block goes to STDOUT, under a table the renderer already

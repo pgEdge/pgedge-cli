@@ -53,7 +53,7 @@ func TestCloudAccountListRun(t *testing.T) {
 	})
 
 	// A managed-plan tenant's list verbs answer 400 "plan does not
-	// allow ..." rather than a genuine bad request — issue #105. The
+	// allow ..." rather than a genuine bad request. The
 	// CLI must render this cleanly as an entitlement problem, at
 	// ExitAuth, rather than the raw "API error (400): ..." passthrough.
 	t.Run("plan denial renders cleanly", func(t *testing.T) {
@@ -247,9 +247,9 @@ func TestCloudAccountDeleteRun(t *testing.T) {
 	})
 }
 
-// cfTemplateBody is the shape devapi returns (captured 2026-08-30 with
+// cfTemplateBody is the shape the API returns (captured 2026-08-30 with
 // the tenant, external ID and suffix replaced): one object, where the
-// spec declares an array of them (#218).
+// spec declares an array of them.
 const cfTemplateBody = `{"url":"https://us-east-1.console.aws.amazon.com/` +
 	`cloudformation/home?region=us-east-1#/stacks/create/review` +
 	`?templateURL=https://pgedge-public-assets.s3.amazonaws.com/product/` +
@@ -393,7 +393,7 @@ func TestCloudAccountCFTemplateRun(t *testing.T) {
 	// A managed-plan tenant answers this verb with a 400 "plan does not
 	// allow ..." body. The untyped read must still route it through
 	// checkResponse: without that the denial decodes as an object with
-	// no url and the command reports success (#218 review).
+	// no url and the command reports success.
 	t.Run("plan denial exits 5", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
 		url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(400,
@@ -523,7 +523,7 @@ func TestCloudAccountAvailabilityZonesRun(t *testing.T) {
 
 // TestAvailabilityZonesCannotForgeAZone covers a print site that does
 // NOT go through the renderer, and therefore does not get the
-// renderer's escaping for free (#323).
+// renderer's escaping for free.
 //
 // This list is one zone per line, so the line structure belongs to the
 // CLI and a zone carrying a newline forges an extra zone. The test

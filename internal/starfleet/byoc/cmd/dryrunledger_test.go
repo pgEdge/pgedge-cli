@@ -44,7 +44,7 @@ func TestGuardServiceIntentRecordsOnlyOnPass(t *testing.T) {
 			want:   `a "mcp" service exists to update (update intent)`,
 		},
 		{
-			// The #117 case: a refused deploy must record nothing, or the
+			// The guard case: a refused deploy must record nothing, or the
 			// report would list the privilege-escalation guard as passed
 			// on the run where it fired.
 			name:    "deploy over an existing service records nothing",
@@ -99,11 +99,9 @@ func TestGuardServiceIntentToleratesNoDryRun(t *testing.T) {
 }
 
 // TestDatabaseCreateNameCheckIsRecorded pins the ledger entry for the
-// --name check, and exists because round 1 of #170's review was about
-// exactly this line being MISSING: the check ran, nothing recorded it,
-// and --dry-run reported "none — this command has no client-side checks"
-// for a verb that had one. Round 2 then showed the fix itself was
-// untested — deleting the Pass left every package green.
+// --name check. Without it the check runs, nothing records it, and
+// --dry-run reports "none — this command has no client-side checks"
+// for a verb that has one; deleting the Pass must fail a test.
 //
 // The negative case matters as much as the positive: a refused name
 // must record nothing, or the report lists a check as passed on the
@@ -132,7 +130,7 @@ func TestDatabaseCreateNameCheckIsRecorded(t *testing.T) {
 		_ = runAuthed(t, rt, out, url, "database", "create",
 			"--name", "mydb", "--cluster-id", testClusterID)
 		// TWO entries now: the name check and the --cluster-id parse
-		// this verb gained with #194. The count is asserted, not just
+		// this verb carries. The count is asserted, not just
 		// the membership, because the ledger's job is to be complete —
 		// a check that runs and records nothing lets the report print
 		// "none — this command has no client-side checks", which is what
@@ -186,18 +184,15 @@ func TestDatabaseCreateNameCheckIsRecorded(t *testing.T) {
 // TestClusterFlagChecksAreRecorded pins the ledger entries for the
 // client-side checks on cluster create and update.
 //
-// It exists because round 3 of #169's review proved the round-2 fix
-// untestable-by-accident: deleting the whole rt.DryRun.Pass block left
+// It exists because deleting the whole rt.DryRun.Pass block once left
 // every package green, so nothing asserted the string, the count, or
 // the presence guard. Coverage did not help — the statements executed,
 // nothing checked their effect.
 //
 // The failure this guards is a dropped Pass. For create that shows up
 // as a missing line rather than the "none — this command has no
-// client-side checks" sentence: create has RECORDED its subnet check
-// since #162, so the report only goes empty if BOTH its entries go.
-// (The check itself dates from #131; the ledger entry does not, and
-// conflating the two is what round 4 existed to unpick.)
+// client-side checks" sentence: create RECORDS its subnet check,
+// so the report only goes empty if BOTH its entries go.
 // update is the verb that printed "none" outright.
 //
 // It does NOT guard the ORDERING — it calls the builder directly, so
@@ -354,8 +349,8 @@ func TestClusterIDChecksAreRecorded(t *testing.T) {
 	})
 }
 
-// TestAnIDIsSentCanonically closes the hole a review found under a
-// `Closes #257`: four sites parsed an ID, discarded the result and
+// TestAnIDIsSentCanonically closes a hole in the ID checks:
+// four sites parsed an ID, discarded the result and
 // forwarded the raw flag value. uuid.Parse accepts `{uuid}` and
 // `urn:uuid:uuid`, so both passed the check and reached the wire
 // verbatim -- the same class of defect as forwarding a prefix, in a

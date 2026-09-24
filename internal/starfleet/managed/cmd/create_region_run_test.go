@@ -45,9 +45,9 @@ func regionCreateServer(
 	})
 }
 
-// TestCreateResolvesTheSoleRegion covers #195: --region is optional
-// when the API publishes exactly one, because there is no choice to get
-// wrong, and required as soon as there is.
+// TestCreateResolvesTheSoleRegion: --region is optional when the API
+// publishes exactly one, because there is no choice to get wrong, and
+// required as soon as there is.
 func TestCreateResolvesTheSoleRegion(t *testing.T) {
 	t.Run("one region is supplied for you", func(t *testing.T) {
 		rec := &captureRequest{}
@@ -75,9 +75,9 @@ func TestCreateResolvesTheSoleRegion(t *testing.T) {
 	//
 	// Both regions are published, and that is now part of the case
 	// rather than incidental to it: an explicit --region is checked
-	// against the list before it is sent (#242), so a region the API
-	// does not publish is refused rather than forwarded. The next
-	// sub-test is the one that covers the refusal.
+	// against the list before it is sent, so a region the API does not
+	// publish is refused rather than forwarded. The next sub-test is
+	// the one that covers the refusal.
 	t.Run("an explicit region is not overridden", func(t *testing.T) {
 		rec := &captureRequest{}
 		url := regionCreateServer(t, rec, "us-east-2", "eu-west-1")

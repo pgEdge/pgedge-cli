@@ -135,13 +135,13 @@ var scopeSourceDirs = map[string][]string{
 // name a struct field can be rendered as: its json tag and its yaml tag.
 //
 // NO LOWERCASED GO FIELD NAME, deliberately, and the reason is worth
-// stating because an earlier version had one (#158).
+// stating because an earlier version had one.
 //
 // It encoded a false claim. output.Print routes every yaml render
 // through jsonShaped, which marshals via JSON first, so `-o yaml` emits
 // the JSON tags — never yaml.v3's tagless lowercased fallback. The
 // standing decision "a yaml key equals its json key" says the same
-// thing, and #157 added TestProfileShowYAMLUsesTheSameKeysAsJSON to pin
+// thing, and TestProfileShowYAMLUsesTheSameKeysAsJSON pins
 // it live. Prose written against the lowercased spelling would have been
 // wrong, and this gate would have blessed it.
 //

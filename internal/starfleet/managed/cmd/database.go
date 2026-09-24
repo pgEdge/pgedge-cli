@@ -30,10 +30,10 @@ const managedDatabaseNameMaxLen = 50
 // pgVersions are the Postgres majors the managed create endpoint
 // accepts, newest first, spelled with the generated constants.
 //
-// saas validates these against the majors drydock's pgedge-postgres
-// ClusterImageCatalog publishes, and the version is fixed for the life
-// of the database — a PATCH naming pg_version is refused outright.
-// Validating here spends exit 2 rather than a create attempt.
+// The API validates these against the majors its Postgres image catalog
+// publishes, and the version is fixed for the life of the database — a
+// PATCH naming pg_version is refused outright. Validating here spends
+// exit 2 rather than a create attempt.
 //
 // The generated enum type has a Valid() method but no way to
 // enumerate its members, so a Valid()-only check could not notice a

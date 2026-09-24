@@ -122,7 +122,7 @@ func TestDatabaseCreateRun(t *testing.T) {
 	})
 }
 
-// TestDatabaseCreateRejectsAnEmptyPgVersion is byoc's half of the #243
+// TestDatabaseCreateRejectsAnEmptyPgVersion is byoc's half of the
 // empty-value class. byoc publishes no enum for pg_version — its spec
 // declares a bare string, and the supported set lives in the
 // config-version catalog — so an empty value is the only thing that CAN

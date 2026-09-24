@@ -98,7 +98,7 @@ func NewHTTPSource(baseAPI, baseDL string) *HTTPSource {
 }
 
 // Logging renders this rung's traffic to out at lvl, the way every
-// API client in this CLI answers --verbose and --debug (#402). The
+// API client in this CLI answers --verbose and --debug. The
 // download client is capped at Verbose whatever lvl says: a release
 // archive is megabytes of binary, and dumping it would bury the one
 // line --debug was turned on to read. It returns s for chaining.

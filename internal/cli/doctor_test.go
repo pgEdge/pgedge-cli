@@ -387,7 +387,7 @@ func TestRootDoctorLatestVersionCases(t *testing.T) {
 	}
 }
 
-// TestRootDoctorNoVersionCheckNeverCallsTheSource is #438: the flag
+// TestRootDoctorNoVersionCheckNeverCallsTheSource: the flag
 // exists so an air-gapped operator can run doctor without it dialling
 // api.github.com, so the proof is a source that fails the test when
 // asked, not a row that reads well.
@@ -590,8 +590,8 @@ func TestRootDoctorIsRegisteredOnRoot(t *testing.T) {
 
 // doctor exists to answer "what is this invocation actually doing",
 // and its config row was the one that answered for a different one:
-// checkConfig re-derived the DEFAULT path and never saw --config
-// (#264). With both files present it printed config_exists: true and
+// checkConfig re-derived the DEFAULT path and never saw --config.
+// With both files present it printed config_exists: true and
 // looked right, so a reader diagnosing a wrong-profile problem was
 // shown evidence about a file they had not named.
 func TestRootDoctorConfigRowFollowsTheConfigInUse(t *testing.T) {

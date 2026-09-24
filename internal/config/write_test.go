@@ -10,7 +10,7 @@ import (
 
 // scenario is a comment-heavy config carrying keys this version does not
 // know: a top-level `telemetry:` and a per-profile `byoc:` section (the
-// latter is real — PR #51 deleted the shim that used to read it).
+// latter is real — earlier versions of the CLI read it).
 //
 // Every comment position matters and each one is a different yaml.Node
 // field: a document head comment, a head comment above a key, an inline
@@ -392,7 +392,7 @@ func TestSchemaOfConfig(t *testing.T) {
 		}
 	}
 	if prof.owns("byoc") {
-		t.Error("profile schema claims to own byoc, deleted in #51")
+		t.Error("profile schema claims to own byoc, which is no longer read")
 	}
 
 	cloud := prof.child("starfleet")

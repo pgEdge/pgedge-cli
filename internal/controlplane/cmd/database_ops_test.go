@@ -201,7 +201,7 @@ func TestDatabaseRestoreRun(t *testing.T) {
 	})
 }
 
-// --- Task 5: the async-json test matrix, covering all 13 verbs -----
+// --- The async-json test matrix, covering all 13 verbs -----------
 
 const (
 	deleteMatrixTaskID     = "77777777-7777-7777-7777-777777777777"

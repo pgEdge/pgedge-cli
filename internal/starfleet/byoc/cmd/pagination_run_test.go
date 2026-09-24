@@ -53,8 +53,8 @@ func TestListPaginationFlags(t *testing.T) {
 
 // TestListTruncationHint exercises printTruncationHint through the
 // list commands that share it, against each endpoint's own verified
-// default/cap (see pagination.go's cli.PageDefaults table and its saas
-// source citations). None of the byoc list endpoints report a total,
+// default/cap (see pagination.go's cli.PageDefaults table and its
+// evidence). None of the byoc list endpoints report a total,
 // so the hint fires purely on "result count >= min(effective limit,
 // server cap)" — this table pins that a full default page, a full
 // explicit --limit page, and a page landing on the server's hard cap
@@ -148,7 +148,7 @@ func TestListTruncationHint(t *testing.T) {
 				func(t *testing.T) {
 					// The server clamps --limit to tc.pd.Cap, so asking
 					// for more than the cap and getting exactly the cap
-					// back (as devapi does for task: --limit 200 -> 100
+					// back (as the API does for task: --limit 200 -> 100
 					// rows) must still trip the hint.
 					body := repeatJSONArray(tc.item, tc.pd.Cap)
 					rt, out, errb := testsupport.NewRuntime(t, "", "text")

@@ -19,9 +19,9 @@ import (
 // BYOC never used — it is legacy Developer-edition surface, confirmed
 // with Matt 2026-08-03.
 //
-// That surface has since moved, and it did not all survive: saas PR
-// #1843 relocated list, get and restore under `/managed/v1/backups`
-// and deleted the delete and download operations outright, neither
+// That surface has since moved, and it did not all survive: list,
+// get and restore now sit under `/managed/v1/backups`, and the delete
+// and download operations are gone outright, neither
 // having any meaning for a managed backup. So the parked read verb
 // belongs to the managed sub-tree if it is ever revived, and the parked
 // delete and download verbs have no endpoint to call at all. The code

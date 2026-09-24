@@ -20,12 +20,12 @@ func (errTimeout) Error() string   { return "deadline" }
 func (errTimeout) Timeout() bool   { return true }
 func (errTimeout) Temporary() bool { return false }
 
-// TestNetworkErrorDiagnosesATimeoutSeparately is #254: a timeout used
-// to arrive with the reachability/mTLS hint, sending the reader to
-// --ca-cert while the server was answering fine.
+// TestNetworkErrorDiagnosesATimeoutSeparately: a timeout must not
+// arrive with the reachability/mTLS hint, sending the reader to
+// --ca-cert while the server is answering fine.
 func TestNetworkErrorDiagnosesATimeoutSeparately(t *testing.T) {
 	// The CODE varies with the row, and that is the point: a timeout
-	// is 3 CLI-wide since #352, while a server that cannot be reached
+	// is 3 CLI-wide, while a server that cannot be reached
 	// at all is an ordinary failure. Asserting one code for every row
 	// would hide either half.
 	tests := []struct {
@@ -98,7 +98,7 @@ type wrapped struct{ err error }
 func (w *wrapped) Error() string { return "get: " + w.err.Error() }
 func (w *wrapped) Unwrap() error { return w.err }
 
-// TestClientTimeoutIsDiagnosedEndToEnd runs #254's own reproduction:
+// TestClientTimeoutIsDiagnosedEndToEnd runs the reproduction:
 // a healthy server that is merely slow, and a --timeout that cannot
 // wait for it. The classification must hold for the error Go actually
 // produces, not only for the stub above — the filed report and the
@@ -234,11 +234,10 @@ func TestPerRequestTimeoutUnderWaitStillNamesTimeout(t *testing.T) {
 		t.Fatal("expected an error, got nil")
 	}
 	var ee *ExitError
-	// ExitTimeout since #352: a timeout is 3 whichever bound produced
-	// it. So the CODE no longer separates a per-request timeout from
+	// ExitTimeout: a timeout is 3 whichever bound produced
+	// it. So the CODE does not separate a per-request timeout from
 	// the wait window expiring — the MESSAGE does, which is what the
-	// two assertions below pin, and they are now the whole of #254's
-	// guarantee.
+	// two assertions below pin, and they are the whole guarantee.
 	if !errors.As(werr, &ee) || ee.Code() != ExitTimeout {
 		t.Fatalf("want ExitTimeout(%d): %v", ExitTimeout, werr)
 	}
@@ -255,7 +254,7 @@ func TestPerRequestTimeoutUnderWaitStillNamesTimeout(t *testing.T) {
 // missing direction on followTask's own branch. pollExpired is read
 // before cancel() on purpose; read it after and ctx.Err() is Canceled
 // for every outcome, so an unreachable server would be reported as a
-// fabricated 30s timeout at exit 3 — #254 in reverse, and every
+// fabricated 30s timeout at exit 3 — the misdiagnosis in reverse, and every
 // mutation of that ordering used to stay green.
 func TestFollowPollThatCannotConnectKeepsTheReachabilityHint(t *testing.T) {
 	rt, _, _ := newTestRuntime(t, "", "text")

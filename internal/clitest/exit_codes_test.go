@@ -35,8 +35,8 @@ func TestExitCodeVocabulariesAgree(t *testing.T) {
 	// Every name that must hold the same number in every package that
 	// declares it. A package absent from a row does not declare that
 	// concept — internal/cli has no notion of a missing resource.
-	// internal/cli DID lack a timeout until #352 gave cli.ExitCode a
-	// deadline branch; it is in the row now, and leaving it out is how
+	// internal/cli has a timeout through cli.ExitCode's deadline
+	// branch; it is in the row, and leaving it out is how
 	// a fifth vocabulary drifts unnoticed. cp sat out the auth row on
 	// the belief it had no authentication, until the pinned spec's 401
 	// (invalid_join_token, on cluster join) showed that belief wrong —

@@ -21,7 +21,7 @@ var taskColumns = []string{"ID", "NAME", "STATUS", "SUBJECT", "CREATED"}
 // inspects the asynchronous tasks the platform spawns for mutations.
 // The plural "tasks" is kept as a plural alias (unlisted in help).
 //
-// saas serves the same task resource under both product prefixes, so
+// The API serves the same task resource under both product prefixes, so
 // this is byoc's task group over `/managed/v1/tasks`. Tasks are scoped
 // per product: a managed database's tasks appear here, not under
 // `pgedge starfleet byoc task`.
@@ -136,7 +136,7 @@ Example:
 			// Not validated, deliberately: the endpoint publishes
 			// `name` as a bare string with no enum, so an allowlist
 			// here would refuse a name the API accepts and would rot
-			// the day saas adds a task kind.
+			// the day the API adds a task kind.
 			if name != "" {
 				params.Name = &name
 			}

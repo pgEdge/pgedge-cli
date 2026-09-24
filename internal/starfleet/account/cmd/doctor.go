@@ -39,11 +39,11 @@ type authInfo struct {
 	// leaves it false with nothing more to say, since the "token
 	// expired or missing" wording already covers that case. It is
 	// never a lie about something unchecked: a legacy cache with no
-	// binding fingerprint reports false here too (#107 D5), the same as an
+	// binding fingerprint reports false here too, the same as an
 	// explicit mismatch.
 	//
 	// It stays ONE boolean, and the field name does not change, even
-	// though the digest behind it grew an input (#146). Which input
+	// though the digest behind it grew an input. Which input
 	// diverged is not recoverable from a single digest, and that is the
 	// accepted cost of having one binding rather than two mechanisms
 	// that must agree; the reported wording names both possibilities
@@ -73,7 +73,7 @@ type environmentInfo struct {
 //
 // The plan is the reason this row exists. A profile carries one Starfleet
 // credential — byoc and managed both borrow it — so a profile IS a
-// tenant, and saas gates capabilities per plan. A byoc list against a
+// tenant, and the API gates capabilities per plan. A byoc list against a
 // managed-plan tenant answers 200 with an empty array: routing works,
 // the module does not. Nothing in the credential says which product it
 // is for, so without this row the only symptom is an empty list or a
@@ -141,7 +141,7 @@ Example:
 
 func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	// The same resolution checkAPI and every command perform: a cached
-	// token is bound to the endpoint that minted it (#146), so this row
+	// token is bound to the endpoint that minted it, so this row
 	// would misreport the moment the two disagreed about the URL.
 	res, err := conn.ResolveCredentials(
 		rt, f.ClientID, f.ClientSecret, f.APIURL)
@@ -203,9 +203,8 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 }
 
 // enterprisePlan is the only plan whose entitlements admit the byoc
-// module. saas denies the byoc capabilities — clusters, cloud accounts,
-// backup stores, ssh keys — on every other plan
-// (internal/starfleet/entitlements).
+// module. The API denies the byoc capabilities — clusters, cloud accounts,
+// backup stores, ssh keys — on every other plan.
 const enterprisePlan = "enterprise"
 
 // checkTenant reads the tenant the active credential authenticates as.
@@ -216,18 +215,17 @@ const enterprisePlan = "enterprise"
 // mean no request is made at all, which is what keeps the no-credentials
 // case from dialling anything.
 //
-// It resolves EPHEMERALLY (#168). This probe needs a token, but doctor
+// It resolves EPHEMERALLY. This probe needs a token, but doctor
 // is a diagnostic and must not change the state it reports: resolving
 // through conn.Resolve meant a cold cache made doctor mint AND cache a
 // token, so it printed "token expired or missing" — checkAuth runs
-// first — and then exited having left a valid one behind. Post-#167 it
-// was worse than inconsistent: a cached token is bound to the API URL,
-// so `doctor --api-url <elsewhere>` evicted the working token for the
-// profile's own host.
+// first — and then exited having left a valid one behind. Worse, a
+// cached token is bound to the API URL, so `doctor --api-url
+// <elsewhere>` evicted the working token for the profile's own host.
 //
 // The probe itself is kept rather than dropped because the row earns
 // it. A profile carries one Starfleet credential, so a profile IS a tenant,
-// and saas gates capabilities per plan (#164) — without this row the
+// and the API gates capabilities per plan — without this row the
 // only symptom of a plan mismatch is an empty byoc list that looks like
 // "no clusters yet". Reporting less would trade one confusing output
 // for another.
@@ -339,7 +337,7 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	// Auth status. Order matters: TokenValid && TokenBound must be
 	// checked before TokenValid alone, since a mismatched cache is
 	// still "valid" by expiry and would otherwise fall into the plain
-	// ok branch (#107 D7).
+	// ok branch.
 	authStatus := "error"
 	authDetail := "not authenticated"
 	if report.Auth.Problem != "" {
@@ -361,7 +359,7 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 		// and authenticates fine, but the cached token was minted for a
 		// connection this command is not about to make — a rekey, a
 		// one-off flag override landing on a profile-minted cache, or
-		// an --api-url naming a different endpoint (#146). The next
+		// an --api-url naming a different endpoint. The next
 		// command re-authenticates on its own — see conn.token — so
 		// this is a warning, not an error.
 		//

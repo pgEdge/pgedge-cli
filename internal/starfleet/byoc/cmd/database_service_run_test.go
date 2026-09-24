@@ -19,7 +19,7 @@ const dbWithServiceBody = `{"id":"` + testDatabaseID + `","name":"mydb",` +
 	`"state":"available","port":8080,"public_domain":"mcp.example.com"}]}`
 
 // dbNoServiceBody is a database with no services deployed at all, for
-// tests that must exercise a genuine first `deploy` (#117): the
+// tests that must exercise a genuine first `deploy`: the
 // deploy/update guard refuses `deploy` outright when a service of that
 // type is already present, so a deploy test can no longer reuse a
 // fixture that happens to carry one.

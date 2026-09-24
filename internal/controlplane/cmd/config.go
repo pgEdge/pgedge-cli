@@ -170,7 +170,7 @@ Example:
 // used: httpClientFor already reports `read ca-cert: ...` at exit 2,
 // but that arrives on a later command, and an operator standing up a
 // self-hosted Control Plane is typing these paths by hand for the
-// first time (#289, the shape #263 closed for --config).
+// first time, the same check --config gets.
 //
 // It opens the file rather than stat-ing it, because a path that
 // exists and cannot be read fails at connection time just as surely as

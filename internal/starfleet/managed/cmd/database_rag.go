@@ -215,17 +215,15 @@ func applyRAGService(
 // existingRAGConfig returns a copy of the RAG configuration already
 // deployed on the database, or a zero config when there is none.
 //
-// Its API keys are always absent: saas's ragConfigToModel never
-// populates ApiKey. That is harmless only because buildServiceList
-// carries the service_id. The managed update path classifies a service
-// as new or reconfigured from the incoming (service_id, type) pair, and
-// CarryForwardManagedSecrets refills a reconfigured service's omitted
-// keys; a write classified as new must still supply both. Verified on
-// devapi 2026-08-06: `rag update --top-n 5` without keys succeeds on a
-// deployed service.
+// Its API keys are always absent: the API never populates ApiKey. That
+// is harmless only because buildServiceList carries the service_id.
+// The managed update path classifies a service as new or reconfigured
+// from the incoming (service_id, type) pair, and the API refills a
+// reconfigured service's omitted keys; a write classified as new must
+// still supply both. Verified on 2026-08-06: `rag update --top-n 5`
+// without keys succeeds on a deployed service.
 //
-// byoc decides from its stored services instead
-// (requireAPIKeysForNewRAGServices checks hasExistingRAG).
+// byoc decides from its stored services instead.
 func existingRAGConfig(db *api.ManagedDatabase) api.RAGServiceConfig {
 	svc := findService(db, api.Rag)
 	if svc == nil || svc.RagConfig == nil {

@@ -158,7 +158,7 @@ func applyMCPService(
 	// Before the client, deliberately: clientFromCmd resolves
 	// credentials, so a malformed ID checked after it reports exit 5
 	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2 (#194).
+	// managed's identical verbs already answer 2.
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err
@@ -247,12 +247,8 @@ func applyMCPService(
 // --profile dev.
 //
 // It is only true of GET /databases/{id}, though, and that is the trap.
-// saas converts the two read paths with different arguments
-// (internal/starfleet/api/convert.go): GetDatabase goes through
-// databaseModelWithDetailsFromObject with includeSecrets=true, while
-// ListDatabases goes through databaseModelFromObject with
-// includeSecrets=false. So the same service reports its secrets on a
-// get and omits them on a list.
+// The API converts the two read paths differently, so the same service
+// reports its secrets on a get and omits them on a list.
 //
 // This merge is safe because fetchDatabaseWith calls GetDatabase. Any
 // future code that populates a config from a LIST response would
@@ -280,7 +276,7 @@ func existingMCPConfig(db *api.Database) api.MCPServiceConfig {
 // After the overlay it refuses openai or voyage with no key reachable
 // from either this call or the stored config: that write used to
 // succeed and fail only at the deployed server's first call needing
-// the key, as managed's did before #551. ollama takes --ollama-url
+// the key, as managed's once did. ollama takes --ollama-url
 // instead of a key, so it is exempt.
 func applyMCPFlags(
 	cmd *cobra.Command, opts *mcpServiceOpts, cfg *api.MCPServiceConfig,

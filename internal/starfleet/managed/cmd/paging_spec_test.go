@@ -144,12 +144,12 @@ func TestPagingBoundsMatchTheSpec(t *testing.T) {
 // TestTaskPagingDeclaresNoBounds is the negative half, and it is the
 // one that stops a guessed ceiling creeping back in.
 //
-// /managed/v1/tasks was measured clamping --limit 500 to 100 rows.
-// The temptation is to pin 100 here too. The spec publishes nothing,
-// so such a constant would refuse a value the API would accept the
-// day the cap moves — the direction of error this repo treats as the
-// serious one. If saas ever DOES declare bounds on tasks, this test
-// fails and the fix is to add the constant, not to delete the test.
+// /managed/v1/tasks was measured clamping --limit 500 to 100 rows. The
+// temptation is to pin 100 here too. The spec publishes nothing, so
+// such a constant would refuse a value the API would accept the day the
+// cap moves — the direction of error this repo treats as the serious
+// one. If the API ever DOES declare bounds on tasks, this test fails
+// and the fix is to add the constant, not to delete the test.
 func TestTaskPagingDeclaresNoBounds(t *testing.T) {
 	for _, name := range []string{"limit", "offset"} {
 		b := pagingParam(t, "/managed/v1/tasks", name)

@@ -26,16 +26,15 @@ type Runtime struct {
 	// ProfileExplicit reports that the operator named a profile on
 	// this invocation — cobra parsed a --profile token AND it carried
 	// a value. internal/cli.setupRuntime sets it from the executing
-	// command's own flag set; the pre-cobra argv peek it once used is
-	// long gone (#120, #153).
+	// command's own flag set.
 	//
 	// An empty --profile never reaches this field: setupRuntime rejects
-	// it as a usage error first (#246). The value test in that
+	// it as a usage error first. The value test in that
 	// assignment is therefore unreachable today, and is kept only so
 	// this field stays correct if the rejection is ever narrowed —
 	// exempting the repair commands is the obvious candidate. An empty
 	// value names no profile, so Profile would come from
-	// current_profile, and calling that explicit would shut the #150
+	// current_profile, and calling that explicit would shut the
 	// repair carve-out in cli.GuardProfile, this field's only reader:
 	// `profile use` repairs a broken current_profile, and it would have
 	// been refused in the name of a value the operator never typed.

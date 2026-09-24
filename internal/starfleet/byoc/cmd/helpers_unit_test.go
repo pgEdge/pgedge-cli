@@ -32,7 +32,7 @@ func TestFindService(t *testing.T) {
 }
 
 // TestGuardServiceIntent covers all four intent×presence combinations
-// plus the different-type-deployed case (#117): deploy refuses an
+// plus the different-type-deployed case: deploy refuses an
 // existing service of the SAME type, and must not be fooled by a
 // different type being present. Mirrors managed's test of the same
 // name over its own generated types.

@@ -15,9 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// byocDatabaseNameMaxLen is the byoc API's ceiling for a database name
-// (saas pgutil.ValidateDatabaseName). It is measured in BYTES, as
-// saas's own len() is, not runes.
+// byocDatabaseNameMaxLen is the byoc API's ceiling for a database name.
+// It is measured in BYTES, as the API's own check is, not runes.
 //
 // It is NOT the managed limit. Managed names go through
 // ValidateK8sCompatibleDatabaseName, which caps at 50 to leave
@@ -28,12 +27,12 @@ const byocDatabaseNameMaxLen = 63
 // validateByocDatabaseName rejects a --name the byoc API would refuse,
 // with ExitUsage, before any API call.
 //
-// It mirrors saas's rule EXACTLY rather than the documented one, and
+// It mirrors the API's rule EXACTLY rather than the documented one, and
 // the difference matters in both directions.
 //
-// saas normalises before it validates: the create path does
-// strings.ToLower(strings.TrimSpace(name)) and validates THAT
-// (clusters/svc/database_service.go). So `--name MyDB` is accepted
+// The API normalises before it validates: the create path does
+// strings.ToLower(strings.TrimSpace(name)) and validates THAT.
+// So `--name MyDB` is accepted
 // today and creates `mydb`, and `--name " mydb "` is accepted and
 // creates `mydb`. A checker that enforced the documented "lowercase"
 // rule literally would start rejecting invocations that work now, for
@@ -54,7 +53,7 @@ const byocDatabaseNameMaxLen = 63
 // becomes a second, competing API.
 //
 // unicode.IsLetter and unicode.IsDigit are used rather than an ASCII
-// class for the same reason: saas uses exactly those, so `café` is a
+// class for the same reason: the API uses exactly those, so `café` is a
 // legal byoc database name and must not be rejected here.
 //
 // Of the two normalisations, TrimSpace is the one that visibly changes
@@ -63,7 +62,7 @@ const byocDatabaseNameMaxLen = 63
 // place only on the length check, which counts BYTES. Exactly two
 // runes in Unicode grow under Go's ToLower (U+023A and U+023E, each
 // two bytes lowering to three); twenty-three shrink. So a name can sit
-// under the limit as typed and over it as stored, and saas measures
+// under the limit as typed and over it as stored, and the API measures
 // the stored form. Pinned by the "over the limit only once lowercased"
 // case in TestValidateByocDatabaseName; without it, deleting the
 // ToLower passes every other test.
@@ -76,11 +75,11 @@ const byocDatabaseNameMaxLen = 63
 func validateByocDatabaseName(name string) error {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 
-	// Empty is checked first, and locally, because saas handles it
-	// badly. The API handler rejects a literally empty Name with 400
+	// Empty is checked first, and locally, because the API handles it
+	// badly. It rejects a literally empty name with 400
 	// "name required", but a whitespace-only name passes that guard and
-	// trims to empty inside the service, where ValidateDatabaseName
-	// indexes runes[0] on an empty slice. Refusing it here means the
+	// trims to empty inside the server, where the name check
+	// indexes the first rune of an empty name. Refusing it here means the
 	// CLI never sends the input that reaches that path.
 	if normalized == "" {
 		return newExitError(
@@ -130,15 +129,14 @@ var databaseGetColumns = []string{
 }
 
 // databaseListColumns are database list's, and they omit PG VERSION
-// because the LIST endpoint does not send it (#219).
+// because the LIST endpoint does not send it.
 //
 // The two readers return the same generated Database type, so the
 // column was declared once and honest on one of its two readers: `get`
 // answers `"pg_version": "18"` while every list row omits the key
-// entirely. Measured on prod and a BYOC dev tenant -- eight databases across
-// three tenants, blank on list in every one, populated by get. saas
-// has two converters reading two sources and the list repository does
-// not hydrate the stored config version.
+// entirely. Measured on eight databases across
+// three tenants, blank on list in every one, populated by get. The API
+// fills the two readers from different sources.
 //
 // A blank cell cannot say which of three things it means -- unknown,
 // unset, or not sent -- so the column is dropped from list rather than
@@ -401,7 +399,7 @@ Example:
 			// from `database update`, so the version is fixed at create
 			// as it is on managed, and `--pg-version "$PGV"` with the
 			// variable unset would otherwise take the API's default
-			// silently (#243).
+			// silently.
 			if cmd.Flags().Changed("pg-version") && pgVersion == "" {
 				return newExitError(
 					"--pg-version given an empty value: name a version "+
@@ -421,7 +419,7 @@ Example:
 			// anything typed here reached the server unexamined: an ID
 			// prefix came back as "cluster not found or not available",
 			// which reads like the cluster is busy rather than like the
-			// ID was short (#257). Checked before the client for the
+			// ID was short. Checked before the client for the
 			// same reason as the name above.
 			cluster, err := parseUUIDArg(clusterID, "cluster ID")
 			if err != nil {
@@ -515,7 +513,7 @@ Example:
 			// Before the client: a name the caller typed too long
 			// must answer 2, not exit 5 for credentials it never
 			// needed. The same limit as create, which used to accept
-			// 40 characters that this verb would then refuse (#268).
+			// 40 characters that this verb would then refuse.
 			if cmd.Flags().Changed("display-name") {
 				if err := conn.ValidateDisplayName(
 					displayName); err != nil {
@@ -658,8 +656,8 @@ type databaseRow struct {
 	// showPGVersion selects which of the two header sets this row is
 	// rendered against, and it is a field rather than two row types so
 	// that the cell ORDER has exactly one definition. Two adapters
-	// would have to agree about where CLUSTER sits, and #219 exists
-	// because one declaration served two readers with different data.
+	// would have to agree about where CLUSTER sits, and one
+	// declaration serving two readers with different data drifted once.
 	showPGVersion bool
 }
 
@@ -689,7 +687,7 @@ func databaseRowFrom(d api.Database) databaseRow {
 }
 
 // databaseListRowFrom is databaseRowFrom for the LIST reader, which
-// renders one column fewer (#219). pgVersion is still carried, unread,
+// renders one column fewer. pgVersion is still carried, unread,
 // rather than dropped: the field costs nothing, and the day the list
 // endpoint starts sending it the fix is one bool.
 func databaseListRowFrom(d api.Database) databaseRow {

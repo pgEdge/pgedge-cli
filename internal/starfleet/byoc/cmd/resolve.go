@@ -13,7 +13,7 @@ import (
 // UUID or a node NAME.
 //
 // Names are the reason this exists, and they are why this is the one
-// resolver left after prefixes were withdrawn (#194). The node-logs
+// resolver left after prefixes were withdrawn. The node-logs
 // path takes a node UUID and rejects a name outright ("invalid UUID
 // length: 2"), while `cluster get`'s node objects carry no id field at
 // all — the UUID is only reachable through ListClusterNodes, which

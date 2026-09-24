@@ -13,7 +13,7 @@ import "github.com/pgEdge/pgedge-cli/internal/cli"
 // /managed/v1/tasks declares no bounds, hence no taskLimitMax and
 // cli.NoUpperBound on `task list`. The server was measured clamping
 // `--limit 500` to 100 rows there, but pinning 100 locally would
-// refuse a value the API accepts the day saas publishes a higher cap.
+// refuse a value the API accepts the day it publishes a higher cap.
 // The truncation hint covers the clamp instead: a full page prints
 // `Showing first N results...` on stderr.
 const (
@@ -29,14 +29,14 @@ const (
 // The MINIMA are cli.LimitLowest and cli.OffsetLowest, not constants
 // here: managed declares them, byoc and controlplane declare none.
 // TestPagingBoundsMatchTheSpec asserts managed's declarations agree
-// with those shared floors, so this file also fails the build if saas
-// moves a minimum.
+// with those shared floors, so this file also fails the build if the
+// API moves a minimum.
 
 // What these three list endpoints measurably do with --limit. Unlike
 // the maxima above, which gate a refusal and so come from managed.yaml,
-// these gate only the truncation hint and come from saas's source, so
-// a measured cap here sets no local ceiling: nothing reads this table
-// to refuse a value.
+// these gate only the truncation hint and come from the API's
+// behaviour, so a measured cap here sets no local ceiling: nothing
+// reads this table to refuse a value.
 //
 // MOVING A VALUE HERE MEANS RE-DATING ITS CITATION IN THE SAME DIFF.
 // TestManagedPagingProseMatchesPageDefaults holds the reference to this
@@ -44,22 +44,16 @@ const (
 // contradict it, which leaves these comments as the only evidence the
 // numbers are true.
 //
-// Evidence, from the saas checkout at 21e04c45, following each
-// parameter from the handler to the query:
+// Evidence, as the API behaves for each parameter:
 //
-//	task:     internal/starfleet/tasks/repo/tasks.go:102-105 —
-//	          `if input.Limit <= 0 { input.Limit = 25 } else if
-//	          input.Limit > 100 { input.Limit = 100 }`. Both numbers
-//	          in one place, and neither is in the contract.
-//	backup:   internal/starfleet/api/backups.go:167-169 declares
-//	          defaultBackupLimit and maxBackupLimit as 100 and 100,
-//	          :182 seeds the filter with the default, and :200-202
-//	          applies `min(*params.Limit, maxBackupLimit)`.
-//	database: internal/starfleet/api/managed_databases.go:43-44 copies
-//	          `limit` through with no default and no clamp, and
-//	          internal/starfleet/managed_databases/repo/
-//	          managed_database_repo.go:249-251 applies it only when it
-//	          is positive. So an omitted --limit reads EVERY row.
+//	task:     an omitted or non-positive limit reads 25 rows, and one
+//	          above 100 is clamped to 100. Neither number is in the
+//	          contract.
+//	backup:   the default and the maximum are both 100, and a larger
+//	          limit is clamped to 100.
+//	database: `limit` has no default and no clamp, and is applied
+//	          only when positive. So an omitted --limit reads EVERY
+//	          row.
 var (
 	// 25 rows when --limit is omitted, clamped to 100. Cross-checked
 	// live on a managed dev tenant: a bare `task list` returned 25 and

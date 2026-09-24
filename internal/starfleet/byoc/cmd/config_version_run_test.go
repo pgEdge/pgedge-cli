@@ -42,7 +42,7 @@ func TestConfigVersionListRun(t *testing.T) {
 
 	// -o table is an alias for -o text, and the guard that honours it
 	// is shared, so this pins the alias on the list path rather than
-	// the guard (#475).
+	// the guard.
 	t.Run("table matches text", func(t *testing.T) {
 		body := `[` + configVersionBody + `,` + configVersionWithExtBody + `]`
 		var got [2]string
@@ -98,7 +98,7 @@ func TestConfigVersionListRun(t *testing.T) {
 func TestConfigVersionGetRun(t *testing.T) {
 	// The stub answers only the version asked for, so a get that fetched
 	// some other version would fail here rather than pass on a body it
-	// was never entitled to (#475).
+	// was never entitled to.
 	const path = "/byoc/v1/config-versions/15.6.0"
 
 	t.Run("text success", func(t *testing.T) {

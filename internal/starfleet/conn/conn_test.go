@@ -453,7 +453,7 @@ func TestResolveUsesCachedToken(t *testing.T) {
 
 	// The profile's URL is unreachable on purpose: reusing the cache
 	// must involve no dial at all. It is also the URL the seeded token
-	// is bound to, since the binding covers the endpoint (#146).
+	// is bound to, since the binding covers the endpoint.
 	const profileURL = "http://127.0.0.1:1"
 
 	a := &auth.Auth{Profile: "dev", Module: "starfleet"}
@@ -661,7 +661,7 @@ func seedCache(t *testing.T, path, apiURL, id, secret string,
 	}
 }
 
-// TestResolveCredentialBinding is the Task 2 table from the plan: the
+// TestResolveCredentialBinding is the credential-binding table: the
 // hot path (token()) must re-exchange exactly when the cached token
 // was not minted for the connection that would be used now, and never
 // otherwise. Every re-exchange case also confirms the new cache file
@@ -669,7 +669,7 @@ func seedCache(t *testing.T, path, apiURL, id, secret string,
 // "unchanged" case confirms the seeded token — not a fresh one — comes
 // back untouched.
 //
-// "Connection" is credential AND endpoint since #146, so the seed
+// "Connection" is credential AND endpoint, so the seed
 // callback is handed the profile's own URL and the table carries a
 // flagAPIURL column. The other-host case runs against a SECOND stub,
 // and the per-stub counters are what distinguish "re-exchanged"
@@ -746,7 +746,7 @@ func TestResolveCredentialBinding(t *testing.T) {
 			wantExchanges: 1,
 		},
 		{
-			// #146: identical credentials, different endpoint. The
+			// Identical credentials, different endpoint. The
 			// seed is bound to the profile's host and is otherwise
 			// perfectly reusable — the first row of this table proves
 			// that — so only the URL can account for the re-exchange.
@@ -879,7 +879,7 @@ func (s *tokenStub) url() string { return s.srv.URL }
 
 func (s *tokenStub) hits() int64 { return s.requests.Load() }
 
-// TestResolveDoesNotReplayACachedTokenToADifferentHost is issue #146.
+// TestResolveDoesNotReplayACachedTokenToADifferentHost pins endpoint binding.
 //
 // The cached token is a live bearer credential minted by one
 // endpoint's auth server. Before this fix the cache hit was decided on
@@ -1421,7 +1421,7 @@ func TestHTTPClientFor(t *testing.T) {
 				Verbose: tt.verbose, Debug: tt.debug, Stderr: io.Discard,
 			}
 			c := HTTPClientFor(rt, RequestTimeout)
-			// The error-body repair is unconditional (issue #140), so
+			// The error-body repair is unconditional, so
 			// it is always the outermost layer here and there is no
 			// longer a plain-client case. httplog still adds no layer
 			// of its own when Off, so what sits underneath the repair
@@ -1534,7 +1534,7 @@ func TestExitCodeValues(t *testing.T) {
 func TestCheckResponse(t *testing.T) {
 	testsupport.ClearEnv(t)
 	// body defaults to "body" for every row except 404: a bare,
-	// code-less string is no longer a resource miss (issue #101), so
+	// code-less string is no longer a resource miss, so
 	// the 404 row needs a realistic handler-shaped body to still
 	// exercise ExitNotFound here.
 	tests := []struct {
@@ -1571,7 +1571,7 @@ func TestCheckResponse(t *testing.T) {
 func TestCheckResponseMessages(t *testing.T) {
 	testsupport.ClearEnv(t)
 	// body defaults to "detail" for every row except 404: a bare,
-	// code-less string is no longer a resource miss (issue #101), so
+	// code-less string is no longer a resource miss, so
 	// the 404 row needs a realistic handler-shaped body to still
 	// exercise the resource-not-found message here.
 	tests := []struct {
@@ -1600,7 +1600,7 @@ func TestCheckResponseMessages(t *testing.T) {
 // TestCheckResponseConflictNamesTheBusyDatabase pins the 409 branch.
 //
 // A 409 used to fall through to the default and read "API error
-// (409)", indistinguishable from a 500. saas's managed transitions
+// (409)", indistinguishable from a 500. The API's managed transitions
 // answer it from a lost compare-and-swap reservation, so
 // it is the one status that means "retry shortly", and the message is
 // the only place that can say so — the exit code stays ExitGeneral
@@ -1640,9 +1640,9 @@ func TestCheckResponseConflictNamesTheBusyDatabase(t *testing.T) {
 
 // TestCheckResponseConflictOnBranchesDoesNotSayWait pins the one 409
 // family that "wait and retry" gets wrong. The bodies are the live
-// responses devapi gave on 2026-09-18 to a sixth branch create, to a
+// responses the API gave on 2026-09-18 to a sixth branch create, to a
 // database delete without --delete-branches, and (by construction from
-// the same producer file) to a resize; the branch never settles, so a
+// the same message) to a resize; the branch never settles, so a
 // user told to wait would wait forever. The two control rows are 409s
 // that DO settle and must keep the busy guidance.
 func TestCheckResponseConflictOnBranchesDoesNotSayWait(t *testing.T) {
@@ -1730,10 +1730,10 @@ func TestCheckResponseConflictOnBranchesDoesNotSayWait(t *testing.T) {
 	}
 }
 
-// A 404 whose body is saas's router-level not-found — the endpoint is
+// A 404 whose body is the API's router-level not-found — the endpoint is
 // not served at all — must not read as "the resource does not exist":
 // exit 1 with a message naming the real cause, not ExitNotFound.
-// Verified against devapi 2026-08-06: an unregistered path answers
+// Verified 2026-08-06: an unregistered path answers
 // exactly `{"message":"Not Found"}` plus a trailing newline, while a
 // genuine resource miss answers a specific JSON error such as
 // `{"code":404,"message":"managed database not found"}`.
@@ -1761,12 +1761,12 @@ func TestCheckResponseRouteMiss(t *testing.T) {
 }
 
 // TestCheckResponse404Classification is the edge matrix from the
-// route-miss discriminator plan (issue #101): a 404 body is a route
+// route-miss discriminator: a 404 body is a route
 // miss unless it parses as a JSON object carrying a "code" field.
 // This is the table that a reverted byte-exact discriminator gets
 // wrong (rows named "reworded byte-exact miss" below) and that an
 // over-broad "any 404 is a route miss" rule also gets wrong (rows
-// named "resource miss" below) — see Task 5's mutation proof.
+// named "resource miss" below).
 func TestCheckResponse404Classification(t *testing.T) {
 	testsupport.ClearEnv(t)
 	const phrase = "does not serve an endpoint this command needs"
@@ -1918,14 +1918,14 @@ func TestCheckResponseRouteMissEchoesBoundedBody(t *testing.T) {
 	}
 }
 
-// A 400 whose body is saas's plan-entitlement denial must render
+// A 400 whose body is the API's plan-entitlement denial must render
 // cleanly as ExitAuth rather than the raw "API error (400): ..."
-// passthrough — issue #105. Both message variants must match: the
+// passthrough. Both message variants must match: the
 // resource-specific tail differs ("creating cloud account read" for
-// cloud-account list, live-verified against devapi --profile
-// dev-managed 2026-08-06; "creating backup store read" for
-// backup-store list, from saas's one producer of this message,
-// `fmt.Sprintf("plan does not allow creating %s", b.name)`), but the
+// cloud-account list, live-verified on a managed-plan tenant
+// 2026-08-06; "creating backup store read" for
+// backup-store list, from the API's one template for this message,
+// "plan does not allow creating <resource>"), but the
 // "plan does not allow" prefix is stable across both.
 func TestCheckResponsePlanDenial(t *testing.T) {
 	testsupport.ClearEnv(t)
@@ -1980,18 +1980,16 @@ func TestCheckResponseNonPlanBadRequestUnchanged(t *testing.T) {
 	}
 }
 
-// A 400 carrying saas's status gate means "wait and retry", not "your
-// request was malformed" — issue #191.
+// A 400 carrying the API's status gate means "wait and retry", not
+// "your request was malformed".
 //
-// saas has exactly two producers of this message, both in
-// internal/starfleet/managed_databases/svc and both a plain
-// NewBadRequestError rather than the 409 its Reserve-based transitions
+// The API has exactly two such messages, both a plain 400 rather
+// than the 409 its reservation-based transitions
 // answer: `password rotation requires status %q, current status is %q`
-// and `backup requires status %q, current status is %q` (saas main
-// c2c2bd04; no other call site in 259 uses the phrase, and none of the
-// byoc-side ones do).
+// and `backup requires status %q, current status is %q` (no other 400
+// uses the phrase, and no byoc one does).
 //
-// Both bodies below are live captures from devapi 2026-08-18, taken
+// Both bodies below are live captures from 2026-08-18, taken
 // against a throwaway managed database in a Managed dev tenant while it was
 // provisioning. The backup producer was captured a second time while
 // that database was being deleted, answering the identical message with
@@ -2035,7 +2033,7 @@ func TestCheckResponseBusyStatusBadRequest(t *testing.T) {
 }
 
 // The busy-database 400 and the 409 must give byte-identical guidance.
-// They are the same condition reached by two saas code paths, so a
+// They are the same condition reached by two API code paths, so a
 // reworded copy of one would tell a user that two identical situations
 // are different. Only the quoted server body may differ.
 func TestBusyGuidanceIsIdenticalAcross409And400(t *testing.T) {
@@ -2067,9 +2065,9 @@ func TestBusyGuidanceIsIdenticalAcross409And400(t *testing.T) {
 	}
 }
 
-// The adjacent saas bad requests must stay on the raw passthrough. Both
-// bodies below come from the same two functions as the status gate —
-// `backup kind must be %q or %q` sits nine lines above it — and neither
+// The adjacent API bad requests must stay on the raw passthrough. Both
+// bodies below come from the same two operations as the status gate,
+// and neither
 // is a wait-and-retry condition: no amount of waiting makes an invalid
 // backup kind or an unrotatable role valid.
 func TestCheckResponseNeighbouringBadRequestsUnchanged(t *testing.T) {
@@ -2094,8 +2092,8 @@ func TestCheckResponseNeighbouringBadRequestsUnchanged(t *testing.T) {
 }
 
 // A wait that straddles token expiry must not die on a 401: the
-// bearer editor re-resolves once the token is inside RefreshWindow
-// (#375). The stub's tokens expire immediately (expires_in 1), so
+// bearer editor re-resolves once the token is inside RefreshWindow.
+// The stub's tokens expire immediately (expires_in 1), so
 // every editor call is inside the window and each must re-exchange —
 // the property under test is that the SECOND request carries the
 // SECOND token, where the pre-fix closure carried the first forever.
@@ -2166,7 +2164,7 @@ func TestBearerEditorRefreshesAcrossExpiry(t *testing.T) {
 }
 
 // The refresh path must not fire for a healthy token: one exchange at
-// resolve, none per request — the pre-#375 fast path is unchanged.
+// resolve, none per request — the fast path is unchanged.
 func TestBearerEditorReusesAHealthyToken(t *testing.T) {
 	testsupport.ClearEnv(t)
 	t.Setenv("HOME", t.TempDir())
@@ -2221,8 +2219,8 @@ func TestBearerEditorReusesAHealthyToken(t *testing.T) {
 // healthy token, later requests reuse it. The first stub token dies
 // immediately and the second lives an hour, so the exchange count
 // separates "refresh updates value and expiry" (2) from "refresh
-// updates the value but keeps re-minting" (5) — a mutation #387's
-// review measured escaping both original tests. Ephemeral on
+// updates the value but keeps re-minting" (5) — a mutation that
+// escaped both original tests. Ephemeral on
 // purpose: on the persist path the CACHE absorbs that mutation, so
 // only doctor's path can see it.
 func TestBearerEditorRefreshSettlesEphemeral(t *testing.T) {
@@ -2330,7 +2328,7 @@ func TestBearerEditorRefreshHonoursTheContext(t *testing.T) {
 	}
 }
 
-// TestServerSaidStaysOnOneLine pins #576: a body ending in a newline
+// TestServerSaidStaysOnOneLine: a body ending in a newline
 // must not push the closing parenthesis onto a line of its own.
 func TestServerSaidStaysOnOneLine(t *testing.T) {
 	body := `{"code":409,"message":"the database has 5 of 5 branches"}` + "\n"

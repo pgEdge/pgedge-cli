@@ -70,8 +70,8 @@ func serviceWaitHandler(terminalStatus, taskError string) http.HandlerFunc {
 // Every managed service write spawns an `update-managed` task with real
 // duration — measured at ~15s, through reconcile-services and
 // wait-for-services — and none of them took --wait, while the identical
-// byoc commands all did (#261). The reference stated the absence
-// correctly, so this was a missing capability rather than a doc defect.
+// byoc commands all did. The reference stated the absence correctly, so
+// this was a missing capability rather than a doc defect.
 //
 // All SEVEN service leaves get the flags, not the five the issue
 // names: applyServices is the single write for all of them, so
@@ -79,15 +79,14 @@ func serviceWaitHandler(terminalStatus, taskError string) http.HandlerFunc {
 // printing `Monitor with:` without declaring the flag that line names.
 //
 // That invariant is pinned for BYOC by example_output_test.go and not
-// for managed, whose reference pastes no output (#221) — so the
-// managed arm of that test examines zero command sections. What pins it
-// here is TestManagedWaitFlagsFollowTheCode in internal/clitest, which
-// derives the population from the package's own call graph: every
-// constructor whose RunE reaches trackMutation must call addWaitFlags,
-// and vice versa. It exists because THIS test cannot: its fixture
-// carries every service type, so guardServiceIntent turns the three
-// DEPLOY verbs away and only four of the seven are reachable from
-// here.
+// for managed, whose reference pastes no output — so the managed arm of
+// that test examines zero command sections. What pins it here is
+// TestManagedWaitFlagsFollowTheCode in internal/clitest, which derives
+// the population from the package's own call graph: every constructor
+// whose RunE reaches trackMutation must call addWaitFlags, and vice
+// versa. It exists because THIS test cannot: its fixture carries every
+// service type, so guardServiceIntent turns the three DEPLOY verbs away
+// and only four of the seven are reachable from here.
 func TestManagedServiceMutationsWait(t *testing.T) {
 	cases := []struct {
 		name string
@@ -183,15 +182,14 @@ func TestManagedServiceMutationsWait(t *testing.T) {
 // so `mcp update {ID}` and `mcp update ID` name one database with two
 // different strings, and only one of them is what the PATCH carried.
 //
-// NOT because the other spelling would find nothing: an earlier version
-// of this comment said so and it was false. Review measured the
-// endpoint normalising the filter on #321, so a non-canonical
-// subject_id finds exactly what the canonical one finds. What this
-// assertion buys is that discovery does not RELY on that.
-// openapi/managed.yaml declares subject_id a bare string with no
-// format, so the normalisation is observed behaviour rather than a
-// published promise, and a filter that stopped normalising would strand
-// `--wait` on every write whose id was pasted in another case.
+// NOT because the other spelling would find nothing: the endpoint
+// normalises the filter, so a non-canonical subject_id finds exactly
+// what the canonical one finds. What this assertion buys is that
+// discovery does not RELY on that. openapi/managed.yaml declares
+// subject_id a bare string with no format, so the normalisation is
+// observed behaviour rather than a published promise, and a filter that
+// stopped normalising would strand `--wait` on every write whose id was
+// pasted in another case.
 //
 // Nothing else covers it: every byoc argument is already canonical by
 // the time it is used.

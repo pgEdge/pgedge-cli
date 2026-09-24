@@ -125,7 +125,7 @@ func newestSubjectTaskID(
 // 12:00Z and sorts AFTER 13:00:00Z) and so does a fractional second,
 // since `.` sorts before `Z`. Only the newest task is returned, so
 // ranking the wrong one newest means the real task is never considered.
-// saas sends whole-second UTC today, so this closes a hazard rather
+// The API sends whole-second UTC today, so this closes a hazard rather
 // than fixing an observed bug.
 //
 // The mode is decided ONCE for the slice, and that is the point: a
@@ -136,8 +136,8 @@ func newestSubjectTaskID(
 // The string comparison was wrong about offsets but transitive, so it
 // at least answered the same thing every time.
 //
-// managed carries the same function over its own generated api.Task
-// (#335). Neither package can see the other's type.
+// managed carries the same function over its own generated api.Task.
+// Neither package can see the other's type.
 func newestOf(tasks []api.Task) *api.Task {
 	if len(tasks) == 0 {
 		return nil

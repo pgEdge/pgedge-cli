@@ -72,7 +72,7 @@ Example:
 				// clusterKnown is false when this server could not be
 				// asked at all, which must stay distinct from a
 				// server that answered "no cluster yet": one names a
-				// remedy and the other must not (#255).
+				// remedy and the other must not.
 				clusterInitialized, clusterKnown bool
 			}
 			// Probe every base_url concurrently rather than walking

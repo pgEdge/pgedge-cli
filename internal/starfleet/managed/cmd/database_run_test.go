@@ -215,9 +215,9 @@ func TestDatabaseGetRendersRow(t *testing.T) {
 }
 
 // TestDatabaseGetRendersServicesSection pins the services block on the
-// text path (issue #188). `database get` is where a user asks "how do I
-// call this", and until saas #1868 added uri there was no locator to
-// print; the answer lived only in `-o json`.
+// text path. `database get` is where a user asks "how do I call this",
+// and uri is the locator it prints rather than leaving the answer only
+// in `-o json`.
 //
 // The endpoint is asserted as a whole string. Asserting the domain
 // alone would pass on a bare hostname, which is precisely the
@@ -254,10 +254,10 @@ func TestDatabaseGetRendersServicesSection(t *testing.T) {
 // no services prints no heading. A bare "Services" over an empty table
 // reads as a rendering fault.
 //
-// Both spellings of "none" are exercised. saas sends null rather than
-// an empty array, so the absent case is the real one — but the guard
-// covers an empty array too, and a guard nothing reaches is a guard
-// nothing keeps honest.
+// Both spellings of "none" are exercised. The API sends null rather
+// than an empty array, so the absent case is the real one — but the
+// guard covers an empty array too, and a guard nothing reaches is a
+// guard nothing keeps honest.
 func TestDatabaseGetOmitsServicesSectionWhenNone(t *testing.T) {
 	for _, tc := range []struct {
 		name, services string
@@ -287,7 +287,7 @@ func TestDatabaseGetOmitsServicesSectionWhenNone(t *testing.T) {
 // the CLI's canonical short forms (and their long-form aliases) all
 // resolve to the wire value the get endpoint actually accepts. "app"
 // alone used to round-trip verbatim and the live API rejected it with
-// a 400 (CLI-1) — this is the fix.
+// a 400.
 func TestDatabaseGetSendsUserType(t *testing.T) {
 	cases := []struct {
 		flag, wantQuery string
@@ -350,8 +350,8 @@ func TestDatabaseGetRejectsUnknownUserType(t *testing.T) {
 // --user-type is a usage error rather than a silent no-op. It used to
 // take the "not set" branch, so `--user-type ""` sent no user_type at
 // all and answered 200 for the default role, while `--user-type bogus`
-// was refused at exit 2 (#243). `--user-type "$ROLE"` with the variable
-// unset reaches the CLI as "" and fell through that way.
+// was refused at exit 2. `--user-type "$ROLE"` with the variable unset
+// reaches the CLI as "" and fell through that way.
 func TestDatabaseGetRejectsAnEmptyUserType(t *testing.T) {
 	called := false
 	url := testsupport.NewAuthedServer(t,
@@ -372,10 +372,10 @@ func TestDatabaseGetRejectsAnEmptyUserType(t *testing.T) {
 	if called {
 		t.Error("an empty --user-type should not reach the server")
 	}
-	// The message is asserted, not just the code. A review of #271
-	// found that substituting --config's message verbatim passed every
-	// assertion there, so each of these names something only THIS
-	// message can supply: the flag, the three roles, and the way out.
+	// The message is asserted, not just the code. A review found that
+	// substituting --config's message verbatim passed every assertion
+	// there, so each of these names something only THIS message can
+	// supply: the flag, the three roles, and the way out.
 	for _, want := range []string{
 		"--user-type", "empty value", "admin, app or app_read_only",
 		"omit the flag",
@@ -450,11 +450,11 @@ func TestDatabaseCreateSendsRequiredFields(t *testing.T) {
 }
 
 // TestDatabaseCreateRejectsAnUnknownPgVersion pins the client-side
-// check. saas fixed --pg-version being ignored and closed
-// the value set at the same time, so a typo that used to be dropped
-// silently is now a 400 — and the version cannot be changed
-// afterwards, so learning it locally for exit 2 is worth more here
-// than on a flag that could be corrected later.
+// check. The API fixed --pg-version being ignored and closed the value
+// set at the same time, so a typo that used to be dropped silently is
+// now a 400 — and the version cannot be changed afterwards, so learning
+// it locally for exit 2 is worth more here than on a flag that could be
+// corrected later.
 func TestDatabaseCreateRejectsAnUnknownPgVersion(t *testing.T) {
 	for _, bad := range []string{"15", "17.2", "latest", "'18'"} {
 		t.Run(bad, func(t *testing.T) {
@@ -493,7 +493,7 @@ func TestDatabaseCreateRejectsAnUnknownPgVersion(t *testing.T) {
 // database — the spec's own description says so and `database update`
 // has no such field — so `--pg-version "$PGV"` with the variable unset
 // produced a database on a version the caller neither chose nor can
-// change (#243).
+// change.
 func TestDatabaseCreateRejectsAnEmptyPgVersion(t *testing.T) {
 	called := 0
 	url := testsupport.NewAuthedServer(t,
@@ -622,7 +622,7 @@ func TestDatabaseCreateRequiresNameRegionSize(t *testing.T) {
 	}
 }
 
-// TestDatabaseCreateRejectsBadName pins CLI-17: a --name that violates
+// TestDatabaseCreateRejectsBadName pins that a --name that violates
 // the documented rules (skills/pgedge-managed/SKILL.md) is rejected
 // with ExitUsage before any request reaches the server.
 func TestDatabaseCreateRejectsBadName(t *testing.T) {
@@ -780,7 +780,7 @@ func TestDatabaseResizeRefusesWithoutForce(t *testing.T) {
 
 // display_name is on the response and in -o json, but the shared
 // list/get table has no column for it, so text callers could not read
-// back what they set (#268). The detail view prints it when set.
+// back what they set. The detail view prints it when set.
 func TestDatabaseGetShowsDisplayName(t *testing.T) {
 	const body = `{"id":"` + testDatabaseID + `","name":"db1",` +
 		`"status":"available","region":"us-east-2","size":"small",` +
@@ -1066,7 +1066,7 @@ func TestDatabaseGetAllowlistsSectionAlwaysPrints(t *testing.T) {
 }
 
 // TestAllowlistSummaryColumnsMatchRow pins header and cell order
-// together; they are two lists and have drifted before (#458).
+// together; they are two lists and have drifted before.
 func TestAllowlistSummaryColumnsMatchRow(t *testing.T) {
 	row := allowlistSummaryRow{endpoint: "E", state: "S", rules: "R"}
 	cols := row.Columns()

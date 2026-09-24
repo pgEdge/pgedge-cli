@@ -13,8 +13,8 @@ import (
 // internal/starfleet/byoc/cmd/emptybody_run_test.go.
 //
 // `client delete` is included deliberately even though it is already
-// fixed: DeleteClient is the one saas handler that provably sends
-// `ctx.JSON(http.StatusNoContent, …)`, so it is the case that fires in
+// fixed: DeleteClient is the one API endpoint that provably sends
+// a 204 under a JSON Content-Type, so it is the case that fires in
 // production rather than latently, and it is the one most worth a
 // standing regression guard.
 //
@@ -45,11 +45,9 @@ var accountEmptyBodyExempt = map[string]string{
 	// Restoring it would take more than moving this line, and the
 	// reason is worth recording: openapi/account.yaml declares no
 	// acceptInvite operation at all — measured, and the generated
-	// account client carries zero AcceptInvite symbols. saas has the
-	// handler (its own api/invites.go), but the public filter drops it,
-	// so a user login would need the operation vendored first. An
-	// earlier version of this comment said the 204 was declared here
-	// and unchanged, which was false in both halves.
+	// account client carries zero AcceptInvite symbols. The API has the
+	// operation, but the public spec leaves it out,
+	// so a user login would need the operation vendored first.
 	"invite accept": "refuses locally; issues no request",
 }
 

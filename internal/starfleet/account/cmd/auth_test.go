@@ -26,7 +26,7 @@ import (
 // only. It is passed explicitly rather than left to the default so the
 // binding a test seeds and the binding the command computes come from
 // one visible value: a token's fingerprint now covers the API URL
-// (#146), so a test that seeded one endpoint while the command
+// too, so a test that seeded one endpoint while the command
 // resolved another would report a mismatch for a reason it never
 // meant to exercise.
 const statusAPIURL = "https://api.example.test"
@@ -264,7 +264,7 @@ func TestAuthStatusStaleToken(t *testing.T) {
 	}
 }
 
-// TestAuthStatusTokenBoundToADifferentAPIURL is issue #146 at
+// TestAuthStatusTokenBoundToADifferentAPIURL is endpoint binding at
 // `auth status`: the credential is identical, only the endpoint moved.
 // The cached token belongs to the other host's auth server, so
 // reporting it as `valid` here would tell an operator the connection
@@ -300,7 +300,7 @@ func TestAuthStatusTokenBoundToADifferentAPIURL(t *testing.T) {
 //
 // token_valid:true is asserted too, and deliberately, not just
 // tolerated: the cached token IS unexpired, and TokenValid has always
-// meant exactly that (#107 D7) — nothing else. `cloud doctor`'s authInfo
+// meant exactly that — nothing else. `cloud doctor`'s authInfo
 // computes TokenValid from expiry alone and would report
 // token_valid:true for this identical on-disk state, so this command
 // reporting token_valid:false for it would be a second source of
@@ -550,7 +550,7 @@ func TestAuthLoginUsesCredentialFlags(t *testing.T) {
 // mistyped --client-id still produced a stored, working credential
 // under a different identity.
 //
-// Exit 2 is ExitUsage since #54; before it, ExitAuth was also 2, which
+// Exit 2 is ExitUsage; ExitAuth was once also 2, which
 // is precisely how the mis-tagging in conn.Resolve stayed invisible.
 // Asserting the constant rather than the literal keeps that distinct.
 func TestAuthLoginHalfFlagPairIsUsageError(t *testing.T) {
@@ -742,7 +742,7 @@ func TestAuthLoginCachesUnderStarfleetModule(t *testing.T) {
 // login used to report DefaultPath() unconditionally while Save()
 // wrote rt.Config's own path, so under --config it told an operator
 // their client secret had gone to ~/.pgedge/cli/config.yaml when it had
-// gone somewhere else. That is #264's defect with a credential
+// gone somewhere else. That is the --config path defect with a credential
 // attached: the cost is looking for a secret in the wrong file, or
 // leaving one behind in a file believed untouched.
 func TestAuthLoginNamesTheFileItActuallyWrote(t *testing.T) {
@@ -758,7 +758,7 @@ func TestAuthLoginNamesTheFileItActuallyWrote(t *testing.T) {
 	defer srv.Close()
 
 	// The file must exist: an explicit --config naming nothing is
-	// itself an error since #263, which is a different behaviour from
+	// itself an error, which is a different behaviour from
 	// the one under test here.
 	elsewhere := filepath.Join(t.TempDir(), "elsewhere.yaml")
 	if err := os.WriteFile(

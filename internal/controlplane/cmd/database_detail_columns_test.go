@@ -10,8 +10,7 @@ import (
 // the wrong header is unambiguous. Each column slice and its Columns()
 // (or cellsRow literal) are two hand-written lists nothing forces to
 // agree; swapping two adjacent values, or dropping a header, compiles
-// and prints a plausible table. The review of #458 landed three such
-// mutations unnoticed, which is what these tests now catch.
+// and prints a plausible table. These tests catch that.
 const databaseColumnsBody = `{"id":"storefront","state":"available",` +
 	`"tenant_id":"tenant-9","created_at":"2025-06-18T00:00:00Z",` +
 	`"updated_at":"2025-06-19T00:00:00Z",` +

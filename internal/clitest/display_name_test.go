@@ -14,7 +14,7 @@ import (
 // neither. `managed database create` took 40 characters while
 // `managed database update` refused 26, so a database the CLI created
 // could hold a name update would never accept back — including the one
-// it already had (#268).
+// it already had.
 //
 // Both verbs, both products, one limit, checked before the request.
 // byoc `database create` takes no --display-name, which is why there
@@ -34,8 +34,8 @@ var displayNameCommands = [][]string{
 	// The PLURAL alias, deliberately: Find() resolves it where the
 	// hand-rolled path derivation this test used to carry did not.
 	// The argument was `mydb` for the same reason -- byoc's own
-	// documented example spelled it that way -- until #194 made every
-	// ID input take a full UUID, which turned this row's control case
+	// documented example spelled it that way -- until every ID input
+	// came to take a full UUID, which turned this row's control case
 	// into an exit 2 that had nothing to do with --display-name.
 	{"starfleet", "byoc", "databases", "update",
 		"3f2a9c1e-0000-4000-8000-000000000000"},

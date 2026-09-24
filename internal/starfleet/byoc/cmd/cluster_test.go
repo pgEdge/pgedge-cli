@@ -179,9 +179,9 @@ func TestParseClusterNetwork(t *testing.T) {
 			wantCidr:   "10.4.0.0/16",
 			wantPublic: []string{"10.4.1.0/24"},
 		},
-		// --- #134: the GCP shape, and the keys that were unreachable ---
+		// --- the GCP shape, and the keys that were unreachable ---
 		{
-			// The case the flag could not express before #134. saas's
+			// The case the flag once could not express. The API's
 			// Google validator rejects both public_subnets and
 			// private_subnets ("use subnets instead"), so this is the
 			// ONLY way to name GCP subnets from the CLI.
@@ -314,7 +314,7 @@ func TestParseClusterNetwork(t *testing.T) {
 // TestParseClusterNetworkCoversEveryAPIKey fails when the vendored
 // ClusterNetworkSettings grows a field that --network cannot set.
 //
-// #134 was exactly this drift going unnoticed: the spec carried
+// This drift once went unnoticed: the spec carried
 // subnets, external, external_id and name for as long as the flag had
 // existed, and because nothing compared the two, a GCP network stayed
 // inexpressible until a user hit it. A re-vendor that adds a field now
@@ -372,7 +372,7 @@ func TestParseClusterNetworkCoversEveryAPIKey(t *testing.T) {
 // TestStructuredFlagRejectionsAreUsageErrors pins every rejection from
 // the three structured-flag parsers to ExitUsage (2).
 //
-// Before #134 these returned bare fmt.Errorf values, which surface as
+// These once returned bare fmt.Errorf values, which surface as
 // ExitGeneral (1) — the code a script reads as "the API or the network
 // failed" — while validatePrivateSubnets, a sibling check on the same
 // --network flag, already returned ExitUsage. Nothing was sent in
@@ -456,7 +456,7 @@ func TestStructuredFlagRejectionsAreUsageErrors(t *testing.T) {
 			return err
 		}},
 		// The third rejection path on the same flag pair: a size that is
-		// not a size. It used to be dropped, not refused (#256), so it
+		// not a size. It used to be dropped, not refused, so it
 		// belongs on the same exit code as the two above.
 		{"nodes: a non-positive --volume-size", func() error {
 			_, err := buildCreateNodes(
@@ -465,7 +465,7 @@ func TestStructuredFlagRejectionsAreUsageErrors(t *testing.T) {
 		}},
 		// The same floor in the structured spelling. This one really is
 		// a parser rejection, and it belongs beside the others because
-		// the two spellings of volume-size must agree (#282).
+		// the two spellings of volume-size must agree.
 		{"node: a non-positive volume-size", func() error {
 			_, err := parseClusterNode("region=us-east-1,volume-size=-5",
 				"")
@@ -710,7 +710,7 @@ func TestBuildCreateNodes(t *testing.T) {
 			regions:   []string{"us-east-1"},
 			wantErr:   true,
 		},
-		// The #256 boundary, pinned in both directions. 1 is the
+		// The --volume-size boundary, pinned in both directions. 1 is the
 		// smallest size that must still be ACCEPTED, so a later change
 		// cannot quietly raise the floor; 0 and -5 must be refused
 		// rather than dropped, which is what the old `volumeSize > 0`
@@ -750,7 +750,7 @@ func TestBuildCreateNodes(t *testing.T) {
 			wantNil: true,
 		},
 		// The structured spelling of the same field carries the same
-		// floor (#282). It is the spelling every worked example in
+		// floor. It is the spelling every worked example in
 		// llms.txt uses, so it is the one an agent reaches for first.
 		{
 			name:      "a non-positive --node volume-size is refused",
@@ -1040,7 +1040,7 @@ func equalStrings(a, b []string) bool {
 }
 
 // TestValidatePrivateSubnets pins the client-side --node-location
-// private / --network private-subnets dependency (CLI-24), documented
+// private / --network private-subnets dependency, documented
 // in skills/pgedge-byoc/SKILL.md ("Private clusters on AWS/Azure: add
 // private-subnets=... to --network.").
 //
@@ -1101,9 +1101,9 @@ func TestValidatePrivateSubnets(t *testing.T) {
 			},
 		},
 		{
-			// The real GCP shape, expressible from --network as of
-			// #134. It carries subnets and no private-subnets, which is
-			// exactly the combination this check must NOT reject: saas's
+			// The real GCP shape, which --network expresses.
+			// It carries subnets and no private-subnets, which is
+			// exactly the combination this check must NOT reject: the API's
 			// Google validator refuses private_subnets outright, so
 			// demanding it here would make a private GCP cluster
 			// impossible to create rather than merely awkward.

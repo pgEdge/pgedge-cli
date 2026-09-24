@@ -179,10 +179,10 @@ func nonNilRules(r []api.IPAllowlistRule) []api.IPAllowlistRule {
 
 // applyAllowlist sends rules as the endpoint's whole list.
 //
-// The Postgres endpoint PATCHes ip_allowlist alone, so saas runs
+// The Postgres endpoint PATCHes ip_allowlist alone, so the API runs
 // update-managed-ip-allowlists. A service endpoint's list lives in its
 // services entry, so that write sends the whole array through
-// applyServices and saas runs the services job.
+// applyServices and the API runs the services job.
 //
 // rules is never sent nil: [] closes the endpoint, nil would omit the
 // field and leave it unchanged, and those are different requests.

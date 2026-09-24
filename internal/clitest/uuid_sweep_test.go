@@ -13,7 +13,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 )
 
-// This is the DERIVED half of #194's contract, and it exists because
+// This is the DERIVED half of the full-UUID contract, and it exists because
 // three hand-written lists were each proved bypassable at exactly the
 // dimension they did not vary.
 //
@@ -96,7 +96,7 @@ var uuidCommandExempt = map[string]idExempt{
 }
 
 // nameNotUUIDPositionals are positionals that LOOK like ids and are
-// names, so #194 does not govern them.
+// names, so the full-UUID rule does not govern them.
 //
 // This used to exclude cp wholesale, on the grounds that "its ids are
 // NAMES". That is true of `<database_id>`, `<host_id>` and
@@ -217,7 +217,7 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 							"after something else that refuses first "+
 							"— a cli.Confirm that has not read the "+
 							"argument, or a client build. Both were "+
-							"live defects (#194).",
+							"live defects.",
 							strings.Join(full, " "), err.Error(), name)
 					}
 				})
@@ -247,7 +247,7 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 	// 85 -> 91: `managed database branch` list and create take one
 	// `<database_id>` positional each; get and delete take two
 	// (`<database_id> <branch_id>`).
-	// 91 -> 95: `managed database branch metrics` and `logs` (#541)
+	// 91 -> 95: `managed database branch metrics` and `logs`
 	// each take two (`<database_id> <branch_id>`).
 	if checked != 95 {
 		t.Errorf("%d ID positionals swept, want exactly 95. Adding or "+

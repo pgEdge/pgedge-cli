@@ -13,7 +13,8 @@ import (
 // series builds a MetricSeries from a column list and rows, so a test
 // can vary ORDER and TIME independently. Every shipped fixture has
 // strictly increasing timestamps and no duplicates, which is precisely
-// why #273 shipped: nothing exercised a tie or an out-of-order row.
+// why the tie defect shipped: nothing exercised a tie or an
+// out-of-order row.
 func series(columns []string, rows ...[]interface{}) api.MetricSeries {
 	return api.MetricSeries{Columns: columns, Values: rows}
 }
@@ -88,13 +89,11 @@ func TestNewestUsableSample(t *testing.T) {
 
 	t.Run("a tie whose newer row is INCOMPLETE is still reported",
 		func(t *testing.T) {
-			// THE CASE #273 ACTUALLY REPORTS, and the one an earlier
-			// version of this test asserted the wrong way round. The
-			// incoming instance's scrape has nulls, so completeness —
-			// not the tie-break — selects the retiring one. If that
-			// produced no note, output would be byte-identical to
-			// before the fix in the very mechanism the issue
-			// describes.
+			// THE CASE THE DEFECT ACTUALLY TAKES. The incoming
+			// instance's scrape has nulls, so completeness — not the
+			// tie-break — selects the retiring one. If that produced no
+			// note, output would be byte-identical to before the fix in
+			// the very mechanism the issue describes.
 			s := series(cols,
 				[]interface{}{1.0, "db-x-1-1", 5000.0},
 				[]interface{}{nil, "db-x-2-1", 5000.0},
@@ -106,7 +105,7 @@ func TestNewestUsableSample(t *testing.T) {
 			if !strings.Contains(note, "2 samples share time") {
 				t.Errorf("note = %q — a row EXISTED at this timestamp "+
 					"and was skipped as incomplete, which is the "+
-					"reported mechanism of #273. Counting only "+
+					"reported mechanism of the tie defect. Counting only "+
 					"same-predicate rows makes this a non-tie and "+
 					"prints nothing.", note)
 			}
@@ -171,7 +170,7 @@ func TestNewestUsableSample(t *testing.T) {
 			// unreadable, and walking backwards made that row `best`
 			// first — so nothing could ever displace it and the whole
 			// series fell back to the position walk. That silently
-			// restored the selection #273 exists to fix, on one bad
+			// restored the selection this exists to fix, on one bad
 			// cell.
 			s := series(cols,
 				[]interface{}{1.0, "db-x-1-1", 1000.0},

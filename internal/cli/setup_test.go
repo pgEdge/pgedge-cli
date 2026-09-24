@@ -101,7 +101,7 @@ func TestSetupRuntimeOutputFormat(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "empty.yaml")
 		// An EMPTY file, not an absent one: a --config path that does
-		// not exist is now an error (#239), and standing in for "no
+		// not exist is an error, and standing in for "no
 		// preference" with a missing file would test the rejection
 		// rather than the default.
 		if err := os.WriteFile(cfgPath, nil, 0o600); err != nil {
@@ -214,10 +214,9 @@ func TestSetupRuntimeProfileExplicit(t *testing.T) {
 		}
 	})
 
-	// These asserted the opposite until #246, which answers this input
-	// a third way #150 did not consider: reject it rather than pick
-	// between explicit and absent. setupRuntime carries why; the
-	// guarantee #246 had to preserve is the third case below.
+	// This input is rejected rather than read as explicit or absent.
+	// setupRuntime carries why; the guarantee the rejection must
+	// preserve is the third case below.
 	t.Run("--profile= (explicit empty) is a usage error", func(t *testing.T) {
 		fs := newSetupFlagSet(t, "--profile=")
 		rt := &module.Runtime{}
@@ -228,8 +227,7 @@ func TestSetupRuntimeProfileExplicit(t *testing.T) {
 		}
 		// The type alone would pass for any message at all, including
 		// --config's, and this error's job is to name the flag the
-		// caller got wrong. #263 closed the same hole one commit
-		// earlier in this file.
+		// caller got wrong.
 		if !strings.Contains(ue.Msg, "--profile") {
 			t.Errorf("message %q should name --profile", ue.Msg)
 		}
@@ -251,8 +249,8 @@ func TestSetupRuntimeProfileExplicit(t *testing.T) {
 		}
 	})
 
-	// The case #150 protected, restated as the guarantee #246 must not
-	// break: with the flag OMITTED, a broken or absent current_profile
+	// The guarantee the empty-flag rejection must not break: with the
+	// flag OMITTED, a broken or absent current_profile
 	// still resolves and still reports itself as not explicit, so the
 	// repair carve-out still applies.
 	t.Run("omitted --profile still resolves current_profile", func(t *testing.T) {
@@ -287,7 +285,7 @@ func TestSetupRuntimeColor(t *testing.T) {
 	// regardless of NO_COLOR here; this pins the boolean short-circuit
 	// still evaluates cleanly (no panic, no stale field) with NO_COLOR
 	// set, without re-implementing term.IsTerminal's own semantics,
-	// which are out of scope for #120 to touch.
+	// which are out of scope here.
 	t.Setenv("NO_COLOR", "1")
 	fs := newSetupFlagSet(t)
 	rt := &module.Runtime{}

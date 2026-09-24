@@ -80,7 +80,7 @@ func strayMarkers(content string, allowed map[string]bool) []string {
 // blanks everything between a BEGIN and END pair wherever it finds
 // one, so a hand-written envelope on any scanned page would hide a
 // fabricated field, a capture instruction or an invented status from
-// every gate (#477). This holds every marker in the scanned
+// every gate. This holds every marker in the scanned
 // population to the file and the exact form the generator would write:
 // a command block or routing table only on the llms page that owns it,
 // a PAGE pair only on its docs/reference page, and nothing anywhere
@@ -157,8 +157,8 @@ func TestGeneratedMarkersSitOnlyWhereTheGeneratorWrites(t *testing.T) {
 }
 
 // TestGeneratedMarkerGateCatchesHandWrittenEnvelopes runs the
-// classifier over the shapes #477 measured, plus the two the issue's
-// second closure would have missed: a command block on a
+// classifier over the measured shapes, plus two a looser check
+// would have missed: a command block on a
 // docs/reference page and a PAGE pair on an llms page. Each
 // fixture's stray count is exact, so a form the pattern stopped
 // matching fails here rather than passing quietly.

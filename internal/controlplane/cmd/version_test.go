@@ -76,7 +76,7 @@ func TestVersionRun(t *testing.T) {
 		}
 	})
 
-	// TestVersionFloorWarning covers item 3 of issue #106: `cp version`
+	// TestVersionFloorWarning: `cp version`
 	// is one of the two places a controlplane command already has the server's
 	// version in hand (it IS the command's job), so it is one of the
 	// two call sites of warnBelowFloor. Below floor prints one stderr

@@ -20,7 +20,7 @@ var taskColumns = []string{"TASK-ID", "TYPE", "STATUS", "SCOPE",
 // scopeRequired is the usage error for `task get`/`task logs` run
 // without a scope entity. It names where to FIND the value, not just
 // which flags exist: this error is met by someone already stuck on a
-// failed create (#251), and naming the flags told them nothing they
+// failed create, and naming the flags told them nothing they
 // had not just read.
 func scopeRequired() error {
 	return &ExitError{
@@ -372,7 +372,7 @@ Example:
 				// The message is sanitized and the timestamp is not:
 				// the timestamp is formatted by this process, and a
 				// message carrying a newline would otherwise forge a
-				// log line with no timestamp to give it away (#323).
+				// log line with no timestamp to give it away.
 				fmt.Fprintf(rt.Stdout, "%s  %s\n",
 					e.Timestamp.Format(time.RFC3339),
 					output.Sanitize(e.Message))

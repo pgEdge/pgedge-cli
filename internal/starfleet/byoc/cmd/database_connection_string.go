@@ -37,8 +37,7 @@ prints them; a label two nodes share is refused, and the node's own
 name resolves it. The argument takes a full UUID.
 
 A node reachable from the public internet carries host; a node on a
-private cluster carries internal_host instead (each of the two devapi
-databases measured in August 2026 carried one and not the other).
+private cluster carries internal_host instead.
 --internal builds the string from internal_host, for an application
 that runs inside the cluster's network. Without it a node that has
 only internal_host is refused with exit 1 and a sentence naming the
@@ -166,8 +165,8 @@ func (r nodeListRow) Columns() []string {
 		strconv.Itoa(r.Port)}
 }
 
-// pickNode chooses the node the string belongs to. A database GET on
-// devapi (measured 2026-08-29, two databases) carried no database-level
+// pickNode chooses the node the string belongs to. A database GET
+// (measured 2026-08-29, two databases) carried no database-level
 // connection block, only one per node, so the node list is the
 // source and the database-level block is not consulted.
 func pickNode(
@@ -231,7 +230,7 @@ func pickNode(
 
 // buildNodeConnectionString picks the host by network and refuses,
 // rather than switches, when the network asked for is not the one the
-// node advertises. Measured 2026-08-29 on devapi: a public node
+// node advertises. Measured 2026-08-29: a public node
 // carries host and no internal_host, a private-cluster node the
 // reverse.
 func buildNodeConnectionString(

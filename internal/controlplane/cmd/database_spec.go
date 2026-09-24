@@ -265,9 +265,7 @@ func specSource(path string) string {
 // backup-repository credentials (s3_key, s3_key_secret, gcs_key,
 // azure_key), each service's host_ids, and every service config
 // value at any depth, lists included — rag's credentials sit under
-// config.pipelines[N].embedding_llm.api_key. Services were the
-// original scan; #423 measured a spec carrying the last three
-// reaching the API with --dry-run rc 0.
+// config.pipelines[N].embedding_llm.api_key.
 //
 // The scan is ordered to report the field a reader hits first when
 // editing the file top-down — nodes, users, backup repositories,
@@ -343,7 +341,7 @@ func checkUnfilledPlaceholders(
 // checkUnfilledRestorePlaceholders is the restore_config half of the
 // scan: the three source_* fields, and the four repository credentials
 // repoSentinelHit scans on a backup repository. `restore -f` carries a
-// restore_config and nothing else the scan reads (#427).
+// restore_config and nothing else the scan reads.
 func checkUnfilledRestorePlaceholders(
 	cfg *api.RestoreConfigSpec, verb string,
 ) error {
@@ -479,8 +477,7 @@ func updateSpecPlaceholders(
 // secretSentinel, returning the dotted-and-indexed path to name in the
 // error. It descends maps AND lists to any depth: rag's credentials
 // sit at config.pipelines[N].embedding_llm.api_key, two levels below
-// the single nested map the scan reached until #423, and the list step
-// is the one it never took.
+// a single nested map and behind a list index.
 func configSentinelHit(key string, val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:

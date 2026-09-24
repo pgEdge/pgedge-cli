@@ -105,8 +105,7 @@ func controlplaneLLMSProse(t *testing.T) string {
 //     supported at all, and they sit OUTSIDE the generated blocks, so
 //     nothing regenerates them: `make docs` would leave every one of
 //     them stating the old floor after a bump, and the reference would
-//     be confidently wrong while every other gate stayed green. This is
-//     the half PR #138's merge-gate review flagged as unpinned.
+//     be confidently wrong while every other gate stayed green.
 func TestControlplaneSupportFloorMatchesSource(t *testing.T) {
 	tag := controlplaneTagFromSource(t)
 	wantFloor := strings.TrimPrefix(strings.TrimPrefix(tag, "v"), "V")

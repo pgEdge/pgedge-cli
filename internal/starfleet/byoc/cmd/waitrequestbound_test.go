@@ -35,7 +35,7 @@ func hungTaskClient(t *testing.T, timeout time.Duration) *api.ClientWithResponse
 }
 
 // TestSlowPollDoesNotForgeAWaitExpiry is byoc's copy of the
-// discrimination #348 forced. Bounding the client (conn.RequestTimeout)
+// timeout discrimination. Bounding the client (conn.RequestTimeout)
 // makes a single slow poll fail with the same error a whole wait
 // expiring raises, so `errors.Is(err, context.DeadlineExceeded)` on its
 // own would report a 300-second wait as timed out 200ms in, with
@@ -80,7 +80,7 @@ func TestSlowPollDoesNotForgeAWaitExpiry(t *testing.T) {
 	})
 }
 
-// TestByocPriorTaskReadIsBounded is #340's third bullet. byoc captures
+// TestByocPriorTaskReadIsBounded pins the prior-task read. byoc captures
 // the prior task id with a bare context.Background() at thirteen call
 // sites, so a hung read blocked the mutation before it was submitted.
 // It inherits the client's bound now.

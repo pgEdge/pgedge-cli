@@ -11,7 +11,7 @@ import (
 )
 
 // newAPICmd builds `pgedge controlplane api`, the raw call to any path
-// on the Control Plane over the module's own connection (#434).
+// on the Control Plane over the module's own connection.
 func newAPICmd(rt *module.Runtime) *cobra.Command {
 	var (
 		data    string

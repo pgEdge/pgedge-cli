@@ -14,8 +14,8 @@ import (
 // fixtureSpec builds a minimal published contract for one product. The
 // maxLength probe is deliberate: a capture routed through
 // encoding/json's default decoding would round it through float64 and
-// emit `maxLength: 25.0` — the same class of mangling #456 fixed for
-// `-o json` — so the tests assert the literal `25` survives.
+// emit `maxLength: 25.0` — the same class of mangling `-o json`
+// guards against — so the tests assert the literal `25` survives.
 func fixtureSpec(product string) string {
 	return `{
 		"components": {"schemas": {"Thing": {
@@ -99,7 +99,7 @@ func TestCaptureIsFailClosed(t *testing.T) {
 		"an unbindable go-type import": {
 			body: strings.Replace(fixtureSpec("managed"),
 				`"x-go-type": "UUID"`,
-				`"x-go-type": "UUID", "x-go-type-import": {"path": "github.com/pgEdge/saas/internal/oapi"}`, 1),
+				`"x-go-type": "UUID", "x-go-type-import": {"path": "example.com/internal/oapi"}`, 1),
 			want: "x-go-type-import",
 		},
 		"a path outside the product namespace": {
@@ -155,10 +155,10 @@ func TestCheckPassesWhenCurrentAndWritesNothing(t *testing.T) {
 	}
 }
 
-// A check against another environment compares the contract, not the
-// host. devapi publishes the same paths and schemas under its own
-// servers URL, and a check that failed on that line alone said nothing
-// about the rest, which is what the comparison is run for.
+// A check compares the contract, not the host. The same paths and
+// schemas under a different servers URL are not drift: a check that
+// failed on that line alone said nothing about the rest, which is
+// what the comparison is run for.
 func TestCheckComparesTheContractNotTheHost(t *testing.T) {
 	prod := serve(t, nil)
 	dir := t.TempDir()
@@ -281,7 +281,7 @@ func TestCheckTreatsAMissingFileAsDrift(t *testing.T) {
 
 // TestForbiddenExtensionIsCaughtAtAnyDepth pins the guard's walk: a
 // marker buried inside a schema property, not only at path-item level
-// where saas historically placed them.
+// where the API has placed them.
 func TestForbiddenExtensionIsCaughtAtAnyDepth(t *testing.T) {
 	deep := strings.Replace(fixtureSpec("byoc"),
 		`"maxLength": 25`,
@@ -295,10 +295,10 @@ func TestForbiddenExtensionIsCaughtAtAnyDepth(t *testing.T) {
 }
 
 // TestProductListCoversEveryVendoredSpec pins the removal direction
-// the products doc comment does not (#470 review, M2): dropping a
-// product from the list silently ends drift coverage for its
-// committed spec, and the review measured `vendor-spec-check` passing
-// over a sabotaged byoc.yaml with byoc removed. Both directions are
+// the products doc comment does not: dropping a product from the
+// list silently ends drift coverage for its committed spec, so
+// `vendor-spec-check` passes over a sabotaged byoc.yaml with byoc
+// removed. Both directions are
 // asserted — a spec with no product entry, and a product entry with
 // no committed spec.
 func TestProductListCoversEveryVendoredSpec(t *testing.T) {
@@ -338,8 +338,8 @@ func TestProductListCoversEveryVendoredSpec(t *testing.T) {
 }
 
 // TestForbiddenExtensionIsCaughtInsideAnArray covers the []any branch
-// of the walk, which the buried-marker test does not reach (#470
-// review): saas's servers block is a sequence, and a marker planted
+// of the walk, which the buried-marker test does not reach: the
+// API's servers block is a sequence, and a marker planted
 // on one of its elements must still abort the capture.
 func TestForbiddenExtensionIsCaughtInsideAnArray(t *testing.T) {
 	inArray := strings.Replace(fixtureSpec("byoc"),

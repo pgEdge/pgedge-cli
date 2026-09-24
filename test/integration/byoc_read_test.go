@@ -9,8 +9,8 @@ import (
 // TestBYOCListVerbs exercises every read-only BYOC list verb against
 // the configured environment. The CLI is a typed client generated
 // from the spec, so a materially changed response fails to decode and
-// the verb errors — this suite is the regression test for the API
-// path migration in saas PR #1791.
+// the verb errors — this suite is the regression test for the API's
+// byoc path layout.
 func TestBYOCListVerbs(t *testing.T) {
 	requireIntegration(t)
 

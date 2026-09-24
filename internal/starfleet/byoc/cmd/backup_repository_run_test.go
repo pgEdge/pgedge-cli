@@ -43,7 +43,7 @@ func TestBackupRepositoryListRun(t *testing.T) {
 	})
 
 	// backupRepositoryDefaults records this endpoint's page size and cap,
-	// with the saas evidence. Assert the flags actually reach the query
+	// with the API evidence. Assert the flags actually reach the query
 	// string rather than being parsed and dropped.
 	t.Run("filter flags reach the query string", func(t *testing.T) {
 		var got string

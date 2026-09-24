@@ -14,10 +14,10 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 )
 
-// The empty-body acknowledgement contract (#141).
+// The empty-body acknowledgement contract.
 //
 // A verb whose success carries no body has nothing real to print, and
-// the CLI prints only real API objects (#110). So the acknowledgement
+// the CLI prints only real API objects. So the acknowledgement
 // is exit 0, and the human sentence goes to STDERR, leaving stdout
 // byte-empty in every output format. `cmd -o json | jq` stays clean,
 // and a script reads $? rather than a fabricated `{"rotated": true}`
@@ -25,7 +25,7 @@ import (
 //
 // The alternative considered and rejected was printing the API's own
 // X-Request-Id. It is a real server value rather than an invented one,
-// but devapi returns TWO of them with different values, so the CLI
+// but the API returns TWO of them with different values, so the CLI
 // would have to pick one and the one it picked need not be the one in
 // the server's logs — which was the entire point of surfacing it.
 //
@@ -124,12 +124,12 @@ type emptySuccessShape struct {
 // dimension the first version of this gate did not vary was the
 // response SHAPE.
 var emptySuccessShapes = []emptySuccessShape{
-	// managed's shape. saas's RespondNoContent -> ctx.NoContent(204).
+	// managed's shape.
 	{name: "204 with no body", status: http.StatusNoContent,
 		canonical: true},
-	// byoc's shape, and not hypothetical: byoc's handlers call
-	// RespondOK(ctx, nil) against specs that declare no content, so
-	// success arrives as 200 carrying the JSON literal `null`. Verified
+	// byoc's shape, and not hypothetical: against specs that declare
+	// no content, byoc's success arrives as 200 carrying the JSON
+	// literal `null`. Verified
 	// live 2026-08-04 and recorded in
 	// internal/starfleet/byoc/cmd/emptybody_run_test.go, which is where
 	// that measurement lives.
@@ -217,8 +217,8 @@ func sweepEmptySuccess(t *testing.T, shape emptySuccessShape) {
 	// other direction.
 	//
 	// It does leave a real property unguarded: nothing here would
-	// notice a CREATE verb printing a fabricated zero object if saas
-	// ever answered one `null`. That is a wider rule than #141's and
+	// notice a CREATE verb printing a fabricated zero object if the API
+	// ever answered one `null`. That is a wider rule than this one and
 	// belongs to its own change.
 	verbs := annotatedCommandPaths(t)
 	if !shape.canonical {
@@ -256,8 +256,8 @@ func sweepEmptySuccess(t *testing.T, shape emptySuccessShape) {
 				t.Errorf("%s -o %s: wrote %d byte(s) to stdout "+
 					"(run error: %v): %q. Nothing real came back to "+
 					"print, so stdout stays empty and the "+
-					"acknowledgement is exit 0 plus a line on stderr "+
-					"(#141).", path, format, len(out), runErr, out)
+					"acknowledgement is exit 0 plus a line on "+
+					"stderr.", path, format, len(out), runErr, out)
 			}
 			if runErr != nil {
 				// Not an empty-body verb, or synthesis never reached

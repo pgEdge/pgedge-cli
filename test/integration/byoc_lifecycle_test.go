@@ -389,12 +389,11 @@ func lifecycleBackup(
 
 	// No assertion follows, and none can. The old `/v1/backups*`
 	// endpoints were legacy Developer-edition surface that BYOC never
-	// used, and saas PR #1843 has since moved list, get and restore to
-	// `/managed/v1/backups*` and deleted the download operation. None of
-	// them is a byoc endpoint, so there is no client-visible signal that
-	// a BYOC backup materialised: no id in the response, no SaaS task to
-	// poll (StartBackup -> backupViaControlPlane creates the task in the
-	// Control Plane via cpClient.BackupDatabaseNode, not in the SaaS task
+	// used; list, get and restore now live at `/managed/v1/backups*`
+	// and there is no download operation. None of them is a byoc
+	// endpoint, so there is no client-visible signal that a BYOC
+	// backup materialised: no id in the response, no API task to poll
+	// (the task is created in the Control Plane, not in the API's task
 	// system), and no row the CLI can read.
 	//
 	// The managed backup listing now exists, so the read-back half of

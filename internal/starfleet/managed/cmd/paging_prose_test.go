@@ -37,10 +37,9 @@ var pagedManagedVerbs = map[string]cli.PageDefaults{
 // byoc's TestPagingProseMatchesPageDefaults, and the reason managed
 // needed one: the module reference carried NO page size for `task list`
 // at all and none for `database list`, while the measured 25/100 pair
-// sat in saas's source with nothing tying the two together. byoc's gate
-// exists because that drift already happened once there (#198);
-// managed's exists because the same claim was missing rather than
-// stale.
+// sat in the API's code with nothing tying the two together. byoc's
+// gate exists because that drift already happened once there; managed's
+// exists because the same claim was missing rather than stale.
 //
 // The span extraction is docgen.CommandProse, shared with byoc's gate —
 // the anchoring rules and what each of them prevents live there.
@@ -177,8 +176,8 @@ func TestEveryPaginatedManagedVerbHasAProseClaim(t *testing.T) {
 			"list verb needs a cli.PageDefaults entry in paging.go "+
 			"with its provenance, a row in that test, and a page-size "+
 			"claim in its section of llms.txt — a verb that hints with "+
-			"no documented page size is the drift #198 and #269 were "+
-			"both about. If a verb genuinely cannot carry one, say why "+
+			"no documented page size is the drift this gate "+
+			"exists for. If a verb genuinely cannot carry one, say why "+
 			"in this file — there is deliberately no exemption map to "+
 			"add a line to.", path)
 	})

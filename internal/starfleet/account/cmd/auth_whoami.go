@@ -135,9 +135,9 @@ Example:
 // against dev and prod on 2026-09-01 — the caller's own record was
 // present and matched in every case.
 //
-// A nil result is not an error. saas's principal middleware only lets
-// the request through when a live client exists for the tenant
-// (users/middleware/principal.go), so the record is there in practice;
+// A nil result is not an error. The API only lets the request
+// through when a live client exists for the tenant, so the record is
+// there in practice;
 // this read is a separate call that could still answer without it, and
 // the tenant half of the report is worth printing either way.
 func whoamiClientRecord(
@@ -163,9 +163,8 @@ func whoamiClientRecord(
 }
 
 // whoamiTenants reads the tenants the credential can reach. For a
-// client credential saas answers with exactly one — the tenant the
-// token is scoped to (listClientTenants in saas's tenants.go returns a
-// one-element slice, measured as one on all four profiles across dev
+// client credential the API answers with exactly one — the tenant the
+// token is scoped to (measured as one on all four profiles across dev
 // and prod on 2026-09-01) — but the length is reported rather than
 // assumed.
 func whoamiTenants(
@@ -191,7 +190,7 @@ func whoamiTenants(
 //
 // Every interpolated value but APIURL arrives from the API, so each
 // goes through output.Sanitize: a name carrying a newline would
-// otherwise forge a line of this very block (#323).
+// otherwise forge a line of this very block.
 func printWhoami(
 	rt *module.Runtime, report whoamiReport, noClient, noTenant bool,
 ) error {

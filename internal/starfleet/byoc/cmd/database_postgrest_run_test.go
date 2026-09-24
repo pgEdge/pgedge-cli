@@ -29,7 +29,7 @@ const dbWithPostgRESTBody = `{"id":"` + testDatabaseID + `","name":"mydb",` +
 // capturedApply records the body of the update request the CLI sends,
 // so a test can assert on what actually went over the wire rather than
 // only on the exit status. calls counts non-GET, non-/nodes requests —
-// the deploy/update guard's (#117) essential assertion is that a
+// the deploy/update guard's essential assertion is that a
 // refusal sends exactly zero of these, not merely that it returns an
 // error.
 type capturedApply struct {
@@ -130,7 +130,7 @@ func TestDatabasePostgRESTDeployRun(t *testing.T) {
 
 	t.Run("deploy on an existing service is refused", func(t *testing.T) {
 		// dbWithPostgRESTBody already carries a postgrest service, so
-		// the deploy/update guard (#117) must refuse this before
+		// the deploy/update guard must refuse this before
 		// sending anything, rather than reconfiguring it silently.
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
 		rec := &capturedApply{}
@@ -217,7 +217,7 @@ func TestDatabasePostgRESTUpdateRun(t *testing.T) {
 		}
 	})
 
-	// #117: preserves an existing MCP service and its config when
+	// Preserves an existing MCP service and its config when
 	// updating postgrest. dbWithPostgRESTBody carries both.
 	t.Run("preserves an existing MCP service and its config", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -239,7 +239,7 @@ func TestDatabasePostgRESTUpdateRun(t *testing.T) {
 	})
 
 	// errors when nothing is deployed to merge with pins the
-	// deploy/update guard (#117): updating a database with no
+	// deploy/update guard: updating a database with no
 	// PostgREST service deployed fails client-side, naming `postgrest
 	// deploy` as the fix, rather than sending a request that can only
 	// 400.
@@ -279,11 +279,11 @@ func TestServiceApplyEmitsJSON(t *testing.T) {
 		name string
 		args []string
 		// dbBody is the database the stub serves. An update verb needs a
-		// body that already carries its own service: since issue #45 the
+		// body that already carries its own service: the
 		// update path merges with what is deployed, so `rag update`
 		// against a database with no RAG service is now a clean
 		// client-side error rather than a request. A deploy verb needs
-		// the opposite since #117: a body that does NOT already carry a
+		// the opposite: a body that does NOT already carry a
 		// service of the type being deployed, or the deploy/update guard
 		// refuses it before sending anything.
 		dbBody string
@@ -439,7 +439,7 @@ func TestPostgRESTUpdatePreservesPlacement(t *testing.T) {
 }
 
 // dbWithRAGBody is a database carrying a fully configured RAG service on
-// a two-node cluster, for the issue #45 acceptance tests.
+// a two-node cluster, for the partial-update acceptance tests.
 const dbWithRAGBody = `{"id":"` + testDatabaseID + `","name":"mydb",` +
 	`"status":"available","pg_version":"16","cluster_id":"` +
 	testClusterID + `","created_at":"2024-03-15T10:30:00Z",` +
@@ -461,7 +461,7 @@ const dbWithMCPOnTwoNodes = `{"id":"` + testDatabaseID + `",` +
 	`"host_id":"host-1","mcp_config":{"allow_writes":true}}]}`
 
 // TestMCPUpdatePreservesPlacement is the acceptance test for the
-// placement half of issue #45. On a multi-node cluster an update must
+// placement half of partial update. On a multi-node cluster an update must
 // leave the service where it is rather than demanding --target-nodes
 // again. Committed skipped; the skip is gone with the fix.
 func TestMCPUpdatePreservesPlacement(t *testing.T) {

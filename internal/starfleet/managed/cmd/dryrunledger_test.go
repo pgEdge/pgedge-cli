@@ -12,10 +12,10 @@ import (
 )
 
 // TestGuardServiceIntentRecordsOnlyOnPass covers both halves of the
-// ledger contract at the check that matters most (#117): a passing check
-// says what it proved, and a failing one records nothing — a report
-// listing a check as passed when it refused the command would be the
-// worst possible lie for this feature to tell.
+// ledger contract at the check that matters most: a passing check says
+// what it proved, and a failing one records nothing — a report listing
+// a check as passed when it refused the command would be the worst
+// possible lie for this feature to tell.
 func TestGuardServiceIntentRecordsOnlyOnPass(t *testing.T) {
 	mcp := api.Mcp
 	deployed := &api.ManagedDatabase{
@@ -120,7 +120,7 @@ func TestLedgerEntriesNameTheirSubject(t *testing.T) {
 }
 
 // TestDatabaseResolvedNote pins the one ledger line that names a
-// database, now that IDs are full UUIDs (#194).
+// database, now that IDs are full UUIDs.
 //
 // It used to take the argument as well and suppress a parenthetical
 // when the two matched, because a name or an ID prefix resolved to a
@@ -135,7 +135,7 @@ func TestDatabaseResolvedNote(t *testing.T) {
 }
 
 // TestManagedRegionResolutionIsRecorded pins the ledger entry for the
-// --region resolution (#195).
+// --region resolution.
 //
 // The standing rule is that every client-side check is RECORDED, and
 // the test above exists because a managed check once shipped recording
@@ -201,8 +201,8 @@ func TestManagedRegionResolutionIsRecorded(t *testing.T) {
 				"--region", "us-east-2")
 
 			// Three entries, none of them the resolution: an explicit
-			// region is CHECKED against the list (#242) but not resolved
-			// from it, and the two read differently. "is the only one
+			// region is CHECKED against the list but not resolved from
+			// it, and the two read differently. "is the only one
 			// published" is a claim about the catalog having one entry;
 			// "is published" is a claim about this value being in it.
 			got := rt.DryRun.Checks()
@@ -244,9 +244,9 @@ func TestManagedRegionResolutionIsRecorded(t *testing.T) {
 // TestManagedDatabaseCreateNameCheckIsRecorded is the managed twin of
 // the byoc test of the same shape.
 //
-// It is here because #170's review pointed out that the byoc fix had
-// restored parity with an UNTESTED sibling: the managed --name check
-// has recorded its ledger entry since #115, and nothing asserted it.
+// It is here because the byoc fix restored parity with an UNTESTED
+// sibling: the managed --name check records its ledger entry, and
+// nothing asserted it.
 // Two implementations over different generated types are deliberately
 // duplicated in this repo, so a fix to one does not fix the other —
 // which cuts both ways for their tests.

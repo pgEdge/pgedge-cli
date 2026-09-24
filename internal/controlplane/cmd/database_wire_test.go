@@ -59,7 +59,7 @@ func TestOperationalVerbsSendFlagsOnWire(t *testing.T) {
 			// body, so a leak could read "force":true and slip past a
 			// query-shaped assertion. Proven -- with a Force field
 			// added to the request body, the "force=true" form passed
-			// and this form fails (#284).
+			// and this form fails.
 			absent: []string{"force"},
 		},
 		{

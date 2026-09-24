@@ -401,13 +401,13 @@ func TestCPReferenceNamesRouteMissPhrase(t *testing.T) {
 // duplication above: the index llms.txt's Exit Codes section quotes
 // both the message internal/starfleet/conn's CheckResponse returns for a
 // route miss and the canonical example body its isRouteMiss doc
-// comment names — saas's router-level 404, `{"message":"Not Found"}`.
-// Since issue #101, that body is the worked example, not the string
+// comment names — the API's router-level 404, `{"message":"Not Found"}`.
+// That body is the worked example, not the string
 // the discriminator compares against: isRouteMiss classifies
 // structurally (any 404 body lacking a "code" field is a route miss),
 // so this example is one instance among many, not the only one. If
 // either side is reworded without the other, this still fails — the
-// signal that the two must move together (issue #83).
+// signal that the two must move together.
 func TestIndexReferenceNamesStarfleetRouteMiss(t *testing.T) {
 	raw, err := os.ReadFile("../../llms.txt")
 	if err != nil {
@@ -432,7 +432,7 @@ func TestIndexReferenceNamesStarfleetRouteMiss(t *testing.T) {
 // section quotes both the substring internal/starfleet/conn's
 // CheckResponse matches on to recognise a plan-entitlement denial
 // (planDenialPhrase in conn.go) and its own sentence naming the exit
-// code that shape gets (issue #105). If either side is reworded
+// code that shape gets. If either side is reworded
 // without the other, this fails — the signal that the two must move
 // together.
 func TestIndexReferenceNamesPlanEntitlementPhrase(t *testing.T) {

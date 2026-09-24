@@ -26,7 +26,7 @@ var ErrGHUnauthenticated = errors.New("gh is not authenticated")
 // matches ErrGHUnauthenticated under errors.Is and keeps gh's own
 // stderr separately, so Chain can re-report the same failure WITHOUT
 // the classification when the HTTP rung has already shown GitHub to
-// be unreachable (#399).
+// be unreachable.
 type ghAuthError struct{ stderr string }
 
 func (e *ghAuthError) Error() string {
@@ -72,7 +72,7 @@ func NewGHSource(run Runner) *GHSource {
 
 // Logging renders each gh invocation to out at Verbose or above — the
 // command line, then its exit status and elapsed time — so --verbose
-// and --debug show which rung a failure came from (#402). gh's own
+// and --debug show which rung a failure came from. gh's own
 // stderr is already carried in the returned error, so it is not
 // repeated here. It returns s for chaining.
 func (s *GHSource) Logging(out io.Writer, lvl httplog.Level) *GHSource {

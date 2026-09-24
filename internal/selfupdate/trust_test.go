@@ -547,7 +547,7 @@ func TestBlobEntityReportsInclusion(t *testing.T) {
 
 // TestSigstoreCacheDirIsUnderTheCLICache pins where the TUF trust
 // root is cached. sigstore-go's default is ~/.sigstore/root; this CLI
-// writes only inside ~/.pgedge/cli (#393), so the option that moves
+// writes only inside ~/.pgedge/cli, so the option that moves
 // it is the claim under test — the fetch itself needs live TUF and is
 // not exercised here.
 func TestSigstoreCacheDirIsUnderTheCLICache(t *testing.T) {

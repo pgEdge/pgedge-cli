@@ -30,7 +30,7 @@ import (
 // so a mislabelled body fails INSIDE the parser, the command's
 // `if err != nil` fires first, and CheckResponse never runs. The user
 // got `invalid character 'N' looking for beginning of value` instead of
-// the route-miss message (#140), for a body that was a perfectly clear
+// the route-miss message, for a body that was a perfectly clear
 // `Not Found` from nginx.
 //
 // On this path the relabel alone is enough: the catch-all stops
@@ -127,11 +127,11 @@ const plainContentType = "text/plain; charset=utf-8"
 //
 // The superset is deliberate: an object whose field TYPES disagree with
 // the caller's error model passes here and still fails in the parser,
-// leaving the #140 symptom.
+// leaving the parse-error symptom above.
 //
 // Neither product produces such a shape. For Starfleet it would be
 // `{"code":"invalid_client"}` with code a string, but all three vendored
-// Starfleet specs declare code as an integer and saas's oapi.Error
+// Starfleet specs declare code as an integer and the API
 // serialises it that way; the one place that shape is quoted — Exchange's
 // doc comment, a real token-endpoint rejection — is reached through
 // authHTTPClientFor, which carries no repair at all. For Control Plane

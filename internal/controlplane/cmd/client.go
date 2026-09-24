@@ -37,7 +37,7 @@ const defaultBaseURL = "http://localhost:3000"
 // genuine resource miss through its handlers with a JSON APIError
 // body (verified live), so this text identifies a server that does
 // not serve the endpoint at all — a CP older than the CLI's API
-// description, or a base URL that is not a CP API root (issue #34).
+// description, or a base URL that is not a CP API root.
 const routeMissBody = "404 page not found"
 
 // Exit codes used by controlplane commands.
@@ -79,7 +79,7 @@ const maxBodyExcerpt = 512
 // CLI, and this is deliberately a thin wrapper over it rather than its
 // own copy: --debug dumps controlplane's traffic through the same rules, and two
 // implementations of that judgement is how one of them ends up wrong.
-// Trailing whitespace is trimmed, as in the starfleet module (#576).
+// Trailing whitespace is trimmed, as in the starfleet module.
 func bodyExcerpt(body string) string {
 	return strings.TrimRight(
 		httplog.RedactBody([]byte(body), maxBodyExcerpt), " \t\r\n")
@@ -389,7 +389,7 @@ func httpClientFor(
 	// here that a dry run has to let through.
 	//
 	// The error-body repair sits between them, in the same order and for
-	// the same reason as the starfleet module's client (#165). controlplane's
+	// the same reason as the starfleet module's client. controlplane's
 	// generated client carries the identical Content-Type catch-all, so
 	// an error body that is not JSON served under a JSON Content-Type
 	// fails inside Parse*Response and checkResponse below never runs.
@@ -397,7 +397,7 @@ func httpClientFor(
 	// `404 page not found` under text/plain, which reaches checkResponse
 	// unaided — this is for the case a reverse proxy or gateway sits in
 	// front of one and answers with a mislabelled body, which is
-	// precisely the shape #140 was reported against for Starfleet.
+	// precisely the shape seen against Starfleet.
 	//
 	// It wraps httplog rather than nesting inside it so that --debug
 	// prints the Content-Type the server really sent, before the repair
@@ -563,7 +563,7 @@ func probeVersion(
 //
 // It exists because doctor gave a clean bill of health to a Control
 // Plane on which nothing works: reachable, correct version, and every
-// other verb answering 409 (#255). The state is one call away.
+// other verb answering 409. The state is one call away.
 //
 // Three-valued on purpose. A caller cannot treat "not initialized" and
 // "could not tell" alike: the first names a remedy, and the second
@@ -635,13 +635,11 @@ func checkEmptyBodyResponse(resp *http.Response, action string) error {
 // merely unhelpful there, it is wrong in the one direction that
 // costs: the server answering slowly is reachable, and its TLS is
 // fine, so the reader is sent to debug --ca-cert against a server
-// that is working (#254). The remedy is --timeout, a flag on the same
+// that is working. The remedy is --timeout, a flag on the same
 // command.
-// The CODE follows the hint. Stamping ExitGeneral on a timeout used to
-// lose nothing, because a bare timeout was 1 everywhere; #352 made a
-// timeout 3 across the CLI, so the same stamp would now DOWNGRADE this
-// one and leave cp the only module answering 1 for the event every
-// other module answers 3 for.
+// The CODE follows the hint. A timeout is 3 across the CLI, so
+// stamping ExitGeneral on one would DOWNGRADE it and leave cp the only
+// module answering 1 for the event every other module answers 3 for.
 func networkError(action string, err error) error {
 	hint := "(is the control-plane reachable at the configured " +
 		"--base-url? for mTLS check --ca-cert/--client-cert or " +
@@ -667,8 +665,7 @@ func networkError(action string, err error) error {
 //
 // net.Error.Timeout() and not a string match on "Client.Timeout
 // exceeded": that text is Go's, it has already been reworded once
-// between releases (#254 was filed against one wording and reproduced
-// against another), and the interface is the contract.
+// between releases, and the interface is the contract.
 //
 // It does not distinguish the http client's own --timeout from a
 // caller's context deadline, because as measured on go1.25.5 nothing

@@ -64,9 +64,8 @@ func TestValidateDisplayName(t *testing.T) {
 // the one the API validates against, in EVERY schema that declares it,
 // in BOTH products.
 //
-// The issue this closes (#268) reported the limit as documented
-// nowhere. It is in fact declared in both vendored specs — what was
-// missing was the CLI reading it. Finding no declaration at all is a
+// The limit is declared in both vendored specs, and the CLI reads
+// it from there. Finding no declaration at all is a
 // hard failure rather than a skip: a pin that lost its truth source
 // passes against anything, and would let a re-vendor loosen the
 // contract while the CLI went on refusing values the API accepts.

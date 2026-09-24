@@ -11,9 +11,9 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// The two checks #242 asked for: --size and --region measured against
-// what the API publishes, rather than left for the API to refuse after
-// a clean dry run had said the run would succeed.
+// Two checks: --size and --region measured against what the API
+// publishes, rather than left for the API to refuse after a clean dry
+// run had said the run would succeed.
 
 // catalogServer answers the two catalog reads from withCatalog's
 // fixture and records whether anything was WRITTEN.
@@ -36,7 +36,7 @@ func TestDatabaseCreateChecksTheCatalog(t *testing.T) {
 		wantExit    int
 		wantIn      string
 	}{
-		// The two values #242 measured passing a dry run and then
+		// The two values measured passing a dry run and then
 		// failing the real call.
 		"unknown size": {
 			"--size", "enormous", ExitUsage, "large, small, xl"},
@@ -279,7 +279,7 @@ func TestAnUncheckableCatalogFailsOpen(t *testing.T) {
 
 // A dry run has to SAY it checked, or the ledger goes on implying the
 // verb has no catalog checks -- which is the reading that made a clean
-// dry run mean more than it did (#242).
+// dry run mean more than it did.
 func TestCatalogChecksAreRecorded(t *testing.T) {
 	// rt.DryRun set directly, not --dry-run: this package's synthetic
 	// starfleet root carries only the three connection flags, so the real

@@ -75,7 +75,7 @@ func TestExitCode(t *testing.T) {
 			err:  &UsageError{Msg: "bad flag"},
 			want: 2,
 		},
-		// #352: a deadline is exit 3 whatever produced it, so the
+		// A deadline is exit 3 whatever produced it, so the
 		// CLI's own bound agrees with a 408/504 the server reports.
 		{
 			name: "a bare context deadline is exit code 3",

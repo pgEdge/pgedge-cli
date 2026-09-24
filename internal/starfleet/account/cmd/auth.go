@@ -162,7 +162,7 @@ Example:
 			}
 
 			// The file Save() actually wrote, not DefaultPath(): Save
-			// writes the --config value when one was given (#264).
+			// writes the --config value when one was given.
 			path := rt.Config.Path()
 			fmt.Fprintf(rt.Stderr, "Authenticated. Token expires %s.\n",
 				tok.ExpiresAt.Format(time.RFC3339))
@@ -335,8 +335,8 @@ Example:
 				// Unexpired but minted for a different connection — a
 				// rekey, a one-off flag override landing on a
 				// profile-minted cache (D3/D7), or an --api-url naming
-				// an endpoint other than the one that minted the token
-				// (#146). Not a failure: the next command that actually
+				// an endpoint other than the one that minted the token.
+				// Not a failure: the next command that actually
 				// needs a token re-authenticates on its own
 				// (conn.token). TokenValid stays true here — it means
 				// exactly what it has always meant, unexpired — and

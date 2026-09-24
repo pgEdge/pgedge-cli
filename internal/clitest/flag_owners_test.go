@@ -99,7 +99,7 @@ func TestPersistentFlagOwnersAreTheTierRoots(t *testing.T) {
 // The match is on the LONG name only. A SHORTHAND collision with an
 // inherited flag never reaches this gate: pflag panics on the
 // duplicate inside mergePersistentFlags, so it fails the suite with
-// a stack trace instead of this gate's message (measured on #381's
+// a stack trace instead of this gate's message (measured in
 // review) — loud, just less legible.
 func shadowViolations(root *cobra.Command) []string {
 	var violations []string

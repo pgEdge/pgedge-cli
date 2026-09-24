@@ -130,7 +130,7 @@ Example:
 				// The node NAME is a label this command formats into a
 				// block header, so it is sanitized; the log lines below
 				// are content and pass through verbatim, which is what
-				// a log reader wants (#323).
+				// a log reader wants.
 				fmt.Fprintf(rt.Stdout, "==> %s <==\n",
 					output.Sanitize(block.Node))
 				for _, line := range block.Logs {

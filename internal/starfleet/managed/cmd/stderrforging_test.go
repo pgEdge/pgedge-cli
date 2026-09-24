@@ -123,7 +123,7 @@ func TestForgedTaskErrorCannotAddALine(t *testing.T) {
 	}
 }
 
-// TestForgedInstanceNameCannotForgeTheTieNote reproduces #323's own
+// TestForgedInstanceNameCannotForgeTheTieNote reproduces the original
 // probe. The reviewer who found the issue set instance_name to a value
 // carrying a newline and a tab and got two fabricated metric rows on
 // stdout and two fabricated lines on stderr.
@@ -161,11 +161,11 @@ func TestForgedInstanceNameCannotForgeTheTieNote(t *testing.T) {
 	}
 }
 
-// TestForgedTaskFieldsCannotForgeADetailLine covers #345: the detail
-// block printTaskDetail writes to STDOUT, under a table the renderer
-// has already sanitized. stdout is the stream a caller parses, so a
-// forged line there is worse than one on stderr — it looks exactly like
-// the sanitized output above it.
+// TestForgedTaskFieldsCannotForgeADetailLine covers the detail block
+// printTaskDetail writes to STDOUT, under a table the renderer has
+// already sanitized. stdout is the stream a caller parses, so a forged
+// line there is worse than one on stderr — it looks exactly like the
+// sanitized output above it.
 //
 // The gate could not see these: the writer is aliased (`out :=
 // rt.Output.Out`), which took eight interpolations out of its

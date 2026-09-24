@@ -107,7 +107,7 @@ func addWaitFollowFlags(cmd *cobra.Command) *waitFollowOpts {
 	// --follow is named nowhere in this description because run()
 	// passes o.timeout only to waitForTask: --follow has no overall
 	// bound at all, and saying it honoured this one was a false claim
-	// rendered into every generated flag table (#254 review).
+	// rendered into every generated flag table.
 	cmd.Flags().IntVar(&o.timeout, "wait-timeout", 600,
 		"Max seconds to wait when --wait is set (--follow is unbounded)")
 	cmd.Flags().IntVar(&o.interval, "wait-interval", 3,
@@ -163,7 +163,7 @@ func waitForTask(
 			// expiring mid-poll -- the same event the branch above
 			// reports, caught one poll earlier. Sending it to
 			// networkError instead named --timeout for a --wait-timeout
-			// that ran out, which is #254's misdiagnosis wearing
+			// that ran out, which is the timeout misdiagnosis wearing
 			// another flag, and it exited 1 where the skill documents
 			// a timed-out --wait as exit 3.
 			if time.Now().After(deadline) {
@@ -232,7 +232,7 @@ func followTask(rt *module.Runtime, src taskSource) error {
 		cancel()
 		if err != nil {
 			// This bound is followTask's own, so --timeout is not the
-			// knob and naming it would be #254 again: --timeout 0 with
+			// knob and naming it would misdiagnose it: --timeout 0 with
 			// --follow still stops here at 30s.
 			if pollExpired {
 				return &ExitError{

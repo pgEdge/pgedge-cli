@@ -31,12 +31,11 @@ const truncationTaskItem = `{"id":"task-1","name":"create-managed",
 	"messages":[],"created_at":"2026-08-03T18:22:38Z",
 	"updated_at":"2026-08-03T18:24:00Z"}`
 
-// managed's list verbs print no truncation hint before #269, so
-// `task list --limit 500` returned 100 rows and said nothing — the
-// clamp #317 deliberately declined to pre-empt with a local ceiling.
-// This is the table that pins the hint per endpoint, against the
-// default and cap each one MEASURABLY applies (see paging.go for the
-// saas citations).
+// managed's list verbs used to print no truncation hint, so `task list
+// --limit 500` returned 100 rows and said nothing — a clamp
+// deliberately not pre-empted with a local ceiling. This is the table
+// that pins the hint per endpoint, against the default and cap each one
+// MEASURABLY applies (see paging.go for the evidence).
 func TestManagedListTruncationHint(t *testing.T) {
 	cases := []struct {
 		name string
@@ -166,10 +165,10 @@ func TestManagedListTruncationHint(t *testing.T) {
 	}
 }
 
-// `managed database list` applies NO default page — saas copies
-// `limit` through unchanged and the repo applies it only when
-// positive, so an omitted --limit reads every row. A hint there would
-// claim a complete result might be truncated.
+// `managed database list` applies NO default page — the API passes
+// `limit` through unchanged and applies it only when positive, so an
+// omitted --limit reads every row. A hint there would claim a complete
+// result might be truncated.
 //
 // This is not a vacuous test and it is not a skip: it is the assertion
 // the Def == 0 guard exists for, and it runs a page far larger than

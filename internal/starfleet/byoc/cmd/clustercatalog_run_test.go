@@ -9,8 +9,8 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// The checks #256 asked for on `cluster create`, and the one it asked
-// for that cannot be built.
+// The dry-run checks on `cluster create`, and the one wanted there
+// that cannot be built.
 //
 // cluster create is the most expensive verb in the CLI: it provisions
 // real cloud infrastructure and takes minutes. A dry run that passed
@@ -45,7 +45,7 @@ func TestClusterCreateChecksNodeLocation(t *testing.T) {
 		value    string
 		wantExit int
 	}{
-		// The value #256 measured sailing through a dry run and
+		// The value measured sailing through a dry run and
 		// reaching the API.
 		"outside the enum": {"sideways", ExitUsage},
 		// How an unset shell variable arrives. MarkFlagRequired is

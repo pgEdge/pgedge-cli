@@ -16,7 +16,7 @@ import (
 // Example-output blocks in the references are hand-written prose: the
 // generator emits a command's Short, flags and usage, never its output.
 // So nothing tied them to the code that prints them, and they rotted —
-// 36 blocks in one file described output the CLI cannot produce (#184).
+// 36 blocks in one file described output the CLI cannot produce.
 // Two of them contradicted the command directly above them.
 //
 // This file binds the one part of an output block that has a single
@@ -25,7 +25,7 @@ import (
 // package, so a header row in a doc either matches one of those or the
 // doc is describing a table that does not exist.
 //
-// What this CANNOT see, and why the sweep in #184 could not be
+// What this CANNOT see, and why fixing those blocks could not be
 // mechanical: a MISSING line. Thirteen of those 36 blocks were wrong by
 // omitting the `Monitor with: ...` line that every non-`--wait`
 // mutation prints, and a check over what IS written cannot find what is
@@ -397,7 +397,7 @@ func TestExampleTableCheckIsScopedToItsOwnModule(t *testing.T) {
 	}
 	if byoc[fieldValue] {
 		t.Error("FIELD/VALUE is in byoc's scope, so the eleven " +
-			"fabricated detail tables #184 fixed would pass again")
+			"fabricated detail tables would pass again")
 	}
 }
 
@@ -544,7 +544,7 @@ func referenceSections(content string) map[string]string {
 // a positive control for each, so it is stated here rather than half
 // done.
 //
-// managed expects none, and that is #221 rather than an omission:
+// managed expects none, and that is a ruling rather than an omission:
 // example output stays prose-first in managed and cp, so those
 // references describe what a verb prints instead of pasting it. So the
 // forward direction — a pasted line must belong to a --wait verb — has
@@ -690,7 +690,7 @@ func checkMonitorLines(
 	}
 	if !expectLines && withLine > 0 {
 		t.Errorf("%s pastes %d Monitor line(s), but this reference is "+
-			"prose-first (#221) and describes output rather than "+
+			"prose-first and describes output rather than "+
 			"pasting it. Either the ruling changed — in which case set "+
 			"expectLines and give this module a real forward check — "+
 			"or the lines should be prose.", moduleDir, withLine)

@@ -228,7 +228,7 @@ Example:
 			// `{uuid}` and `urn:uuid:uuid`, so discarding it and
 			// forwarding the raw flag put a braced id on the wire
 			// verbatim -- passing the check and then sending something
-			// else, which is #257/#274 in another spelling.
+			// else, the unchecked-ID defect in another spelling.
 			parsedAccount, err := parseUUIDArg(
 				cloudAccountID, "cloud account ID")
 			if err != nil {
@@ -242,7 +242,7 @@ Example:
 			// update operation, and the BackupStore response schema
 			// does not even carry region -- so `--region "$UNSET"`
 			// silently created the store wherever the API chose, for
-			// good (#291).
+			// good.
 			region, sendRegion, err := cli.OptionalStringFlag(
 				cmd.Flags(), "region",
 				"name a region, or omit the flag to let the API choose")

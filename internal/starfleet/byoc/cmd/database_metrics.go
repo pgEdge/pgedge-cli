@@ -34,7 +34,7 @@ var databaseMetricColumns = []string{"METRIC", "VALUE"}
 // a null decodes to a zero-length row, the column loop broke on its
 // first iteration, and every real sample beside it was discarded —
 // "No metrics found." at exit 0, indistinguishable from a database
-// that reported nothing (#202).
+// that reported nothing.
 //
 // This is deliberately NOT managed's newestUsableSample, which skips
 // back to the newest COMPLETE row. That exists for managed's trailing
@@ -43,20 +43,19 @@ var databaseMetricColumns = []string{"METRIC", "VALUE"}
 // different one — 79 columns against managed's 36, with almost no
 // overlap — and carried no nulls in any response measured: 13 on
 // production, including a 59-row window, had zero null cells, and a
-// 30-row window re-measured for #322 had zero as well. Skipping a
+// 30-row window re-measured had zero as well. Skipping a
 // merely-partial row here would report an older sample for no reason.
 // Identical generated types are what made the two look alike; the data
 // behind them is not.
 //
-// WHAT IT DOES SHARE WITH managed IS THE ORDERING (#322). "Newest"
+// WHAT IT DOES SHARE WITH managed IS THE ORDERING. "Newest"
 // means the largest `time`, not the last row, because the ORDERING IS
 // NOT PUBLISHED: openapi/byoc.yaml declares `values` byte-identically
 // to openapi/managed.yaml — an array of arrays of `{}`, no row order,
 // no column vocabulary, not even cell types. The completeness argument
 // above genuinely does not transfer between the two collectors, and
 // none of its reasons is about position-versus-time, so for byoc that
-// question was never rebutted; it was only never asked. A reviewer on
-// #320 caught that.
+// question was never rebutted; it was only never asked.
 //
 // Reading the column is free and removes the dependency. Today it
 // changes nothing: 30 consecutive samples on production were ascending
@@ -356,17 +355,15 @@ func (r metricRow) Columns() []string {
 	return []string{r.name, r.value}
 }
 
-// metricsIntervalWirePattern is the check saas runs on byoc's metrics
-// interval, copied from internal/starfleet/clusters/svc/database_service.go
-// (validMetricIntervalPattern) at saas da5674e7, after the
-// handler has replaced every comma with a space. The vendored spec
-// declares no pattern, so this is mirrored from the server rather than
-// the contract, and TestMetricsIntervalMirrorsSaas records the source.
-// A miss on the server is a plain error, which reaches the client as a
-// 500 (#279).
+// metricsIntervalWirePattern is the check the API runs on byoc's metrics
+// interval, after the server has replaced every comma with a space.
+// The vendored spec declares no pattern, so this is mirrored from the
+// server rather than the contract, and TestMetricsIntervalMirrorsTheAPI
+// records the source. A miss on the server is a plain error, which
+// reaches the client as a 500.
 const metricsIntervalWirePattern = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
 
-//nolint:gocritic // regexpSimplify: a verbatim copy of saas's pattern, compared as a string by TestMetricsIntervalMirrorsSaas
+//nolint:gocritic // regexpSimplify: a verbatim copy of the API's pattern, compared as a string by TestMetricsIntervalMirrorsTheAPI
 var metricsIntervalWireRE = regexp.MustCompile(metricsIntervalWirePattern)
 
 // validateMetricsInterval refuses what the server would, at exit 2

@@ -2,9 +2,9 @@
 // contracts into openapi/.
 //
 // It is the engine behind `make vendor-spec`. Each contract is served
-// unauthenticated at {base}/{product}/v1/openapi.json (saas #1920),
-// already filtered to the public, enterprise-maximal
-// surface by saas's own GeneratePublicSpec — so what this tool fetches
+// unauthenticated at {base}/{product}/v1/openapi.json, already
+// filtered to the public, enterprise-maximal surface by the API
+// itself — so what this tool fetches
 // IS the public contract, and nothing here derives or filters.
 //
 //	go run ./cmd/vendorspec -out openapi
@@ -22,7 +22,7 @@
 // validated before any file is written: an `x-pgedge-*` key anywhere
 // in a published contract aborts the run (the upstream filter should
 // have removed it, so one appearing means that filter regressed); so
-// does `x-go-type-import`, which names a saas-internal package this
+// does `x-go-type-import`, which names an API-internal package this
 // module cannot import (a bare `x-go-type` is expected — it names
 // UUID, which each module's api/types.go supplies); and so does a path
 // outside the product's own namespace.
@@ -44,9 +44,8 @@ import (
 )
 
 // product names one published contract and the path prefix every
-// operation in it must sit under. saas asserts the same namespace
-// invariant upstream in TestProductSpecsOwnOnlyTheirNamespace, and
-// TestVendoredSpecsAreCanonical asserts it over the committed
+// operation in it must sit under. The API asserts the same namespace
+// invariant upstream, and TestVendoredSpecsAreCanonical asserts it over the committed
 // artefacts; this list is deliberately fixed rather than discovered,
 // so a new product is vendored on purpose or not at all.
 type product struct{ name, prefix string }
@@ -102,7 +101,7 @@ func run(base, outDir string, check bool, stdout io.Writer) error {
 		// yaml.v3 parses JSON too, and decodes numbers as int rather
 		// than float64 — so a maxLength survives as 25 and not 25.0.
 		// Routing the body through encoding/json into `any` would
-		// mangle every large integer in the document (#456).
+		// mangle every large integer in the document.
 		var doc map[string]any
 		if err := yaml.Unmarshal(raw, &doc); err != nil {
 			return fmt.Errorf("parse %s: %w", url, err)
@@ -151,8 +150,8 @@ func run(base, outDir string, check bool, stdout io.Writer) error {
 	if len(drifted) > 0 {
 		return fmt.Errorf(
 			"%d vendored spec(s) differ from the published contract: "+
-				"%v; run `make vendor-spec` and record the capture in "+
-				"openapi/SOURCE", len(drifted), drifted)
+				"%v; run `make vendor-spec` and record what changed in "+
+				"the commit message", len(drifted), drifted)
 	}
 	return nil
 }
@@ -188,7 +187,7 @@ func validate(doc map[string]any, p product) error {
 }
 
 // findForbiddenExtension walks the whole document, not only the
-// path-item level where saas historically placed its markers — a
+// path-item level where the API has placed its markers — a
 // marker anywhere means the upstream public filter regressed, and
 // vendoring the document would copy the regression. A mapping with a
 // non-string key would decode as map[interface{}]interface{} and be

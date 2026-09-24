@@ -54,7 +54,7 @@ Example:
 // It delegates to cli.ParseUUIDArg so every module reaches exit 2 for
 // a malformed argument through one function. It used to return
 // ExitGeneral, which made byoc exit 1 where cp exited 2 for the same
-// mistake (#277).
+// mistake.
 func parseUUIDArg(arg, kind string) (uuid.UUID, error) {
 	return cli.ParseUUIDArg(arg, kind)
 }
@@ -196,15 +196,11 @@ Example:
 				return err
 			}
 
-			// --capacity was the third behaviour for a negative
-			// numeric flag in this module: --volume-size refuses at
-			// exit 2 and the structured --node volume-size= refuses
-			// with it (#281), while this one guarded on `!= 0` and
-			// forwarded -5 to the server (#282).
-			//
-			// That sweep has since landed (#280): --limit and --offset
-			// go through the same helper at all 21 sites, so this is
-			// no longer the odd one out. shareCapacityMin stays its
+			// --capacity refuses a negative as every numeric flag in
+			// this module does: --volume-size refuses at exit 2, the
+			// structured --node volume-size= refuses with it, and
+			// --limit and --offset go through the same helper at all
+			// 21 sites. shareCapacityMin stays its
 			// own constant because a share's capacity is not a page
 			// size and shares no bound with one.
 			capacity, sendCapacity, err := cli.OptionalIntFlag(

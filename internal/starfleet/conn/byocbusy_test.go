@@ -9,12 +9,12 @@ import (
 )
 
 // TestByocBusyPhraseSeparatesDatabaseFromCluster pins the discrimination
-// the whole phrase choice rests on (#204).
+// the whole phrase choice rests on.
 //
 // byocBusyStatusPhrase's own comment carries the census; this is the
 // executable half of it.
 //
-// The bodies are the literals from saas's database_service.go at the
+// The bodies are the API's literal error bodies at the
 // revision openapi/SOURCE pins, typo included. They are duplicated here
 // because the CLI cannot import them, and two independent statements of
 // the same fact are what make a divergence visible.

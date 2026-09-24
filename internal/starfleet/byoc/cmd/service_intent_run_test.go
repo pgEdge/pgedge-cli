@@ -10,7 +10,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// The deploy/update guard matrix (#117).
+// The deploy/update guard matrix.
 //
 // `deploy` and `update` share one apply helper per service type, and
 // until now that helper never asked whether the type it was about to

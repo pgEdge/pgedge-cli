@@ -639,7 +639,7 @@ func TestFingerprint(t *testing.T) {
 		}
 	})
 
-	// Issue #146: the digest must move with the endpoint, or a token
+	// The digest must move with the endpoint, or a token
 	// minted by one host stays acceptable when another is dialled.
 	t.Run("differs when only the api url changes", func(t *testing.T) {
 		a := Fingerprint("https://api.example.test", "client-x", "secret-x")
@@ -775,7 +775,7 @@ func TestMintedBy(t *testing.T) {
 	if tok.MintedBy(url, "client-b", "secret-a") {
 		t.Error("MintedBy true despite a different client id")
 	}
-	// Issue #146: identical credentials, different host. Accepting
+	// Identical credentials, different host. Accepting
 	// this is what let a live bearer token be replayed to a host that
 	// never minted it.
 	if tok.MintedBy(other, "client-a", "secret-a") {

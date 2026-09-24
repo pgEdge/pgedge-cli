@@ -19,10 +19,10 @@ import (
 // SUCCEEDED into "unexpected end of JSON input" and a non-zero exit.
 //
 // Whether it fires depends only on the server sending a JSON
-// Content-Type alongside the empty 2xx. saas's RespondNoContent ->
-// ctx.NoContent(204) sets no Content-Type, which is why these are
-// latent rather than broken today; `ctx.JSON(http.StatusNoContent, …)`
-// sets one, which is why `starfleet client delete` had to be fixed.
+// Content-Type alongside the empty 2xx. The API's usual 204 sets no
+// Content-Type, which is why these are latent rather than broken
+// today; a 204 that does set one is why `starfleet client delete` had
+// to be fixed.
 //
 // These tests hold the contract independent of which of those two a
 // handler happens to use: the stub answers 204 WITH a JSON
@@ -168,13 +168,13 @@ func TestEveryDestructiveByocCaseIsAccountedFor(t *testing.T) {
 // Both output paths are asserted, because they answer differently and
 // only one of them was ever going to be noticed by hand: text narrates
 // on stderr, and json/yaml print NOTHING rather than the `null` that
-// rendering a nil pointer would produce (#141).
+// rendering a nil pointer would produce.
 func TestBackupRepositoryGetSurvivesItsDeclared204(t *testing.T) {
 	// Every shape this endpoint can answer with nothing, because one
 	// of them is not obvious and cost a review round: `null` decodes
 	// into a struct WITHOUT error and leaves it zero, so treating a
 	// non-empty body as an object printed three blank fields at exit 0
-	// -- a fabricated repository, which is the one thing #141 forbids.
+	// -- a fabricated repository, the one thing this must never print.
 	// `null` is byoc's own idiom for nothing, so it belongs here even
 	// though this operation declares a 204 as well.
 	shapes := []struct {

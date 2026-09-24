@@ -8,7 +8,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/controlplane/svccfg"
 )
 
-// This file closes the hole issue #124's review found in the original
+// This file closes a hole in the original
 // gate: internal/clitest's conformance tests read only the BLANK
 // template's services stub, while the populated (interviewed) path had
 // its own separately-maintained copy of the same per-type guidance,
@@ -103,8 +103,8 @@ func populatedServiceGuidance(t *testing.T, serviceType string) []string {
 // TestServiceConfigGuidanceIsSingleSourced proves the blank template
 // and a populated service block emit the SAME per-type config guidance,
 // which is what makes internal/clitest's gate over the blank template
-// cover the populated path too. Before the #124 review the two were
-// independent copies that had already diverged: the populated mcp copy
+// cover the populated path too. The two were once
+// independent copies that diverged: the populated mcp copy
 // showed 5 of the blank copy's 18 keys, and the populated rag copy
 // omitted token_budget, top_n, search, hybrid_enabled and
 // vector_weight -- all of it invisible to the gate.

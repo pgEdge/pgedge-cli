@@ -14,12 +14,11 @@ import (
 // mcpServiceOpts collects the deploy/update flag values.
 //
 // Unlike byoc's, it has no targetNodes: a managed database is
-// single-master, and saas discards HostIDs and TargetNodes on the
-// managed write path (PrepareManagedServiceUpdate), so a placement flag
-// would be a silent no-op.
+// single-master, and the API discards HostIDs and TargetNodes on the
+// managed write path, so a placement flag would be a silent no-op.
 //
 // Nor has it ollamaURL. Ollama is self-hosted model serving, which has
-// nowhere to run in a tenant namespace, so saas dropped it from the
+// nowhere to run in a tenant namespace, so the API dropped it from the
 // managed contract and rejects the field. byoc and Control Plane still
 // accept it (internal/starfleet/byoc/cmd/database_mcp.go).
 type mcpServiceOpts struct {
@@ -33,11 +32,12 @@ type mcpServiceOpts struct {
 
 // mcpEmbeddingProviders is the managed MCP embedding vocabulary, in
 // display order, spelled with the generated constants. It lacks byoc's
-// ollama, which saas answers with a 400 here, so checking locally gives
-// exit 2 without a round trip. The generated enum's Valid() cannot
-// enumerate its members, so it cannot tell when this list is refusing a
-// provider the API has added; TestMCPEmbeddingProvidersMatchTheSpecEnum
-// reads the vendored spec and fails when one appears.
+// ollama, which the API answers with a 400 here, so checking locally
+// gives exit 2 without a round trip. The generated enum's Valid()
+// cannot enumerate its members, so it cannot tell when this list is
+// refusing a provider the API has added;
+// TestMCPEmbeddingProvidersMatchTheSpecEnum reads the vendored spec and
+// fails when one appears.
 var mcpEmbeddingProviders = []string{
 	string(api.MCPServiceConfigEmbeddingProviderOpenai),
 	string(api.MCPServiceConfigEmbeddingProviderVoyage),
@@ -217,12 +217,11 @@ func applyMCPService(
 // deployed on the database, or a zero config when there is none.
 //
 // The secrets survive the round trip: GetManagedDatabase, unlike list
-// (see fetchDatabaseWith), hydrates them (hydrateManagedServiceSecrets)
-// and renders them through mcpConfigToModel with includeSecrets=true,
-// so embedding_api_key, init_tokens and init_users are echoed back
-// unchanged. saas's CarryForwardManagedSecrets would refill an omitted
-// key anyway (see existingRAGConfig); echoing them keeps the write an
-// exact statement of intent.
+// (see fetchDatabaseWith), hydrates them and renders them in full, so
+// embedding_api_key, init_tokens and init_users are echoed back
+// unchanged. The API would refill an omitted key anyway (see
+// existingRAGConfig); echoing them keeps the write an exact statement
+// of intent.
 func existingMCPConfig(db *api.ManagedDatabase) api.MCPServiceConfig {
 	svc := findService(db, api.Mcp)
 	if svc == nil || svc.McpConfig == nil {

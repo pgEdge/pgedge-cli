@@ -37,7 +37,7 @@ const (
 	ragPathDir
 )
 
-// A --pipeline-config the caller named and got wrong exits 2 (#258).
+// A --pipeline-config the caller named and got wrong exits 2.
 // cp already answers 2 for a spec file it cannot use, and the contract
 // in llms.txt allows one meaning per code, so the managed tree is the
 // side that moved.
@@ -45,8 +45,7 @@ const (
 // Every stage of consuming that one file is asserted — both read
 // failures, the JSON parse, and the structural check after it —
 // because a code that changes between stages of a single flag is the
-// same divergence one step along, and that is how #134 came back as
-// #258.
+// same divergence one step along.
 func TestRAGPipelineConfigFailuresExitUsage(t *testing.T) {
 	const reservedName = `[{"name":"_default","tables":[` +
 		`{"table":"t","text_column":"c","vector_column":"v"}]}]`
@@ -93,7 +92,7 @@ func TestRAGPipelineConfigFailuresExitUsage(t *testing.T) {
 // on the same flag set. cobra catches an OMITTED required flag at exit
 // 2 already, so on deploy an explicitly empty value is what reaches
 // this guard, and reporting the identical mistake as 1 is the
-// divergence #258 names, one flag along from the file itself.
+// same divergence, one flag along from the file itself.
 func TestRAGDeployIncompleteFlagsExitUsage(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(
@@ -118,9 +117,9 @@ func TestRAGDeployIncompleteFlagsExitUsage(t *testing.T) {
 // Reaching it needs a response that violates the spec — openapi/
 // managed.yaml declares pipelines required with minItems 1 — which the
 // CLI decodes leniently rather than enforcing. The code is pinned here
-// so that changing it is deliberate: if a real saas response can carry
+// so that changing it is deliberate: if a real API response can carry
 // an empty or absent pipelines array, the honest answer on this path is
-// 1, and that is not settled (#258).
+// 1, and that is not settled.
 func TestRAGUpdateServedNoPipelinesExitsUsage(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(

@@ -47,9 +47,8 @@ func checkResponse(status int, body string) error {
 // 0 bytes fails and the *WithResponse wrapper reports a call that
 // SUCCEEDED as "unexpected end of JSON input".
 //
-// This is not hypothetical here: saas's DeleteClient handler is
-// `ctx.JSON(http.StatusNoContent, nil)`, and echo writes the JSON
-// Content-Type before setting the status while net/http keeps it on a
+// This is not hypothetical here: the API answers DeleteClient with a
+// 204 that carries the JSON Content-Type, which net/http keeps on a
 // 204 — so `client delete` reported a successful delete as a failure
 // until it was bypassed this way.
 //
@@ -108,7 +107,7 @@ func newAccountClient(
 // not write the token cache: it resolves through conn.ResolveEphemeral,
 // so a cache miss mints a token for this process only.
 //
-// `doctor` is the only caller and must stay the only one (#168). Every
+// `doctor` is the only caller and must stay the only one. Every
 // other command WANTS the token cached — that is what keeps a session
 // to one token exchange — so this is a carve-out for a command whose
 // job is to observe, not a better default.

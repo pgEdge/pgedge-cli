@@ -22,9 +22,8 @@ import (
 )
 
 // backupJSON renders a minimal Backup with the given id and database
-// id, matching the wire shape saas's managedBackupModelFromObject
-// produces: kind/status from the CNPG tier/phase and the managed-only
-// detail in metadata.
+// id, matching the wire shape the API produces: kind/status from the
+// CNPG tier/phase and the managed-only detail in metadata.
 func backupJSON(id, dbID string) string {
 	return fmt.Sprintf(`{
 		"id":%q,"database_id":%q,
@@ -37,7 +36,7 @@ func backupJSON(id, dbID string) string {
 		id, dbID, dbID)
 }
 
-// backupJSONWithPurpose extends backupJSON with saas #1968's purpose
+// backupJSONWithPurpose extends backupJSON with the API's purpose
 // field. purpose is spliced in unvalidated, exercising the same wire
 // shape for a recognized value, an unrecognized one, or any other
 // string the caller passes.
@@ -83,10 +82,9 @@ func TestBackupListRendersDecidedColumns(t *testing.T) {
 }
 
 // TestBackupRowFromRendersPurpose is the direct, table-driven check on
-// the adapter saas #1968 added purpose to: a known value, an
-// unrecognized one (the set is open — render it, don't reject it),
-// and absent (nil, blank — the same convention FinishedAt's own
-// absence already used).
+// the adapter that renders purpose: a known value, an unrecognized one
+// (the set is open — render it, don't reject it), and absent (nil,
+// blank — the same convention FinishedAt's own absence already used).
 func TestBackupRowFromRendersPurpose(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -117,9 +115,9 @@ func TestBackupRowFromRendersPurpose(t *testing.T) {
 // TestBackupGetRendersPurposeAcrossOutputModes exercises purpose
 // end-to-end — server response through the generated client's JSON
 // decode and into each renderer — for a known value, an unrecognized
-// one, and absent. The unrecognized case is the contract: saas #1968
-// documents the set as open, so an unfamiliar value must render
-// without the command refusing it.
+// one, and absent. The unrecognized case is the contract: the API
+// documents the set as open, so an unfamiliar value must render without
+// the command refusing it.
 func TestBackupGetRendersPurposeAcrossOutputModes(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -290,10 +288,10 @@ func TestBackupListDescendingIsSentOnlyWhenGiven(t *testing.T) {
 }
 
 // TestBackupListRefusesADatabaseIDPrefix is the inversion of a test
-// that pinned prefix resolution on --database-id (#194). The value now
-// takes a full UUID, refused locally at exit 2 with NOTHING sent —
-// which is the half worth pinning, since the flag used to cost a
-// GET /databases before the list it was filtering.
+// that pinned prefix resolution on --database-id. The value now takes a
+// full UUID, refused locally at exit 2 with NOTHING sent — which is the
+// half worth pinning, since the flag used to cost a GET /databases
+// before the list it was filtering.
 //
 // The stub fails any request, so a check that resolved anyway fails
 // here rather than passing on the exit code alone.
@@ -317,8 +315,8 @@ func TestBackupListRefusesADatabaseIDPrefix(t *testing.T) {
 }
 
 // An explicitly empty --database-id is refused too, rather than
-// silently meaning "every database" — ruling of 2026-08-20, which
-// #317 applied to the paging flags and this extends to the ID filter.
+// silently meaning "every database" — the ruling of 2026-08-20 that
+// the paging flags follow, extended here to the ID filter.
 func TestBackupListRefusesAnEmptyDatabaseID(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	srv := testsupport.NewAuthedServer(t,
@@ -384,10 +382,10 @@ func TestBackupGetByFullUUIDWritesJSON(t *testing.T) {
 
 // TestBackupGetRefusesAPrefix replaces two tests that pinned
 // resolution: one for the list-then-read flow, and one for the
-// pagination inside it. Both are gone with prefixes (#194), and the
-// paging loop went with them — resolveBackupID walked up to 100 pages
-// of 100 to avoid the false unique a single page produces, and a full
-// UUID needs no pages at all.
+// pagination inside it. Both are gone with prefixes, and the paging
+// loop went with them — resolveBackupID walked up to 100 pages of 100
+// to avoid the false unique a single page produces, and a full UUID
+// needs no pages at all.
 //
 // The stub fails any request, so this pins that a `backup get` with a
 // short id costs nothing rather than merely answering 2.
@@ -436,11 +434,11 @@ func TestBackupGetHandlesANullBody(t *testing.T) {
 	}
 }
 
-// TestMislabelledNotFoundReachesCheckResponse is the end-to-end guard
-// for issue #140, and it is deliberately a COMMAND test rather than a
-// transport one: the defect was never in the classifier, which was
-// already right, but in the fact that a mislabelled body errored
-// inside the generated Parse*Response and so never reached it.
+// TestMislabelledNotFoundReachesCheckResponse is the end-to-end guard,
+// and it is deliberately a COMMAND test rather than a transport one:
+// the defect was never in the classifier, which was already right, but
+// in the fact that a mislabelled body errored inside the generated
+// Parse*Response and so never reached it.
 //
 // JSONHandler is the exact bug shape — it sets a JSON Content-Type
 // around whatever body it is given, here nginx's bare "Not Found".
@@ -471,7 +469,7 @@ func TestMislabelledNotFoundReachesCheckResponse(t *testing.T) {
 	}
 }
 
-// TestBackupKindsMatchTheSpecEnum fails when saas adds a backup tier
+// TestBackupKindsMatchTheSpecEnum fails when the API adds a backup tier
 // that backupKinds has not been taught.
 //
 // The generated ListBackupsParamsKind has a Valid() method but no way
@@ -641,12 +639,12 @@ func TestBackupCreatePostsTheKind(t *testing.T) {
 // sentence.
 //
 // The `database_id` assertion is the one that catches the defect.
-// Before saas fixed it, the endpoint answered with the ManagedDatabase and
-// the CLI declared the response as one — and ManagedDatabase HAS an
-// `id` but no `database_id`, so `id == testBackupID` would have
-// passed on the old shape while `database_id` was absent entirely.
-// The `id` assertion is still worth making: it pins which of the two
-// ids lands on the key a script reads.
+// Before the API fixed it, the endpoint answered with the
+// ManagedDatabase and the CLI declared the response as one — and
+// ManagedDatabase HAS an `id` but no `database_id`, so `id ==
+// testBackupID` would have passed on the old shape while `database_id`
+// was absent entirely. The `id` assertion is still worth making: it
+// pins which of the two ids lands on the key a script reads.
 func TestBackupCreateWritesTheBackupUnderJSON(t *testing.T) {
 	rec := &createRecorder{}
 	rt, out, _ := testsupport.NewRuntime(t, "", "json")

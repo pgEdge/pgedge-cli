@@ -9,7 +9,7 @@ import (
 
 // TestTaskWaitFollow mirrors the managed test of the same name, because
 // byoc's task wait is the same command over the same task resource and
-// had the same gap (#179): attaching to work this CLI did not start
+// had the same gap: attaching to work this CLI did not start
 // reported bare status polls while the step messages sat unreachable in
 // the payload.
 //

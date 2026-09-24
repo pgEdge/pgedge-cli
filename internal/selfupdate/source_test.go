@@ -612,7 +612,7 @@ func TestHTTPSourceDownloadRemovesAPartialFile(t *testing.T) {
 	}
 }
 
-// TestChainUnreachablePrimaryDemotesGHAuthClassification drives #399.
+// TestChainUnreachablePrimaryDemotesGHAuthClassification covers an outage.
 // With no route to GitHub, `gh auth status` fails too — gh 2.95.0
 // reports "The token in keyring is invalid" offline — so the gh rung
 // reads the outage as an unauthenticated session and the command
@@ -679,7 +679,7 @@ func TestChainStatusFailurePreservesGHAuthClassification(t *testing.T) {
 	}
 }
 
-// --- diagnostics: --verbose/--debug reach the ladder (#402)
+// --- diagnostics: --verbose/--debug reach the ladder
 
 func TestHTTPSourceLogsListTrafficAtVerbose(t *testing.T) {
 	srv := releasesListServer(t, http.StatusOK, `[{"tag_name":"v1.0.0","assets":[]}]`)

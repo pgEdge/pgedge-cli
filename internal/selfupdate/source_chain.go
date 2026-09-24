@@ -103,8 +103,8 @@ func (c *Chain) Rungs() []Source { return []Source{c.primary, c.fallback} }
 // outage from a bad credential — measured 2026-08-27, gh 2.95.0's
 // `auth status` says "The token in keyring is invalid" with the
 // network down — so offline, the gh rung classifies the outage as
-// unauthenticated and the command exits 5 for a network failure
-// (#399). The HTTP rung's transport error is the only reachability
+// unauthenticated and the command exits 5 for a network failure.
+// The HTTP rung's transport error is the only reachability
 // evidence the ladder has, and when it says unreachable the
 // fallback's auth classification is dropped, keeping gh's message.
 func bothFailed(primary, fallback error) error {

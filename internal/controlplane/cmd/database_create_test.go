@@ -521,8 +521,8 @@ func TestCheckUnfilledPlaceholdersCoversTemplateFields(t *testing.T) {
 }
 
 // TestCreateRejectsUnfilledPlaceholderAnywhereInTheSpec drives the
-// scan through the real spec loader, which is where the three gaps
-// #423 measured lived: a spec carrying a CHANGE-ME in a backup
+// scan through the real spec loader, which is where three gaps
+// once lived: a spec carrying a CHANGE-ME in a backup
 // repository credential, a service's host_ids, or a rag pipeline's
 // nested api_key was sent to the API instead of refused locally.
 //

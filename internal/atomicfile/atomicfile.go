@@ -2,8 +2,8 @@
 // mid-write sees the whole old file or the whole new one and never a
 // truncated one. The CLI shares one config file and one token cache
 // across every command in the tree, so two concurrent invocations are
-// ordinary (#146 D5), and the config file is the only copy of every
-// profile and credential (#437).
+// ordinary, and the config file is the only copy of every
+// profile and credential.
 package atomicfile
 
 import (

@@ -18,7 +18,7 @@
 # This is the ONLY filter applied to the profile. The Makefile's `test`
 # target used to carry a second copy, which meant a build gate could only
 # compare two spellings — and a filter written any other way dropped a
-# hand-written package's lines silently (#224). Both `make test` and CI
+# hand-written package's lines silently. Both `make test` and CI
 # now call this script with no arguments, so the pattern and the
 # threshold each exist once. This filter must be a function of the
 # IMPORT PATH alone. TestCoverageFilterDropsExactlyTheGeneratedPackages

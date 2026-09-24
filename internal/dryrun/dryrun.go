@@ -205,7 +205,7 @@ func (t *Transport) reads(req *http.Request) bool {
 // need one. The create-vs-reconfigure intent guard can only tell deploy
 // from update after fetching the database, and it is the only thing
 // standing between `mcp deploy --allow-writes` and a silent privilege
-// escalation on a read-only service (#117). A dry run that skipped it
+// escalation on a read-only service. A dry run that skipped it
 // would print a confident request preview with the sharpest check
 // missing.
 //

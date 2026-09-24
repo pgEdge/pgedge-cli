@@ -13,10 +13,10 @@ import (
 
 // pflag's StringSlice parses its value with csv.Reader and
 // TrimLeadingSpace false, so `--target-nodes "n1, n2"` yields
-// ["n1", " n2"] (#386). Every --target-nodes site must trim: the
+// ["n1", " n2"]. Every --target-nodes site must trim: the
 // service verbs would otherwise refuse " n2" as an unknown node, and
 // backup/restore would send it to the API verbatim — on restore the
-// likely outcome is a node quietly skipped (per #386; unprobed).
+// likely outcome is a node quietly skipped (unprobed).
 // These tests cover all five sites so a per-verb regression cannot
 // hide behind the shared helper.
 

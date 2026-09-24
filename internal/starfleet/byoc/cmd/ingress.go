@@ -227,7 +227,7 @@ Example:
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Before the client. cluster_id is a bare string in the
 			// contract, so an ID prefix used to be forwarded raw and
-			// the failure named the cluster rather than the ID (#274).
+			// the failure named the cluster rather than the ID.
 			cluster, err := parseUUIDArg(clusterID, "cluster ID")
 			if err != nil {
 				return err

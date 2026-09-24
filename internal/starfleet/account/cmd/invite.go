@@ -18,18 +18,16 @@ var inviteColumns = []string{
 
 // errUserSessionRequired is what `invite create` and `invite accept`
 // return instead of a request. Both operations need to know which
-// *user* is acting, and the CLI cannot tell saas that.
+// *user* is acting, and the CLI cannot tell the API that.
 //
-// saas's edge proxy derives identity from the token's claims: a user
-// token sets X-User-ID, a client token sets X-Client-ID, never both
-// (cmd/api/main.go). The CLI's only credential is a client ID and
-// secret, so its token is always a machine token. CreateInvite
-// (api/invites.go:35) answers `400 cannot create invites from an api
-// client`, and AcceptInvite (api/invites.go:127) answers 401 on the
-// empty user ID. Both were measured live against a dev tenant.
+// The API derives identity from the token's claims: a user token
+// identifies a user, a client token a client, never both. The CLI's
+// only credential is a client ID and secret, so its token is always a
+// machine token. CreateInvite answers `400 cannot create invites from
+// an api client`, and AcceptInvite answers 401 on the empty user ID. Both were measured live against a dev tenant.
 //
 // This is the same reason `pgedge starfleet user` does not exist: a
-// client-credentials token carries a tenant but never a user, so saas
+// client-credentials token carries a tenant but never a user, so the API
 // rejects it by design rather than by accident. These two verbs
 // predate that understanding, so rather than 404-ing a command that
 // looks like it should work, they explain the constraint and point at

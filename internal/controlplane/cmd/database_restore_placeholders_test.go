@@ -43,9 +43,9 @@ var restoreSentinelCases = []struct {
 			"  repository:\n    type: azure\n    azure_key: CHANGE-ME\n"},
 }
 
-// TestRestoreRejectsUnfilledPlaceholder is #427: `restore -f` ran no
-// placeholder scan, so a restore_config still carrying CHANGE-ME went
-// to the server. The port cannot be dialled, so a spec that gets past
+// TestRestoreRejectsUnfilledPlaceholder: `restore -f` runs the
+// placeholder scan, so a restore_config still carrying CHANGE-ME never
+// reaches the server. The port cannot be dialled, so a spec that gets past
 // the scan fails as a network error, not a usage error.
 func TestRestoreRejectsUnfilledPlaceholder(t *testing.T) {
 	for _, tc := range restoreSentinelCases {
@@ -92,8 +92,8 @@ func TestCreateAndUpdateRejectUnfilledRestorePlaceholder(t *testing.T) {
 }
 
 // TestRestoreRefusesThePlaceholderBeforeThePrompt pins the placement:
-// the review of #445 moved the check below cli.Confirm and every test
-// passed, because every test passed --force. Without --force, stdin
+// moving the check below cli.Confirm passes every other test, because
+// they all pass --force. Without --force, stdin
 // is no terminal under go test, so cli.Confirm refuses with its own
 // usage error; the error naming CHANGE-ME is therefore the proof the
 // scan ran first.

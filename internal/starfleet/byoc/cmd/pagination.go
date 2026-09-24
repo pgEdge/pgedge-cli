@@ -18,21 +18,13 @@ import (
 // with the mechanism: what /byoc/v1/clusters does is a module fact,
 // and its provenance belongs beside it.
 //
-// Evidence — the saas API source (read-only checkout), the repo
-// function that clamps Limit for each operation:
+// Evidence — the API's own clamp on Limit for each operation, which
+// gives the values below. backupInfo (get) defaults its limit to 100
+// but never clamps a caller-supplied value; the only bound is the
+// pgBackRest inventory's own length, so there is no known cap to
+// record here.
 //
-//	backupStore:      internal/starfleet/backup_stores/repo/repository.go:126-129
-//	cluster:          internal/starfleet/clusters/repo/cluster.go:504-507
-//	database:         internal/starfleet/clusters/repo/cluster.go:1483-1486
-//	ingress:          internal/starfleet/ingresses/repo/repository.go:148-151
-//	task:             internal/starfleet/tasks/repo/tasks.go:102-105
-//	backupRepository: internal/starfleet/backup_repositories/repo/backup_repository_repo.go:100-103
-//	backupInfo (get): internal/starfleet/api/backup_repositories.go:209,214 —
-//	  defaults BackupLimit to 100 but never clamps a caller-supplied
-//	  value; the only bound is the pgBackRest inventory's own length,
-//	  so there is no known cap to record here.
-//
-// Cross-checked live against devapi (a BYOC dev tenant, 2026-08-07):
+// Cross-checked live (2026-08-07):
 // a bare `task list` returned 25 rows twice, and `--limit 200`
 // returned 100 — both match taskDefaults below exactly.
 var (

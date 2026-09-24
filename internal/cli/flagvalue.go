@@ -83,7 +83,7 @@ func OptionalIntFlag(fs *pflag.FlagSet, flag string, lowest int) (
 //
 // The server may still clamp; the contract just publishes no bound, and
 // a bound the CLI invented would refuse a value the API accepts the day
-// saas raises its cap.
+// the API raises its cap.
 //
 // A clamp is visible only where PrintTruncationHint reports it, as
 // `managed task list --limit 500` returning 100 rows does. That is per

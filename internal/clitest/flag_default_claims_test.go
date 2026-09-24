@@ -18,7 +18,7 @@ import (
 // flag_claims validates that a documented flag EXISTS and stops there —
 // its own comment names "a flag documented with the wrong argument or
 // default" as the class it does not catch. That class shipped a proven
-// gap (#376): #374's review set byoc's --wait-timeout default to 917, a
+// gap: a review set byoc's --wait-timeout default to 917, a
 // value in no document, and 2,159 tests plus make docs-check stayed
 // green, because the generated flag tables carry no defaults and every
 // hand-written "default N seconds" claim was guarded by nothing but the
@@ -288,7 +288,7 @@ func referenceFlagDefaults(t *testing.T) flagDefaultLookup {
 // flag defaults as durations.
 const referenceFlagDefaultClaims = 1
 
-// TestReferenceFlagDefaultClaimsMatchTree is the live gate (#376):
+// TestReferenceFlagDefaultClaimsMatchTree is the live gate:
 // every bound "default N seconds" claim in the references must match a
 // default the named flag registers in that section's scope.
 func TestReferenceFlagDefaultClaimsMatchTree(t *testing.T) {
@@ -343,7 +343,7 @@ func fixtureDefaults(m map[string][]int) flagDefaultLookup {
 	}
 }
 
-// TestFlagDefaultClaimCatchesWrongNumber pins the #376 shape
+// TestFlagDefaultClaimCatchesWrongNumber pins that shape
 // itself: the 917 mutation that survived 2,159 tests dies here.
 func TestFlagDefaultClaimCatchesWrongNumber(t *testing.T) {
 	lookup := fixtureDefaults(map[string][]int{"--wait-timeout": {600}})

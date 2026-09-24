@@ -77,7 +77,7 @@ func jsonServer(t *testing.T, body string) string {
 
 // pgVersionsJSON carries the default and a non-default, so the
 // yes/no rendering is exercised in both directions rather than
-// assumed. Captured from devapi 2026-08-28.
+// assumed. Captured 2026-08-28.
 const pgVersionsJSON = `[{"version":"18","default":true},
 	{"version":"17","default":false},
 	{"version":"16","default":false}]`
@@ -119,14 +119,14 @@ func TestPgVersionListRun(t *testing.T) {
 			"pg-version", "list"); err != nil {
 			t.Fatalf("pg-version list json: %v", err)
 		}
-		// UNMARSHALLED, not substring-matched. A review of #408 found
-		// that wrapping the array in an object passed a Contains
-		// check: every substring below still appears inside
-		// {"versions": [...]}, and `jq '.[].version'` would then fail
-		// against output this test called correct. Decoding into a
-		// slice is what pins the top level as an array, and the typed
-		// Default field is what pins the boolean as a boolean rather
-		// than the table's yes/no.
+		// UNMARSHALLED, not substring-matched. A review found that
+		// wrapping the array in an object passed a Contains check:
+		// every substring below still appears inside {"versions":
+		// [...]}, and `jq '.[].version'` would then fail against output
+		// this test called correct. Decoding into a slice is what pins
+		// the top level as an array, and the typed Default field is
+		// what pins the boolean as a boolean rather than the table's
+		// yes/no.
 		var got []struct {
 			Version string `json:"version"`
 			Default bool   `json:"default"`
@@ -514,7 +514,7 @@ func TestManagedTaskGetRun(t *testing.T) {
 			"task", "get", testTaskID); err != nil {
 			t.Fatalf("task get json: %v", err)
 		}
-		// Text output shows only the LATEST message (#180), so json
+		// Text output shows only the LATEST message, so json
 		// must still carry the whole per-step trace.
 		if !strings.Contains(out.String(), "messages") {
 			t.Errorf("json dropped the message trace: %q", out.String())

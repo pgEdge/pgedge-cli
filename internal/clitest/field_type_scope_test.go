@@ -11,14 +11,14 @@ import (
 
 // --- 5. the repository field/type-scope check --------------------------------
 //
-// #507: TestSkillDocsFieldClaimsMatchStructs (field_claims_test.go) checks
+// TestSkillDocsFieldClaimsMatchStructs (field_claims_test.go) checks
 // that a claimed field NAME exists somewhere in a module's struct scope;
 // it has no notion of WHICH repository type (s3, gcs, azure, posix,
 // cifs) a field belongs to. Swapping s3_bucket and base_path between
 // their type groups in docs/controlplane/backup-restore.md passed every
 // existing gate, because both are real BackupRepositorySpec fields —
 // only their pairing with a type was wrong. That swap is the shape of
-// the real defect #504's review caught: base_path was described as
+// a real defect review caught: base_path was described as
 // posix/cifs-exclusive when the spec says it is REQUIRED for those two
 // types, not restricted to them.
 //
@@ -49,7 +49,7 @@ import (
 // for type = 'X' and 'Y'" fields (base_path) do not match this and are
 // deliberately left out of the truth table: "required for" is not
 // "restricted to", and a table that could not tell the two apart would
-// be the false claim #504 shipped, encoded into the gate instead of
+// be that false claim, encoded into the gate instead of
 // the prose.
 var exclusiveTypeRe = regexp.MustCompile(`Only applies when type = '([a-z0-9]+)'`)
 
@@ -182,7 +182,7 @@ func TestControlPlaneDocRepositoryFieldsMatchTypeScope(t *testing.T) {
 }
 
 // TestRepositoryTypeScopeCheckCatchesSwappedFields is the acceptance
-// test: the exact mutation #507 reports, planted directly rather than
+// test: the exact swap above, planted directly rather than
 // through the doc file. Swapping s3_bucket and base_path between their
 // type groups produces "`posix` and `cifs` take `s3_bucket`", and the
 // spec restricts s3_bucket to type = 's3'.

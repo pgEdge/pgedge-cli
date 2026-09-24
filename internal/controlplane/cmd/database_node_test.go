@@ -87,9 +87,8 @@ func TestDatabaseNodeFailoverRun(t *testing.T) {
 }
 
 // switchover drops the connections the old leader holds, so a client
-// notices -- the bar #253 set for this tree. It was the only
-// service-interrupting controlplane verb with neither a prompt nor --force
-// (#284).
+// notices -- the bar for a prompt in this tree, which every other
+// service-interrupting controlplane verb already meets.
 func TestDatabaseNodeSwitchoverRefusesWithoutForce(t *testing.T) {
 	rt, out, _ := newTestRuntime(t, "", "text")
 	url := newServer(t, jsonHandler(200, nodeTaskResp("switchover")))

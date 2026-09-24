@@ -9,13 +9,13 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// TestDatabaseRowMatchesItsColumnSet is the gate for #219.
+// TestDatabaseRowMatchesItsColumnSet is the gate for the PG VERSION split.
 //
 // A row carrying one more cell than its header set does not fail: the
 // tabwriter renders an unlabelled extra column, which is how a
 // mismatch would reach a user rather than a build. So the counts are
-// asserted directly, for BOTH readers, because the whole point of #219
-// is that one declaration served two readers whose data differs.
+// asserted directly, for BOTH readers, because the whole point
+// is that one declaration serves two readers whose data differs.
 func TestDatabaseRowMatchesItsColumnSet(t *testing.T) {
 	d := api.Database{
 		Id:        "f6a7b8c9-d0e1-2345-fabc-456789012345",
@@ -50,7 +50,7 @@ func TestDatabaseRowMatchesItsColumnSet(t *testing.T) {
 	for _, c := range databaseListColumns {
 		if c == "PG VERSION" {
 			t.Error("list still declares PG VERSION, which the list " +
-				"endpoint does not send (#219)")
+				"endpoint does not send")
 		}
 	}
 	found := false
@@ -125,7 +125,7 @@ const secondDatabaseID = "c3d4e5f6-2222-3333-4444-555566667777"
 // database named "cafééé" produced cells that were not valid UTF-8,
 // and "日本語db" the same. Sanitize escapes non-printables and
 // non-ASCII SPACES but admits ordinary printable non-ASCII, and the
-// value is whatever the server returns -- #330's own premise. Nothing
+// value is whatever the server returns. Nothing
 // user-visible, this being test-only, but it made the gate's
 // diagnostics wrong and silently so for exactly the values a bug
 // report is likeliest to carry.

@@ -647,7 +647,7 @@ var serviceStubTypes = []string{"mcp", "rag", "postgrest"}
 
 // writeServices emits populated service blocks when v.services is set,
 // otherwise a corrected annotated stub covering all three service
-// types (valid enum, required service_id, and -- per issue #109 --
+// types (valid enum, required service_id, and
 // each type's own real config shape instead of one mcp-flavoured
 // guess). The per-type config guidance comes from the single
 // serviceConfigGuidance source, so it cannot drift from what a
@@ -770,10 +770,9 @@ func renderServiceConfigValue(v string) string {
 // two different indents -- inside the blank template's fully-commented
 // example (writeServices) and under a live, populated service block
 // (writeServiceConfig) -- by writeServiceConfigGuidance, so the two
-// surfaces cannot drift. Before issue #124's review the two were
-// separately maintained copies and had already diverged (the populated
-// mcp copy showed 5 of the blank copy's 18 keys), with only the blank
-// copy gated; single-sourcing puts both under
+// surfaces cannot drift. Separately maintained copies had diverged
+// (the populated mcp copy showed 5 of the blank copy's 18 keys), with
+// only the blank copy gated; single-sourcing puts both under
 // TestInitTemplateNamesOnlyKnownServiceKeys and
 // TestInitTemplateDocumentsEveryRequiredKey.
 //

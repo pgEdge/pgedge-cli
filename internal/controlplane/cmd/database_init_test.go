@@ -472,8 +472,8 @@ func TestRunInterviewServicesMCPProviders(t *testing.T) {
 	}
 }
 
-// TestRunInterviewServicesMCPInitToken covers the prompt #109 named as
-// the headline gap: init_token is independent of llm_enabled, so
+// TestRunInterviewServicesMCPInitToken covers the headline
+// gap: init_token is independent of llm_enabled, so
 // declining LLM settings but accepting an init token must still emit
 // the sentinel and warn about it.
 func TestRunInterviewServicesMCPInitToken(t *testing.T) {

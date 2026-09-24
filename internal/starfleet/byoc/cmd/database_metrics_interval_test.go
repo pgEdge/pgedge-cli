@@ -9,18 +9,17 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
-// TestMetricsIntervalMirrorsSaas records where the byoc pattern comes
-// from, since the vendored spec declares none to pin against: saas
-// internal/starfleet/clusters/svc/database_service.go, var
-// validMetricIntervalPattern, at openapi/SOURCE's pinned SHA
-// da5674e7 (read 2026-08-29). The handler replaces commas with spaces
-// before matching, which is why the CLI does the same. Re-read that
-// file when the pin moves; this test cannot see it.
-func TestMetricsIntervalMirrorsSaas(t *testing.T) {
-	const saas = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
-	if metricsIntervalWirePattern != saas {
-		t.Errorf("CLI pattern %q drifted from saas's %q",
-			metricsIntervalWirePattern, saas)
+// TestMetricsIntervalMirrorsTheAPI records where the byoc pattern comes
+// from, since the vendored spec declares none to pin against: the
+// API's own interval check, at openapi/SOURCE's pinned version
+// (read 2026-08-29). The server replaces commas with spaces
+// before matching, which is why the CLI does the same. Re-read the
+// check when the pin moves; this test cannot see it.
+func TestMetricsIntervalMirrorsTheAPI(t *testing.T) {
+	const apiPattern = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
+	if metricsIntervalWirePattern != apiPattern {
+		t.Errorf("CLI pattern %q drifted from the API's %q",
+			metricsIntervalWirePattern, apiPattern)
 	}
 }
 
@@ -57,7 +56,7 @@ func TestValidateMetricsInterval(t *testing.T) {
 	}
 }
 
-// TestDatabaseMetricsRefusesIntervalBeforeTheRequest is #279: a
+// TestDatabaseMetricsRefusesIntervalBeforeTheRequest pins that a
 // refused value must never reach the metrics endpoint. The stub sees
 // only that request, so the pin is "before the request", not "before
 // the client is built", which the code also does.

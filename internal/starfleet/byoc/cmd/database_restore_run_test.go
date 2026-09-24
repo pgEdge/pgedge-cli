@@ -108,8 +108,7 @@ func TestDatabaseRestoreRunBody(t *testing.T) {
 	// The convergence's whole point: a comma splits. Under the old
 	// StringArray parser this exact invocation sent ONE element
 	// "n2,n3" — reverting the parser while keeping the flag name
-	// passes every other test in the tree (measured on #384's
-	// review), so this is the one assertion standing behind the
+	// passes every other test in the tree (measured), so this is the one assertion standing behind the
 	// Slice.
 	t.Run("comma-separated target-nodes split", func(t *testing.T) {
 		body := captureRestoreBody(t, restoreArgs(
@@ -235,7 +234,7 @@ func TestDatabaseRestoreRunRejects(t *testing.T) {
 		}
 	})
 
-	// saas refuses a restore unless the database is modifiable.
+	// The API refuses a restore unless the database is modifiable.
 	t.Run("unmodifiable database surfaces the 400", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
 		url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(400,

@@ -26,7 +26,7 @@ const dryRunChecks = "checks"
 // dryRunServer is recognised so it can be refused with a real reason: a
 // kubectl or helm user will type it, and naming the missing platform
 // capability says which checks run where better than "invalid value". It
-// is reserved for when saas or Control Plane grows a validate endpoint.
+// is reserved for when the API or Control Plane grows a validate endpoint.
 const dryRunServer = "server"
 
 // MarkMutating declares cmd an API-mutating leaf: it sets the annotation

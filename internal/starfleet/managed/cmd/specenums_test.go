@@ -66,10 +66,10 @@ func schemaPropertyEnum(t *testing.T, schema, property string) []string {
 // TestMCPEmbeddingProvidersMatchTheSpecEnum pins the managed MCP
 // embedding vocabulary to the vendored contract.
 //
-// saas removed ollama from managed while leaving it on
-// byoc, so the two modules' lists are deliberately different and
-// neither can be derived from the other. This asserts the managed one
-// against managed's own document.
+// The API removed ollama from managed while leaving it on byoc, so the
+// two modules' lists are deliberately different and neither can be
+// derived from the other. This asserts the managed one against
+// managed's own document.
 func TestMCPEmbeddingProvidersMatchTheSpecEnum(t *testing.T) {
 	spec := schemaPropertyEnum(
 		t, "MCPServiceConfig", "embedding_provider")
@@ -84,7 +84,7 @@ func TestMCPEmbeddingProvidersMatchTheSpecEnum(t *testing.T) {
 			got, spec)
 	}
 	if slices.Contains(got, "ollama") {
-		t.Error("ollama is back in the managed vocabulary; saas " +
+		t.Error("ollama is back in the managed vocabulary; the API " +
 			"rejects it there — check the spec before " +
 			"restoring the flag")
 	}
@@ -98,7 +98,7 @@ func TestMCPEmbeddingProvidersMatchTheSpecEnum(t *testing.T) {
 // endpoints, which cap one response rather than paging a collection —
 // they are what a future generalisation would reach for next.
 //
-// A missing default is a hard failure, not a zero: saas removing the
+// A missing default is a hard failure, not a zero: the API removing the
 // declaration would leave this test passing against anything.
 func backupLimitDefault(t *testing.T) int {
 	t.Helper()
@@ -147,7 +147,7 @@ func backupLimitDefault(t *testing.T) int {
 // TestBackupPagingProseMatchesTheSpec pins the documented page size to
 // the contract, in both places that state it.
 //
-// saas #1889 moved the default from 10 to 100 — and 100 is also the
+// The API moved the default from 10 to 100 — and 100 is also the
 // maximum, which inverts the advice. Both the cobra help and the
 // reference said "10 rows unless --limit asks for more", so a
 // server-side default change silently made the CLI's own documentation
@@ -190,8 +190,8 @@ func TestBackupPagingProseMatchesTheSpec(t *testing.T) {
 			t.Errorf("%s does not say %q; the prose and the contract "+
 				"have diverged", name, want)
 		}
-		// The phrase that #1889 falsified. With the default equal to
-		// the maximum, --limit cannot widen anything.
+		// The phrase the default change falsified. With the default
+		// equal to the maximum, --limit cannot widen anything.
 		if strings.Contains(text, "asks for more") {
 			t.Errorf("%s still says --limit \"asks for more\", but the "+
 				"default (%s) is the maximum — it can only narrow",
@@ -280,9 +280,9 @@ func managedReferenceSection(t *testing.T, heading string) string {
 }
 
 // TestPgVersionsMatchTheSpecEnum pins --pg-version's vocabulary to the
-// vendored contract. saas validates the value against the majors
-// drydock's ClusterImageCatalog publishes, and a new major reaching
-// the spec must reach the flag rather than being refused locally.
+// vendored contract. The API validates the value against the majors its
+// Postgres image catalog publishes, and a new major reaching the spec
+// must reach the flag rather than being refused locally.
 func TestPgVersionsMatchTheSpecEnum(t *testing.T) {
 	spec := schemaPropertyEnum(
 		t, "CreateManagedDatabaseInput", "pg_version")
@@ -355,9 +355,9 @@ func queryParameterEnum(
 // TestUserTypesMatchTheSpecEnum pins --user-type's WIRE vocabulary to
 // the vendored contract.
 //
-// saas 34c83151 / #1892 narrowed this parameter from three values to
-// two while leaving rotate-password's role_name at three. Nothing in
-// the build noticed until this test existed: the CLI went on sending
+// The API narrowed this parameter from three values to two while
+// leaving rotate-password's role_name at three. Nothing in the build
+// noticed until this test existed: the CLI went on sending
 // application_read_only, and the server answered 400.
 func TestUserTypesMatchTheSpecEnum(t *testing.T) {
 	spec := queryParameterEnum(

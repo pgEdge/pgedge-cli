@@ -21,7 +21,7 @@ import (
 // dependency graph forces, so the agreement between them needs a gate
 // that lives above all four. That is this package.
 //
-// This is not hypothetical drift. Before Ant's 2026-07-31 ruling,
+// This is not hypothetical drift. Before the 2026-07-31 decision,
 // internal/controlplane/cmd declared ExitUsage = 2 while conn declared
 // ExitAuth = 2: the numbers matched and the meanings did not, so a
 // script could not tell a malformed command from a rejected credential.

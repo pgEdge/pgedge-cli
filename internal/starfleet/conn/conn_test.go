@@ -1993,7 +1993,7 @@ func TestCheckResponseNonPlanBadRequestUnchanged(t *testing.T) {
 // throwaway managed database in a live managed tenant while it was
 // provisioning. The backup producer was captured a second time while
 // that database was being deleted, answering the identical message with
-// `deleting` in the tail, and Ant captured the rotation one on
+// `deleting` in the tail, and the rotation one was captured on
 // 2026-08-17 with `modifying`. The status value in the tail varies with
 // what the database is doing; the phrase does not, which is why the
 // discriminator keys on the phrase and not on a status set.

@@ -140,7 +140,7 @@ var databaseGetColumns = []string{
 //
 // A blank cell cannot say which of three things it means -- unknown,
 // unset, or not sent -- so the column is dropped from list rather than
-// left to be explained in prose. Ant ruled this on 2026-08-21: drop it
+// left to be explained in prose. Decided 2026-08-21: drop it
 // from list, keep it on get.
 //
 // TestDatabaseRowMatchesItsColumnSet is what keeps the cells and the

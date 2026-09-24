@@ -37,12 +37,9 @@ func run() int {
 	module.Register(&starfleet.Module{})
 	module.Register(&controlplane.Module{})
 
-	// cli.NewRootCmd wires a PersistentPreRunE on root that populates
-	// the rest of rt (Config, Profile, Output, Verbose, Debug) from
-	// cobra's own parsed flags once Execute reaches it. Nothing
-	// below this point may assume rt is fully populated before
-	// Execute runs; every command tree built here is wired for that,
-	// same as internal/clitest.FullTree() proves for the gates.
+	// Root's PersistentPreRunE fills the rest of rt from the parsed
+	// flags once Execute reaches it, so nothing built here may read
+	// those fields before then.
 	root := cli.NewRootCmd(rt)
 	cmds, err := module.BuildCommands(rt)
 	if err != nil {
@@ -51,89 +48,59 @@ func run() int {
 	}
 	root.AddCommand(cmds...)
 
-	// ranRunE flips true only once cobra has entered a command's own run
-	// hook. A non-nil error while it is still false therefore came from
-	// cobra's parse/validation phase — an unknown command or flag, a bad
-	// argument count, a missing required flag — which is the user
-	// mistyping the command, so exit 2 and not 1.
-	//
-	// Wrapping the run hooks is what makes that uniform, and it replaced
-	// a root PersistentPreRun that set the same sentinel. cobra validates
-	// arguments BEFORE its pre-run hooks and required flags AFTER them —
-	// command.go's execute() runs ValidateArgs, then PersistentPreRun,
-	// then ValidateRequiredFlags, then RunE. A sentinel set in the
-	// pre-run hook is therefore already true by the time a required flag
-	// is checked, so `starfleet tenant get` (missing argument) exited 2
-	// while `starfleet client create` (missing required flag) exited 1 —
-	// the same class of mistake, split across two codes, at 31
-	// MarkFlagRequired sites. Setting it inside the run hook puts both
-	// validations on the same side of the line.
-	// wrapProfileGuard MUST run before markRan: markRan's wrapper has
-	// to be the OUTER one so ranRunE is already true by the time the
-	// guard's wrapper returns an error. If the order were reversed,
-	// a rejected --profile would still be reported before ranRunE
-	// flips, and the exit-1-to-2 promotion just below would turn a
-	// parity-with-`profile use` error (exit 1) into a usage error
-	// (exit 2) — exactly the outcome cli.CheckProfile exists to avoid.
-	//
-	// cobra's __complete command is added lazily inside Execute,
-	// after this walk runs, so it is never wrapped: shell completion
-	// for a half-typed "--profile pr…" cannot hard-fail. See
-	// TestCompleteIgnoresUnknownProfile.
 	// After every module has registered, because a command added later
-	// is not walked. clitest.FullTree mirrors this call so the build
-	// gates walk the same shape the binary does; the subprocess row in
-	// TestUnknownSubcommandSuggestsANearMiss is what proves this line
-	// is here, since a unit test over FullTree could not tell.
+	// is not walked. clitest.FullTree mirrors this call; only the
+	// subprocess row in TestUnknownSubcommandSuggestsANearMiss proves
+	// the binary makes it.
 	cli.AddUnknownCommandSuggestions(root)
 
+	// wrapProfileGuard MUST run before markRan, so markRan's wrapper is
+	// outermost and ranRunE is already true when the guard rejects a
+	// --profile; otherwise the promotion below turns that exit 1 into a
+	// usage error, exit 2.
+	//
+	// cobra adds __complete lazily inside Execute, after this walk, so
+	// completion of a half-typed "--profile pr…" cannot hard-fail
+	// (TestCompleteIgnoresUnknownProfile).
 	wrapProfileGuard(root, rt)
+
+	// ranRunE flips true once cobra enters a command's run hook, so an
+	// error while it is false came from parsing or validation — the
+	// user mistyped the command — and exits 2, not 1.
+	//
+	// It is set inside the run hook, not in a PersistentPreRun, because
+	// cobra's execute() runs ValidateArgs, then the pre-run hooks, then
+	// ValidateRequiredFlags: a pre-run sentinel would split a missing
+	// argument (exit 2) from a missing required flag (exit 1).
 	ranRunE := false
 	markRan(root, &ranRunE)
 
 	executed, err := root.ExecuteC()
 
-	// cobra prints help and returns nil whenever it sees --help, before
-	// it ever validates arguments, so a mistyped subcommand exited 0
-	// with the parent's help at every depth below the root.
-	// ExecuteC is called for its first return value alone: it is the
-	// command cobra actually resolved, and hence the one whose Args
-	// validator cli.StrayArgsOnHelp has to ask. root.HelpFunc already
-	// swallowed the help dump for these; the diagnostic and the exit
-	// code are here because a HelpFunc has no channel for either.
+	// cobra returns nil on --help before validating arguments, so a
+	// mistyped subcommand would exit 0 with its parent's help.
+	// ExecuteC's first return is the command cobra resolved, whose Args
+	// validator cli.StrayArgsOnHelp asks. root.HelpFunc already
+	// suppressed the help dump; the diagnostic and exit code are here
+	// because a HelpFunc has no channel for either.
 	//
-	// Tagged UsageError rather than left to the ranRunE promotion
-	// below: the promotion fires only for ExitError, and a stray
-	// argument is a usage error on its own terms whether or not a run
-	// hook happened to have been entered.
+	// Tagged UsageError because the ranRunE promotion fires only for
+	// ExitError, and a stray argument is a usage error either way.
 	if err == nil {
 		if serr := cli.StrayArgsOnHelp(executed); serr != nil {
 			err = &cli.UsageError{Msg: serr.Error()}
 		}
 	}
 
-	// EVERY dry run reports, not only one that intercepted something.
+	// Every dry run reports, not only one that intercepted a write, so
+	// a run that stopped at a failed check, or a verb that sends
+	// nothing, still says how far it got.
 	//
-	// Gating on Intercepted() alone made two documented behaviours
-	// unreachable: a run that stopped at a failed check said nothing
-	// about how far it got, and a verb that turns out to send nothing
-	// printed nothing at all — writeDryRunText's "nothing would be
-	// sent" branch existed but production could never reach it.
-	//
-	// A recorded interception IS the outcome, whatever error came back:
-	// the transport stopped the write on purpose, and the error only
-	// unwound the stack, so that case exits 0. With nothing intercepted
-	// the command's own error still decides the exit code — a dry run
-	// whose checks failed must exit exactly what the real run would —
-	// and the partial report goes to STDERR, so it can never be mistaken
-	// for a successful result on stdout.
-	//
-	// The interception cannot be recognised with errors.As.
-	// internal/controlplane/cmd.networkError formats its cause with %v into an
-	// ExitError that carries no Unwrap, so by the time any cp write site
-	// returns, the chain is gone. Asking the Run instead means no write
-	// site has to be sentinel-transparent, and none has to stay that way
-	// as the tree grows.
+	// An interception is the outcome whatever error came back, so it
+	// exits 0; the Run is asked rather than errors.As, which the dryrun
+	// package doc explains. With nothing intercepted the command's own
+	// error decides the exit code, exactly as a real run would, and the
+	// partial report goes to stderr so it never reads as a result.
 	if rt.DryRun != nil {
 		if rt.DryRun.Intercepted() {
 			if rerr := cli.RenderDryRun(rt); rerr != nil {
@@ -148,14 +115,10 @@ func run() int {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		code := cli.ExitCode(err)
-		// A setup failure (cli.SetupError, from root's PersistentPreRunE
-		// building the Runtime — a bad --config file, say) also reaches
-		// this branch with ranRunE still false, but it is a runtime
-		// failure and not a cobra parse error, so it must not be
-		// promoted to exit 2 the way an actual parse error is.
+		// A cli.SetupError (a bad --config file, say) also arrives with
+		// ranRunE false, but it is not a parse error, so it keeps exit 1.
 		var se *cli.SetupError
 		if !ranRunE && code == cli.ExitError && !errors.As(err, &se) {
-			// Pre-run cobra error not already tagged as a usage error.
 			code = cli.ExitUsage
 		}
 		return code
@@ -163,19 +126,11 @@ func run() int {
 	return cli.ExitOK
 }
 
-// removeStaleSwapBackup deletes the ".old" file a Windows self-update
-// swap leaves beside the running binary (internal/selfupdate's
-// swap_windows.go renames the previous binary aside rather than over
-// itself, since Windows will not let a running executable be
-// replaced directly). By the time this process starts, nothing still
-// has that file open.
-//
-// Windows only, because only the Windows swap ever creates one:
-// elsewhere a "<binary>.old" beside the executable is a file the USER
-// put there, and deleting someone's own backup is not this command's
-// business. Best-effort and silent otherwise: an os.Executable
-// failure or an undeletable file is never worth failing the whole
-// command over.
+// removeStaleSwapBackup deletes the ".old" file the Windows self-update
+// swap (internal/selfupdate/swap_windows.go) leaves beside the binary,
+// which nothing holds open once a new process starts. Windows only:
+// elsewhere a "<binary>.old" is the user's own file. Best-effort and
+// silent, since it is never worth failing a command over.
 func removeStaleSwapBackup() {
 	if runtime.GOOS != "windows" {
 		return
@@ -187,20 +142,15 @@ func removeStaleSwapBackup() {
 	_ = os.Remove(exe + ".old")
 }
 
-// markRan wraps every run hook in c's tree so that entering one records
-// the fact through ran. See the note at the call site for why this is a
-// wrap rather than a PersistentPreRun hook.
+// markRan wraps every run hook in c's tree so that entering one sets
+// *ran; the call site says why.
 //
-// It wraps Run as well as RunE. Nothing in the shipped tree uses bare
-// Run, so that arm does not fire today — but a command written with Run
-// would otherwise never set the sentinel, and every runtime error it
-// returned would be reported as a usage error. Same reasoning
-// testsupport.RunBareCapture uses for handling a hook nothing currently
-// sets.
+// Nothing in the tree uses bare Run today. Its arm is there because a
+// Run command would otherwise never set the sentinel, and an error from
+// its post-run hooks would be promoted to a usage error.
 //
-// cobra's built-in `help` command is added lazily during Execute and so
-// is not wrapped. That is not a gap this creates: `help` returns nil, so
-// there is no error for the promotion to act on either way.
+// cobra's `help` command is added during Execute and is not wrapped;
+// its hook returns no error for the promotion to act on.
 func markRan(c *cobra.Command, ran *bool) {
 	if orig := c.RunE; orig != nil {
 		c.RunE = func(cmd *cobra.Command, args []string) error {
@@ -220,14 +170,9 @@ func markRan(c *cobra.Command, ran *bool) {
 }
 
 // wrapProfileGuard wraps every run hook in c's tree so that entering
-// one first runs cli.GuardProfile. It must be called before markRan —
-// see the comment at the call site — so markRan's wrapper ends up
-// outermost and a rejected --profile still reports exit 1 rather than
-// being promoted to exit 2.
-//
-// It wraps Run as well as RunE, mirroring markRan, for the same
-// reason: nothing in the shipped tree uses bare Run today, but a
-// command written with it must not silently skip the guard.
+// one first runs cli.GuardProfile. It must be called before markRan;
+// the call site says why. It wraps Run too, so a command written with
+// it cannot skip the guard.
 func wrapProfileGuard(c *cobra.Command, rt *module.Runtime) {
 	if orig := c.RunE; orig != nil {
 		c.RunE = func(cmd *cobra.Command, args []string) error {

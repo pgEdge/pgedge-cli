@@ -1,9 +1,5 @@
 // Package module defines the contract between the base pgedge CLI
-// and its modules. The Runtime struct is deliberately the single
-// seam: when external binary dispatch is added, this same data
-// becomes the env/flag contract handed to external binaries, and
-// the registry grows a fallback path — the interface does not
-// change.
+// and its modules. Runtime is the single seam between them.
 package module
 
 import (
@@ -23,21 +19,10 @@ type Runtime struct {
 	Config  *config.Config
 	Profile string
 
-	// ProfileExplicit reports that the operator named a profile on
-	// this invocation — cobra parsed a --profile token AND it carried
-	// a value. internal/cli.setupRuntime sets it from the executing
-	// command's own flag set.
-	//
-	// An empty --profile never reaches this field: setupRuntime rejects
-	// it as a usage error first. The value test in that
-	// assignment is therefore unreachable today, and is kept only so
-	// this field stays correct if the rejection is ever narrowed —
-	// exempting the repair commands is the obvious candidate. An empty
-	// value names no profile, so Profile would come from
-	// current_profile, and calling that explicit would shut the
-	// repair carve-out in cli.GuardProfile, this field's only reader:
-	// `profile use` repairs a broken current_profile, and it would have
-	// been refused in the name of a value the operator never typed.
+	// ProfileExplicit reports that --profile was given a non-empty
+	// value on this invocation. cli.GuardProfile's `profile use` repair
+	// carve-out and starfleet's env-credential conflict check read it;
+	// cli.setupRuntime sets it and says why the value test stays.
 	ProfileExplicit bool
 
 	Output  *output.Renderer
@@ -47,14 +32,9 @@ type Runtime struct {
 	Verbose bool
 	Debug   bool
 
-	// DryRun is non-nil when --dry-run is active, and is where a
-	// stopped write and the checks that passed before it are recorded.
-	//
-	// One field rather than a bool beside a recorder, so there is no
-	// "enabled with nowhere to record" state to get wrong. Every method
-	// on it tolerates a nil receiver, which is what lets check sites
-	// call rt.DryRun.Pass unconditionally instead of each guarding on a
-	// mode flag.
+	// DryRun is non-nil when --dry-run is active. One field rather than
+	// a bool beside a recorder, so "enabled with nowhere to record"
+	// cannot happen.
 	DryRun *dryrun.Run
 
 	// Keychain is the OS credential store. nil means unavailable, which
@@ -62,19 +42,16 @@ type Runtime struct {
 	Keychain keychain.Store
 }
 
-// ModuleInfo is a module's uniform self-description. Built-in modules
-// return it from Describe(); a future external module binary would
-// emit the same shape as JSON from a __describe subcommand.
+// ModuleInfo is a module's uniform self-description, from Describe().
 type ModuleInfo struct {
 	Name            string
 	Short           string
 	Version         string
 	ContractVersion string // RESERVED — empty in-process, no enforcement
 
-	// ProvidesLLMS reports whether Reference() returns a reference
-	// document. `pgedge llms` uses it to build its routing table, so a
-	// module that ships no reference is simply not offered rather than
-	// offered and empty.
+	// ProvidesLLMS reports whether Reference() returns a document, so
+	// `pgedge llms` leaves a module without one out of its routing
+	// table rather than offering an empty page.
 	ProvidesLLMS bool
 }
 
@@ -85,21 +62,11 @@ type Module interface {
 	Command(rt *Runtime) (*cobra.Command, error)
 	Describe() ModuleInfo
 
-	// Reference returns the module's AI-agent reference document —
-	// every command it owns, with usage, flags and worked examples.
-	// `pgedge llms <name>` prints it.
-	//
-	// It is on the interface rather than in a map somewhere because the
-	// reference used to be one 163 KB llms-full.txt covering every
-	// module, which cost an agent roughly 40k tokens to look up a
-	// single flag and made module scope something the doc gates had to
-	// INFER, from "## Module:" headings and a hardcoded path
-	// special-case. Splitting it per module makes the file the scope,
-	// and putting it here makes a module self-contained: its command
-	// tree and its documentation arrive together, and a new module
-	// cannot be registered while quietly forgetting to document
-	// itself. A central map would work today and would recreate the
-	// monolith by degrees.
+	// Reference returns the module's AI-agent index page, which
+	// `pgedge llms <name>` prints; per-resource pages come from
+	// Documented. It is on the interface rather than in a central map
+	// so a module's command tree and its documentation arrive together,
+	// and each module's file is its own scope for the doc gates.
 	//
 	// Return nil if the module ships no reference, and report
 	// ProvidesLLMS false from Describe() to match.
@@ -109,15 +76,12 @@ type Module interface {
 // Document is one page of a module's reference. Scope is the
 // space-joined command path under root it documents ("starfleet byoc",
 // "starfleet byoc database mcp"); `pgedge llms <scope words>` prints
-// Body. Path is the file under the repository root the bytes were
-// embedded from, so the generator and the gates can find the file a
-// served page came from without a second list.
+// Body. Path is the repository file the bytes were embedded from, so
+// the generator and the gates need no second list.
 //
-// The set is derived from files, not declared: internal/reference
-// walks a package's embedded llms.txt and llms/ directory and turns
-// llms/database/mcp.txt into the scope suffix "database mcp". A page
-// is served because it exists, and a page that exists is gated
-// because it is served.
+// internal/reference derives the set from the embedded llms.txt and
+// llms/ directory (llms/database/mcp.txt is scope suffix "database
+// mcp"), so every page that exists is served and gated.
 type Document struct {
 	Scope string
 	Path  string
@@ -171,11 +135,10 @@ func BuildCommands(rt *Runtime) ([]*cobra.Command, error) {
 	return cmds, nil
 }
 
-// Reset clears the registry. It exists so tests in OTHER packages can
-// establish a known set of modules — internal/cli's llms tests need a
-// registry they control, and cannot build one by importing the real
-// modules without an import cycle. Production code never calls it, and
-// it takes no *testing.T so this package keeps no test-only import.
+// Reset clears the registry, for tests in other packages: internal/cli's
+// llms tests need a registry they control and cannot import the real
+// modules without a cycle. It takes no *testing.T so this package keeps
+// no test-only import.
 func Reset() { registry = nil }
 
 func reset() { Reset() }

@@ -627,7 +627,8 @@ every region the cluster needs. It is refused if it would drop a
 region the cluster still has a node or a network in: this command
 sends regions, nodes and networks together and has no flag for the
 last two, so dropping such a region would send a region list that
-contradicts them. Remove the nodes first.
+contradicts them. A region that holds a node or a network cannot be
+dropped.
 
 Example:
   pgedge starfleet byoc cluster update a1b2c3d4-e5f6-7890-abcd-ef1234567890 \

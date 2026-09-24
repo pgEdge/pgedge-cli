@@ -1,0 +1,138 @@
+# pgedge controlplane cluster
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane cluster -->
+### pgedge controlplane cluster
+
+**Usage:** `pgedge controlplane cluster <command>`
+
+Manage the Control Plane cluster
+
+<!-- END GENERATED -->
+
+cluster inspects and forms the control-plane cluster: its hosts,
+initialization, and join tokens.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane cluster info -->
+#### pgedge controlplane cluster info
+
+**Usage:** `pgedge controlplane cluster info`
+
+Show cluster information
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge controlplane cluster info
+pgedge controlplane cluster info -o yaml
+```
+
+Expected: a table with ID, STATE, HOSTS columns (or the raw
+JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane cluster init -->
+#### pgedge controlplane cluster init
+
+**Usage:** `pgedge controlplane cluster init [flags]`
+
+Initialize a new cluster
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cluster-id string` | No |  | Optional cluster ID (default server-generated) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+
+<!-- END GENERATED -->
+
+Initialize a new control-plane cluster on the targeted server and
+print a join token other hosts use to join.
+
+**Example:**
+
+```bash
+pgedge controlplane cluster init
+pgedge controlplane cluster init --cluster-id prod
+```
+
+Expected: a table with TOKEN, SERVER-URLS columns (or the raw
+JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane cluster join-token -->
+#### pgedge controlplane cluster join-token
+
+**Usage:** `pgedge controlplane cluster join-token`
+
+Print the cluster join token
+
+<!-- END GENERATED -->
+
+Print the token and server URLs a new host uses to join this
+cluster.
+
+**Example:**
+
+```bash
+pgedge controlplane cluster join-token
+```
+
+Expected: a table with TOKEN, SERVER-URLS columns (or the raw
+JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane cluster join -->
+#### pgedge controlplane cluster join
+
+**Usage:** `pgedge controlplane cluster join [flags]`
+
+Join this host to a cluster
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--server-url stringArray` | No |  | Existing cluster member to contact (repeatable, at least one required) |
+| `--token string` | No |  | Cluster join token (required) |
+
+<!-- END GENERATED -->
+
+Join THIS host (the one --base-url points at, which must be a new,
+uninitialized control-plane) to an existing cluster. --token comes
+from `cluster init` or `cluster join-token` on an existing member;
+--server-url (repeatable) lists existing cluster members to
+contact.
+
+`--token` and at least one `--server-url` are enforced at run time,
+and omitting either is a usage error. The Required column above reads
+No for both.
+
+**Example:**
+
+```bash
+pgedge controlplane cluster join --base-url http://new-host:3000 \
+  --token PGEDGE-abc --server-url http://existing-1:3000
+```
+
+Expected: confirmation message ("Join request accepted.") to
+stderr.
+
+The join request returns only after the host has joined, so exit
+status 0 means the join took effect. There is no task and no --wait.
+To confirm from another member, run `pgedge controlplane host list`:
+the new host is listed, and its STATE starts at `healthy`.
+
+---

@@ -1,0 +1,51 @@
+# pgedge starfleet managed region
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed region -->
+#### pgedge starfleet managed region
+
+**Usage:** `pgedge starfleet managed region <command>`
+
+Discover pgEdge Managed regions
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed region
+
+Discover the regions a managed database can be created in.
+
+These are the accepted values for `database create --region`. The region
+is the whole of a managed database's placement decision.
+
+**Example:**
+
+```bash
+pgedge starfleet managed region list
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed region list -->
+##### pgedge starfleet managed region list
+
+**Usage:** `pgedge starfleet managed region list`
+
+List available regions
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed region list
+
+List every region a managed database can be created in.
+
+Expected: a single-column REGION table, or the raw array under
+`-o json`/`-o yaml`. The API answers with objects rather than bare
+strings, so a json consumer reads `.[].region`.
+
+**Example:**
+
+```bash
+pgedge starfleet managed region list
+pgedge starfleet managed region list -o json
+```

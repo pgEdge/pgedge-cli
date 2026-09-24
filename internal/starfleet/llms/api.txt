@@ -1,0 +1,63 @@
+# pgedge starfleet api
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet api -->
+### pgedge starfleet api
+
+**Usage:** `pgedge starfleet api <method> <path> [flags]`
+
+Call any Starfleet API path over the module's connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `-d, --data string` | No |  | JSON request body: a literal, @file, or - for stdin |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `-H, --header stringArray` | No |  | Request header as Name: value (repeatable) |
+| `-i, --include` | No |  | Print the status and response headers on stderr |
+| `--query stringArray` | No |  | Query parameter as key=value (repeatable) |
+
+<!-- END GENERATED -->
+
+Send one request to a path under the Starfleet API base and print the
+response, over the module's own connection: the same credential, base
+URL, `--timeout`, exit codes and output formats as every other starfleet
+command, and none of their validation, paging or field knowledge. It is
+the escape hatch for an endpoint no verb covers; prefer the verb where
+one exists.
+
+The method is one of GET, POST, PUT, PATCH, DELETE (exit 2 otherwise).
+The path is relative to the API base and must start with `/`, spelled as
+the API reference spells it (`/byoc/v1/clusters`,
+`/managed/v1/databases/<id>`); an absolute URL is exit 2, so the
+credential only ever reaches the API it was issued for. `--query`
+adds `key=value` parameters (repeatable), `--data` sends a JSON body
+(a literal, `@file`, or `-` for stdin; refused on GET) and `--header`
+adds a header, except Authorization, which the module sets and
+`--header` may not override.
+
+A non-2xx status maps to the exit code the module's verbs give it, by
+the same rules (see the exit-codes section of `pgedge llms`): 5 for
+an authentication or entitlement refusal, 4 for a 404 carrying the
+API's error body (a JSON object with a `code` field), 3 for a timeout,
+1 otherwise, including a 404 without that body, which is a route miss.
+A 2xx with a JSON body prints it indented in text and byte for byte
+under `-o json`, so key order and every digit survive; `-o yaml`
+re-encodes it, keeping the digits. A 2xx with no body prints nothing on stdout and one
+sentence on stderr. Any method but GET is a write, so `--dry-run`
+reports the request that would have been sent instead of sending it.
+`-i`/`--include` prints the status and response headers on stderr.
+
+**Example:**
+
+```bash
+pgedge starfleet api GET /byoc/v1/clusters
+pgedge starfleet api GET /managed/v1/databases --query limit=5 -o json
+pgedge starfleet api POST /managed/v1/databases --data @spec.json --dry-run
+```
+
+---

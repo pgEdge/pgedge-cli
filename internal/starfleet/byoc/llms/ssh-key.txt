@@ -1,0 +1,133 @@
+# pgedge starfleet byoc ssh-key
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ssh-key -->
+#### pgedge starfleet byoc ssh-key
+
+**Usage:** `pgedge starfleet byoc ssh-key <command>`
+
+Manage pgEdge BYOC SSH keys
+
+<!-- END GENERATED -->
+
+#### ssh-key
+
+Manage SSH public keys registered with pgEdge BYOC for node access.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ssh-key list -->
+##### pgedge starfleet byoc ssh-key list
+
+**Usage:** `pgedge starfleet byoc ssh-key list`
+
+List SSH keys
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ssh-key list
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME        CREATED
+a3b4c5d6-e7f8-9012-abcd-123456789012  deploy-key  2026-01-20
+b4c5d6e7-f8a9-0123-bcde-234567890123  laptop-key  2026-02-05
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ssh-key get -->
+##### pgedge starfleet byoc ssh-key get
+
+**Usage:** `pgedge starfleet byoc ssh-key get <ssh_key_id>`
+
+Show SSH key details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ssh-key get a3b4c5d6-e7f8-9012-abcd-123456789012
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME        CREATED
+a3b4c5d6-e7f8-9012-abcd-123456789012  deploy-key  2026-01-20
+```
+
+That is one row of `ssh-key list`. The reason to run `get` is
+`public_key`, which no column shows and only `-o json` returns.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ssh-key create -->
+##### pgedge starfleet byoc ssh-key create
+
+**Usage:** `pgedge starfleet byoc ssh-key create [flags]`
+
+Create an SSH key
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | Yes |  | SSH key name |
+| `--public-key string` | Yes |  | SSH public key in authorized_keys form (e.g. "ssh-ed25519 AAAA... comment") |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ssh-key create \
+    --name deploy-key \
+    --public-key "$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+**Example output (table):**
+
+```
+SSH key "deploy-key" created (id: a3b4c5d6-e7f8-9012-abcd-123456789012).
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ssh-key delete -->
+##### pgedge starfleet byoc ssh-key delete
+
+**Usage:** `pgedge starfleet byoc ssh-key delete <ssh_key_id> [flags]`
+
+Delete an SSH key
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ssh-key delete a3b4c5d6-e7f8-9012-abcd-123456789012 --force
+```
+
+**Example output (table):**
+
+```
+SSH key a3b4c5d6-e7f8-9012-abcd-123456789012 deleted.
+```
+
+---

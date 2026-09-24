@@ -1,0 +1,80 @@
+# pgedge doctor
+
+> One page of the root reference. `pgedge llms` is the index: global
+> flags, configuration and profiles, exit codes and the rules every
+> module shares live there.
+
+<!-- BEGIN GENERATED: pgedge doctor -->
+## pgedge doctor
+
+**Usage:** `pgedge doctor [flags]`
+
+Diagnose the pgedge installation
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--no-version-check` | No |  | Skip the release lookup on api.github.com |
+
+<!-- END GENERATED -->
+
+Diagnose the pgedge installation: version, latest available release,
+config file, shell integration, install method, and one line per
+connection the active profile configures. It dials no product API, so
+it works when auth is broken, and a connection row reports only that
+the connection is configured.
+
+For a verdict on one connection, run that module's own doctor:
+`pgedge starfleet doctor` for Starfleet, `pgedge controlplane doctor` for a
+Control Plane. byoc and managed share the starfleet module's one
+connection, so `pgedge starfleet doctor` is the verdict on theirs too.
+
+Token state belongs to the starfleet module, which owns the token
+cache: `pgedge starfleet doctor` reports whether the cached token is
+still valid. `token_valid` describes the CACHE, not the credential,
+and is not the field to gate a script on — see
+`pgedge llms starfleet`.
+
+**Checks:**
+
+`doctor` runs 5 install checks plus one row per configured connection.
+Each check reports `ok`, `warning`, or `error`.
+
+| Check | What it verifies |
+|-------|-----------------|
+| Version | Reports the current version, Go runtime, OS, and arch. Always `ok`. |
+| Latest version | Compares installed version against latest GitHub release. `warning` if a newer version exists or the check fails. `--no-version-check` skips the lookup, the one call `doctor` makes off the machine; the row is then `ok` with "not checked", and `-o json` carries `checked: false`. |
+| Config | Whether `config.yaml` exists in the config directory. |
+| Shell | Detects the current shell and checks whether `pgedge` is on `$PATH`. |
+| Install method | Infers installation method from executable path: homebrew, install-script, go-install, or unknown. |
+| Connection | One row per configured connection: module, profile, resolved base URL, and whether credentials are available. Presence only — no credential value is ever printed. `warning` when the connection could not even be attempted: a `starfleet` row with no client ID and secret. `controlplane` rows stay `ok` without credentials, because the Control Plane has no login and its mTLS keypair is optional. Every attemptable row says `not verified`, because nothing is dialled. |
+
+**Example:**
+
+```bash
+pgedge doctor
+pgedge doctor -o json
+pgedge doctor --no-version-check
+```
+
+**Example output (table):**
+
+```
+CHECK           STATUS  DETAILS
+Version         ok      v0.1.0 (go1.26.8, darwin/arm64)
+Latest version  ok      v0.1.0 (up to date)
+Config          ok      /Users/alice/.pgedge/cli (config.yaml: yes)
+Shell           ok      /bin/zsh, in PATH
+Install method  ok      homebrew
+Connection      ok      starfleet (dev): https://api.pgedge.com (credentials found, not verified — run 'pgedge starfleet doctor')
+Connection      ok      controlplane (dev): https://cp.example (no login required, mTLS disabled, not verified)
+```
+
+With no Starfleet credentials configured, the starfleet row is a
+`warning` naming `pgedge starfleet auth login`.
+
+`-o json` emits `version`, `latest_version`, `config`, `shell`,
+`install_method` and a `connections` array whose entries carry `module`,
+`profile`, `url`, `has_credentials`, `status` and `detail`. For token
+state, run `pgedge starfleet doctor`.

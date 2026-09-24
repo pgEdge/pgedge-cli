@@ -1,0 +1,74 @@
+# pgedge starfleet managed database metrics
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database metrics -->
+##### pgedge starfleet managed database metrics
+
+**Usage:** `pgedge starfleet managed database metrics <database_id> [flags]`
+
+Read a managed database's metrics
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--end-time string` | No |  | Window end as an RFC3339 timestamp |
+| `--start-time string` | No |  | Window start as an RFC3339 timestamp |
+| `--window string` | No |  | Relative lookback window, in value,unit form (1 or more) |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database metrics
+
+Read the Postgres and container metrics collected for a managed
+database. The API answers with one wide series, around 36 columns, one
+per metric, and one row per sample. Text output cannot be that table,
+so it prints one sample transposed, one row per metric, and `-o json`
+or `-o yaml` returns every sample. `docs/managed/logs-and-metrics.md`
+of the pgEdge/pgedge-cli repository describes the series, the window
+rules, the collector's lag and the metrics a narrow window omits.
+
+The sample shown is the newest complete one, chosen by its `time` cell
+rather than its row position, because nothing guarantees the row order
+and the trailing bucket is often still being scraped. Where no row
+holds a readable `time`, the last row is shown. When no sample is
+complete, the newest is printed as it stands, and the `time` row
+identifies the sample you were given.
+
+During an instance replacement, which a resize or a restore causes,
+two samples can share one timestamp, one per instance. Text output
+shows one and quotes one of three notes on stderr.
+
+Both complete prints `2 samples share time 1787168130000, showing instance_name=db-2-1; the API publishes no order between them. Use -o json to read them all.`
+
+One incomplete prints `2 samples share time 1787168130000 (1 other incomplete, so not shown), showing instance_name=db-1-1; the API publishes no order between them. Use -o json to read them all.`
+
+None complete prints `2 samples share time 1787168130000 (none complete, so the one shown is partial), showing instance_name=db-2-1; the API publishes no order between them. Use -o json to read them all.`
+
+A row whose `time` cell is not a number is neither counted nor tied,
+and when the row shown has one there is no note. `-o json` carries
+both rows, so group a series spanning a replacement by the instance
+column before computing a rate or a delta across it.
+
+`--window` takes `value,unit` form and sets a relative lookback, applied
+only when neither `--start-time` nor `--end-time` is given. A malformed
+or zero value is exit 2 before any request, and the API refuses a
+malformed one with 400 too. A window with no samples, or an environment
+without read credentials for the metrics store, answers 200 with an
+empty series at exit 0. A one-minute window is reliably empty, so ask
+for three minutes or more. A metric with no value anywhere in the window
+is omitted from the response rather than shown blank, so a narrow window
+returns fewer rows at exit 0, and text output notes a one-sample window
+on stderr because that is the shape in which metrics vanish. Widen the
+window, which has returned the full column set from two minutes to two
+days, and read `-o json` to see which metrics the API sent.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database metrics e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --window 5,minutes -o json
+```

@@ -1,0 +1,19 @@
+package: api
+output: client.gen.go
+output-options:
+  nullable-type: true
+  # The Control Plane spec (Goa-generated) defines component schemas
+  # named `<Op>Response` (e.g. ListDatabasesResponse) that collide with
+  # oapi-codegen's generated response-wrapper type names. Suffix the
+  # wrapper types with `Resp` so both coexist. Method names
+  # (`<Op>WithResponse`) are unaffected.
+  response-type-suffix: Resp
+compatibility:
+  # The HostEtcdMode enum has a `client` value whose bare const `Client`
+  # collides with the generated HTTP `Client` type. Prefix enum consts
+  # with their type name (HostEtcdModeClient) to avoid the collision.
+  always-prefix-enum-values: true
+generate:
+  client: true
+  models: true
+  embedded-spec: false

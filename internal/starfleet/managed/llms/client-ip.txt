@@ -1,0 +1,43 @@
+# pgedge starfleet managed client-ip
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed client-ip -->
+#### pgedge starfleet managed client-ip
+
+**Usage:** `pgedge starfleet managed client-ip`
+
+Show the source address the API sees for you
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed client-ip
+
+Print the IPv4 address the pgEdge API observed this request arriving
+from, so you can allow it on a database with `database allowlist add`
+without asking a third-party address-echo service.
+
+The value is the address of the machine running this command as the API
+saw it, which is not necessarily the address your Postgres client
+connects from, and a caller that sets its own forwarding headers changes
+what is reported. The API never uses the value to decide who may
+connect. Only the rules you set do. Verify by connecting.
+
+Text output is the bare address on stdout, so it can be scripted, and
+the caveat above goes to stderr. `-o json` prints the API's object,
+which has the one key `ip_address`. When the API reports no address,
+or an IPv6 one, which no allowlist can hold, the exit status is 1 and
+nothing prints on stdout.
+
+`database allowlist add --my-ip` and `database create --my-ip` run
+this same read and add the result as a /32.
+
+**Example:**
+
+```bash
+pgedge starfleet managed client-ip
+pgedge starfleet managed client-ip -o json
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 --my-ip
+```

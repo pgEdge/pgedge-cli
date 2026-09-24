@@ -1,0 +1,144 @@
+# pgedge controlplane
+
+> A self-hosted pgEdge Control Plane: cluster formation, hosts, databases and tasks.
+
+This is the `controlplane` module's reference. It covers only `pgedge controlplane ...` commands.
+Global flags, profiles, environment variables and exit codes are in the
+index — run `pgedge llms` for those.
+
+In every generated flags table below, the Default column shows the
+value a flag is declared with, and a blank cell is the type's zero
+value (an empty string, 0, false or an empty list). Where the CLI or
+the API supplies an effective default later, the Description says so.
+
+## Module: controlplane
+
+Manage a self-hosted pgEdge Control Plane. There is no login: point
+controlplane at a running server with `--base-url` (default
+`http://localhost:3000`). Repeat `--base-url` for HA failover, and the
+CLI uses the first server that answers, in listed order. For mTLS add
+`--ca-cert`, `--client-cert` and `--client-key`; `--insecure` skips
+verification on a dev server. `--timeout` bounds each request (a Go
+duration; `0` disables it). A profile stores `base_urls`, and
+precedence is flag > profile (`~/.pgedge/cli/config.yaml`) > default.
+To run a server, see "Getting a Control Plane" below.
+
+Every connection requires TLS 1.3. A "protocol version" handshake
+error means whatever terminates TLS for the Control Plane is too old.
+
+This CLI supports Control Plane >= 0.10.0. Below that, `controlplane
+doctor`'s Reachable row is a `warning`, and `controlplane version` and
+a multi-`--base-url` failover print the warning to stderr.
+
+**Exit codes** beyond the index's table:
+
+- A request that outlives `--timeout` is exit 3, and the message names
+  `--timeout`. A connection that could not be made at all is exit 1.
+- Under `--wait` or `--follow`, a task that ends `failed` or
+  `canceled` is exit 1 with the task's error. `--wait-timeout` running
+  out is exit 3, and so is a single poll that hangs, which ends the
+  wait. `--follow` has no overall bound. The message names the bound
+  that ran out.
+- A router 404 (`404 page not found`) is exit 1 with "this server does
+  not serve an endpoint this command needs": usually an older Control
+  Plane or a wrong base URL. A JSON not-found error is exit 4.
+- A 401 or 403 is exit 5, except on four paths that classify a refusal
+  themselves: the multi-URL failover counts it as a server that did not
+  answer, and exits 1 naming every URL when none does; `controlplane
+  doctor` exits 0 and reports it as a row; `database init`'s
+  orchestrator detection writes the generic template at exit 0; and
+  the host-list read behind `database create` and `update`, which runs
+  only when a node lacks a systemd port, drops the error along with its
+  missing-port warning, while the write itself still answers 5.
+
+Every verb that spawns a task writes exactly one object to stdout
+under `-o json`/`-o yaml`, the API's own response, with or without
+`--wait`/`--follow`. Progress and the verdict go to stderr, and text
+mode writes nothing to stdout.
+
+`task list` is the only paged verb. Omit `--limit` to take the
+server's default; `--limit 0` or a negative value is exit 2 with
+nothing sent. There is no `--offset` and no enforced maximum. **A full
+`task list` page may be truncated.** Narrow the read with
+`--database`, `--host` or `--scope` until a page comes back short.
+
+### Getting a Control Plane
+
+Every command below needs a running control-plane. It ships as the
+image `ghcr.io/pgedge/control-plane:latest`, reads a JSON config whose
+one required key is `data_dir`, and serves plain HTTP on :3000:
+
+```bash
+CP_DATA="$HOME/cpdata"
+mkdir -p "$CP_DATA"
+printf '{"data_dir":"%s"}\n' "$CP_DATA" > config.json
+docker run -d --name cp --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$CP_DATA:$CP_DATA" \
+  -v "$(pwd)/config.json:/config.json:ro" \
+  ghcr.io/pgedge/control-plane:latest run -c /config.json
+```
+
+Then `cluster init` creates a cluster and prints a join token, and
+`cluster join` adds each further host. Until then every verb that
+touches cluster state answers 409.
+
+The server checks none of these three at start, so each fails later:
+
+- **The Docker socket mount.** Without it `cluster init` answers 500
+  `Cannot connect to the Docker daemon`, and the server then fails the
+  same way on every boot. Empty `data_dir` to recover.
+- **`--network host`.** Without it the control-plane cannot
+  authenticate to the Postgres it creates (`FATAL: pg_hba.conf rejects
+  connection for host ...`). With it, the server takes the host's port
+  3000, and a port already in use kills the container with `bind:
+  address already in use` (see `docker logs`). `-p <port>:3000` on the
+  default bridge is enough for `version`, `doctor` and the 409s, but
+  not to create a database, so `doctor` reporting reachable does not
+  prove one can be created.
+- **`data_dir` at the same absolute path on the host and in the
+  container**, which the `printf` above guarantees. A container-only
+  path fails part-way through database creation with `bind source path
+  does not exist`. On Docker Desktop it must also be a shared path: a
+  directory under your home is, `/cpdata` is not, and an unshared one
+  fails `docker run` with `mounts denied`.
+
+<!-- BEGIN GENERATED: pgedge controlplane -->
+## pgedge controlplane
+
+**Usage:** `pgedge controlplane <command> [flags]`
+
+Manage a pgEdge Control Plane
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--base-url stringArray` | No |  | Control Plane base URL; repeat for HA failover (default http://localhost:3000) |
+| `--ca-cert string` | No |  | Path to the CA certificate (mTLS) |
+| `--client-cert string` | No |  | Path to the client certificate (mTLS) |
+| `--client-key string` | No |  | Path to the client key (mTLS) |
+| `--insecure` | No |  | Skip TLS certificate verification (dev only) |
+| `--timeout duration` | No | `30s` | Per-request timeout (Go duration; 0 disables) |
+
+<!-- END GENERATED -->
+
+controlplane is the module root: it declares the persistent connection flags
+every controlplane subcommand inherits and, run with no subcommand, prints help.
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge controlplane -->
+| Page | Read | Covers |
+|------|------|--------|
+| `api` | `pgedge llms controlplane api` | Call any Control Plane API path over the connection |
+| `cluster` | `pgedge llms controlplane cluster` | Manage the Control Plane cluster |
+| `config` | `pgedge llms controlplane config` | Manage the Control Plane connection |
+| `database` | `pgedge llms controlplane database` | Manage Control Plane databases |
+| `doctor` | `pgedge llms controlplane doctor` | Diagnose the Control Plane connection |
+| `host` | `pgedge llms controlplane host` | Manage Control Plane hosts |
+| `task` | `pgedge llms controlplane task` | Inspect Control Plane tasks |
+| `version` | `pgedge llms controlplane version` | Show the Control Plane server version |
+<!-- END GENERATED ROUTING -->

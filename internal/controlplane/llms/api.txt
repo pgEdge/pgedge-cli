@@ -1,0 +1,58 @@
+# pgedge controlplane api
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane api -->
+### pgedge controlplane api
+
+**Usage:** `pgedge controlplane api <method> <path> [flags]`
+
+Call any Control Plane API path over the connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `-d, --data string` | No |  | JSON request body: a literal, @file, or - for stdin |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `-H, --header stringArray` | No |  | Request header as Name: value (repeatable) |
+| `-i, --include` | No |  | Print the status and response headers on stderr |
+| `--query stringArray` | No |  | Query parameter as key=value (repeatable) |
+
+<!-- END GENERATED -->
+
+Send one request to a path on the Control Plane and print the
+response, over the module's own connection: the same `--base-url`,
+mTLS settings, `--timeout`, failover between base URLs, exit codes and
+output formats as every other controlplane command, and none of their
+validation or field knowledge. It is the escape hatch for an endpoint
+no verb covers yet; prefer the verb where one exists.
+
+The method is one of GET, POST, PUT, PATCH, DELETE (exit 2 otherwise).
+The path starts with `/` as the API reference spells it
+(`/v1/databases`); an absolute URL is exit 2. `--query` adds
+`key=value` parameters (repeatable), `--data` sends a JSON body (a
+literal, `@file`, or `-` for stdin; refused on GET) and `--header`
+adds a header other than Authorization.
+
+A non-2xx status maps to the exit code the module's verbs give it, and
+a failure to reach the server carries the same reachability hint the
+verbs print. A 2xx with a JSON body prints it indented in text and
+byte for byte under `-o json`; `-o yaml` re-encodes it, keeping every
+digit. A 2xx with no body prints nothing on stdout and one sentence on
+stderr. Any method but GET is a write, and so are the two GET paths
+the Control Plane declares state-changing, so `--dry-run` reports the
+request that would have been sent instead of sending it.
+`-i`/`--include` prints the status and response headers on stderr.
+
+**Example:**
+
+```bash
+pgedge controlplane api GET /v1/databases
+pgedge controlplane api GET /v1/hosts -o json
+pgedge controlplane api POST /v1/databases --data @spec.json --dry-run
+```
+
+---

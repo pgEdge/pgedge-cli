@@ -1,0 +1,58 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocritic
+    - misspell
+    - gosec
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+  exclusions:
+    # The four generated API clients, named file by file rather than by
+    # directory. `exclusions.generated` already suppresses issues in a
+    # file carrying the "Code generated ... DO NOT EDIT" header, so these
+    # entries are the belt to that braces: they still hold if a generator
+    # stops emitting the header. Excluding the whole directory would add
+    # nothing for the client and would un-lint the hand-written types.go
+    # and doc.go beside it, and anything added there later.
+    #
+    # Do not maintain this list by hand. The tree is walked for
+    # client.gen.go in internal/clitest/generated_exclusions_test.go, so a
+    # re-vendoring that moves a package fails the build there.
+    paths:
+      - internal/starfleet/account/api/client\.gen\.go
+      - internal/starfleet/byoc/api/client\.gen\.go
+      - internal/starfleet/managed/api/client\.gen\.go
+      - internal/controlplane/api/client\.gen\.go
+    rules:
+      - path: "_test\\.go"
+        linters:
+          - gosec
+      # G703 taints every path that reaches os.WriteFile from a loop.
+      # The generator's paths come from its own fixed pageTargets table,
+      # and a per-line nolint would also silence G306, which this file
+      # satisfies on purpose with 0o600.
+      - path: "cmd/gendocs/"
+        linters:
+          - gosec
+        text: "G703"
+
+formatters:
+  enable:
+    - gofmt

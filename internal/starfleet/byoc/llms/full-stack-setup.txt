@@ -1,0 +1,79 @@
+<!-- topic: Provision a cluster, a database and its services from a clean slate -->
+# Full stack setup on BYOC
+
+> A topic page of the `starfleet byoc` reference: the order of
+> operations from a clean slate to a database with services, rather
+> than one command's reference. `pgedge llms starfleet byoc` is the
+> index, and each step's flags and edge cases are on the page it names.
+
+You need a cloud account ID (`cloud-account list`), a target region,
+embedding provider credentials for MCP or RAG, and a pipeline
+configuration file for RAG. Pass `--wait` on every step that creates
+something: each one needs the previous one `available`.
+
+**1. Check the connection.** Run `pgedge starfleet doctor -o json` and
+proceed only when `tenant.resolved` is true. `pgedge llms starfleet`
+says how to read the rest of that output.
+
+**2. Find or create a backup store.** A cluster cannot host a database
+until one is attached.
+
+```bash
+pgedge starfleet byoc backup-store list -o json
+```
+
+**Check the exit status before the array.** This read is plan-gated,
+so a tenant the plan excludes gets exit 5 and an empty stdout, and
+every other failure prints nothing on stdout too. A failed read can
+never produce a non-empty array, so a script that creates whenever
+the array is empty provisions a store on any failure. On a non-zero
+exit, stop and relay the error. On exit 0 with a store listed, reuse
+its `id`. Otherwise create one, which the `backup-store` page covers,
+including the per-cloud name limits:
+
+```bash
+pgedge starfleet byoc backup-store create --name <name> \
+    --cloud-account-id <cloud_account_id> --region <region> --wait
+```
+
+**3. Create the cluster**, naming the backup store. The `cluster` page
+has worked public, private and GCP examples, the per-cloud subnet keys
+and what `--dry-run` checks. A private cluster's services need an
+ingress (step 6) to be reachable. Include an `https` firewall rule on
+443 if the services are to be reached over the cluster's public
+endpoint.
+
+```bash
+pgedge starfleet byoc cluster create --name <name> \
+    --cloud-account-id <cloud_account_id> --regions <region> \
+    --node-location public --backup-store-id <backup_store_id> \
+    --node name=n1,instance-type=<type>,volume-size=30 \
+    --network cidr=10.4.0.0/16,public-subnets=10.4.1.0/24 \
+    --firewall-rule name=postgres,port=5432,sources=<cidr> \
+    --wait -o json
+```
+
+Capture the cluster's `id` from the response, then confirm `status`
+is `available` with `cluster get`. Rules added later with `cluster
+update` are appended to the existing ones.
+
+**4. Create the database** on the cluster, then confirm it with
+`database get`. The `database` page has the name rule and the
+connection string.
+
+```bash
+pgedge starfleet byoc database create --name <name> \
+    --cluster-id <cluster_id> --wait -o json
+```
+
+**5. Deploy services**, one at a time, each with `--wait`: a second
+services write while the first is still `modifying` the database is
+refused. The `database mcp`, `database rag` and `database postgrest`
+pages have each one's flags, and `database service list <database_id>
+-o json` then shows every service's `state`. A `failed` state names a
+service that did not come up.
+
+**6. On a private cluster, expose each service through an ingress.**
+Create one ingress in the cluster's region and register each service
+on it. The `ingress` page covers both, and how to verify a
+registration.

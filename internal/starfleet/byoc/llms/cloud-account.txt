@@ -1,0 +1,239 @@
+# pgedge starfleet byoc cloud-account
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account -->
+#### pgedge starfleet byoc cloud-account
+
+**Usage:** `pgedge starfleet byoc cloud-account <command>`
+
+Manage pgEdge BYOC provider accounts
+
+<!-- END GENERATED -->
+
+#### cloud-account
+
+Manage pgEdge BYOC accounts — the AWS, Azure, or GCP credentials that
+pgEdge BYOC uses to provision infrastructure in your cloud.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account list -->
+##### pgedge starfleet byoc cloud-account list
+
+**Usage:** `pgedge starfleet byoc cloud-account list`
+
+List cloud accounts
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cloud-account list
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME        TYPE   CREATED
+c3d4e5f6-a7b8-9012-cdef-123456789012  prod-aws    aws    2026-01-05
+d4e5f6a7-b8c9-0123-defa-234567890123  prod-azure  azure  2026-01-06
+```
+
+There is no status field on a cloud account at all. The columns are
+`ID`, `NAME`, `TYPE` and `CREATED`. Provider-specific detail (role
+ARN, tenant/subscription IDs, project ID) lives in a generic
+`properties` map, not a column.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account get -->
+##### pgedge starfleet byoc cloud-account get
+
+**Usage:** `pgedge starfleet byoc cloud-account get <cloud_account_id>`
+
+Show cloud account details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cloud-account get c3d4e5f6-a7b8-9012-cdef-123456789012
+```
+
+`get` shares its columns with `list` — the output is a one-row table
+(`ID`, `NAME`, `TYPE`, `CREATED`), not a FIELD/VALUE block.
+
+**Example output (table):**
+
+```
+ID                                    NAME      TYPE  CREATED
+c3d4e5f6-a7b8-9012-cdef-123456789012  prod-aws  aws   2026-01-05
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account create -->
+##### pgedge starfleet byoc cloud-account create
+
+**Usage:** `pgedge starfleet byoc cloud-account create [flags]`
+
+Create a cloud account
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--azure-client-id string` | No |  | Azure client/application ID (required for --type azure) |
+| `--azure-client-secret string` | No |  | Azure client secret (required for --type azure) |
+| `--description string` | No |  | Optional description |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | No |  | Display name for the cloud account |
+| `--project-id string` | No |  | GCP project ID (required for --type gcp) |
+| `--resource-group string` | No |  | Azure resource group (optional for --type azure) |
+| `--role-arn string` | No |  | AWS IAM Role ARN (required for --type aws) |
+| `--service-account string` | No |  | GCP service account email (required for --type gcp) |
+| `--subscription-id string` | No |  | Azure subscription ID (required for --type azure) |
+| `--tenant-id string` | No |  | Azure tenant ID (required for --type azure) |
+| `--type string` | Yes |  | Cloud provider type: aws, azure, or gcp |
+
+<!-- END GENERATED -->
+
+Register a new cloud account for AWS, Azure, or GCP. Required flags depend
+on the cloud provider specified with `--type`.
+
+**Example (AWS):**
+
+```bash
+pgedge starfleet byoc cloud-account create \
+    --name prod-aws \
+    --type aws \
+    --role-arn arn:aws:iam::123456789012:role/pgEdgeCloudRole \
+    --description "Production AWS account"
+```
+
+**Example (GCP):**
+
+```bash
+pgedge starfleet byoc cloud-account create \
+    --name prod-gcp \
+    --type gcp \
+    --project-id my-gcp-project-123 \
+    --service-account pgcloud@my-gcp-project-123.iam.gserviceaccount.com
+```
+
+**Example output (text, stderr):**
+
+```
+Cloud account "prod-gcp" created (id: c3d4e5f6-a7b8-9012-cdef-123456789012, type: gcp).
+```
+
+A created account's confirmation names its `type`.
+
+**Every check `create` makes on the credential flags is local, at exit
+2.** A `--type` outside `aws`, `azure` and `gcp` is refused before
+anything is sent, and so is a missing credential flag: `--role-arn` for
+aws, all four of `--tenant-id`, `--subscription-id`, `--azure-client-id`
+and `--azure-client-secret` for azure, and both `--project-id` and
+`--service-account` for gcp. The message names every flag missing at
+once. `--resource-group` is optional on azure and is not part of that
+check. Whether a credential is VALID is the API's answer, on the real
+call.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account delete -->
+##### pgedge starfleet byoc cloud-account delete
+
+**Usage:** `pgedge starfleet byoc cloud-account delete <cloud_account_id> [flags]`
+
+Delete a cloud account
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cloud-account delete c3d4e5f6-a7b8-9012-cdef-123456789012 \
+    --force
+```
+
+**Example output (table):**
+
+```
+Cloud account c3d4e5f6-a7b8-9012-cdef-123456789012 deleted.
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account cloudformation-template -->
+##### pgedge starfleet byoc cloud-account cloudformation-template
+
+**Usage:** `pgedge starfleet byoc cloud-account cloudformation-template`
+
+Show the AWS CloudFormation template URL
+
+<!-- END GENERATED -->
+
+Print a link to the AWS CloudFormation template that creates the IAM
+role pgEdge BYOC requires. Apply the template in your AWS account
+before registering an AWS cloud account.
+
+Text output is the link alone, on one line, ready to open in a
+browser. It is an AWS console deep link that carries the template
+location, your tenant ID and an external ID as query parameters, not
+the template body. `-o json` and `-o yaml` print the object the API
+sent, as it arrived, with the link under `url`.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cloud-account cloudformation-template
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cloud-account availability-zones -->
+##### pgedge starfleet byoc cloud-account availability-zones
+
+**Usage:** `pgedge starfleet byoc cloud-account availability-zones <cloud_account_id> [flags]`
+
+List availability zones in a region
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--region string` | Yes |  | Provider region to list zones in (e.g. us-east-2) |
+
+<!-- END GENERATED -->
+
+Zone names are provider-specific and region-specific, so check them
+here before passing one to `cluster create --node` rather than
+assuming a naming scheme. Zones print one per line on stdout.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cloud-account availability-zones \
+  939469f4-6be4-4cc1-bfe0-dd0bd426b17e --region us-east-2
+```
+
+**Example output:**
+
+```
+us-east-2a
+us-east-2b
+us-east-2c
+```
+
+---

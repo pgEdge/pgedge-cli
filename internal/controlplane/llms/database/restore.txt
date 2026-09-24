@@ -1,0 +1,126 @@
+# pgedge controlplane database restore
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane database restore -->
+#### pgedge controlplane database restore
+
+**Usage:** `pgedge controlplane database restore <database_id> <command> [flags]`
+
+Restore a database from a spec file
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `-f, --file string` | No |  | Restore spec file path, or - for stdin (required) |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--force-unmodifiable` | No |  | Restore even if the database is in an unmodifiable state |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Rebuild a database from a backup repository described by a restore
+spec (-f restore.yaml, restore.json, or - for stdin). The spec's
+restore_config names the source repository, database, and node;
+target_nodes optionally limits which nodes are restored. Overwrites
+current data; prompts for confirmation (use --force to skip it).
+--force-unmodifiable restores even if the database is in an
+unmodifiable state.
+
+`database restore template` emits a commented outline, so its output
+carries no values until you uncomment and fill it in. A restore spec
+with no `restore_config` is a usage error before the API call, which
+is what an unedited template produces. So is a `restore_config`
+still carrying the "CHANGE-ME" placeholder in a `source_*` field or
+a repository credential, the value the spec templates use for a
+field you must fill in; the error names the field. Both refusals
+run before the confirmation prompt.
+
+A restore clears `backup_config` from the database and from every node
+it restores. The Control Plane does this on every restore because a
+restore can change an instance's system identifier, and pgBackRest
+refuses to reuse a repository once that identifier moves. Under
+`-o json` or `-o yaml` the accepted response already omits
+`backup_config` from `database.spec`, so a caller can detect the removal
+without a second read. The key is absent rather than set to null, so
+test for its presence. The text-mode acknowledgment does not
+mention it.
+
+While no configuration is in place, `database node backup` fails at
+exit 1, reporting that backups are not configured for this database
+node, and no scheduled backup runs. Re-enable backups after the restore
+finishes with an ordinary `database update` carrying a `backup_config`,
+which makes `database node backup` succeed again. A `database get`
+document nests the spec under a top-level `spec` key, so the block goes
+inside that section. Point the repository at a new `base_path` or give
+the entry an `id` so pgBackRest is not asked to reuse the old location.
+Schedules live inside the block and come back only when written into
+it. The database-level block covers every node that has no block of its own.
+
+**Example:**
+
+```bash
+pgedge controlplane database restore storefront -f restore.yaml
+pgedge controlplane database restore storefront -f restore.yaml --force --wait
+```
+
+Expected: confirmation message ("Restore task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`, and any per-node restore tasks are
+under `node_tasks`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database restore template -->
+##### pgedge controlplane database restore template
+
+**Usage:** `pgedge controlplane database restore template [flags]`
+
+Generate a starter restore spec
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `-i, --interactive` | No |  | Interview for restore values instead of a blank template |
+
+<!-- END GENERATED -->
+
+Print a commented starter restore spec to stdout. Redirect it to
+a file, edit it, then apply with 'database restore <id> -f'. The
+spec is a RestoreDatabaseRequest: restore_config (repository type
+and fields, source database id, database name, and node name) plus
+an optional target_nodes list.
+
+Use -i/--interactive to be interviewed for restore values instead
+of emitting a blank template. Interactive mode requires a terminal
+(errors otherwise); prompts are written to stderr and the resulting
+spec is written to stdout, so `-i` is still safe to redirect. The
+interview reuses the same guided restore_config walk offered by
+'database init' (repository type and its fields, source database
+id, source database name, source node name, and an optional
+point-in-time recovery target), then asks for a comma-separated
+target-nodes list (blank restores all nodes). Repository
+credentials are never prompted for or written.
+
+**Example:**
+
+```bash
+pgedge controlplane database restore template > restore.yaml
+pgedge controlplane database restore template -i > restore.yaml
+pgedge controlplane database restore template -i | pgedge controlplane database restore db -f -
+```
+
+Expected: commented YAML spec on stdout with restore_config and an
+optional target_nodes list (template mode), or a stdout spec built
+from interview answers with prompts on stderr (interactive mode).
+
+---

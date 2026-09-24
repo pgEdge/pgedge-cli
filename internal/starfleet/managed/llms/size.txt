@@ -1,0 +1,105 @@
+# pgedge starfleet managed size
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed size -->
+#### pgedge starfleet managed size
+
+**Usage:** `pgedge starfleet managed size <command>`
+
+Discover pgEdge Managed sizes
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed size
+
+Discover the sizes a managed database can run at.
+
+The NAME column holds the accepted values for `database create --size`
+and `database resize --size`. Sizes carry the CPU, memory and storage
+a database gets.
+
+Resizing is one-way — a database can grow but not shrink, because its
+storage cannot, and a resize to the same size is refused too. So the
+size chosen at create time is a floor, not a default.
+
+**Example:**
+
+```bash
+pgedge starfleet managed size list
+pgedge starfleet managed size list --pricing
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed size list -->
+##### pgedge starfleet managed size list
+
+**Usage:** `pgedge starfleet managed size list [flags]`
+
+List available sizes
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--pricing` | No |  | Include each size's current price |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed size list
+
+List every size, optionally with its price.
+
+Expected: a NAME, DISPLAY, CPU, MEMORY, STORAGE, STATUS table, plus a
+PRICE column with `--pricing`.
+
+`--pricing` costs an extra billing-provider lookup server-side, so it is
+off by default. A size with no configured price shows a blank cell
+rather than a zero, which would read as free. Prices come back in the
+currency's smallest unit and are rendered as major units — currencies
+with no subdivision, such as JPY, are rendered correctly.
+
+`size list` shows only `active` sizes: a size whose rows are all
+`deprecated` or `retired` is absent from it.
+
+**Example:**
+
+```bash
+pgedge starfleet managed size list
+pgedge starfleet managed size list --pricing
+pgedge starfleet managed size list -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed size get -->
+##### pgedge starfleet managed size get
+
+**Usage:** `pgedge starfleet managed size get <size_id>`
+
+Show a size's details
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed size get
+
+Show one size and its Postgres settings.
+
+The argument is the size's **ID**, not its `small`/`large` name. A
+name is refused locally with exit 2 rather than sent — take the id
+from `size list -o json`.
+
+STATUS is `active`, `deprecated` or `retired`, and only `get` can
+return the last two. Only `active` sizes are worth creating at.
+
+Pricing comes from `size list --pricing` only, because this endpoint
+takes no `include` parameter, so text output has no PRICE column.
+
+`postgres_settings` — the per-size Postgres tuning map — is only
+visible under `-o json`/`-o yaml`.
+
+**Example:**
+
+```bash
+pgedge starfleet managed size get 01952c3a-0000-7000-8000-000000000001
+pgedge starfleet managed size get <size_id> -o yaml
+```

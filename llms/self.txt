@@ -1,0 +1,86 @@
+# pgedge self
+
+> One page of the root reference. `pgedge llms` is the index: global
+> flags, configuration and profiles, exit codes and the rules every
+> module shares live there.
+
+<!-- BEGIN GENERATED: pgedge self -->
+## pgedge self
+
+**Usage:** `pgedge self <command>`
+
+Manage the pgedge binary itself
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge self update -->
+### pgedge self update
+
+**Usage:** `pgedge self update [flags]`
+
+Update the pgedge binary to the latest release
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--check` | No |  | Report whether an update is available; download nothing |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--version string` | No |  | Update to a specific release tag instead of the newest |
+
+<!-- END GENERATED -->
+
+`update` checks GitHub for a newer release, verifies its Sigstore
+signature and checksum, and swaps the binary in place. Progress goes
+to stderr; the version report is the command's stdout body, an
+exception to a success carrying no body printing nothing.
+
+**Example:**
+
+```bash
+pgedge self update
+pgedge self update --check
+pgedge self update --version v0.6.0 --force
+```
+
+Releases are fetched from the unauthenticated GitHub REST API first,
+then through the `gh` CLI when that API cannot see the repository. An
+unauthenticated `gh` session is exit **5**; a missing `gh`, any other
+`gh` failure, or no route to GitHub at all is exit 1, even when `gh`'s
+own message blames its token. Each step runs
+under a deadline, and an expiry exits **3**. `--verbose` and `--debug`
+show both steps: HTTP requests as everywhere else (a release archive's
+body is never dumped), and each `gh` command as `> gh ...` with its
+exit status.
+
+Verification caches the Sigstore trust root under
+`~/.pgedge/cli/cache/sigstore`. That cache and a temporary download
+directory are the only paths `update` writes outside the running
+binary's own directory.
+
+Before any network call, `update` refuses a binary something else
+owns, with no `--force` override (`<path>` is the running executable,
+`<root>` its git working tree's root):
+
+- "`<path>` was installed via Homebrew; run `brew upgrade pgedge`
+  instead of `pgedge self update`"
+- "`<path>` is inside a git working tree (`<root>`); run `make build`
+  instead of `pgedge self update`"
+
+`--check` swaps nothing, so it runs past a refusal: it prints the
+report at exit 0 and repeats the refusal on stderr as a `note:` line.
+It downloads nothing, and its json/yaml report carries
+`update_available: true` or `false`, with an "already up to date"
+line on stderr for `false`.
+
+A real update prompts `update <old> -> <new>?` (skippable with
+`--force`) before downloading, verifying and swapping. It then
+regenerates each installed shell completion script with the new
+binary, reporting `refreshed <shell> completion (<path>)` on stderr.
+It skips a shell with no installed script, and a script it cannot
+refresh is a `warning:` line while the update still succeeds.
+
+The report renders as a `COMPONENT PREVIOUS NEW` table: a `pgedge`
+row for the launcher, then one row per built-in module (`starfleet`,
+`controlplane`). `-o json`/`-o yaml` carry the same data as `previous`,
+`new` and a `modules` array of `{name, previous, new}`.

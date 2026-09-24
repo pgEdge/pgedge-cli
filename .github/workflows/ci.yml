@@ -1,0 +1,187 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  # No `branches:` filter, deliberately. With `branches: [main]` a pull
+  # request based on anything other than main got ZERO check-runs, and
+  # the PR page showed nothing missing -- so "CI is green" was
+  # unverifiable rather than false. Three of the four PRs in one stacked
+  # series went their whole life that way, and the local `make test`
+  # that stood in for CI cannot see a cross-platform build or a
+  # different Go patch release.
+  #
+  # The push trigger keeps its filter: a branch push is already covered
+  # by the pull_request event, and running both on every feature branch
+  # would double every run for nothing.
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      # Pinned to the exact version developed against locally, as vale
+      # is in the docs job below — though vale is also checksum-verified
+      # there and this is not: the action downloads the binary itself
+      # and checks no hash. `latest` meant an
+      # upstream release could redden a build that no commit here had
+      # touched, and could do it to a PR whose author had run `make
+      # lint` clean minutes earlier.
+      #
+      # The version lives in .golangci-version. scripts/lint-version.sh
+      # reads the same file, so `make lint` warns when the binary on a
+      # developer's PATH is not the one CI will use.
+      - name: Read the pinned golangci-lint version
+        id: golangci
+        run: |
+          echo "version=v$(tr -d '[:space:]' < .golangci-version)" \
+            >> "$GITHUB_OUTPUT"
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
+        with:
+          version: ${{ steps.golangci.outputs.version }}
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - run: go test -race -coverprofile=coverage.raw.out ./...
+      # The gate excludes the generated API clients and is fail-closed:
+      # it aborts rather than passing when no coverage number can be
+      # computed. Logic lives in scripts/coverage-gate.sh so that it is
+      # shellcheck-able and unit-tested by test/coverage_gate_test.sh.
+      # Inline, it could pass without having checked anything.
+      #
+      # Called with no arguments so the paths and the threshold come from
+      # the script's own defaults — the same ones `make test` gets. Naming
+      # them here would let CI and a developer's local run gate at
+      # different numbers.
+      - name: Check coverage threshold
+        run: scripts/coverage-gate.sh
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # shellcheck is preinstalled on ubuntu-latest runners.
+      - run: make test-scripts
+
+  docs:
+    runs-on: ubuntu-latest
+    env:
+      VALE_VERSION: 3.17.1
+      VALE_SHA256: db947f89f2292e6a0381a61de155f6a5f5cb4cb460ca178ea412ef605559cefd
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Installed from the official release tarball, pinned to the
+      # exact version (3.17.1) developed and tested against locally
+      # (see .vale.ini and scripts/lint-docs.sh), and checksum-verified
+      # rather than trusting `latest` or an unpinned third-party
+      # action.
+      - name: Install vale
+        run: |
+          curl -sLf -o vale.tar.gz \
+            "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  vale.tar.gz" | sha256sum -c -
+          tar -xzf vale.tar.gz vale
+          sudo install -m 755 vale /usr/local/bin/vale
+          rm -f vale.tar.gz vale
+          vale --version
+      - run: make lint-docs
+
+  # NOTICE.txt and THIRD_PARTY_LICENSES.txt ship in every release
+  # archive, so a dependency change that is not reflected in them
+  # ships an incomplete notice. The check is a pure function of the
+  # commit, which is why it may block build; the vulnerability scan is
+  # not, and lives in vuln.yml.
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Check the licence files against the dependency set
+        run: |
+          make notice third-party-licenses
+          git diff --exit-code -- NOTICE.txt THIRD_PARTY_LICENSES.txt
+
+  # Every inspect analysis through the built binary against a real
+  # Postgres pair, once per supported Postgres major. The unit tests
+  # answer SQL from a scripted fake and never run it, so an alias bound
+  # to the wrong expression passes them; only a server catches it. The
+  # images are pinned to a major, so the job is a function of the commit
+  # and a Postgres minor, and it may block build.
+  inspect-live:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: [18, 17, 16]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Start the publisher and subscriber
+        run: docker compose -f test/inspectlive/compose.yaml up --wait
+        env:
+          PG_VERSION: ${{ matrix.pg }}
+      # The suite checks server_version_num against the matrix value,
+      # so a leg cannot pass against the compose default. A skipped
+      # test is the gate not running: -short is for laptops. The SKIP
+      # grep reads -v output, so -v stays.
+      - name: Run every analysis against Postgres ${{ matrix.pg }}
+        env:
+          PGEDGE_INSPECT_LIVE: "1"
+          PGEDGE_INSPECT_LIVE_PG_VERSION: ${{ matrix.pg }}
+        run: |
+          log="$RUNNER_TEMP/inspect-live.log"
+          if ! go test ./test/inspectlive/ -v -count=1 -timeout 15m > "$log" 2>&1; then
+            cat "$log"
+            exit 1
+          fi
+          cat "$log"
+          if grep -q -- '--- SKIP' "$log"; then
+            echo 'a test skipped; the gate did not run'
+            exit 1
+          fi
+      - name: Server logs
+        if: failure()
+        run: docker compose -f test/inspectlive/compose.yaml logs --tail 100
+
+  # Cross-compilation depends on the commit and nothing else, so this
+  # no longer waits on the jobs above. Gating it behind them put the
+  # whole build after the slowest gate on every green run: four
+  # minutes of build after six of inspect-live, with nothing else
+  # running. A run that was going to fail now pays for a build it did
+  # not need, which is the cheaper of the two.
+  #
+  # One leg per release target, because the four were serial in one
+  # job. Each leg needs the full history: the version in LDFLAGS comes
+  # from `git describe`.
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+        run: make build-one GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }}

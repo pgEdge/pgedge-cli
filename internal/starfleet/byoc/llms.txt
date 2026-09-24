@@ -1,0 +1,248 @@
+# pgedge starfleet byoc
+
+> pgEdge BYOC infrastructure: clusters, databases, backups, backup stores, ingresses, SSH keys, cloud accounts and tasks.
+
+This is the byoc sub-reference of the starfleet module, printed by
+`pgedge llms starfleet byoc`. It covers only `pgedge starfleet byoc ...`
+commands. Authentication, the account-level resources and the
+connection every starfleet command shares are in the starfleet reference —
+run `pgedge llms starfleet`. Global flags, profiles, environment
+variables and exit codes are in the index — run `pgedge llms`.
+
+In every generated flags table below, the Default column shows the
+value a flag is declared with, and a blank cell is the type's zero
+value (an empty string, 0, false or an empty list). Where the CLI or
+the API supplies an effective default later, the Description says so.
+
+## Sub-reference: byoc
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc -->
+### pgedge starfleet byoc
+
+**Usage:** `pgedge starfleet byoc <command>`
+
+Manage pgEdge BYOC resources
+
+<!-- END GENERATED -->
+
+byoc manages pgEdge BYOC clusters, databases and services in your own
+cloud account. Authenticate once with `pgedge starfleet auth login`,
+then use the resource subcommands below.
+
+### Authentication
+
+byoc borrows the starfleet module's one connection, which reads
+credentials from two sources, in priority order:
+
+1. CLI flags: `--client-id` / `--client-secret`, persistent flags on
+   `pgedge starfleet` inherited by every byoc command.
+2. The active profile's `starfleet` section in
+   `~/.pgedge/cli/config.yaml`, written by `pgedge starfleet auth login`.
+
+The two flags must be supplied together. One without the other is a
+usage error (exit 2, `--client-id given without --client-secret`).
+
+### Connection Flags
+
+`--api-url`, `--client-id` and `--client-secret` are declared on `pgedge
+starfleet` and inherited by every byoc command, so their flag table is in
+`pgedge llms starfleet`. Combine any command with the global `-o`/`--output`
+flag (text, json, yaml) for machine-readable output.
+
+### Exit Codes
+
+The exit-code contract is CLI-wide and lives in the index: run
+`pgedge llms`. In short, 0 success, 1 general failure, 2 the command
+was malformed, 3 timed out, 4 not found, 5 authentication failed.
+
+### Paging
+
+The paging contract is CLI-wide and lives in the index: run `pgedge
+llms`. In short, omit a flag to take the server's default, and
+`--limit 0`, `--limit -1` or a negative `--offset` is exit 2 with
+nothing sent.
+
+**The CLI enforces no `--limit` ceiling anywhere in byoc**: a value
+above the server's cap is passed through and clamped, which the
+per-verb notes describe. The `Showing first N results...` hint is what
+makes that visible.
+
+### IDs
+
+**Every input that names a pgEdge resource takes a full UUID**:
+positional arguments and `--cluster-id`/`--database-id`/`--subject-id`
+alike. Anything else is exit 2, checked locally, with nothing sent.
+
+`--repository` on `database restore` is one of them, and it is the only
+such input whose name does not end `-id`. Its value comes from
+`backup-repository list`.
+
+**Six inputs are NOT that, in three kinds, and none is checked:**
+
+| flag | what it is |
+|---|---|
+| `--service-id` (and `<service_id>`) | 8-char hex the platform assigns, not a UUID |
+| `--tenant-id`, `--subscription-id`, `--azure-client-id` | the cloud provider's own identifiers, forwarded as credentials |
+| `--project-id` | a GCP project id, which is a name and can never be a UUID |
+
+Nodes are named, not identified: a node argument may be a NAME (see
+`node logs`), and `--nodes` and `--target-nodes` take names and are
+passed through for the same reason.
+
+An explicitly empty ID filter is exit 2: `database list --cluster-id ""`
+and `task list --subject-id ""` are refused rather than silently
+widened, since `--cluster-id "$C"` with the variable unset is how that
+happens. Omit the flag to list across all of them.
+
+### Plan entitlement
+
+Some byoc capabilities are plan-gated server-side: the API checks the
+active tenant's plan and answers a 400 whose body contains
+`plan does not allow ...` (wording varies by resource) when the plan
+doesn't cover it. The gated verbs are every read and create of a cloud
+account or a backup store, `cloud-account cloudformation-template`, and
+the creates of a cluster, a database and an SSH key. The CLI recognizes
+the shape and reports it at exit 5, naming `pgedge starfleet doctor` as
+the next step. An enterprise or BYOC plan has the capability, and pgEdge
+can grant it to a single tenant.
+
+Other byoc capabilities are not plan-gated at all, `cluster list` and
+`ssh-key list` among them, and answer 200 with an empty array
+regardless of the tenant's plan. **An empty list from one of these
+verbs proves nothing about entitlement**: a tenant with no resources
+and a tenant the plan excludes look identical. Run `pgedge starfleet
+doctor -o json` and read `tenant.plan` before reading an empty list as
+"no resources yet."
+
+### Destructive operations (`--force`)
+
+Eleven verbs prompt for confirmation and accept `--force` to skip it:
+the seven `delete` commands, plus `database service remove`,
+`database restore`, `database rotate-password` and
+`ingress service deregister`. The test is on STDIN: when stdin is not a
+terminal, as in a script, a CI job or an AI agent, these commands **fail
+with a usage error asking for --force**, so automation must pass
+`--force`. Piping or redirecting the OUTPUT does not make a command
+non-interactive. `database service remove` is irrecoverable: the removed
+service's configuration and credentials are discarded. `cluster delete`
+additionally accepts `--cascade` to also delete the cluster's databases
+and cloud infrastructure.
+
+### Dry-run checks
+
+`--dry-run` is a client dry run everywhere in this CLI: nothing is
+submitted, so a clean one means the checks it lists passed, not that
+the API will accept the request. In byoc the checks that matter are on
+`cluster create` and `cluster update`, and the `cluster` page lists
+them, including what is NOT checked (a cluster name, a region, an
+instance type).
+
+### Asynchronous operations (`--wait`, `--follow`)
+
+Operations that spawn a background task accept `--wait` and `--follow`:
+`create` and `delete` for clusters, databases, ingresses and backup
+stores, plus `cluster update`, `database restore`,
+`database rotate-password` and the database service writes (`mcp`,
+`postgrest` and `rag` `deploy`/`update`, and `service remove`). Without
+either flag the command returns once the request is accepted, not when
+the work completes. `--wait` blocks until the task reaches a terminal
+state, and `--follow` also streams the task's step messages. Both exit 0
+when the task succeeded, 1 when it failed and 3 on timeout. Metadata
+commands (ssh-key, cloud-account, cluster share) are synchronous and
+have neither flag.
+
+**There is no `task_id` in any byoc response.** A create returns the
+resource itself, and a service write returns the updated database, so
+capture the resource's `id` from the response and find the task by
+subject: `task list --subject-id <id>`, then `task wait <task_id>`.
+<!-- doc-gate: deliberately-wrong task_id — this sentence documents
+the field's absence -->
+
+**A succeeded task means the work finished, not that the resource is
+usable.** Confirm with the resource's own `get` and its `status`. For a
+service write, read `database service list <database_id> -o json`: a
+`state` of `failed` names a service that did not come up.
+
+### Resource status
+
+A cluster's, database's and backup store's `status` is a bare string in
+the contract. These are the values the platform sets:
+
+| Status | Meaning |
+|---|---|
+| `creating` | Being provisioned. |
+| `available` | Ready. The one to wait for. |
+| `modifying` | A change is in flight. |
+| `restoring` | A database restore is running. |
+| `maintenance` | A cluster upgrade is running. |
+| `deleting` | Being torn down. |
+| `failed` | The last operation failed. |
+| `degraded` | Up, but the last change did not fully apply. |
+| `archiving`, `archived` | A database being, or already, archived. |
+
+Compare a readiness check against `available`, never against "not
+`creating`": a resource can be `failed` or `degraded` without passing
+through `creating` again. A failed change leaves a database or cluster
+`degraded`, so stop polling a resource that reaches it and read the
+failed task: `task list --subject-id <id>`, then `task get`. A
+`degraded` resource still accepts writes. A deployed service reports `state`, not
+`status`, and its `state` is not a readiness signal: the `database mcp`
+and `database rag` pages say why.
+
+**A database accepts one change at a time.** A services write, a
+`database update` or a restore against a database that is neither
+`available` nor `degraded` is refused with 400 `database in
+unmodifiable state: <status>`, exit 1. Wait for `available` between
+writes, and read `database get` rather than retrying blind:
+`rotate-password` has its own refusal, described on the `database`
+page.
+
+### Built-in roles
+
+A byoc database ships three built-in roles, admin, app and
+app_read_only, and the privilege model differs from managed's. **byoc's
+delivered admin role is a real Postgres superuser.** It can create
+extensions and objects anywhere, including the public schema, and the
+ordinary one-shot pg_restore works, `--disable-triggers` included,
+because a real superuser may issue the statements it emits. That
+follows from the superuser property rather than from an observed byoc
+restore. managed's admin is not a superuser, so a data-load recipe
+does not carry from byoc to managed: see `pgedge llms starfleet
+managed loading-data`.
+
+### Tasks that span resources
+
+`pgedge llms starfleet byoc full-stack-setup` is the order of
+operations from a clean slate to a database with services: backup
+store, cluster, database, services, and an ingress on a private
+cluster. Each step's detail is on its resource's page.
+
+### Troubleshooting
+
+Run `pgedge doctor` for install diagnostics and the list of
+configured connections, then `pgedge starfleet doctor` for the
+Starfleet connection itself (credentials, token, reachability). Both
+honor `-o json`.
+
+---
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge starfleet byoc -->
+| Page | Read | Covers |
+|------|------|--------|
+| `backup` | `pgedge llms starfleet byoc backup` | Manage pgEdge BYOC backups |
+| `backup-repository` | `pgedge llms starfleet byoc backup-repository` | Inspect pgEdge BYOC backup repositories |
+| `backup-store` | `pgedge llms starfleet byoc backup-store` | Manage pgEdge BYOC backup stores |
+| `cloud-account` | `pgedge llms starfleet byoc cloud-account` | Manage pgEdge BYOC provider accounts |
+| `cluster` | `pgedge llms starfleet byoc cluster` | Manage pgEdge BYOC clusters |
+| `config-version` | `pgedge llms starfleet byoc config-version` | Inspect pgEdge BYOC configuration versions |
+| `database` | `pgedge llms starfleet byoc database` | Manage pgEdge BYOC databases |
+| `full-stack-setup` | `pgedge llms starfleet byoc full-stack-setup` | Provision a cluster, a database and its services from a clean slate |
+| `ingress` | `pgedge llms starfleet byoc ingress` | Manage pgEdge BYOC ingresses |
+| `node` | `pgedge llms starfleet byoc node` | Inspect cluster nodes |
+| `ssh-key` | `pgedge llms starfleet byoc ssh-key` | Manage pgEdge BYOC SSH keys |
+| `task` | `pgedge llms starfleet byoc task` | Inspect pgEdge BYOC tasks |
+<!-- END GENERATED ROUTING -->

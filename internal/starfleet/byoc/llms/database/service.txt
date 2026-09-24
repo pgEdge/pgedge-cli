@@ -1,0 +1,132 @@
+# pgedge starfleet byoc database service
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database service -->
+##### pgedge starfleet byoc database service
+
+**Usage:** `pgedge starfleet byoc database service <command>`
+
+Manage services deployed on a database
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database service list -->
+###### pgedge starfleet byoc database service list
+
+**Usage:** `pgedge starfleet byoc database service list <database_id>`
+
+List services deployed on a database
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database service list f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+**Example output (table):**
+
+```
+SERVICE ID  TYPE  STATE    ENDPOINT
+a7b8c9d0    mcp   running  https://mcp.a7b8c9d0.pgedge.io
+b8c9d0e1    rag   running  https://rag.b8c9d0e1.pgedge.io
+```
+
+Service IDs are platform-generated 8-character hex strings, not full
+UUIDs — the `<service-id>` argument other commands take is this
+value, read from the `SERVICE ID` column (or the JSON `service_id`
+field). The column is `STATE`, not `STATUS`.
+
+There is no `PORT` column. The API's `port` field is the service's
+INTERNAL port — dialing it directly fails with
+`SSL:WRONG_VERSION_NUMBER`, since it isn't the TLS-terminating
+ingress. `ENDPOINT` is the locator to actually dial: `https://` plus
+the public domain when the service is publicly exposed, or the
+private domain (and internal port, for a caller on that private
+network) when it isn't. Raw `port`/`public_domain`/`private_domain`
+are still on the JSON object under `-o json`.
+
+`ENDPOINT` is the bare origin, not a full path: a deployed MCP
+server speaks streamable-HTTP MCP at `POST <endpoint>/mcp/v1`, the
+client appends that path itself. See `pgedge llms starfleet managed
+connecting-a-client` for the worked example and header requirements; the two products' clients speak the
+same protocol at the same path, just reached through a different
+column here.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database service get -->
+###### pgedge starfleet byoc database service get
+
+**Usage:** `pgedge starfleet byoc database service get <database_id> <service_id>`
+
+Show details of a service
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database service get \
+    f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    a7b8c9d0
+```
+
+`get` shares its columns with `list` (`SERVICE ID`, `TYPE`, `STATE`,
+`ENDPOINT`) — the output is a one-row table, not a FIELD/VALUE block.
+
+**Example output (table):**
+
+```
+SERVICE ID  TYPE  STATE    ENDPOINT
+a7b8c9d0    mcp   running  https://mcp.a7b8c9d0.pgedge.io
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database service remove -->
+###### pgedge starfleet byoc database service remove
+
+**Usage:** `pgedge starfleet byoc database service remove <database_id> <type> [flags]`
+
+Remove a service type from a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Remove a service type (mcp, rag or postgrest) from a database.
+Irrecoverable: the service's configuration and credentials are
+discarded. It prompts for confirmation and is asynchronous, as the
+index's "Destructive operations" and "Asynchronous operations"
+sections describe (`pgedge llms starfleet byoc`).
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database service remove \
+    f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    mcp
+```
+
+**Example output (table):**
+
+```
+Service type "mcp" removal requested for database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---

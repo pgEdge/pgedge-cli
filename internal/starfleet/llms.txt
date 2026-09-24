@@ -1,0 +1,208 @@
+# pgedge starfleet
+
+> Starfleet: authentication, the account-level resources (API clients, invites, memberships, tenant), and the byoc and managed sub-trees.
+
+This is the starfleet module's reference. It covers `pgedge starfleet ...`
+commands at the starfleet level. The two product sub-trees ship their own
+sub-references, printed by `pgedge llms starfleet byoc` and
+`pgedge llms starfleet managed`; read the one you are working in rather
+than both. Global flags, profiles, environment variables and exit
+codes are in the index — run `pgedge llms` for those.
+
+In every generated flags table below, the Default column shows the
+value a flag is declared with, and a blank cell is the type's zero
+value (an empty string, 0, false or an empty list). Where the CLI or
+the API supplies an effective default later, the Description says so.
+
+## Module: starfleet
+
+starfleet manages Starfleet: authentication, the account-level
+resources of the Starfleet API, and the two infrastructure sub-trees.
+Authenticate once with `pgedge starfleet auth login`, and every
+starfleet subcommand, byoc and managed included, shares that
+connection and its cached token.
+
+This reference covers `api`, `auth`, `client`, `doctor`, `invite`,
+`membership` and `tenant`. `byoc` and `managed` have sub-references of
+their own. The account-level verbs finish before they exit, so `--wait`
+belongs to byoc and managed writes only.
+
+### Authentication
+
+Three credential sources, in priority order:
+
+1. CLI flags: `--client-id` / `--client-secret` (persistent flags on
+   `pgedge starfleet`)
+2. Environment: `PGEDGE_CLIENT_ID` / `PGEDGE_CLIENT_SECRET`
+3. Profile: the active profile's `starfleet` section in
+   `~/.pgedge/cli/config.yaml`, with the secret in the OS keychain
+   (or in that section's `client_secret` when `auth login` could not
+   use a keychain)
+
+The two flags must be supplied together. One without the other is a
+usage error (exit 2, `--client-id given without --client-secret`). The
+two environment variables follow the same rule. A half-filled
+`starfleet` section (only one of `client_id`/`client_secret` set, with
+no keychain entry) resolves as "no credentials found".
+
+The environment pair is a separate profile that is never saved. It
+takes no credential or API URL from the config file and writes nothing
+to it, targets the production API unless `--api-url` is passed, and
+never reads or writes the token cache. The config file's other
+settings, such as the output format, still apply, and a malformed
+file still fails the command.
+`--profile` given while the pair is set is exit status 2.
+
+The token is cached at `~/.pgedge/cli/cache/<profile>-starfleet.json`,
+bound to the credential and API base URL that minted it. Change either,
+in the profile or with a flag, and the next command exchanges a fresh
+token, so a token only ever goes to the endpoint that minted it.
+`pgedge starfleet auth logout` removes the active profile's cache file
+and keychain entry, and leaves other profiles' tokens alone.
+
+### Starfleet Module Flags
+
+The four connection flags are declared on `pgedge starfleet` and
+inherited by every subcommand. The `pgedge starfleet` command reference
+below has the flag table. Combine with the global `-o`/`--output` flag
+(text, json, yaml) for machine-readable output.
+
+### Request Timeout
+
+`--timeout` (a Go duration) bounds every API call end to end. Raise it
+for a slow proxy, or pass `0` to remove the bound. `--wait-timeout`
+bounds a `--wait` as a whole, and a single request that times out
+during the wait ends it at exit 1.
+
+**A timeout is exit 3**, whether `--timeout`, `--wait-timeout` or a
+server 408/504 produced it. stdout stays empty and stderr says which.
+Two exceptions: a hung token exchange is exit 5, and `starfleet doctor`
+exits 0 and reports the endpoint as unreachable.
+
+**After exit 3, check state before repeating a write.** A read is safe
+to repeat, but a create or delete may already have reached the server.
+
+### Exit Codes
+
+The exit-code contract is CLI-wide and lives in the index: run
+`pgedge llms`. In short — 0 success, 1 general failure, 2 the command
+was malformed, 3 timed out, 4 not found, 5 authentication failed.
+
+<!-- BEGIN GENERATED: pgedge starfleet -->
+## pgedge starfleet
+
+**Usage:** `pgedge starfleet <command> [flags]`
+
+Manage pgEdge Starfleet
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--api-url string` | No |  | pgEdge Starfleet API base URL (default https://api.pgedge.com) |
+| `--client-id string` | No |  | API client ID (overrides profile config) |
+| `--client-secret string` | No |  | API client secret (overrides profile config) |
+| `--timeout duration` | No | `30s` | Per-request timeout (Go duration; 0 disables) |
+
+<!-- END GENERATED -->
+
+### pgedge starfleet
+
+Print the module's help: what `starfleet` covers and the persistent
+flags every subcommand inherits.
+
+**Example:**
+
+```bash
+pgedge starfleet
+pgedge starfleet --help
+```
+
+Flags: --api-url, --client-id, --client-secret, --timeout
+
+Expected: the module description, usage and flag list on stdout,
+exit 0.
+
+### Workflows
+
+---
+
+#### Team Onboarding
+
+Invite a new member to the Starfleet organization and confirm they
+joined. **Issuing and accepting an invite need a signed-in user**, so
+`invite create` and `invite accept` exit 5 from the CLI. The CLI's part
+is tracking and tidying up.
+
+**Step 1: Create the invite in the Starfleet UI**, from the Team page,
+as an organization admin.
+
+**Step 2: Track it from the CLI**
+
+```bash
+pgedge starfleet invite list
+pgedge starfleet invite get <invite-id> -o json
+```
+
+An invite has no `status` field, and `token`/`accept_url` are not on
+every invite. **Check the exit code before the absence**: a failed read
+and an empty list both leave stdout empty. On a non-zero exit the
+invite is UNVERIFIED, so relay the error. On exit 0 with no match, read
+again later before reporting it missing.
+
+**Step 3: The member accepts**, from the invitation email or the UI.
+
+**Step 4: Verify membership**
+
+```bash
+pgedge starfleet membership list
+```
+
+The new member's email appears in the `USER EMAIL` column. **Check the
+exit code before the absence**: a failed read also shows no email. On a
+non-zero exit the membership is UNVERIFIED, so relay the error and
+delete nothing. On exit 0 with no email, the member has not accepted
+yet; take Step 5 only if the address itself was wrong.
+
+**Step 5: Tidy up, if the invite went to the wrong address**
+
+```bash
+pgedge starfleet invite delete <invite-id> --force
+```
+
+**Error handling:**
+
+| Exit Code | Meaning | Recovery |
+|-----------|---------|----------|
+| 0 | Success | Continue to next step |
+| 1 | General error (validation, expired invite, bad `--email`) | Read stderr; re-create the invite if needed |
+| 3 | A request timed out, or the server answered 408/504 | Check connectivity, or raise `--timeout` on a slow link |
+| 4 | Invite not found | Verify the invite ID with `pgedge starfleet invite list` |
+| 5 | Authentication or authorization failure | Confirm the org admin role; run `pgedge starfleet auth login` if needed |
+
+---
+
+### Troubleshooting
+
+Run `pgedge doctor` for install diagnostics and the list of
+configured connections, then `pgedge starfleet doctor` for the Starfleet
+connection itself (credentials, token, reachability). Both honor
+`-o json`.
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge starfleet -->
+| Page | Read | Covers |
+|------|------|--------|
+| `api` | `pgedge llms starfleet api` | Call any Starfleet API path over the module's connection |
+| `auth` | `pgedge llms starfleet auth` | Manage pgEdge Starfleet authentication |
+| `client` | `pgedge llms starfleet client` | Manage pgEdge Starfleet API clients |
+| `doctor` | `pgedge llms starfleet doctor` | Diagnose the pgEdge Starfleet connection |
+| `invite` | `pgedge llms starfleet invite` | Manage pgEdge Starfleet team invites |
+| `membership` | `pgedge llms starfleet membership` | Manage pgEdge Starfleet team memberships |
+| `tenant` | `pgedge llms starfleet tenant` | Manage your pgEdge Starfleet tenant |
+| `byoc` | `pgedge llms starfleet byoc` | Manage pgEdge BYOC resources |
+| `managed` | `pgedge llms starfleet managed` | Manage pgEdge Managed databases |
+<!-- END GENERATED ROUTING -->

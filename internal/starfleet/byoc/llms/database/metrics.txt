@@ -1,0 +1,102 @@
+# pgedge starfleet byoc database metrics
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database metrics -->
+##### pgedge starfleet byoc database metrics
+
+**Usage:** `pgedge starfleet byoc database metrics <database_id> [flags]`
+
+Read a database's metrics
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--columns string` | No |  | Comma-separated metric names to return |
+| `--interval string` | No |  | How far back to read, as value,unit; omitted, the API reads 15 minutes |
+| `--node-name string` | No |  | Only metrics for this node name |
+
+<!-- END GENERATED -->
+
+Read the Postgres and container metrics collected for a database.
+
+The response is one wide series: around 80 columns, from database size
+and table counts through container CPU and memory to the Spock
+subscription counters, and one row per sample. The series' own name is
+empty, and its time column is a raw epoch in **milliseconds**, unlike
+`cluster metrics`, whose sample timestamps are in seconds. Nothing in
+the CLI reinterprets either.
+
+Table output cannot be an 80-column grid, so it shows the **most recent
+sample transposed**: one row per metric carrying its newest value.
+Narrow it with `--columns`, or use `-o json` for every sample.
+
+**"Most recent" means the largest `time`, not the last row.**
+Rows have been observed oldest-first, but nothing guarantees that
+order, so this command reads the column rather than trusting the
+position. The contract types `MetricSeries.values` as an array of
+arrays of `{}`, so a cell can hold anything: a row whose `time` cell
+is not a number loses to any row whose is, wherever it sits, and row
+position decides only where no row carries a readable `time`.
+The match on `time` is exact, because the series carries six other
+columns whose names contain "time", including three
+`pg_stat_replication_reply_time_nN`.
+
+On managed, an instance replacement can report two samples at one
+timestamp, and that series carries
+<!-- doc-gate: deliberately-wrong instance_name — named in a byoc
+section precisely to record that byoc's series does not carry it -->
+`instance_name` where byoc's carries `node_name`. Whether two byoc
+nodes can report at one timestamp is unknown. On a tie the last of the
+tied rows is shown.
+
+**A FULL-LENGTH sample is preferred to a short one.** The transposed
+table stops at the last cell a row has, so a row carrying fewer cells
+than there are columns renders fewer metrics, silently. SHORT rows are
+therefore skipped while any full-length row remains, and the newest
+short row is still shown when none is. A row carrying MORE cells than
+there are columns is not skipped: the extra cells are never read and it
+renders every column. This is not managed's completeness rule — it
+says nothing about a null CELL, and no observed byoc response has
+carried one.
+
+**So the sample shown can be older than the newest row `-o json`
+carries**, and nothing says so on stderr. The printed `time` row is
+what identifies the sample you were given; if it does not match the
+largest `time` under `-o json`, the newest row was short.
+
+Values are printed as the API sends them: not rounded, not rescaled.
+
+`--interval` is a lookback window, not a grouping: the API returns
+every sample newer than now minus the interval, and reads 15 minutes
+back when the flag is omitted. It takes value,unit form (`5,minute`,
+`2,hours`) with second, minute, hour, day, week, month or year as the
+unit. A malformed value is exit 2 before the request, where the API
+would answer `500 failed to read metrics`, not a 400. A zero is exit 2
+as well: the API accepts it and answers 200 with an empty series,
+which reads as a database with no metrics. `--columns` is not
+validated, and a name the API does not recognize is that same 500. An
+unknown `--node-name` answers 200 with a null series, reported as
+`No metrics found.`
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database metrics 11111111-2222-4333-8444-555555555501
+pgedge starfleet byoc database metrics f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --columns pg_database_size_bytes
+pgedge starfleet byoc database metrics f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --interval 5,minute -o json
+```
+
+**Table output.** The table is two columns, `METRIC` and `VALUE`, with
+one row per column in the series — around eighty, including the whole
+`pg_container_*` family — in the order the API lists them, and each row
+carrying that metric's value in the sample chosen above. It is neither
+a selection nor sorted, so a few-row excerpt in name order is a table
+this command cannot print. `--columns` is what shortens it. A sample
+carrying fewer cells than there are columns stops the walk, so the
+trailing metrics are then absent rather than blank.

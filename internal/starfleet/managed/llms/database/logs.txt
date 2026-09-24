@@ -1,0 +1,46 @@
+# pgedge starfleet managed database logs
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database logs -->
+##### pgedge starfleet managed database logs
+
+**Usage:** `pgedge starfleet managed database logs <database_id> [flags]`
+
+Read a managed database's logs
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--end-time string` | No |  | Window end as an RFC3339 timestamp |
+| `--max-lines int` | No |  | Maximum log records to return, 1 to 1000 (API default 100) |
+| `--start-time string` | No |  | Window start as an RFC3339 timestamp |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database logs
+
+Read Postgres log records from a managed database. Records print newest
+first, in the order the API returns them. Text output prints one line
+per record, timestamp, level and message, with the timestamp rendered as
+RFC3339 in UTC, while json and yaml carry the API's epoch in
+milliseconds. A record missing a field, or carrying an empty or mistyped
+one, prints `-` in that position rather than failing. The payload
+differs from BYOC's: a BYOC database's logs arrive as one block per
+node, each a list of plain strings, while a managed database's are one
+flat list of records, so a BYOC log parser does not carry over.
+`--max-lines` takes 1 to 1000, the API defaults it to 100, and a value
+outside that range is exit 2 before any request. A window with no
+records is exit 0, and text output prints `No logs found.`.
+`docs/managed/logs-and-metrics.md` of the pgEdge/pgedge-cli repository
+describes the record shape and reading logs around a failed task.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database logs e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --max-lines 500 -o json
+```

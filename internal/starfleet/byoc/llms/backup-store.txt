@@ -1,0 +1,193 @@
+# pgedge starfleet byoc backup-store
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-store -->
+#### pgedge starfleet byoc backup-store
+
+**Usage:** `pgedge starfleet byoc backup-store <command>`
+
+Manage pgEdge BYOC backup stores
+
+<!-- END GENERATED -->
+
+#### backup-store
+
+Manage pgEdge BYOC backup stores — the remote storage targets where
+database backups are written.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-store list -->
+##### pgedge starfleet byoc backup-store list
+
+**Usage:** `pgedge starfleet byoc backup-store list [flags]`
+
+List backup stores
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--created-after string` | No |  | Filter: created after this RFC3339 timestamp |
+| `--created-before string` | No |  | Filter: created before this RFC3339 timestamp |
+| `--limit int` | No |  | Maximum number of results to return (API default 10) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+When a page comes back full (10 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-store list
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME         STATUS     CLOUD ACCOUNT ID                      CREATED AT
+f2a3b4c5-d6e7-8901-fabc-012345678901  primary-bkp  available  c3d4e5f6-a7b8-9012-cdef-123456789012  2026-01-10
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-store get -->
+##### pgedge starfleet byoc backup-store get
+
+**Usage:** `pgedge starfleet byoc backup-store get <backup_store_id>`
+
+Show backup store details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-store get f2a3b4c5-d6e7-8901-fabc-012345678901
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME         STATUS     CLOUD ACCOUNT ID                      CREATED AT
+f2a3b4c5-d6e7-8901-fabc-012345678901  primary-bkp  available  c3d4e5f6-a7b8-9012-cdef-123456789012  2026-01-10
+```
+
+`-o json` adds `cloud_account_type` and `cluster_ids`. There is no
+`region` field on a backup store, so a region you set at create time
+is never read back. `--region` is optional on `create` — omit it and
+the API chooses — but it cannot be changed afterward.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-store create -->
+##### pgedge starfleet byoc backup-store create
+
+**Usage:** `pgedge starfleet byoc backup-store create [flags]`
+
+Create a backup store
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cloud-account-id string` | Yes |  | Cloud account to attach (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--name string` | Yes |  | Backup store name |
+| `--region string` | No |  | Region for the backup store; cannot be changed later (omit to let the API choose) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-store create \
+    --name primary-bkp \
+    --cloud-account-id c3d4e5f6-a7b8-9012-cdef-123456789012 \
+    --region us-east-1
+```
+
+**Example output (table):**
+
+```
+Backup store "primary-bkp" created (id: f2a3b4c5-d6e7-8901-fabc-012345678901, status: creating).
+Monitor with: pgedge starfleet byoc task list --subject-id f2a3b4c5-d6e7-8901-fabc-012345678901
+```
+
+The name becomes part of a bucket or container name, so the API
+limits it by cloud, and the CLI checks none of it:
+
+| Cloud | Longest name | Characters |
+|---|---|---|
+| AWS | 14 | lowercase letters, digits, hyphens |
+| GCP | 14 | lowercase letters, digits, hyphens, underscores, dots |
+| Azure | 19 | lowercase letters, digits, hyphens |
+
+A longer name is refused with 400 `name must be 1-14 characters long`
+(`1-19` on Azure).
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-store delete -->
+##### pgedge starfleet byoc backup-store delete
+
+**Usage:** `pgedge starfleet byoc backup-store delete <backup_store_id> [flags]`
+
+Delete a backup store
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-store delete f2a3b4c5-d6e7-8901-fabc-012345678901 \
+    --force
+```
+
+**Example output (table):**
+
+```
+Backup store f2a3b4c5-d6e7-8901-fabc-012345678901 deleted.
+Monitor with: pgedge starfleet byoc task list --subject-id f2a3b4c5-d6e7-8901-fabc-012345678901
+```
+
+A delete is refused with 400 while any cluster uses the store
+(`backup store is in use by clusters`), and while it is in a status
+other than `available`, `degraded`, `failed`, `archived` or
+`suspended`.
+
+**On AWS, a store is deleted only when its bucket is empty.** A
+non-empty one is refused with 400 `bucket is not empty`, or `log bucket
+is not empty` for its logging bucket. pgEdge never deletes customer
+backup data, so a deleted database's backups stay in the store, since
+they may be its last copy. Delete the objects you no longer want yourself, every
+object version, since the buckets are versioned, then retry.
+`backup-store get -o json` names the bucket in
+`properties.bucket_name`. GCP and Azure stores get no such check before
+the delete is accepted.
+
+---

@@ -1,0 +1,236 @@
+# pgedge starfleet managed task
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed task -->
+#### pgedge starfleet managed task
+
+**Usage:** `pgedge starfleet managed task <command>`
+
+Inspect pgEdge Managed tasks
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed task
+
+Inspect the asynchronous tasks the platform spawns for `database
+create`, `resize` and `delete`, for `backup create` and `backup
+restore`, for every services and allowlist write, for `rotate-password`
+and for `database branch create` and `delete`. A branch's tasks have
+the branch as their subject, not the database.
+
+Tasks are scoped per product. A managed database's tasks are served
+under `/managed/v1/tasks` and appear here — **not** under `pgedge
+starfleet byoc task`, which reads a different collection.
+
+Prefer `--wait` on the mutating verb over polling these by hand. These
+are for after the fact: finding out why something failed, or attaching
+to work another process started.
+
+**Example:**
+
+```bash
+pgedge starfleet managed task list --subject-id <database_id>
+pgedge starfleet managed task wait <task_id>
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed task list -->
+##### pgedge starfleet managed task list
+
+**Usage:** `pgedge starfleet managed task list [flags]`
+
+List tasks
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--limit int` | No |  | Maximum number of results to return (API default 25) |
+| `--name string` | No |  | Filter by task name (e.g. rotate-password-managed) |
+| `--offset int` | No |  | Offset into the results for pagination |
+| `--status string` | No |  | Filter by status (queued, running, succeeded, failed) |
+| `--subject-id string` | No |  | Filter by subject (full UUID) |
+| `--subject-kind string` | No |  | Filter by subject kind |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed task list
+
+List recent tasks, newest first.
+
+Expected: an ID, NAME, STATUS, SUBJECT, CREATED table. SUBJECT is
+`<kind>/<id>`, so a managed database's tasks read
+`database/<database_id>`.
+
+Filter with `--subject-id` for one database's history, `--status
+failed` to find what went wrong, or `--name` for one KIND of operation
+— which is how you reach a `rotate-password-managed` task, since the
+verb returns no id. `--name` is a free-form string with no enum in the
+contract, so an unknown name matches nothing rather than being
+refused.
+
+A wrong name is therefore indistinguishable from no such task. Taking
+the newest task of any name is wrong, because two tasks stamped in the
+same second are not unusual. The names this page can vouch for:
+
+- `rotate-password-managed` for a rotation.
+- `update-managed-size` for a resize: an infix, where the others use a
+  suffix.
+- `update-managed` for every services write, so the filter cannot tell
+  an `mcp deploy` from a `rag update`, and also for an allowlist write
+  on a service endpoint, which is a services write on the wire.
+- `update-managed-ip-allowlists` for an allowlist write on the Postgres
+  endpoint.
+- `backup-managed` for `backup create`, which reaches `succeeded` while
+  the backup record is still `pending`: poll the backup record instead.
+- `create-branch` for `database branch create`, on the branch as
+  subject.
+
+The vocabulary is wider than this list and varies by tenant. Read the
+names in use with `task list --subject-id <id> -o json` and look at
+the `name` field.
+
+The server returns **25 rows by default**, and a `--limit` **above 100
+is clamped** — `--limit 500` gives you 100 rows. The contract publishes
+neither number, so the CLI refuses no value here; what it does instead
+is print a `Showing first N results...` hint to stderr when a page
+comes back full, so the clamp is visible. The API reports no total, so
+a hint means more rows MIGHT exist, not that they do.
+
+**Example:**
+
+```bash
+pgedge starfleet managed task list
+pgedge starfleet managed task list --subject-id <database_id>
+pgedge starfleet managed task list --status failed --limit 20
+pgedge starfleet managed task list --subject-id <database_id> \
+  --name update-managed
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed task get -->
+##### pgedge starfleet managed task get
+
+**Usage:** `pgedge starfleet managed task get <task_id>`
+
+Show task details
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed task get
+
+Show one task by ID. Exits 4 if no task has that ID.
+
+Text output shows the summary row and then a detail block: the task's
+full `created_at` and `updated_at`, its newest step with that step's
+status and progress, and the failure reason when it has one. The row's
+CREATED column is a date alone, so the block is where two tasks on one
+subject minutes apart are told apart.
+
+Use `-o json`/`-o yaml` for the whole `messages` array — the complete
+per-step trace, of which text shows only the last entry.
+
+**A rotation's task reports success but cannot report failure.** A
+rotation that fails leaves its task non-terminal, so waiting on it can
+only end in a timeout, and that timeout means the outcome is unknown:
+the database may already have applied the credential. Do not rotate
+again on a timeout, because that risks replacing a credential already
+in place. Read `task get`'s timestamps rather than its status, because
+a stuck task and a running one both report `running`. Compare
+`updated_at` against the current time, not against `created_at`: a
+task still `queued` or `running` whose `updated_at` has stopped
+advancing has stopped progressing, while a healthy one that finished
+inside the API's one-second timestamp resolution shows the two equal.
+Rotating a role a service connects as ends by restarting that service
+onto the new password: RAG connects as app_read_only, and so does MCP
+unless its writes are allowed, when it connects as app. So a stuck
+task can also mean the database has the new credential while that
+service still uses the old one. Testing either credential needs a connection attempt, which is
+outside this CLI.
+
+**Example:**
+
+```bash
+pgedge starfleet managed task get <task_id>
+pgedge starfleet managed task get <task_id> -o yaml
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed task wait -->
+##### pgedge starfleet managed task wait
+
+**Usage:** `pgedge starfleet managed task wait <task_id> [flags]`
+
+Wait for a task to complete
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--follow` | No |  | Stream the task's step messages instead of bare status lines |
+| `--wait-interval int` | No | `5` | Polling interval in seconds |
+| `--wait-timeout int` | No | `600` | Maximum seconds to wait for task completion |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed task wait
+
+Block until a task reaches a terminal state.
+
+Exit codes: **0** succeeded, **1** failed, **3** timed out, **4** no
+such task. A failed task's own message is appended to the error when it
+carries one; a task that failed without a message reports only that it
+failed.
+
+**Exit 4 is immediate, not a wait.** An unknown ID is an error, not a
+task that has yet to appear — so a task read straight after a mutation
+may need a moment before it can be waited on.
+
+Use this to attach to work already in flight. For work this CLI is
+starting, `--wait` on the mutating verb is better: it captures the
+subject's newest task *before* the mutation, so it cannot mistake an
+earlier task for the new one — and it absorbs that appearance delay,
+which this verb cannot.
+
+`--follow` streams the task's step messages as they appear, in place of
+the bare status lines. This verb always blocks, so here the flag
+changes only what is printed.
+
+The step messages are byte-identical to what `--follow` on the mutating
+verb streams. What differs is the lines around them:
+
+- **Either outcome.** The mutating verb announces the task it
+  discovered (`Tracking task <id>...`) before any step message, and in
+  text mode prints its own mutation confirmation first as well. This
+  verb prints neither — it was handed the ID. Both lines appear on the
+  failing path too, so their presence says nothing about how the task
+  ends.
+- **Text mode.** Neither verb writes anything to stdout, on success or
+  on failure, so **gate on the exit code**.
+- **`-o json`.** Both write to stdout, but not the same object. This
+  verb writes the TASK, so its `status` and `error` describe the
+  outcome. The mutating verb writes the RESOURCE **as it stood before
+  the task ran** and never refreshes it, so a failed create still shows
+  the status it had on acceptance and carries no error — its stdout is
+  byte-identical whether the task succeeds or fails. Gate on this
+  verb's stdout; do not gate on the mutating verb's.
+- **Terminal line.** On success this verb ends `Task <id>: succeeded`,
+  the mutating verb ends the same with a period, and under `-o json`
+  this verb prints no terminal line at all. On failure both print the
+  same `Error: task <id> failed` line — with `: <reason>` appended when
+  the task carries one — and exit 1, in either mode, because the
+  command returns an error and that is what prints it.
+
+Reach for it whenever no `--follow` was passed at mutation time —
+someone else's restore, one begun in a session that has ended, or one
+this CLI started without the flag. Streaming is otherwise unavailable
+after the fact; `task get -o json` still shows the messages as a
+snapshot.
+
+**Example:**
+
+```bash
+pgedge starfleet managed task wait <task_id>
+pgedge starfleet managed task wait <task_id> --wait-timeout 900 --wait-interval 10
+pgedge starfleet managed task wait <task_id> --follow
+```

@@ -1,0 +1,135 @@
+# pgedge starfleet tenant
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet tenant -->
+### pgedge starfleet tenant
+
+**Usage:** `pgedge starfleet tenant <command>`
+
+Manage your pgEdge Starfleet tenant
+
+<!-- END GENERATED -->
+
+#### tenant
+
+Manage the tenant record for your Starfleet account: list, get and
+update. There is no create or delete — the spec exposes only
+`GET /account/v1/tenants`, `GET /account/v1/tenants/{id}` and
+`PATCH /account/v1/tenants/{id}`.
+
+`Tenant` carries more optional fields than `ApiClient` or `Invite`:
+`domain`, `external_id`, `plan`, `plan_expires_at` and `plan_trial`
+are all optional. `plan_trial` renders in the `TRIAL` column as
+`yes`/`no`, and an unset value renders as a blank cell, never as the
+literal word "no".
+
+Field names differ by format:
+
+- `-o json` uses the API's own snake_case keys — `id`, `name`,
+  `created_at`, `updated_at` (always present, strings), plus
+  `domain`, `external_id`, `plan`, `plan_expires_at` (strings) and
+  `plan_trial` (bool), all five `omitempty`: an unset one is omitted
+  entirely rather than rendered `null`. `list` returns a bare array
+  of these objects with no wrapping envelope; `get` and `update`
+  return one bare object, also unwrapped.
+- `-o yaml` uses those same keys: `id`, `name`, `domain`,
+  `external_id`, `plan`, `plan_expires_at`, `plan_trial`,
+  `created_at`, `updated_at`. It honors `omitempty` exactly as json
+  does, so an unset optional field is absent from both formats rather
+  than rendered `null` in yaml alone.
+- Table output columns, in order: `ID`, `NAME`, `PLAN`, `TRIAL`,
+  `DOMAIN`, `CREATED`. There is no column for `external_id` or
+  `plan_expires_at`; read those with `-o json`/`-o yaml`.
+
+A missing key and an explicit JSON `null` are indistinguishable in
+both formats, because the CLI's typed response parsing unmarshals
+both into the same `nil` pointer. Use `--debug` to see which one the
+wire carried.
+
+<!-- BEGIN GENERATED: pgedge starfleet tenant list -->
+#### pgedge starfleet tenant list
+
+**Usage:** `pgedge starfleet tenant list`
+
+List tenants
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet tenant list
+pgedge starfleet tenant list -o json
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME  PLAN   TRIAL  DOMAIN        CREATED
+d1e2f3a4-b5c6-7890-def0-123456789abc  acme  scale  no     acme.example  2026-02-10
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet tenant get -->
+#### pgedge starfleet tenant get
+
+**Usage:** `pgedge starfleet tenant get <tenant_id>`
+
+Show tenant details
+
+<!-- END GENERATED -->
+
+Get details for a specific tenant. Same fields and column order as
+`tenant list`, for one tenant.
+
+**Example:**
+
+```bash
+pgedge starfleet tenant get d1e2f3a4-b5c6-7890-def0-123456789abc
+pgedge starfleet tenant get d1e2f3a4-b5c6-7890-def0-123456789abc -o yaml
+```
+
+The `<tenant_id>` argument must be a UUID; an invalid one fails
+before any request is made.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet tenant update -->
+#### pgedge starfleet tenant update
+
+**Usage:** `pgedge starfleet tenant update <tenant_id> [flags]`
+
+Rename a tenant
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | No |  | New name for the tenant |
+
+<!-- END GENERATED -->
+
+Change a tenant's name. `UpdateTenantInput` carries only `Name`, so
+`--name` is the only flag and the name is the only field the `PATCH`
+can ever send.
+
+Passing no `--name` is a usage error (exit 2, "nothing to update —
+pass --name") and sends no request at all. The `<tenant_id>` argument
+must be a UUID; an invalid one fails before any request is made.
+
+**Example:**
+
+```bash
+pgedge starfleet tenant update d1e2f3a4-b5c6-7890-def0-123456789abc \
+    --name acme-renamed
+```
+
+On success it renders the updated tenant with the same columns and
+keys as `tenant get`.
+
+---

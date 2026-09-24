@@ -1,0 +1,301 @@
+# pgedge starfleet byoc ingress
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress -->
+#### pgedge starfleet byoc ingress
+
+**Usage:** `pgedge starfleet byoc ingress <command>`
+
+Manage pgEdge BYOC ingresses
+
+<!-- END GENERATED -->
+
+#### ingress
+
+Manage pgEdge BYOC ingresses — regional load balancers that route external
+traffic to database services such as the MCP or RAG server.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress list -->
+##### pgedge starfleet byoc ingress list
+
+**Usage:** `pgedge starfleet byoc ingress list [flags]`
+
+List ingresses
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--created-after string` | No |  | Filter: created after this RFC3339 timestamp |
+| `--created-before string` | No |  | Filter: created before this RFC3339 timestamp |
+| `--limit int` | No |  | Maximum number of results to return (API default 10) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+When a page comes back full (10 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress list
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME          STATUS     CLUSTER ID                            REGION     DOMAIN  CREATED
+c5d6e7f8-a9b0-1234-cdef-345678901234  prod-ingress  available  a1b2c3d4-e5f6-7890-abcd-ef1234567890  us-east-1          2026-02-10
+```
+
+`available` here is shown by analogy with cluster/database/backup-store,
+which all reach it — it is **not independently confirmed for ingress**.
+Every ingress observed so far was `failed` or `deleting`, and the
+contract's `Ingress.status` has no enum to confirm it from either.
+Treat a healthy ingress's exact status word as unverified until you
+observe it.
+
+`DOMAIN` is blank for the same reason. The column renders `domain`,
+which the spec describes as the ingress's full wildcard domain, and a
+failed ingress carries no value. Expect it to fill on a healthy
+ingress.
+
+`-o json` returns `cloud_account_id` as well, which no column shows.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress get -->
+##### pgedge starfleet byoc ingress get
+
+**Usage:** `pgedge starfleet byoc ingress get <ingress_id>`
+
+Show ingress details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress get c5d6e7f8-a9b0-1234-cdef-345678901234
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME          STATUS     CLUSTER ID                            REGION     DOMAIN  CREATED
+c5d6e7f8-a9b0-1234-cdef-345678901234  prod-ingress  available  a1b2c3d4-e5f6-7890-abcd-ef1234567890  us-east-1          2026-02-10
+```
+
+`Status` here carries the same caveat as `ingress list` above:
+`available` is analogy-derived, not independently confirmed for
+ingress.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress create -->
+##### pgedge starfleet byoc ingress create
+
+**Usage:** `pgedge starfleet byoc ingress create [flags]`
+
+Create an ingress
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cluster-id string` | Yes |  | Cluster to associate with the ingress (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--name string` | Yes |  | Ingress name |
+| `--region string` | Yes |  | Cloud region for the ingress |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress create \
+    --name prod-ingress \
+    --cluster-id a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    --region us-east-1
+```
+
+**Example output (table):**
+
+```
+Ingress "prod-ingress" created (id: c5d6e7f8-a9b0-1234-cdef-345678901234, status: creating).
+Monitor with: pgedge starfleet byoc task list --subject-id c5d6e7f8-a9b0-1234-cdef-345678901234
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress delete -->
+##### pgedge starfleet byoc ingress delete
+
+**Usage:** `pgedge starfleet byoc ingress delete <ingress_id> [flags]`
+
+Delete an ingress
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress delete c5d6e7f8-a9b0-1234-cdef-345678901234 --force
+```
+
+**Example output (table):**
+
+```
+Ingress c5d6e7f8-a9b0-1234-cdef-345678901234 deleted.
+Monitor with: pgedge starfleet byoc task list --subject-id c5d6e7f8-a9b0-1234-cdef-345678901234
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress service -->
+##### pgedge starfleet byoc ingress service
+
+**Usage:** `pgedge starfleet byoc ingress service <command>`
+
+Manage services registered on an ingress
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress service list -->
+###### pgedge starfleet byoc ingress service list
+
+**Usage:** `pgedge starfleet byoc ingress service list <ingress_id>`
+
+List services registered on an ingress
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress service list c5d6e7f8-a9b0-1234-cdef-345678901234
+```
+
+**Example output (table):**
+
+```
+SERVICE ID  DATABASE ID                           URL
+a7b8c9d0    f6a7b8c9-d0e1-2345-fabc-456789012345  https://mcp.a7b8c9d0.pgedge.io
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress service register -->
+###### pgedge starfleet byoc ingress service register
+
+**Usage:** `pgedge starfleet byoc ingress service register <ingress_id> [flags]`
+
+Register a service on an ingress
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database-id string` | Yes |  | Database to register (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--service-id string` | Yes |  | Service ID to expose |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress service register c5d6e7f8-a9b0-1234-cdef-345678901234 \
+    --database-id f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --service-id a7b8c9d0
+```
+
+**Example output (table):**
+
+```
+Service "a7b8c9d0" registered on ingress c5d6e7f8-a9b0-1234-cdef-345678901234 (url: https://mcp.a7b8c9d0.pgedge.io).
+```
+
+This is how a service on a private cluster becomes reachable. Take
+`--service-id` from `database service list <database_id> -o json`,
+where the field is `service_id`, not `id`, and take the ingress's
+cluster and region from `database get`. One ingress serves several
+services: register each in turn.
+
+`register` finishes in the one call: it prints its confirmation on
+STDERR when the API answers 200. Verify with
+`ingress service list <ingress_id>`: the service's ID appears with a
+non-empty `url`. A registration has no status field at all, only
+`database_id`, `service_id`, `url` and `hosts`, so presence in that list
+with a `url` is the signal.
+
+**Check the exit status before reading an absence.** A failed read
+prints nothing on stdout, so an ID missing from the list is also what
+a 403 or an unreachable API looks like. On a non-zero exit the
+registration is unverified, not missing. On exit 0 with the ID absent,
+check the ingress ID first: a cluster can carry more than one, and the
+wrong one answers 200 with an empty array rather than 4. If it is the
+ID the register used, the absence is real, so register again.
+
+The same rule applies before `ingress create`, which provisions a
+regional load balancer: an `ingress list` that failed looks exactly
+like one with no match, so create only after a read that exited 0.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc ingress service deregister -->
+###### pgedge starfleet byoc ingress service deregister
+
+**Usage:** `pgedge starfleet byoc ingress service deregister <ingress_id> <service_id> [flags]`
+
+Deregister a service from an ingress
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc ingress service deregister \
+    c5d6e7f8-a9b0-1234-cdef-345678901234 \
+    a7b8c9d0 --force
+```
+
+**Example output (table):**
+
+```
+Service a7b8c9d0 deregistered from ingress c5d6e7f8-a9b0-1234-cdef-345678901234.
+```
+
+---

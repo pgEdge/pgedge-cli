@@ -1,0 +1,58 @@
+# pgedge inspect
+
+> One page of the root reference. `pgedge llms` is the index: global
+> flags, configuration and profiles, exit codes and the rules every
+> module shares live there.
+
+<!-- BEGIN GENERATED: pgedge inspect -->
+## pgedge inspect
+
+**Usage:** `pgedge inspect <analysis> [flags]`
+
+Run a read-only diagnostic against a Postgres database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--db-url string` | No |  | libpq connection string of the database to inspect (required) |
+
+<!-- END GENERATED -->
+
+Run one diagnostic query against the Postgres database `--db-url`
+names and print the rows. This is the one place the CLI connects to
+Postgres rather than to a pgEdge API. Every analysis only reads catalog
+and statistics views, so the verb takes no `--force`.
+
+The vocabulary is closed and completes: `table-sizes`, `index-sizes`,
+`unused-indexes`, `seq-scans`, `long-running-queries`, `locks`,
+`vacuum-stats`, `bloat`, `calls`, `outliers`, `replication-slots`,
+`replication-lag`, `subscriptions`. An unknown name is exit
+2 listing them. `calls` and `outliers` need the pg_stat_statements
+extension and are exit 1 naming it when the database lacks it.
+`long-running-queries`, `locks`, `calls`, `outliers` and
+`replication-lag` read other sessions' rows, which Postgres nulls for
+a role without pg_read_all_stats, so as such a role the first two
+answer empty and `replication-lag` returns a row per replica with
+every column blank but application. A
+database that refuses the connection is exit 1 with the driver's
+message; one that accepts it and never answers is exit 3.
+`--db-url` is required here; for a database the API knows,
+`pgedge starfleet managed database inspect` and
+`pgedge starfleet byoc database inspect` resolve the connection from
+the block `connection-string` uses, so this form is for a Control
+Plane database or any other Postgres the machine can reach.
+
+Text output is a table with the analysis's own columns, upper-cased.
+`-o json` prints one object per row keyed by column, in column order;
+`-o yaml` the same shape. No rows is exit 0, a sentence on stderr and,
+under `-o json`, `[]` on stdout. Every cell is the server's text; a
+`NULL` is an empty string. `bloat` is the PgHero estimate from planner
+statistics, and its column says "estimate" for that reason.
+
+**Example:**
+
+```bash
+pgedge inspect table-sizes --db-url "$DATABASE_URL"
+pgedge inspect unused-indexes --db-url "$DATABASE_URL" -o json
+```

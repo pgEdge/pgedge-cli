@@ -1,0 +1,140 @@
+# pgedge completion
+
+> One page of the root reference. `pgedge llms` is the index: global
+> flags, configuration and profiles, exit codes and the rules every
+> module shares live there.
+
+<!-- BEGIN GENERATED: pgedge completion -->
+## pgedge completion
+
+**Usage:** `pgedge completion <command>`
+
+Generate and install shell completion scripts
+
+<!-- END GENERATED -->
+
+### completion
+
+Generate and install shell completion scripts. Owns the completion
+command surface (Cobra's default is disabled).
+
+<!-- BEGIN GENERATED: pgedge completion install -->
+### pgedge completion install
+
+**Usage:** `pgedge completion install [flags]`
+
+Install shell completion for your shell
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--force` | No |  | Skip the prompt: overwrite a script, or append the --rc-only line |
+| `--rc-only` | No |  | Add the one-line loader to your shell startup file and write no script |
+| `--shell string` | No |  | Shell to install for: bash, zsh, fish or powershell (default: autodetect $SHELL) |
+| `--write-rc` | No |  | Append the zsh fpath, PowerShell profile or --rc-only loader line without prompting |
+
+<!-- END GENERATED -->
+
+Detect your shell, write the pgedge completion script to the directory
+that shell loads completions from, and print any remaining step (such
+as a zsh fpath line or a PowerShell profile line). Supports bash, zsh,
+fish and PowerShell. `--rc-only` adds one rc-file loader line instead
+of a script.
+
+**Example:**
+
+```bash
+pgedge completion install
+pgedge completion install --rc-only
+pgedge completion install --shell powershell
+```
+
+<!-- BEGIN GENERATED: pgedge completion uninstall -->
+### pgedge completion uninstall
+
+**Usage:** `pgedge completion uninstall [flags]`
+
+Remove an installed shell completion script
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--force` | No |  | Remove without prompting for confirmation |
+| `--shell string` | No |  | Shell to uninstall for: bash, zsh, fish or powershell (default: autodetect $SHELL) |
+
+<!-- END GENERATED -->
+
+Detect your shell (or use `--shell`) and remove the pgedge completion
+script it installed, and the `--rc-only` loader line if present.
+Supports bash, zsh, fish and PowerShell. Safe to re-run: it reports
+anything already absent. A zsh fpath line or a
+PowerShell dot-source line remains in place; remove it by hand.
+
+**Example:**
+
+```bash
+pgedge completion uninstall
+pgedge completion uninstall --shell zsh --force
+```
+
+<!-- BEGIN GENERATED: pgedge completion bash -->
+### pgedge completion bash
+
+**Usage:** `pgedge completion bash`
+
+Print the bash completion script
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge completion bash
+```
+
+<!-- BEGIN GENERATED: pgedge completion zsh -->
+### pgedge completion zsh
+
+**Usage:** `pgedge completion zsh`
+
+Print the zsh completion script
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge completion zsh > ~/.zsh/completions/_pgedge
+```
+
+<!-- BEGIN GENERATED: pgedge completion fish -->
+### pgedge completion fish
+
+**Usage:** `pgedge completion fish`
+
+Print the fish completion script
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge completion fish
+```
+
+<!-- BEGIN GENERATED: pgedge completion powershell -->
+### pgedge completion powershell
+
+**Usage:** `pgedge completion powershell`
+
+Print the powershell completion script
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge completion powershell
+```

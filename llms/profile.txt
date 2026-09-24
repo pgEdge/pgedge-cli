@@ -1,0 +1,126 @@
+# pgedge profile
+
+> One page of the root reference. `pgedge llms` is the index: global
+> flags, configuration and profiles, exit codes and the rules every
+> module shares live there.
+
+<!-- BEGIN GENERATED: pgedge profile -->
+## pgedge profile
+
+**Usage:** `pgedge profile <command>`
+
+Manage named CLI profiles
+
+<!-- END GENERATED -->
+
+List, inspect, and switch between the named profiles stored in
+`~/.pgedge/cli/config.yaml`. Every module borrows the active profile,
+so `profile` lives on the root command. The index's Configuration and
+Profiles section has the naming rules all three subcommands share.
+
+**Aliases:** `profiles`
+
+<!-- BEGIN GENERATED: pgedge profile list -->
+### pgedge profile list
+
+**Usage:** `pgedge profile list`
+
+List configured profiles
+
+<!-- END GENERATED -->
+
+Show every named profile: its Starfleet API URL, its Control Plane base
+URL(s), and whether it is active. The active profile always appears,
+even with no config file, resolving to `https://api.pgedge.com`. An
+active profile that is not configured renders as `yes (unresolved)`
+with `(not configured)` for its Starfleet URL, and `"resolved": false`
+under `-o json`; every other entry is `"resolved": true`.
+
+**Example:**
+
+```bash
+pgedge profile list
+pgedge profile list -o json
+```
+
+**Example output (table):**
+
+```
+NAME  ACTIVE  STARFLEET URL              CONTROLPLANE URL
+dev   yes     https://starfleet.example  https://cp.example
+prod  no      https://api.pgedge.com
+```
+
+`-o json` emits an array of objects carrying `name`, `active`,
+`starfleet_url` and `controlplane_url` (a comma-joined string when a
+profile names more than one Control Plane base URL).
+
+<!-- BEGIN GENERATED: pgedge profile show -->
+### pgedge profile show
+
+**Usage:** `pgedge profile show [name]`
+
+Show a profile's connection settings
+
+<!-- END GENERATED -->
+
+Print one profile's Starfleet API URL, its starfleet client ID, and whether a
+starfleet secret is stored — never the secret's value, in any output format,
+only its presence. With no argument it shows the active profile.
+
+An unconfigured name is exit 1 naming the configured profiles, and prints no
+report. `pgedge profile show default` always works, because `default` is the
+built-in name.
+
+**Example:**
+
+```bash
+pgedge profile show
+pgedge profile show prod
+pgedge profile show prod -o json
+```
+
+**Example output (table):**
+
+```
+FIELD                VALUE
+NAME                 dev
+ACTIVE               yes
+STARFLEET URL        https://starfleet.example
+STARFLEET CLIENT ID  dev-client-id
+STARFLEET SECRET     set
+CONTROLPLANE URL(S)  https://cp.example
+```
+
+`-o json` emits `name`, `active`, `starfleet_url`,
+`starfleet_client_id`, `starfleet_has_secret` (a boolean, presence
+only) and `controlplane_urls` (an array).
+
+<!-- BEGIN GENERATED: pgedge profile use -->
+### pgedge profile use
+
+**Usage:** `pgedge profile use <name>`
+
+Switch the active profile
+
+<!-- END GENERATED -->
+
+Point `current_profile` at an existing profile and save the change to
+`~/.pgedge/cli/config.yaml` immediately, so every later command uses it
+until overridden by `--profile`.
+
+**Example:**
+
+```bash
+pgedge profile use prod
+pgedge profile use prod -o json
+```
+
+A successful switch confirms on stderr (`Active profile set to
+"prod".`) and, under `-o json`/`-o yaml`, also prints `{"name":"prod",
+"active":true}` to stdout. An unknown name is exit 1, changes nothing
+on disk, and names the configured profiles, e.g. `unknown profile
+"nope" — configured profiles: dev, prod`. `use default` needs a
+`default` section in the config, and `use` still runs when
+`current_profile` itself names nothing, which is how that state is
+repaired.

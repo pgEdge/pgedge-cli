@@ -1,0 +1,13 @@
+extends: existence
+message: "Avoid the banned term '%s' — see PROJECTS/CLAUDE.md's banned-words list."
+level: error
+ignorecase: true
+tokens:
+  - synergy
+  - leverage
+  - paradigm shift
+  - best-in-class
+  - utilize
+  - stakeholder alignment
+  - ensure
+  - load-bearing

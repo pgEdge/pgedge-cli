@@ -1,0 +1,519 @@
+# pgedge starfleet byoc cluster
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster -->
+#### pgedge starfleet byoc cluster
+
+**Usage:** `pgedge starfleet byoc cluster <command>`
+
+Manage pgEdge BYOC clusters
+
+<!-- END GENERATED -->
+
+#### cluster
+
+Manage pgEdge BYOC clusters, including multi-region node groups and
+cluster shares for multi-tenant deployments.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster list -->
+##### pgedge starfleet byoc cluster list
+
+**Usage:** `pgedge starfleet byoc cluster list [flags]`
+
+List clusters
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--limit int` | No |  | Maximum number of results to return (API default 10) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+When a page comes back full (10 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster list --limit 20
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME          STATUS     REGIONS               CREATED
+a1b2c3d4-e5f6-7890-abcd-ef1234567890  prod-cluster  available  us-east-1, eu-west-1  2026-01-15
+b2c3d4e5-f6a7-8901-bcde-f12345678901  dev-cluster   available  us-west-2             2026-01-16
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster get -->
+##### pgedge starfleet byoc cluster get
+
+**Usage:** `pgedge starfleet byoc cluster get <cluster_id>`
+
+Show cluster details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster get a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME          STATUS     REGIONS               CREATED
+a1b2c3d4-e5f6-7890-abcd-ef1234567890  prod-cluster  available  us-east-1, eu-west-1  2026-01-15
+```
+
+The table is one row, the same shape `cluster list` prints. Reach
+for `-o json` for the fields it has no column for, among them
+`node_location`, `firewall_rules`, `networks`, `nodes`,
+`backup_store_ids`, `capacity`, `orchestrator` and the resolved
+`cloud_account`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster create -->
+##### pgedge starfleet byoc cluster create
+
+**Usage:** `pgedge starfleet byoc cluster create [flags]`
+
+Create a cluster
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--backup-store-id strings` | No |  | Backup store ID to attach (repeatable; required to host a DB) |
+| `--cloud-account-id string` | Yes |  | Cloud account UUID; checked to exist before the cluster is created |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--firewall-rule stringArray` | No |  | Firewall rule (repeatable). name must be one of http, https, postgres, ssh. e.g. name=https,port=443,sources=0.0.0.0/0 |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--instance-type string` | No |  | Instance type for all nodes (shorthand for --node; creates one node per region) |
+| `--name string` | Yes |  | Cluster name |
+| `--network stringArray` | No |  | Network settings (repeatable, one per region). Keys: region, cidr, public-subnets, private-subnets, subnets, external, external-id, name. AWS and Azure use public-subnets and private-subnets; GCP uses subnets. e.g. region=us-east-1,cidr=10.4.0.0/16,public-subnets=10.4.1.0/24,private-subnets=10.4.128.0/24 |
+| `--node stringArray` | No |  | Node settings (repeatable). e.g. name=n1,region=us-east-1,instance-type=r7g.medium,volume-size=30 |
+| `--node-location string` | Yes |  | Node location: private or public |
+| `--regions strings` | Yes |  | Comma-separated list of regions |
+| `--volume-size int` | No |  | Volume size in GB for all nodes, 1 or more (shorthand for --node; creates one node per region) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Create a new cluster across one or more cloud regions. A cluster can be
+created fully from the CLI — networks (CIDR + subnets), node sizing,
+firewall rules, and backup stores included.
+
+Structured flags (`--firewall-rule`, `--network`, `--node`) take
+comma-separated key=value pairs; repeat a list-valued key (sources,
+public-subnets, private-subnets, subnets) to add elements. On
+single-region clusters the `region=` key may be omitted. `--node` and
+the `--instance-type`/`--volume-size` shorthand are mutually exclusive.
+
+A malformed structured-flag value is a usage error: exit 2, with
+nothing sent.
+
+A volume size must be 1 GB or more, in **both** spellings: the
+`--volume-size` shorthand and the `volume-size=` key of `--node`, which
+is the form the worked examples below use. A non-positive value is
+refused before anything is sent, exit 2, and this is a check the API
+does not make: sent a negative size, it substitutes its own default of
+100 GB and answers 200, provisioning a volume nobody asked for. Leave
+the size to the API by omitting the flag, or the key; that is not the
+same as passing `0`, which is a usage error either way. There is no
+upper bound — the spec declares none.
+
+**Subnet keys are per cloud, and the wrong one is refused server-side.**
+AWS and Azure networks use `public-subnets` and `private-subnets`; GCP
+networks use `subnets`, and the API rejects `private_subnets` on a
+Google cluster outright with "use subnets instead". A GCP network is
+therefore expressed with `subnets=` and no `private-subnets=`, even for
+a `--node-location private` cluster.
+
+`--network` also takes `external`, `external-id` and `name`, which
+describe a pre-existing customer VPC the cluster attaches to rather
+than one pgEdge creates. The CLI passes them through without
+interpretation; which combinations are valid is per-cloud and decided
+by the API.
+
+A cluster created without `--backup-store-id` provisions, but cannot
+host a database until a store is attached (`cluster update`).
+
+Pick a network CIDR that does not overlap another cluster's in the same
+cloud account.
+
+**What `cluster create` checks before anything is provisioned**, and
+therefore what a clean `--dry-run` proves:
+
+- `--node-location` against the contract's enum: only `public` and
+  `private` are accepted.
+- `--cloud-account-id` must parse as a UUID and name an account that
+  exists. A malformed ID is exit 2, and an ID that names nothing is
+  exit 4. The existence check costs a read, so with no credentials
+  configured it is exit 5.
+- The structured-flag keys, `--firewall-rule` names, the volume size
+  and the private-subnet requirement of `--node-location private`, as
+  described above.
+
+**What is NOT checked:**
+
+- `--name`. The API requires only that a cluster name is non-empty.
+- Node names, beyond this: the API refuses a cluster whose node names
+  repeat, compared case-insensitively, with `node name "<name>" is
+  used more than once in the cluster`.
+- Whether a `--regions` value names a real region. The only
+  region-shaped endpoint, `cloud-account availability-zones`, answers
+  an empty list rather than an error for a region that does not
+  exist, so a bad region is refused only by the API on the real call.
+  An empty or blank value is exit 2.
+- `--instance-type`. The accepted values are the cloud provider's, and
+  no endpoint enumerates them.
+
+**Example (full public cluster, CLI only):**
+
+```bash
+pgedge starfleet byoc cluster create \
+    --name test-pub \
+    --cloud-account-id c3d4e5f6-a7b8-9012-cdef-123456789012 \
+    --regions us-east-1 \
+    --node-location public \
+    --backup-store-id f2a3b4c5-d6e7-8901-fabc-012345678901 \
+    --node name=n1,instance-type=r7g.medium,volume-size=30 \
+    --network cidr=10.4.0.0/16,public-subnets=10.4.1.0/24 \
+    --firewall-rule name=postgres,port=5432,sources=0.0.0.0/0 \
+    --firewall-rule name=https,port=443,sources=0.0.0.0/0
+```
+
+**Example (private cluster network — public + private subnets):**
+
+```bash
+pgedge starfleet byoc cluster create \
+    --name test-priv \
+    --cloud-account-id c3d4e5f6-a7b8-9012-cdef-123456789012 \
+    --regions us-east-1 \
+    --node-location private \
+    --backup-store-id f2a3b4c5-d6e7-8901-fabc-012345678901 \
+    --node name=n1,instance-type=r7g.medium,volume-size=30 \
+    --network cidr=10.3.0.0/16,public-subnets=10.3.1.0/24,private-subnets=10.3.128.0/24 \
+    --firewall-rule name=postgres,port=5432,sources=0.0.0.0/0
+```
+
+**Example (GCP private cluster — `subnets`, no `private-subnets`):**
+
+```bash
+pgedge starfleet byoc cluster create \
+    --name test-gcp \
+    --cloud-account-id c3d4e5f6-a7b8-9012-cdef-123456789012 \
+    --regions us-central1 \
+    --node-location private \
+    --backup-store-id f2a3b4c5-d6e7-8901-fabc-012345678901 \
+    --node name=n1,instance-type=n2-standard-2,volume-size=30 \
+    --network cidr=10.6.0.0/16,subnets=10.6.1.0/24 \
+    --firewall-rule name=postgres,port=5432,sources=0.0.0.0/0
+```
+
+**Example output (table):**
+
+```
+Cluster "test-gcp" created (id: a1b2c3d4-e5f6-7890-abcd-ef1234567890, status: creating).
+Monitor with: pgedge starfleet byoc task list --subject-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster update -->
+##### pgedge starfleet byoc cluster update
+
+**Usage:** `pgedge starfleet byoc cluster update <cluster_id> [flags]`
+
+Update a cluster's firewall rules or stores
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--backup-store-id strings` | No |  | Backup store ID to attach (repeatable) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--firewall-rule stringArray` | No |  | Firewall rule to append (repeatable). name must be one of http, https, postgres, ssh. e.g. name=https,port=443,sources=0.0.0.0/0 |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--regions strings` | No |  | Replace the cluster's regions (refused if it would strand a node or network) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Update a cluster in place. Firewall rules and backup stores are
+appended to the cluster's existing values (read-modify-write — existing
+settings are preserved); regions replace the current list when
+supplied.
+
+Because the request carries the cluster's nodes and networks too, and
+this verb has no flag for either, replacing the regions cannot move
+anything between them. So a `--regions` value that would drop a region
+the cluster still has a node or a network in is refused at exit 2,
+naming what blocks it. Adding a region, resending the current set, and
+dropping a region with nothing in it all work normally. This check
+reads the cluster, and records `--regions leaves no node or network
+stranded` when it passes.
+
+At least one of `--firewall-rule`, `--backup-store-id`, or `--regions`
+is required. Passing none is exit 2, refused before a credential is
+resolved.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster update a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    --firewall-rule name=https,port=443,sources=0.0.0.0/0
+```
+
+**Example output (table):**
+
+```
+Cluster a1b2c3d4-e5f6-7890-abcd-ef1234567890 updated.
+Monitor with: pgedge starfleet byoc task list --subject-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster delete -->
+##### pgedge starfleet byoc cluster delete
+
+**Usage:** `pgedge starfleet byoc cluster delete <cluster_id> [flags]`
+
+Delete a cluster
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cascade` | No |  | Also delete all databases and cloud infrastructure, bypassing status and database-existence checks |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster delete a1b2c3d4-e5f6-7890-abcd-ef1234567890 --force
+```
+
+**Example output (table):**
+
+```
+Cluster a1b2c3d4-e5f6-7890-abcd-ef1234567890 deleted.
+Monitor with: pgedge starfleet byoc task list --subject-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster metrics -->
+##### pgedge starfleet byoc cluster metrics
+
+**Usage:** `pgedge starfleet byoc cluster metrics <cluster_id> [flags]`
+
+Read a cluster's host metrics
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--end-time string` | No |  | End of the window, as an RFC3339 timestamp |
+| `--start-time string` | No |  | Start of the window, as an RFC3339 timestamp |
+
+<!-- END GENERATED -->
+
+Read the host metrics collected for a cluster's nodes. The response is
+an object keyed by resource — cpu, disk, memory, network_recv,
+network_sent, procs and status — each carrying a current value per node
+plus the time series behind it.
+
+Table output shows the current value, its unit and the number of samples
+in the series. Use `-o json` for the samples themselves, which arrive as
+`[timestamp, value]` pairs with the timestamp in **seconds**.
+
+A resource with no items still gets a row, with `-` for node and value.
+On a healthy cluster `status` is exactly that, so its absence from a
+table would be a rendering bug rather than a fact about the cluster.
+
+Values are printed as the API sends them: not rounded, not rescaled.
+
+Both window flags take RFC3339 timestamps. The API refuses any other
+format with `400 failed to parse start_time`.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster metrics a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Example output (table):**
+
+```
+METRIC            NODE  VALUE               UNIT   SAMPLES
+CPU               n1    5.106809077670058   pct    60
+Disk              n1    3.2403182983398438  gb     60
+Memory            n1    19.721560190853978  pct    60
+Network Received  n1    12.439074595319305  kb/s   60
+Network Sent      n1    13.068497349231167  kb/s   60
+Processes         n1    207                 count  60
+Status            -     -                          0
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster share -->
+##### pgedge starfleet byoc cluster share
+
+**Usage:** `pgedge starfleet byoc cluster share <command>`
+
+Manage cluster shares
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster share list -->
+###### pgedge starfleet byoc cluster share list
+
+**Usage:** `pgedge starfleet byoc cluster share list <cluster_id>`
+
+List shares for a cluster
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster share list a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME       STATUS     TENANCY    CAPACITY  CREATED AT
+d4e5f6a7-b8c9-0123-defa-234567890123  shared-s1  available  same       10        2026-02-01
+e5f6a7b8-c9d0-1234-efab-345678901234  shared-s2  available  allowlist  5         2026-02-03
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster share get -->
+###### pgedge starfleet byoc cluster share get
+
+**Usage:** `pgedge starfleet byoc cluster share get <cluster_id> <share_id>`
+
+Show cluster share details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster share get \
+    a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    d4e5f6a7-b8c9-0123-defa-234567890123
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME       STATUS     TENANCY  CAPACITY  CREATED AT
+d4e5f6a7-b8c9-0123-defa-234567890123  shared-s1  available  same     10        2026-02-01
+```
+
+`allowed_tenants` has no column and is the field that matters on an
+`allowlist` share, so read it with `-o json`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster share create -->
+###### pgedge starfleet byoc cluster share create
+
+**Usage:** `pgedge starfleet byoc cluster share create <cluster_id> [flags]`
+
+Create a cluster share
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allowed-tenants strings` | No |  | Allowed tenant IDs (for allowlist tenancy) |
+| `--capacity int` | No |  | Share capacity, 1 or more (omit to let the API choose) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | No |  | Share name |
+| `--tenancy string` | No |  | Tenancy mode: same or allowlist |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster share create a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    --name shared-s1 \
+    --tenancy same \
+    --capacity 10
+```
+
+**Example output (table):**
+
+```
+Share "shared-s1" created (id: d4e5f6a7-b8c9-0123-defa-234567890123, status: creating).
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc cluster share delete -->
+###### pgedge starfleet byoc cluster share delete
+
+**Usage:** `pgedge starfleet byoc cluster share delete <cluster_id> <share_id> [flags]`
+
+Delete a cluster share
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc cluster share delete \
+    a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    d4e5f6a7-b8c9-0123-defa-234567890123 \
+    --force
+```
+
+**Example output (table):**
+
+```
+Share d4e5f6a7-b8c9-0123-defa-234567890123 deleted.
+```
+
+---

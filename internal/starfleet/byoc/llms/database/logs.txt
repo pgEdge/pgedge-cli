@@ -1,0 +1,63 @@
+# pgedge starfleet byoc database logs
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database logs -->
+##### pgedge starfleet byoc database logs
+
+**Usage:** `pgedge starfleet byoc database logs <database_id> [flags]`
+
+Read a database component's logs
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--component-name string` | Yes |  | Component to read logs from, such as postgres |
+| `--max-lines int` | No |  | Maximum number of log lines to return (API default 100) |
+| `--nodes string` | Yes |  | Comma-separated node names to read logs from |
+
+<!-- END GENERATED -->
+
+Read log lines from a component running on a database's nodes.
+
+**Both filters are required, and the CLI enforces that before making the
+request**, because the API does: a call missing `component_name` answers
+`400 query parameter 'component_name' is required`, and one missing
+`nodes` answers the same for `nodes`. `--nodes` accepts a comma-separated
+list of node names as shown by `node list`.
+
+**Neither name is validated by the API.** An unknown component, and an
+unknown node name, both answer 200 with no log blocks — identical to a
+real component that has logged nothing. `No logs found.` therefore
+cannot tell you which of the three happened. `postgres` is the component
+every database runs.
+
+`--max-lines` has no upper bound: the CLI sends whatever you pass. A
+very large read is bounded only by the 30-second per-request
+`--timeout`, so raise it, or pass `--timeout 0` to disable the bound,
+before asking for a whole history.
+
+Table output prints each node's lines verbatim under an `==> node <==`
+header, so it pipes into `grep` unchanged. Use `-o json` for the blocks
+structured, one per node.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database logs 11111111-2222-4333-8444-555555555501 \
+  --component-name postgres --nodes n1
+pgedge starfleet byoc database logs f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --component-name postgres \
+  --nodes n1,n2 --max-lines 500
+```
+
+**Example output (table):**
+
+```
+==> n1 <==
+2026-08-04 09:15:24.245 UTC [34] LOG:  checkpoint starting: time
+2026-08-04 09:15:24.263 UTC [34] LOG:  checkpoint complete
+```

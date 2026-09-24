@@ -1,0 +1,470 @@
+# pgedge starfleet managed database
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database -->
+#### pgedge starfleet managed database
+
+**Usage:** `pgedge starfleet managed database <command>`
+
+Manage pgEdge Managed databases
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed database
+
+The one resource group. Every managed command hangs off it, including
+the `allowlist` and service subgroups listed under Pages at the end.
+`databases` is accepted as a plural alias. `create`, `update`,
+`delete`, `resize` and `rotate-password` change something, and every
+other command here reads. A new database admits no connection until an
+address is allowed, and `create` says how to allow yours.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database list -->
+##### pgedge starfleet managed database list
+
+**Usage:** `pgedge starfleet managed database list [flags]`
+
+List managed databases
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--descending` | No |  | Sort in descending order |
+| `--limit int` | No |  | Maximum number of results to return (1-1000) |
+| `--offset int` | No |  | Offset into the results for pagination |
+| `--region string` | No |  | Filter by region |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database list
+
+List the managed databases in the active account. This is how you find
+the ID every other command takes. Filter with `--region`, page with
+`--limit` and `--offset`, and choose the format with the global `-o`.
+
+This endpoint applies no default page. Omitting `--limit` reads every
+database in the account, so an unbounded list cannot have been truncated
+and prints no `Showing first N results...` hint. A `--limit` you set
+prints that hint when the page comes back full, and there is no known
+cap on the value you give beyond the 1000 the flag states.
+
+`list` omits two things `get` returns: the MCP service secrets and
+`ip_allowlist`. Read a single database before building a service
+configuration or an allowlist from one.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database list
+pgedge starfleet managed database list --region us-east-1 --limit 20 -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database get -->
+##### pgedge starfleet managed database get
+
+**Usage:** `pgedge starfleet managed database get <database_id> [flags]`
+
+Show managed database details
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--user-type string` | No |  | Role whose credentials to return: admin, app or app_read_only (default app) |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database get
+
+Show one managed database: its status, size, region, services,
+allowlists and connection details.
+
+Text output is a one-row table carrying `list`'s columns, then a
+`Display name: <name>` line when one is set, a Services table when a
+service is deployed, and an Allowlists table always. The Services
+table has the four columns `service list` prints, ENDPOINT among them,
+and never a service configuration: those carry secrets and stay in
+`-o json`. The Allowlists table has the columns ENDPOINT, STATE and
+RULES, one row per endpoint, the `postgres` row first and then one per
+deployed service, with RULES the count of rules. STATE is closed,
+restricted or open, and a fresh database prints one row reading
+closed. The `allowlist` page describes the states and the commands
+that change a list.
+
+`--user-type` chooses whose credentials fill the `connection` block:
+admin, app or app_read_only, and app when omitted. An empty value is
+exit 2 rather than the default. app_read_only is the read-only role
+RAG connects as, and MCP unless its writes are allowed. `pgedge llms
+starfleet managed loading-data` says which role's credentials a data
+load needs, and when.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database get e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --user-type admin -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database connection-string -->
+##### pgedge starfleet managed database connection-string
+
+**Usage:** `pgedge starfleet managed database connection-string <database_id> [flags]`
+
+Print a connection string for a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--format string` | No | `uri` | Shape of the text output: uri or env |
+| `--no-password` | No |  | Leave the password out of the string |
+| `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database connection-string
+
+Print a libpq connection URI for one managed database, assembled from
+the `connection` block `database get` returns. Text output is exactly
+one line:
+`postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=require`.
+
+The output carries a live password in every format. When stdout is a
+terminal the CLI warns once on stderr, and into a pipe or a file it
+prints only the output. `--no-password` leaves the password out.
+`--format env` prints one single-quoted `PG*` assignment per line for a
+POSIX shell. `--user-type` takes admin, app or app_read_only exactly as
+`database get` does. Under `-o json` or `-o yaml` the output is an
+object holding `uri` and the parts it was built from, and
+`--no-password` omits the `password` key. A database still being created
+has no `host` yet and is exit 1 with a sentence on stderr.
+`docs/managed/connect-an-application.md` of the pgEdge/pgedge-cli
+repository carries the encoding rules, the env-file recipe and the
+handling rules for the password.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database connection-string e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --user-type admin --no-password
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database inspect -->
+##### pgedge starfleet managed database inspect
+
+**Usage:** `pgedge starfleet managed database inspect <database_id> <analysis> [flags]`
+
+Run a read-only diagnostic against a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--user-type string` | No |  | Role to connect as: admin, app or app_read_only (default app; admin for the statistics analyses) |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database inspect
+
+Connect to a managed database with the credentials `database get`
+returns and run one read-only diagnostic, printing the rows. Nothing
+is written and no API state changes. The analyses are `pgedge
+inspect`'s, listed under `pgedge llms inspect`: the second positional names
+one and completes, and an unknown name is exit 2. The connection is
+the string `connection-string` would print, so a database with no
+`host` yet is exit 1 before anything is dialled.
+
+`--user-type` chooses the role, admin, app or app_read_only, exactly
+as `database get` does. Omitted, app is used, except for `long-running-queries`,
+`locks`, `calls`, `outliers` and `replication-lag`, which connect as
+admin because Postgres hides other sessions' statistics rows from app,
+so as app they read as a quiet database. A replica working through a
+backlog reports a catchup state with its lag intervals empty, so the
+distance between its sent and replay positions is what shows how far
+behind it is. The intervals fill in only while the database is taking
+writes the replica is keeping up with. `docs/inspect-a-database.md` of
+the pgEdge/pgedge-cli repository describes what each analysis reads,
+what app sees on each of those five, its refusals and its exit
+statuses.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 \
+    long-running-queries -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database create -->
+##### pgedge starfleet managed database create
+
+**Usage:** `pgedge starfleet managed database create [flags]`
+
+Create a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the Postgres endpoint; repeat for more than one |
+| `--display-name string` | No |  | Display name for the database, at most 25 characters |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--name string` | Yes |  | Database name |
+| `--open` | No |  | Admit every address (one 0.0.0.0/0 rule); never the default |
+| `--options strings` | No |  | Comma-separated list of options |
+| `--pg-version string` | No |  | Postgres major version to create the database on: 18, 17, 16 (fixed for the life of the database; defaults to the newest supported version) |
+| `--region string` | No |  | Region to provision the database in (e.g. us-east-1); checked against 'region list'; optional while the API publishes only one, and required as soon as it publishes more |
+| `--size string` | Yes |  | Managed size name (e.g. small, large); checked against 'size list' |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database create
+
+Provision a new managed database. `--name` and `--size` are required,
+and region and size are the whole placement decision. `--name` is
+lowercase letters and digits only, starts with a letter and runs to 50
+characters at most, so a name with a hyphen or an underscore is exit 2
+before any request. `--display-name` carries anything human-readable.
+`--region` may be omitted while the API publishes one region, which the
+CLI reads from `region list` and sends, and is exit 2 naming the choices
+once several are published. The account needs a payment method, or the
+API refuses the create. The create is asynchronous: without `--wait` it
+returns once the API accepts the request, and text output reports the
+new id on stderr while `-o json` prints the database object to stdout.
+
+A new database is closed: no address can connect to its Postgres
+endpoint until a rule allows one. Three optional flags set that
+allowlist at create time. With none of them the database is created
+closed and the CLI says so on stderr, naming the `allowlist add
+--my-ip` command that admits you afterward:
+
+- `--my-ip` allows the address the API sees this command arriving
+  from. Pass it when the database must accept connections from the
+  machine running the CLI. The caveat that this is not necessarily the
+  address your Postgres client connects from prints on stderr every
+  time, and when the API reports no address, or an IPv6 one, the exit
+  status is 1 and nothing is sent.
+- `--allow <cidr>` allows one IPv4 address or CIDR block, repeated for
+  more than one, and combines with `--my-ip`. No label can be set at
+  create time, so use `allowlist add --label` afterward.
+- `--open` admits every address with the single rule 0.0.0.0/0, cannot
+  be combined with the other two, and is never the default. It prints
+  the warning the `allowlist open` command prints.
+
+The `allowlist` page carries the rule syntax, the 50-rule cap and the
+commands that change a list later. Services deployed afterward get
+their own allowlists, each starting closed.
+
+`docs/managed/provision.md` of the pgEdge/pgedge-cli repository
+carries the name rules, the catalogs, the refusals the API answers
+and the statuses a create moves through.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database create --name mydb --size small --my-ip
+pgedge starfleet managed database create --name mydb \
+    --region us-east-1 --size large --pg-version 16 \
+    --allow 203.0.113.0/24 --display-name "My Database" --wait
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database update -->
+##### pgedge starfleet managed database update
+
+**Usage:** `pgedge starfleet managed database update <database_id> [flags]`
+
+Update a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--deletion-protection` | No |  | Refuse deletion until this is turned off again |
+| `--display-name string` | No |  | Display name for the database, at most 25 characters |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--options strings` | No |  | Comma-separated list of options |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database update
+
+Change a managed database's display name, options or deletion
+protection. Only the flags you pass are sent. Size belongs to
+`resize`, and services to the `mcp`, `rag`, `postgrest` and `service`
+subgroups. `--deletion-protection` is enforced by the API, so it holds
+for every other client too. It is sent only when the flag is passed,
+so an update that omits it leaves the setting alone rather than
+turning it off.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --display-name "My Database" --deletion-protection
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database delete -->
+##### pgedge starfleet managed database delete
+
+**Usage:** `pgedge starfleet managed database delete <database_id> [flags]`
+
+Delete a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--delete-branches` | No |  | Also delete every branch first; data cannot be recovered |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database delete
+
+Tear down a managed database. It is destructive, so it prompts unless
+`--force` is given, and asynchronous, so without `--wait` it returns
+once the API accepts the request. A database with deletion protection
+on is refused with `400 deletion protection is enabled for this
+database`. Run `database update --deletion-protection=false` first.
+
+A database that still has branches is refused with 409 `the database
+has <n> branches; delete them first or repeat with force=true to delete
+them with the database`, at exit 1. `--force`
+only skips the prompt and does not change that. `--delete-branches` is
+the server's `force=true`: it deletes every branch with the database,
+and their data cannot be recovered.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database delete e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --force --wait
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database resize -->
+##### pgedge starfleet managed database resize
+
+**Usage:** `pgedge starfleet managed database resize <database_id> [flags]`
+
+Resize a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--size string` | Yes |  | Target managed size name (e.g. small, large); checked against 'size list' |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database resize
+
+Move a managed database onto a different size. It is its own command
+rather than a flag on `update` because it moves the database onto
+different infrastructure and runs asynchronously: without `--wait` it
+returns as soon as the API accepts the request. Resizing is one-way, a
+database grows and never shrinks. A smaller size is refused with 400
+`unsupported size upgrade: storage cannot shrink from <from> to <to>`,
+and the same size with 400 `unsupported size upgrade: database is
+already at size "<size>"`. A database with branches is refused with
+409 `resize is unavailable while the database has <n> branches; delete
+them first`. Each is exit 1. On a per-vCPU plan it raises the monthly bill, so it prompts
+unless `--force` is given, and an unattended caller without `--force`
+exits 2 with "this operation is destructive". `size list` publishes
+the sizes on offer.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database resize e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --size large --force --wait
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database rotate-password -->
+##### pgedge starfleet managed database rotate-password
+
+**Usage:** `pgedge starfleet managed database rotate-password <database_id> [flags]`
+
+Rotate a built-in role's password
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--role string` | Yes |  | Built-in role to rotate: admin, app, or app_read_only |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database rotate-password
+
+Issue a new password for one of the database's built-in roles. `--role`
+takes admin, app or app_read_only, and any other value is refused
+before a request. Rotation breaks every session still using the old
+password, so it prompts unless `--force` is given. Rotating the role a
+deployed service connects as also restarts that service.
+
+The command exits 0 once the API has accepted the rotation, not once
+the running database is using the new password. Wait for the database
+to return to `available` before reading the new password back or
+switching to it: until then `database get <database_id> --user-type
+<role>` returns the old credential. The rotation never prints the new
+password.
+
+The rotation spawns a `rotate-password-managed` task and returns no
+id. A `succeeded` task means the new credential reached the running
+database. A rotation that fails leaves that task non-terminal rather than
+`failed`, so a `--wait` timeout means the outcome is unknown, and
+rotating again on a timeout risks replacing a credential already in
+place. The published contract says a failed rotation leaves the
+database `degraded` and refuses another rotation until it is
+recovered, which is the contract's claim rather than confirmed
+behavior. The `task` page carries how to read the task by hand, and `docs/managed/rotate-credentials.md` of the
+pgEdge/pgedge-cli repository the step-by-step procedure.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database rotate-password e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --role app --force --wait
+```
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge starfleet managed database -->
+| Page | Read | Covers |
+|------|------|--------|
+| `allowlist` | `pgedge llms starfleet managed database allowlist` | Manage which addresses may reach a database |
+| `branch` | `pgedge llms starfleet managed database branch` | Manage branches of a managed database |
+| `logs` | `pgedge llms starfleet managed database logs` | Read a managed database's logs |
+| `mcp` | `pgedge llms starfleet managed database mcp` | Manage the MCP server on a database |
+| `metrics` | `pgedge llms starfleet managed database metrics` | Read a managed database's metrics |
+| `postgrest` | `pgedge llms starfleet managed database postgrest` | Manage PostgREST on a database (not yet supported) |
+| `rag` | `pgedge llms starfleet managed database rag` | Manage the RAG server on a database |
+| `service` | `pgedge llms starfleet managed database service` | Manage services deployed on a database |
+<!-- END GENERATED ROUTING -->

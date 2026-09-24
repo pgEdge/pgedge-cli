@@ -1,0 +1,82 @@
+# pgedge starfleet byoc database connection-string
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database connection-string -->
+##### pgedge starfleet byoc database connection-string
+
+**Usage:** `pgedge starfleet byoc database connection-string <database_id> [flags]`
+
+Print a connection string for one node of a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--format string` | No | `uri` | Shape of the text output: uri or env |
+| `--internal` | No |  | Use the node's internal_host, for a client inside the cluster |
+| `--no-password` | No |  | Leave the password out of the string |
+| `--node string` | No |  | Node whose connection to print (required with several nodes) |
+
+<!-- END GENERATED -->
+
+Print a libpq connection URI for one node of a BYOC database,
+assembled from that node's `connection` block in `database get`. The
+argument takes a full UUID.
+
+A BYOC database carries one `connection` block per entry of its
+`nodes` array, so the string belongs to a node. With one node no flag
+is needed. With several, `--node <name>` picks one, by the node's
+`name` or its `logical_name`; without it the command prints a table
+of the nodes (NODE, NAME, HOST, INTERNAL HOST, PORT, no credential) and
+exits 2 naming the flag. A name that matches no node is exit 2 and
+the error lists the node labels (logical name when set, otherwise
+name); a label two nodes answer to is exit 2 as well, and naming the
+node by its `name` resolves it.
+
+A node's block carries EITHER `host` OR `internal_host`, never both:
+a public cluster's node carries `host` alone, a private cluster's node
+`internal_host` alone. The string is built from `host` by default and
+from `internal_host` under `--internal`, for a client inside the
+cluster's network. A node that has only the other one is refused with
+exit 1 and a sentence naming the flag that would reach it, never
+silently switched. A node with neither, which is the case while it is
+still being created, is exit 1 as well.
+
+The default text output is exactly ONE line:
+`postgresql://<username>:<password>@<host>:<port>/<database>?sslmode=require`.
+The username and password are percent-encoded, so a password holding
+`@`, `:`, `/` or `?` round-trips. There is no `--user-type`: byoc's
+`database get` takes none either, and the block carries the role the API
+hands out.
+
+**The output carries a live password by default, in every format.**
+When stdout is a terminal the CLI prints a one-line warning on stderr;
+into a pipe or a file it prints nothing but the output.
+`--no-password` leaves the password out, which is the form to paste
+into a document, a ticket or a log.
+
+`--format env` prints one shell assignment per line instead of a URI:
+`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` and
+`PGSSLMODE`, each single-quoted for a POSIX shell. Under
+`--no-password` the `PGPASSWORD` line is absent, not empty.
+
+Under `-o json` or `-o yaml` the output is an object carrying `uri`,
+`node`, `host`, `port`, `database`, `username`, `password` and
+`sslmode`. `--no-password` omits the `password` key rather than
+blanking it. On the several-nodes-no-flag path the same formats carry
+the node listing as an array of rows, still at exit 2, so a script
+should pass `--node` rather than read that array.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345
+pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --node n2 --no-password
+umask 077
+pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --node n1 --internal --format env > .env
+```

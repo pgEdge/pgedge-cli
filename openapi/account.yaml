@@ -1,0 +1,966 @@
+components:
+  schemas:
+    AccessToken:
+      properties:
+        access_token:
+          type: string
+        expires_in:
+          type: integer
+        token_type:
+          type: string
+      required:
+        - token_type
+        - access_token
+        - expires_in
+      type: object
+    AccessTokenRequest:
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        grant_type:
+          enum:
+            - client_credentials
+          example: client_credentials
+          type: string
+      required:
+        - client_id
+        - client_secret
+      type: object
+    ApiClient:
+      properties:
+        auth0_id:
+          type: string
+        created_at:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - created_at
+        - updated_at
+        - auth0_id
+      type: object
+    CreateApiClientInput:
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+      required:
+        - name
+        - description
+      type: object
+    CreateApiClientResponse:
+      allOf:
+        - $ref: '#/components/schemas/ApiClient'
+        - properties:
+            auth0_secret:
+              description: Client secret. Returned once at creation; never included in list or get responses.
+              type: string
+          type: object
+      description: Response returned only by the create-client operation. Contains all ApiClient fields plus auth0_secret, which is only disclosed once at creation time.
+    CreateInviteInput:
+      properties:
+        email:
+          type: string
+        expiration:
+          type: integer
+      required:
+        - email
+      type: object
+    Error:
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        reason:
+          description: |
+            Stable, machine-readable discriminator for programmatic client handling. Absent for generic errors. Clients must treat an unrecognized value as a generic error of the given status code.
+          enum:
+            - membership_revoked
+            - plan_expired
+            - developer_plan_backup
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    Invite:
+      properties:
+        accept_url:
+          type: string
+        created_at:
+          type: string
+        email:
+          type: string
+        expires_at:
+          type: string
+        id:
+          type: string
+        invited_by:
+          type: string
+        screen_hint:
+          type: string
+        team_name:
+          type: string
+        token:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - email
+        - created_at
+        - updated_at
+        - expires_at
+        - team_name
+      type: object
+    Membership:
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        is_owner:
+          description: True if this member owns the tenant.
+          type: boolean
+        updated_at:
+          type: string
+        user_email:
+          type: string
+        user_id:
+          type: string
+        user_name:
+          type: string
+        user_picture:
+          type: string
+      required:
+        - id
+        - user_id
+        - user_name
+        - user_email
+        - is_owner
+        - created_at
+        - updated_at
+      type: object
+    OpenApiSpec:
+      type: object
+    Tenant:
+      properties:
+        created_at:
+          type: string
+        domain:
+          type: string
+        external_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        plan:
+          type: string
+        plan_expires_at:
+          type: string
+        plan_trial:
+          type: boolean
+        updated_at:
+          type: string
+      required:
+        - id
+        - created_at
+        - updated_at
+        - name
+      type: object
+    UpdateApiClientInput:
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+      type: object
+    UpdateTenantInput:
+      properties:
+        name:
+          type: string
+      type: object
+    UpdateUserInput:
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+      type: object
+    User:
+      properties:
+        created_at:
+          type: string
+        email:
+          type: string
+        first_name:
+          type: string
+        id:
+          type: string
+        last_name:
+          type: string
+        picture:
+          type: string
+        tenants:
+          items:
+            $ref: '#/components/schemas/Tenant'
+          type: array
+        updated_at:
+          type: string
+      required:
+        - id
+        - created_at
+        - updated_at
+        - email
+        - tenants
+      type: object
+  securitySchemes:
+    AccessToken:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+info:
+  description: pgEdge API
+  license:
+    name: pgEdge Community License
+    url: https://github.com/pgEdge/nodectl/blob/main/PGEDGE-COMMUNITY-LICENSE.md
+  title: pgEdge API
+  version: 1.0.0
+openapi: 3.0.0
+paths:
+  /account/v1/clients:
+    get:
+      description: List API clients.
+      operationId: ListClients
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ApiClient'
+                type: array
+          description: Response containing a list of clients.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List API clients.
+      tags:
+        - clients
+    post:
+      description: Create an API client.
+      operationId: CreateClient
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiClientInput'
+        description: The client attributes.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiClientResponse'
+          description: Response containing the client details.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create an API client.
+      tags:
+        - clients
+  /account/v1/clients/{id}:
+    delete:
+      description: Delete an API client.
+      operationId: DeleteClient
+      parameters:
+        - description: ID of the client to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the client was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete an API client.
+      tags:
+        - clients
+    get:
+      description: Retrieve an API client.
+      operationId: GetClient
+      parameters:
+        - description: ID of the client to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiClient'
+          description: Response containing the client definition.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve an API client.
+      tags:
+        - clients
+    patch:
+      description: Update an API client.
+      operationId: UpdateClient
+      parameters:
+        - description: ID of the client to update.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApiClientInput'
+        description: The client attributes to update.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiClient'
+          description: Response containing the updated client details.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Update an API client.
+      tags:
+        - clients
+  /account/v1/invites:
+    get:
+      description: List invites.
+      operationId: ListInvites
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Invite'
+                type: array
+          description: Response containing a list of invites.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List invites.
+      tags:
+        - invites
+    post:
+      description: Create an invite.
+      operationId: CreateInvite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteInput'
+        description: The invite specification.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+          description: Response containing details about the newly created invite.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create an invite.
+      tags:
+        - invites
+  /account/v1/invites/{id}:
+    delete:
+      description: Delete an invite.
+      operationId: DeleteInvite
+      parameters:
+        - description: ID of the invite to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the invite was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete an invite.
+      tags:
+        - invites
+    get:
+      description: Retrieve an invite.
+      operationId: GetInvite
+      parameters:
+        - description: ID of the invite to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invite'
+          description: Response containing details about the specified invite.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve an invite.
+      tags:
+        - invites
+  /account/v1/memberships:
+    get:
+      description: List user memberships.
+      operationId: ListMemberships
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Membership'
+                type: array
+          description: Response containing a list of user memberships.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List user memberships.
+      tags:
+        - memberships
+  /account/v1/memberships/{id}:
+    delete:
+      description: Delete a user membership.
+      operationId: DeleteMembership
+      parameters:
+        - description: ID of the membership to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the user membership was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a user membership.
+      tags:
+        - memberships
+  /account/v1/oauth/token:
+    post:
+      description: Generate an access token.
+      operationId: GenerateAccessToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccessTokenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AccessTokenRequest'
+        description: The access token request.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+          description: Response containing the generated access token.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security: []
+      summary: Generate an access token.
+      tags:
+        - oauth
+  /account/v1/open-api:
+    get:
+      description: Retrieve the OpenAPI specification for the pgEdge Account API.
+      operationId: GetAccountOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: Response containing the OpenAPI specification for the pgEdge Account API in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve the OpenAPI specification for the pgEdge Account API.
+      tags:
+        - open-api
+  /account/v1/openapi.json:
+    get:
+      description: The published public contract for the pgEdge Account API. Requires no authentication and always describes the Enterprise-plan surface; runtime access remains enforced per token.
+      operationId: GetAccountPublicOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: The public OpenAPI contract in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security: []
+      summary: Retrieve the published public contract for the Account API.
+      tags:
+        - open-api
+  /account/v1/tenants:
+    get:
+      description: List tenants.
+      operationId: ListTenants
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Tenant'
+                type: array
+          description: Response to list tenants.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List tenants.
+      tags:
+        - tenants
+  /account/v1/tenants/{id}:
+    get:
+      description: Retrieve a tenant.
+      operationId: GetTenant
+      parameters:
+        - description: ID of the tenant to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+          description: Response containing details about the specified tenant.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a tenant.
+      tags:
+        - tenants
+    patch:
+      description: Update a tenant.
+      operationId: UpdateTenant
+      parameters:
+        - description: ID of the tenant to update.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantInput'
+        description: The tenant attributes to update.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+          description: Response containing details about the updated tenant.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Update a tenant.
+      tags:
+        - tenants
+  /account/v1/users/me:
+    get:
+      description: Retrieve the current user.
+      operationId: GetCurrentUser
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: Response containing details about the current user.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve the current user.
+      tags:
+        - users
+    patch:
+      description: Update the current user.
+      operationId: UpdateCurrentUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserInput'
+        description: The user attributes to update.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: Response containing details about the updated user.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Update the current user.
+      tags:
+        - users
+servers:
+  - url: https://api.pgedge.com
+tags:
+  - name: clients
+  - name: invites
+  - name: memberships
+  - name: oauth
+  - name: open-api
+  - name: tenants
+  - name: users

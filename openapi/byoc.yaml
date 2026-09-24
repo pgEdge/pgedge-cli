@@ -1,0 +1,4241 @@
+components:
+  schemas:
+    AwsCredentials:
+      properties:
+        role_arn:
+          type: string
+      required:
+        - role_arn
+      type: object
+    AzureCredentials:
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+          writeOnly: true
+        resource_group:
+          type: string
+        subscription_id:
+          type: string
+        tenant_id:
+          type: string
+      required:
+        - tenant_id
+        - subscription_id
+        - client_id
+        - client_secret
+      type: object
+    BackupConfig:
+      properties:
+        id:
+          type: string
+        node_name:
+          type: string
+        repositories:
+          items:
+            $ref: '#/components/schemas/BackupRepository'
+          type: array
+        schedules:
+          items:
+            $ref: '#/components/schemas/BackupSchedule'
+          type: array
+      required:
+        - id
+      type: object
+    BackupRepository:
+      properties:
+        azure_account:
+          type: string
+        azure_container:
+          type: string
+        azure_endpoint:
+          type: string
+        backup_store_id:
+          type: string
+        base_path:
+          type: string
+        created_at:
+          type: string
+        database_id:
+          type: string
+        gcs_bucket:
+          type: string
+        gcs_endpoint:
+          type: string
+        id:
+          type: string
+        retention_full:
+          type: integer
+        retention_full_type:
+          type: string
+        s3_bucket:
+          type: string
+        s3_endpoint:
+          type: string
+        s3_region:
+          type: string
+        type:
+          type: string
+      type: object
+    BackupSchedule:
+      properties:
+        cron_expression:
+          type: string
+        id:
+          type: string
+        type:
+          type: string
+      required:
+        - id
+        - type
+        - cron_expression
+      type: object
+    BackupStore:
+      properties:
+        cloud_account_id:
+          description: The ID of the cloud account used for the backup store.
+          type: string
+        cloud_account_type:
+          description: The type of the cloud account used for the backup store.
+          type: string
+        cluster_ids:
+          description: The IDs of the clusters that use the backup store.
+          items:
+            type: string
+          type: array
+        created_at:
+          description: The time the backup store was created.
+          type: string
+        id:
+          description: The ID of the backup store.
+          type: string
+        name:
+          description: The name of the backup store.
+          type: string
+        properties:
+          description: The computed properties of the backup store.
+          type: object
+        status:
+          description: The status of the backup store.
+          type: string
+        updated_at:
+          description: The time the backup store was last updated.
+          type: string
+      required:
+        - id
+        - cloud_account_id
+        - cloud_account_type
+        - created_at
+        - updated_at
+        - status
+        - name
+      type: object
+    Backups:
+      properties:
+        config:
+          items:
+            $ref: '#/components/schemas/BackupConfig'
+          type: array
+        provider:
+          type: string
+      required:
+        - provider
+      type: object
+    CloudAccount:
+      properties:
+        created_at:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        properties:
+          additionalProperties: true
+          type: object
+        type:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - created_at
+        - updated_at
+        - name
+        - type
+        - properties
+      type: object
+    CloudAccountProperties:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        native_id:
+          type: string
+        type:
+          type: string
+      required:
+        - id
+      type: object
+    CloudFormationTemplate:
+      properties:
+        url:
+          type: string
+      required:
+        - url
+      type: object
+    Cluster:
+      properties:
+        backup_store_ids:
+          items:
+            type: string
+          type: array
+        capacity:
+          type: integer
+        cloud_account:
+          $ref: '#/components/schemas/CloudAccountProperties'
+        created_at:
+          type: string
+        firewall_rules:
+          items:
+            $ref: '#/components/schemas/ClusterFirewallRuleSettings'
+          type: array
+        id:
+          type: string
+        name:
+          type: string
+        networks:
+          items:
+            $ref: '#/components/schemas/ClusterNetworkSettings'
+          type: array
+        node_location:
+          enum:
+            - public
+            - private
+          type: string
+        nodes:
+          items:
+            $ref: '#/components/schemas/ClusterNodeSettings'
+          type: array
+        orchestrator:
+          type: string
+        regions:
+          items:
+            type: string
+          type: array
+        resource_tags:
+          additionalProperties:
+            type: string
+          type: object
+        ssh_key_id:
+          type: string
+        status:
+          type: string
+        updated_at:
+          type: string
+        vpc_associations:
+          items:
+            $ref: '#/components/schemas/ClusterVpcAssociationSettings'
+          type: array
+      required:
+        - id
+        - name
+        - status
+        - created_at
+        - regions
+        - cloud_account
+        - node_location
+      type: object
+    ClusterFirewallRuleSettings:
+      properties:
+        name:
+          enum:
+            - postgres
+            - https
+            - http
+            - ssh
+          type: string
+        port:
+          type: integer
+        prefix_lists:
+          description: Prefix list IDs (AWS pl-*)
+          items:
+            type: string
+          type: array
+        security_groups:
+          description: Security group IDs (AWS sg-*)
+          items:
+            type: string
+          type: array
+        sources:
+          description: CIDR blocks or IP addresses
+          items:
+            type: string
+          type: array
+      required:
+        - port
+      type: object
+    ClusterNetworkSettings:
+      properties:
+        cidr:
+          type: string
+        external:
+          type: boolean
+        external_id:
+          type: string
+        name:
+          type: string
+        private_subnets:
+          items:
+            type: string
+          type: array
+        public_subnets:
+          items:
+            type: string
+          type: array
+        region:
+          type: string
+        subnets:
+          items:
+            type: string
+          type: array
+      required:
+        - region
+      type: object
+    ClusterNode:
+      properties:
+        availability_zone:
+          type: string
+        display_name:
+          type: string
+        distance_measurement:
+          $ref: '#/components/schemas/DistanceMeasurement'
+        id:
+          type: string
+        image_id:
+          type: string
+        instance_id:
+          type: string
+        instance_type:
+          type: string
+        ip_address:
+          type: string
+        is_active:
+          type: boolean
+        key_name:
+          type: string
+        location:
+          $ref: '#/components/schemas/Location'
+        logical_name:
+          description: Customer-facing effective name (logical name if set, else the internal name)
+          type: string
+        name:
+          type: string
+        public_ip_address:
+          type: string
+        region:
+          type: string
+        region_detail:
+          $ref: '#/components/schemas/Region'
+        volume_iops:
+          type: integer
+        volume_size:
+          type: integer
+        volume_type:
+          type: string
+      required:
+        - id
+        - availability_zone
+        - image_id
+        - instance_id
+        - instance_type
+        - ip_address
+        - is_active
+        - key_name
+        - name
+        - region
+        - region_detail
+        - volume_size
+        - volume_type
+        - volume_iops
+        - location
+      type: object
+    ClusterNodeLogMessage:
+      properties:
+        level:
+          type: string
+        message:
+          type: string
+        raw_text:
+          type: string
+        time:
+          type: string
+      required:
+        - time
+        - level
+        - message
+        - raw_text
+      type: object
+    ClusterNodeSettings:
+      properties:
+        availability_zone:
+          type: string
+        firewall_rules:
+          description: Node-specific firewall rules (merged with cluster-level rules)
+          items:
+            $ref: '#/components/schemas/ClusterFirewallRuleSettings'
+          type: array
+        instance_type:
+          type: string
+        logical_name:
+          description: Optional customer-facing logical name for the node
+          type: string
+        name:
+          type: string
+        node_location:
+          enum:
+            - public
+            - private
+          type: string
+        options:
+          items:
+            type: string
+          type: array
+        region:
+          type: string
+        volume_iops:
+          type: integer
+        volume_size:
+          type: integer
+        volume_type:
+          type: string
+      required:
+        - region
+      type: object
+    ClusterShare:
+      properties:
+        allowed_tenants:
+          items:
+            type: string
+          type: array
+        capacity:
+          type: integer
+        created_at:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        tenancy:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - name
+        - status
+        - capacity
+        - created_at
+        - updated_at
+        - tenancy
+        - allowed_tenants
+      type: object
+    ClusterVpcAssociationSettings:
+      properties:
+        cidr:
+          type: string
+        region:
+          type: string
+        vpc_id:
+          type: string
+      required:
+        - vpc_id
+        - region
+      type: object
+    ConfigVersion:
+      properties:
+        images:
+          additionalProperties:
+            type: string
+          type: object
+        managed_extensions:
+          items:
+            type: string
+          type: array
+        name:
+          type: string
+        supported_pg_versions:
+          items:
+            type: string
+          type: array
+      required:
+        - name
+      type: object
+    Connection:
+      properties:
+        database:
+          type: string
+        external_ip_address:
+          type: string
+        host:
+          type: string
+        internal_host:
+          type: string
+        internal_ip_address:
+          type: string
+        password:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+      required:
+        - username
+        - password
+        - port
+        - database
+      type: object
+    CreateBackupInput:
+      properties:
+        name:
+          type: string
+        provider:
+          type: string
+        target_nodes:
+          items:
+            type: string
+          type: array
+        type:
+          type: string
+      required:
+        - provider
+      type: object
+    CreateBackupStoreInput:
+      properties:
+        cloud_account_id:
+          description: The ID of the cloud account to use for the backup store.
+          type: string
+        name:
+          description: The name of the backup store.
+          type: string
+        region:
+          description: The region to use for the backup store.
+          type: string
+      required:
+        - name
+        - cloud_account_id
+      type: object
+    CreateCloudAccountInput:
+      properties:
+        credentials:
+          oneOf:
+            - $ref: '#/components/schemas/AwsCredentials'
+            - $ref: '#/components/schemas/AzureCredentials'
+            - $ref: '#/components/schemas/GoogleCredentials'
+        description:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+      required:
+        - type
+        - credentials
+      type: object
+    CreateClusterInput:
+      properties:
+        backup_store_ids:
+          items:
+            type: string
+          type: array
+        capacity:
+          type: integer
+        cloud_account:
+          $ref: '#/components/schemas/CloudAccountProperties'
+        cloud_account_id:
+          type: string
+        firewall_rules:
+          items:
+            $ref: '#/components/schemas/ClusterFirewallRuleSettings'
+          type: array
+        name:
+          type: string
+        networks:
+          items:
+            $ref: '#/components/schemas/ClusterNetworkSettings'
+          type: array
+        node_location:
+          enum:
+            - public
+            - private
+          type: string
+        nodes:
+          items:
+            $ref: '#/components/schemas/ClusterNodeSettings'
+          type: array
+        options:
+          type: object
+        regions:
+          items:
+            type: string
+          type: array
+        resource_tags:
+          additionalProperties:
+            type: string
+          type: object
+        ssh_key_id:
+          type: string
+        vpc_associations:
+          items:
+            $ref: '#/components/schemas/ClusterVpcAssociationSettings'
+          type: array
+      required:
+        - name
+        - regions
+        - node_location
+      type: object
+    CreateClusterShareInput:
+      properties:
+        allowed_tenants:
+          items:
+            type: string
+          type: array
+        capacity:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+        tenancy:
+          enum:
+            - same
+            - allowlist
+          type: string
+      type: object
+    CreateDatabaseInput:
+      properties:
+        backups:
+          $ref: '#/components/schemas/Backups'
+        cluster_id:
+          description: ID of an existing BYOC cluster owned by the tenant.
+          type: string
+        config_version:
+          type: string
+        display_name:
+          description: |
+            Display name for the database
+          maxLength: 25
+          nullable: true
+          type: string
+        extensions:
+          $ref: '#/components/schemas/Extensions'
+        name:
+          type: string
+        nodes:
+          description: |
+            Database nodes to create. If omitted, deploys to all hosts
+            in the cluster.
+          items:
+            $ref: '#/components/schemas/CreateDatabaseNodeInput'
+          type: array
+        options:
+          items:
+            type: string
+          type: array
+        pg_version:
+          type: string
+        services:
+          description: |
+            Ancillary services to deploy alongside the database (e.g.
+            MCP servers). Deployed on each database node host. API
+            keys are stored server-side encrypted.
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          type: array
+      required:
+        - name
+      type: object
+    CreateDatabaseNodeInput:
+      properties:
+        host_id:
+          description: ID of the host to deploy this database node on
+          type: string
+        logical_name:
+          description: Optional customer-facing logical name for this database node. Must be unique within the database (case-insensitive). If omitted, the node's internal name is used.
+          type: string
+      required:
+        - host_id
+      type: object
+    CreateIngressInput:
+      properties:
+        cluster_id:
+          description: The ID of the cluster to associate with the ingress.
+          type: string
+        name:
+          description: The name of the ingress.
+          type: string
+        region:
+          description: The region to use for the ingress.
+          type: string
+      required:
+        - name
+        - cluster_id
+        - region
+      type: object
+    CreateRestoreInput:
+      properties:
+        provider:
+          type: string
+        restore_command:
+          $ref: '#/components/schemas/PgBackrestRestoreCommand'
+        restore_config:
+          $ref: '#/components/schemas/PgBackrestRestoreConfig'
+        target_nodes:
+          items:
+            type: string
+          type: array
+      required:
+        - provider
+        - restore_config
+      type: object
+    CreateSshKeyInput:
+      properties:
+        name:
+          description: The name of the SSH key.
+          type: string
+        public_key:
+          description: The public key of the SSH key pair.
+          type: string
+      required:
+        - name
+        - public_key
+      type: object
+    Database:
+      properties:
+        backups:
+          $ref: '#/components/schemas/Backups'
+        cluster_id:
+          type: string
+        components:
+          items:
+            $ref: '#/components/schemas/DatabaseComponentVersion'
+          type: array
+        config_version:
+          type: string
+        connection:
+          $ref: '#/components/schemas/Connection'
+        created_at:
+          type: string
+        deletion_protection:
+          default: false
+          description: Whether deletion protection is enabled for this database.
+          type: boolean
+        display_name:
+          description: Display name of the database. Will be null if not set.
+          maxLength: 25
+          nullable: true
+          type: string
+        domain:
+          type: string
+        extensions:
+          $ref: '#/components/schemas/Extensions'
+        id:
+          type: string
+        name:
+          type: string
+        nodes:
+          items:
+            $ref: '#/components/schemas/DatabaseNode'
+          type: array
+        options:
+          items:
+            type: string
+          type: array
+        pg_version:
+          type: string
+        port:
+          description: Externally reachable Postgres port for managed databases.
+          type: integer
+        private_domain:
+          type: string
+        roles:
+          items:
+            $ref: '#/components/schemas/DatabaseRole'
+          type: array
+        services:
+          description: |
+            Services deployed alongside this database. Each entry
+            represents one service instance hydrated with its
+            parent config. Secrets (api_key, init_tokens,
+            init_users) are returned in GET /databases/{id}
+            responses only.
+          items:
+            $ref: '#/components/schemas/Service'
+          type: array
+        status:
+          type: string
+        storage_used:
+          format: int64
+          type: integer
+        tables:
+          items:
+            $ref: '#/components/schemas/DatabaseTable'
+          type: array
+        updated_at:
+          type: string
+      required:
+        - id
+        - cluster_id
+        - name
+        - status
+        - created_at
+        - updated_at
+      type: object
+    DatabaseColumn:
+      properties:
+        data_type:
+          type: string
+        default:
+          type: string
+        is_nullable:
+          type: boolean
+        is_primary_key:
+          type: boolean
+        name:
+          type: string
+        ordinal_position:
+          type: integer
+      required:
+        - name
+        - ordinal_position
+        - data_type
+        - default
+        - is_nullable
+        - is_primary_key
+      type: object
+    DatabaseComponentVersion:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        release_date:
+          type: string
+        status:
+          type: string
+        version:
+          type: string
+      required:
+        - id
+        - name
+        - version
+        - release_date
+        - status
+      type: object
+    DatabaseLogsResponse:
+      properties:
+        logs:
+          items:
+            type: object
+          type: array
+      required:
+        - logs
+      type: object
+    DatabaseNode:
+      properties:
+        connection:
+          $ref: '#/components/schemas/Connection'
+        distance_measurement:
+          $ref: '#/components/schemas/DistanceMeasurement'
+        extensions:
+          $ref: '#/components/schemas/DatabaseNodeExtensions'
+        location:
+          $ref: '#/components/schemas/Location'
+        logical_name:
+          description: Customer-facing name for this database node. Equals the logical name if one was set, otherwise the internal name.
+          type: string
+        name:
+          type: string
+        region:
+          $ref: '#/components/schemas/Region'
+        source_node_name:
+          description: The source node name to use for ZODAN migration. If specified, the node will be initialized using ZODAN from the source node. If not specified, the node will be created empty.
+          example: n1
+          nullable: true
+          type: string
+      required:
+        - name
+        - connection
+        - location
+      type: object
+    DatabaseNodeExtensions:
+      properties:
+        errors:
+          additionalProperties:
+            type: string
+          type: object
+        installed:
+          items:
+            type: string
+          type: array
+      required:
+        - installed
+      type: object
+    DatabaseRole:
+      properties:
+        bypass_rls:
+          type: boolean
+        connection_limit:
+          type: integer
+        create_db:
+          type: boolean
+        create_role:
+          type: boolean
+        inherit:
+          type: boolean
+        login:
+          type: boolean
+        name:
+          type: string
+        replication:
+          type: boolean
+        superuser:
+          type: boolean
+      required:
+        - name
+        - connection_limit
+        - superuser
+        - create_role
+        - create_db
+        - login
+        - inherit
+        - replication
+        - bypass_rls
+      type: object
+    DatabaseTable:
+      properties:
+        columns:
+          items:
+            $ref: '#/components/schemas/DatabaseColumn'
+          type: array
+        name:
+          type: string
+        primary_key:
+          items:
+            type: string
+          type: array
+        replication_sets:
+          items:
+            type: string
+          type: array
+        schema:
+          type: string
+        status:
+          items:
+            $ref: '#/components/schemas/DatabaseTableStatus'
+          type: array
+      required:
+        - schema
+        - name
+        - primary_key
+        - replication_sets
+        - status
+      type: object
+    DatabaseTableStatus:
+      properties:
+        aligned:
+          type: boolean
+        node_name:
+          type: string
+        present:
+          type: boolean
+        replicating:
+          type: boolean
+      required:
+        - node_name
+        - present
+        - aligned
+        - replicating
+      type: object
+    DistanceMeasurement:
+      properties:
+        distance:
+          format: double
+          type: number
+        from_latitude:
+          format: double
+          type: number
+        from_longitude:
+          format: double
+          type: number
+        unit:
+          type: string
+      required:
+        - distance
+        - unit
+        - from_latitude
+        - from_longitude
+      type: object
+    Error:
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        reason:
+          description: |
+            Stable, machine-readable discriminator for programmatic client handling. Absent for generic errors. Clients must treat an unrecognized value as a generic error of the given status code.
+          enum:
+            - membership_revoked
+            - plan_expired
+            - developer_plan_backup
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    Extensions:
+      properties:
+        auto_manage:
+          type: boolean
+        available:
+          items:
+            type: string
+          type: array
+        requested:
+          items:
+            type: string
+          type: array
+      type: object
+    GoogleCredentials:
+      properties:
+        project_id:
+          type: string
+        provider:
+          type: string
+        service_account:
+          type: string
+          writeOnly: true
+      required:
+        - project_id
+        - service_account
+        - provider
+      type: object
+    Ingress:
+      properties:
+        cloud_account_id:
+          description: The ID of the cloud account used for the ingress.
+          type: string
+        cluster_id:
+          description: The ID of the cluster this ingress is associated with.
+          type: string
+        created_at:
+          description: The time the ingress was created.
+          type: string
+        domain:
+          description: The full wildcard domain for the ingress.
+          type: string
+        domain_prefix:
+          description: The unique domain prefix for the ingress.
+          type: string
+        id:
+          description: The ID of the ingress.
+          type: string
+        name:
+          description: The name of the ingress.
+          type: string
+        properties:
+          description: The computed properties of the ingress.
+          type: object
+        region:
+          description: The cloud region where the ingress is deployed.
+          type: string
+        status:
+          description: The status of the ingress.
+          type: string
+        updated_at:
+          description: The time the ingress was last updated.
+          type: string
+      required:
+        - id
+        - cloud_account_id
+        - cluster_id
+        - created_at
+        - updated_at
+        - status
+        - name
+      type: object
+    IngressRegistration:
+      properties:
+        ingress_id:
+          description: ID of the ingress this service is registered on.
+          format: uuid
+          type: string
+        url:
+          description: Public URL for the registered service.
+          type: string
+      required:
+        - ingress_id
+        - url
+      type: object
+    Location:
+      properties:
+        city:
+          type: string
+        code:
+          type: string
+        country:
+          type: string
+        latitude:
+          format: double
+          type: number
+        longitude:
+          format: double
+          type: number
+        metro_code:
+          type: string
+        name:
+          type: string
+        postal_code:
+          type: string
+        region:
+          type: string
+        region_code:
+          type: string
+        timezone:
+          type: string
+      required:
+        - latitude
+        - longitude
+      type: object
+    MCPServiceConfig:
+      description: |
+        MCP service configuration. Only the generate_embedding / embedding block is exposed here. NLA / web chat proxy (llm.*) configuration is not yet exposed through the SaaS API.
+      properties:
+        allow_writes:
+          description: |
+            Grant the MCP service read-write (INSERT/UPDATE/DELETE) access to the database via its query_database tool.
+
+            WARNING: enabling this allows the LLM to modify, delete, or corrupt data. Only enable on development or test databases where data loss is acceptable.
+
+            Defaults to false (read-only).
+          type: boolean
+        embedding_api_key:
+          description: |
+            API key for the embedding provider. Required when
+            embedding_provider is voyage or openai. Stored
+            encrypted server-side; returned in
+            GET /databases/{id}.
+          type: string
+        embedding_model:
+          description: |
+            Embedding model identifier. Required when embedding_provider is set.
+          type: string
+        embedding_provider:
+          description: |
+            Embedding provider. Setting this enables the generate_embedding tool on the MCP server.
+          enum:
+            - voyage
+            - openai
+            - ollama
+          type: string
+        init_tokens:
+          description: |
+            Optional bearer token forwarded to the MCP server as
+            INIT_TOKENS. Stored encrypted server-side; returned in
+            GET /databases/{id}.
+          type: string
+        init_users:
+          description: |
+            Optional comma-separated list of username:password pairs
+            forwarded to the MCP server as INIT_USERS. Stored
+            encrypted server-side; returned in GET /databases/{id}.
+          type: string
+        ollama_url:
+          description: |
+            Endpoint URL for an Ollama server. Required when
+            embedding_provider is ollama.
+          type: string
+      type: object
+    Message:
+      properties:
+        level:
+          type: string
+        progress:
+          type: integer
+        status:
+          type: string
+        step:
+          type: string
+        text:
+          type: string
+        time:
+          type: string
+      required:
+        - time
+        - level
+        - text
+      type: object
+    Metric:
+      properties:
+        end:
+          format: int64
+          type: integer
+        items:
+          items:
+            $ref: '#/components/schemas/MetricItem'
+          type: array
+        name:
+          type: string
+        start:
+          format: int64
+          type: integer
+        type:
+          type: string
+        unit:
+          type: string
+      required:
+        - name
+        - type
+        - unit
+        - items
+        - start
+        - end
+      type: object
+    MetricItem:
+      properties:
+        name:
+          type: string
+        resources:
+          items:
+            $ref: '#/components/schemas/MetricResource'
+          type: array
+        value:
+          format: double
+          type: number
+        values:
+          items:
+            items:
+              format: double
+              type: number
+            type: array
+          type: array
+      required:
+        - name
+        - resources
+        - value
+        - values
+      type: object
+    MetricResource:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+      required:
+        - type
+        - id
+        - name
+      type: object
+    MetricSeries:
+      properties:
+        columns:
+          items:
+            type: string
+          type: array
+        name:
+          type: string
+        values:
+          items:
+            items: {}
+            type: array
+          type: array
+      required:
+        - name
+        - values
+        - columns
+      type: object
+    MetricSeriesContainer:
+      properties:
+        series:
+          items:
+            $ref: '#/components/schemas/MetricSeries'
+          type: array
+      required:
+        - series
+      type: object
+    Metrics:
+      additionalProperties:
+        $ref: '#/components/schemas/Metric'
+      type: object
+    OpenApiSpec:
+      type: object
+    PgBackrestBackupInfo:
+      properties:
+        annotations:
+          additionalProperties:
+            type: string
+          type: object
+        backup_set_size:
+          type: integer
+        backup_size:
+          type: integer
+        created_at:
+          type: string
+        database_backup_size:
+          type: integer
+        database_size:
+          type: integer
+        error:
+          type: boolean
+        error_list:
+          items:
+            type: string
+          type: array
+        finished_at:
+          type: string
+        label:
+          type: string
+        lsn_start:
+          type: string
+        lsn_stop:
+          type: string
+        pgbackrest_format:
+          type: integer
+        pgbackrest_version:
+          type: string
+        prior:
+          type: string
+        references:
+          items:
+            type: string
+          type: array
+        type:
+          type: string
+        wal_start:
+          type: string
+        wal_stop:
+          type: string
+      type: object
+    PgBackrestRepositoryInfo:
+      properties:
+        archive_max_wal:
+          type: string
+        archive_min_wal:
+          type: string
+        backup_repository_id:
+          type: string
+        backups:
+          items:
+            $ref: '#/components/schemas/PgBackrestBackupInfo'
+          type: array
+        database_id:
+          type: string
+        node_name:
+          type: string
+        pg_system_id:
+          type: integer
+        pg_version:
+          type: string
+        status:
+          type: string
+        status_code:
+          type: integer
+        status_message:
+          type: string
+      required:
+        - database_id
+        - backup_repository_id
+        - node_name
+      type: object
+    PgBackrestRestoreCommand:
+      properties:
+        delta:
+          type: boolean
+        force:
+          type: boolean
+        set:
+          type: string
+        target:
+          type: string
+        target_exclusive:
+          type: boolean
+        type:
+          type: string
+      type: object
+    PgBackrestRestoreConfig:
+      properties:
+        node_name:
+          type: string
+        repositories:
+          items:
+            type: string
+          type: array
+      required:
+        - node_name
+        - repositories
+      type: object
+    PostgRESTServiceConfig:
+      properties:
+        cors_origins:
+          description: Optional comma-separated list of allowed CORS origins.
+          type: string
+        db_anon_role:
+          description: Postgres role used for unauthenticated requests.
+          type: string
+        db_pool:
+          description: Number of DB connections to keep open (1-30). Defaults to 10.
+          type: integer
+        db_schemas:
+          description: Comma-separated Postgres schemas to expose as REST (e.g. "public" or "public,api").
+          type: string
+        jwt_audience:
+          description: Optional JWT audience claim.
+          type: string
+        jwt_role_claim_key:
+          description: Optional JSONPath to the JWT role claim.
+          type: string
+        jwt_secret:
+          description: Optional JWT signing secret (min 32 chars). Write-only; stored in AWS Secrets Manager and never returned.
+          type: string
+          writeOnly: true
+        max_rows:
+          description: Maximum rows returned per request (1-10000). Defaults to 1000.
+          type: integer
+      required:
+        - db_schemas
+        - db_anon_role
+      type: object
+    RAGCorsConfig:
+      properties:
+        allowed_origins:
+          description: Allowed origins when CORS is enabled (e.g. "https://app.example.com").
+          items:
+            type: string
+          type: array
+        enabled:
+          description: Whether CORS is enabled.
+          type: boolean
+      required:
+        - enabled
+      type: object
+    RAGEmbeddingTable:
+      properties:
+        filter:
+          description: SQL WHERE clause to scope searches (e.g. "tenant_id = '123'").
+          type: string
+        id_column:
+          description: Primary key column. Defaults to "id".
+          type: string
+        table:
+          description: Postgres table name (e.g. "public.documents").
+          type: string
+        text_column:
+          description: Column containing the text chunk.
+          type: string
+        vector_column:
+          description: Column containing the embedding vector.
+          type: string
+      required:
+        - table
+        - text_column
+        - vector_column
+      type: object
+    RAGLLMConfig:
+      properties:
+        api_key:
+          description: API key for the LLM provider. Write-only; stored in AWS Secrets Manager.
+          type: string
+          writeOnly: true
+        model:
+          description: Model identifier passed to the LLM provider.
+          type: string
+        provider:
+          description: LLM provider.
+          enum:
+            - openai
+            - anthropic
+          type: string
+      required:
+        - provider
+        - model
+      type: object
+    RAGPipelineConfig:
+      properties:
+        completion_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Override the RAG server completion LLM for this pipeline. Inherits from RAGServiceConfig when omitted.
+        description:
+          type: string
+        embedding_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Override the RAG server embedding LLM for this pipeline. Inherits from RAGServiceConfig when omitted.
+        hybrid_enabled:
+          description: Enable hybrid search. Defaults to true.
+          type: boolean
+        min_similarity:
+          description: Minimum cosine similarity (0.0-1.0) a result must meet to reach the LLM. Guards grounded answers against irrelevant matches. Defaults to 0.0 (no floor).
+          format: double
+          type: number
+        name:
+          description: Pipeline name. Used in request paths.
+          type: string
+        system_prompt:
+          description: System prompt for the LLM. Defaults to RAG server built-in prompt.
+          type: string
+        tables:
+          description: Embedding tables this pipeline searches.
+          items:
+            $ref: '#/components/schemas/RAGEmbeddingTable'
+          minItems: 1
+          type: array
+        token_budget:
+          description: Max tokens for completion. Inherits from RAGServiceConfig when omitted.
+          type: integer
+        top_n:
+          description: Number of results to retrieve. Inherits from RAGServiceConfig when omitted.
+          type: integer
+        vector_weight:
+          description: Weight for vector search in hybrid mode (0.0-1.0). Defaults to 0.5.
+          format: double
+          maximum: 1
+          minimum: 0
+          type: number
+      required:
+        - name
+        - tables
+      type: object
+    RAGServiceConfig:
+      properties:
+        completion_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Default completion LLM for all pipelines.
+        cors:
+          allOf:
+            - $ref: '#/components/schemas/RAGCorsConfig'
+          description: HTTP CORS policy for the RAG server. Off by default; enable when a browser-hosted client calls the service from another origin.
+        embedding_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Default embedding LLM for all pipelines.
+        pipelines:
+          items:
+            $ref: '#/components/schemas/RAGPipelineConfig'
+          minItems: 1
+          type: array
+        token_budget:
+          description: Default max completion tokens across all pipelines. Defaults to 1000.
+          type: integer
+        top_n:
+          description: Default number of results to retrieve. Defaults to 10.
+          type: integer
+      required:
+        - embedding_llm
+        - completion_llm
+        - pipelines
+      type: object
+    Region:
+      properties:
+        active:
+          type: boolean
+        availability_zones:
+          items:
+            type: string
+          type: array
+        cloud:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        parent:
+          type: string
+      required:
+        - cloud
+        - code
+        - name
+        - availability_zones
+      type: object
+    RegisterServiceInput:
+      properties:
+        database_id:
+          description: The ID of the database to register.
+          format: uuid
+          type: string
+        service_id:
+          description: The ID of the specific service instance to expose. Must be a running instance on the database.
+          type: string
+      required:
+        - database_id
+        - service_id
+      type: object
+    Service:
+      properties:
+        error:
+          description: Error message if the service instance is in a failed state.
+          nullable: true
+          type: string
+        host_id:
+          description: The cluster host this service instance runs on.
+          nullable: true
+          type: string
+        ingress_registration:
+          $ref: '#/components/schemas/IngressRegistration'
+        ipv4_address:
+          nullable: true
+          type: string
+        mcp_config:
+          $ref: '#/components/schemas/MCPServiceConfig'
+        port:
+          nullable: true
+          type: integer
+        postgrest_config:
+          $ref: '#/components/schemas/PostgRESTServiceConfig'
+        private_domain:
+          description: Private DNS name for this service instance (e.g. mcp-a1b2c3d4.mydb.internal.pgedge.cloud). Null when the cluster has no private DNS zone.
+          nullable: true
+          type: string
+        public_domain:
+          description: Public DNS name for this service (e.g. mcp.mydb.a1.pgedge.io). Null when the service has not been exposed via public DNS.
+          nullable: true
+          type: string
+        rag_config:
+          $ref: '#/components/schemas/RAGServiceConfig'
+        service_id:
+          description: SaaS-generated 8-char hex ID, assigned server-side.
+          type: string
+        service_type:
+          description: Type of service.
+          enum:
+            - mcp
+            - rag
+            - postgrest
+          type: string
+        state:
+          description: Runtime state of the service instance (e.g. running, failed). Null before deployment.
+          nullable: true
+          type: string
+        target_nodes:
+          description: Ordered list of database node names this service connects to. Omitted or empty when using default routing.
+          items:
+            type: string
+          type: array
+      required:
+        - service_id
+        - service_type
+      type: object
+    ServiceConfig:
+      properties:
+        host_ids:
+          description: Cluster host IDs to deploy this service on. Omit to deploy on all database node hosts.
+          items:
+            type: string
+          type: array
+        ingress_registration:
+          $ref: '#/components/schemas/IngressRegistration'
+        mcp_config:
+          $ref: '#/components/schemas/MCPServiceConfig'
+        port:
+          description: Host port for the service. Present in responses; assigned server-side based on service type.
+          readOnly: true
+          type: integer
+        postgrest_config:
+          $ref: '#/components/schemas/PostgRESTServiceConfig'
+        rag_config:
+          $ref: '#/components/schemas/RAGServiceConfig'
+        service_id:
+          description: |
+            SaaS-generated 8-char hex ID. Present in responses;
+            omitted on create (assigned server-side).
+          type: string
+        service_type:
+          description: Type of service to deploy.
+          enum:
+            - mcp
+            - rag
+            - postgrest
+          type: string
+        state:
+          description: Runtime state of the service as reported by the control plane (e.g. "running", "pending", "failed").
+          readOnly: true
+          type: string
+        target_nodes:
+          description: Ordered list of database node names to include in the MCP service connection string. Nodes are tried in the order listed. Omit to connect to all nodes with the local node first.
+          items:
+            type: string
+          type: array
+      required:
+        - service_type
+      type: object
+    ServiceHost:
+      properties:
+        host_id:
+          description: The ID of the host.
+          type: string
+        ip:
+          description: The IP address of the host.
+          type: string
+        port:
+          description: The target port.
+          type: integer
+        target_status:
+          description: The target registration status.
+          type: string
+      required:
+        - host_id
+        - ip
+        - port
+        - target_status
+      type: object
+    ServiceRegistration:
+      properties:
+        database_id:
+          description: The database this service is attached to.
+          format: uuid
+          type: string
+        hosts:
+          items:
+            $ref: '#/components/schemas/ServiceHost'
+          type: array
+        service_id:
+          description: The service instance ID.
+          type: string
+        url:
+          description: The full URL for the service.
+          type: string
+      required:
+        - database_id
+        - service_id
+        - url
+        - hosts
+      type: object
+    SshKey:
+      properties:
+        created_at:
+          description: The date and time when the SSH key was created.
+          type: string
+        id:
+          description: The unique identifier of the SSH key.
+          type: string
+        name:
+          description: The name of the SSH key.
+          type: string
+        public_key:
+          description: The public key of the SSH key.
+          type: string
+      required:
+        - id
+        - name
+        - public_key
+        - created_at
+      type: object
+    Task:
+      properties:
+        created_at:
+          type: string
+        error:
+          type: string
+        id:
+          type: string
+        messages:
+          items:
+            $ref: '#/components/schemas/Message'
+          type: array
+        name:
+          type: string
+        request:
+          additionalProperties: {}
+          type: object
+        response:
+          additionalProperties: {}
+          type: object
+        status:
+          type: string
+        subject_id:
+          type: string
+        subject_kind:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - created_at
+        - updated_at
+        - subject_kind
+        - subject_id
+        - name
+        - messages
+        - status
+      type: object
+    UpdateClusterInput:
+      properties:
+        backup_store_ids:
+          items:
+            type: string
+          type: array
+        firewall_rules:
+          items:
+            $ref: '#/components/schemas/ClusterFirewallRuleSettings'
+          type: array
+        networks:
+          items:
+            $ref: '#/components/schemas/ClusterNetworkSettings'
+          type: array
+        nodes:
+          items:
+            $ref: '#/components/schemas/ClusterNodeSettings'
+          type: array
+        regions:
+          items:
+            type: string
+          type: array
+        resource_tags:
+          additionalProperties:
+            type: string
+          type: object
+        vpc_associations:
+          items:
+            $ref: '#/components/schemas/ClusterVpcAssociationSettings'
+          type: array
+      required:
+        - regions
+      type: object
+    UpdateDatabaseInput:
+      properties:
+        display_name:
+          description: Display name for the database. Set to null to remove existing display name
+          maxLength: 25
+          nullable: true
+          type: string
+        extensions:
+          $ref: '#/components/schemas/Extensions'
+        nodes:
+          items:
+            $ref: '#/components/schemas/DatabaseNode'
+          type: array
+        options:
+          items:
+            type: string
+          type: array
+        services:
+          description: |
+            Services to deploy on this database. Replaces all existing services. Send an empty array to remove all services. Omit to leave existing services unchanged. Sending null is equivalent to sending an empty array.
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          nullable: true
+          type: array
+      type: object
+  securitySchemes:
+    AccessToken:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+info:
+  description: pgEdge API
+  license:
+    name: pgEdge Community License
+    url: https://github.com/pgEdge/nodectl/blob/main/PGEDGE-COMMUNITY-LICENSE.md
+  title: pgEdge API
+  version: 1.0.0
+openapi: 3.0.0
+paths:
+  /byoc/v1/backup-repositories:
+    get:
+      description: List backup repositories.
+      operationId: ListBackupRepositories
+      parameters:
+        - description: Filter backup repositories to a specific database ID.
+          in: query
+          name: database_id
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Filter backup repositories to a specific type.
+          in: query
+          name: type
+          schema:
+            type: string
+        - description: Start time for backup repository retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for backup repository retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BackupRepository'
+                type: array
+          description: Response containing a list of backup repositories.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List backup repositories.
+      tags:
+        - backup-repositories
+  /byoc/v1/backup-repositories/{id}/{node_name}:
+    get:
+      description: Retrieve backup repository info for a node.
+      operationId: GetBackupRepositoryInfo
+      parameters:
+        - description: Backup repository ID.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Name of the node.
+          in: path
+          name: node_name
+          required: true
+          schema:
+            type: string
+        - description: Maximum number of backups to return.
+          in: query
+          name: backup_limit
+          schema:
+            type: integer
+        - description: Offset into the backups, for pagination.
+          in: query
+          name: backup_offset
+          schema:
+            type: integer
+        - description: Filter backups by type.
+          in: query
+          name: backup_type
+          schema:
+            enum:
+              - full
+              - incr
+              - diff
+            type: string
+        - description: Sort backups in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PgBackrestRepositoryInfo'
+          description: Response containing repository details for the specified node.
+        "204":
+          description: Empty response indicating the repository contains no data for the specified node.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve backup repository info for a node.
+      tags:
+        - backup-repositories
+  /byoc/v1/backup-stores:
+    get:
+      description: List backup stores.
+      operationId: ListBackupStores
+      parameters:
+        - description: Start time for backup store retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for backup store retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/BackupStore'
+                type: array
+          description: Response containing a list of backup stores.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List backup stores.
+      tags:
+        - backup-stores
+    post:
+      description: Create a backup store.
+      operationId: CreateBackupStore
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBackupStoreInput'
+        description: The backup store details.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupStore'
+          description: Response containing details about the newly created backup store.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a backup store.
+      tags:
+        - backup-stores
+  /byoc/v1/backup-stores/{id}:
+    delete:
+      description: Delete a backup store.
+      operationId: DeleteBackupStore
+      parameters:
+        - description: The ID of the backup store to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the backup store deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a backup store.
+      tags:
+        - backup-stores
+    get:
+      description: Retrieve a backup store.
+      operationId: GetBackupStore
+      parameters:
+        - description: The ID of the backup store to get.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupStore'
+          description: Response containing details about the specified backup store.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a backup store.
+      tags:
+        - backup-stores
+  /byoc/v1/cloud-accounts:
+    get:
+      description: List cloud accounts.
+      operationId: ListCloudAccounts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CloudAccount'
+                type: array
+          description: Response containing a list of cloud accounts.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List cloud accounts.
+      tags:
+        - cloud-accounts
+    post:
+      description: Create a cloud account.
+      operationId: CreateCloudAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCloudAccountInput'
+        description: The cloud account details.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudAccount'
+          description: Response containing details about the newly created cloud account.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a cloud account.
+      tags:
+        - cloud-accounts
+  /byoc/v1/cloud-accounts/{id}:
+    delete:
+      description: Delete a cloud account.
+      operationId: DeleteCloudAccount
+      parameters:
+        - description: ID of the cloud account to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the cloud account deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a cloud account.
+      tags:
+        - cloud-accounts
+    get:
+      description: Retrieve a cloud account.
+      operationId: GetCloudAccount
+      parameters:
+        - description: ID of the cloud account to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudAccount'
+          description: Response containing details about the specified cloud account.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a cloud account.
+      tags:
+        - cloud-accounts
+  /byoc/v1/cloud-accounts/{id}/regions/{region}/availability-zones:
+    get:
+      description: Retrieve the valid Availability Zones for a given region from the cloud providers, filtering out local zones.
+      operationId: ListAvailabilityZones
+      parameters:
+        - description: ID of the cloud account to use.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Region or location code (e.g., us-east-1 for AWS, eastus for Azure, us-east1 for Google).
+          in: path
+          name: region
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  availability_zones:
+                    items:
+                      type: string
+                    type: array
+                type: object
+          description: List of valid availability zones
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List valid Availability Zones for a region or location (all providers)
+      tags:
+        - cloud-accounts
+  /byoc/v1/clusters:
+    get:
+      description: List clusters.
+      operationId: ListClusters
+      parameters:
+        - description: Start time for cluster retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for cluster retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Cluster'
+                type: array
+          description: Response containing a list of clusters.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List clusters.
+      tags:
+        - clusters
+    post:
+      description: Create a cluster.
+      operationId: CreateCluster
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterInput'
+        description: The cluster definition.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+          description: Response containing details about the newly created cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a cluster.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}:
+    delete:
+      description: Delete a cluster.
+      operationId: DeleteCluster
+      parameters:
+        - description: ID of the cluster to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: |
+            When true, deletes the cluster and all associated databases and cloud infrastructure, bypassing status and database existence checks. The operation is idempotent.
+          in: query
+          name: force
+          schema:
+            default: false
+            type: boolean
+      responses:
+        "204":
+          description: Empty response indicating that the cluster deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a cluster.
+      tags:
+        - clusters
+    get:
+      description: Retrieve a cluster.
+      operationId: GetCluster
+      parameters:
+        - description: ID of the cluster to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+          description: Response containing details about the specified cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a cluster.
+      tags:
+        - clusters
+    patch:
+      description: Update a cluster.
+      operationId: UpdateCluster
+      parameters:
+        - description: ID of the cluster to update.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClusterInput'
+        description: The cluster definition.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+          description: Response containing details about the updated cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error
+      security:
+        - AccessToken: []
+      summary: Update a cluster.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}/metrics:
+    get:
+      description: Retrieve metrics for a cluster.
+      operationId: ReadClusterMetrics
+      parameters:
+        - description: ID of the cluster whose metrics should be retrieved.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Start time for metrics retrieval.
+          in: query
+          name: start_time
+          schema:
+            type: string
+        - description: End time for metrics retrieval.
+          in: query
+          name: end_time
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+          description: Response containing metrics data for the specified cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve metrics for a cluster.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}/nodes:
+    get:
+      description: List nodes for a cluster.
+      operationId: ListClusterNodes
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Latitude of the caller.
+          in: query
+          name: near_lat
+          schema:
+            type: string
+        - description: Longitude of the caller.
+          in: query
+          name: near_lon
+          schema:
+            type: string
+        - description: Order by specification.
+          in: query
+          name: order_by
+          schema:
+            enum:
+              - distance
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ClusterNode'
+                type: array
+          description: Response containing a list of nodes in the specified cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List nodes for a cluster.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}/nodes/{node_id}/logs/{log_name}:
+    get:
+      description: Retrieve logs for a cluster node.
+      operationId: GetClusterLogs
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the node to get logs for.
+          in: path
+          name: node_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Name of the cluster log file.
+          in: path
+          name: log_name
+          required: true
+          schema:
+            type: string
+        - description: Maximum number of log lines to retrieve.
+          in: query
+          name: lines
+          schema:
+            type: integer
+        - description: Show entries on or after the specified date.
+          in: query
+          name: since
+          schema:
+            type: string
+        - description: Show entries on or before than the specified date.
+          in: query
+          name: until
+          schema:
+            type: string
+        - description: The message priority to filter the log files by.
+          in: query
+          name: priority
+          schema:
+            type: string
+        - description: Filter output to entries where the message field matches the provided regular expression.
+          in: query
+          name: grep
+          schema:
+            type: string
+        - description: If set to true, make pattern matching case-sensitive; the default is false (case-insensitive).
+          in: query
+          name: case_sensitive
+          schema:
+            type: boolean
+        - description: Reverse output so that the newest entries are displayed first.
+          in: query
+          name: reverse
+          schema:
+            type: boolean
+        - description: Show only kernel entries.
+          in: query
+          name: dmesg
+          schema:
+            type: boolean
+        - description: Controls the formatting of the journal entries that are shown.
+          in: query
+          name: output
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ClusterNodeLogMessage'
+                type: array
+          description: Response containing cluster logs for the specified node.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve logs for a cluster node.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}/shares:
+    get:
+      description: List shares for a cluster.
+      operationId: ListClusterShares
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ClusterShare'
+                type: array
+          description: Response containing a list of shares for a specified cluster.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List shares for a cluster.
+      tags:
+        - clusters
+    post:
+      description: Share a cluster with a different tenant.
+      operationId: CreateClusterShare
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterShareInput'
+        description: The cluster share definition.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterShare'
+          description: Response containing details about the newly created cluster share.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Share a cluster with a different tenant.
+      tags:
+        - clusters
+  /byoc/v1/clusters/{id}/shares/{share_id}:
+    delete:
+      description: Delete a cluster share.
+      operationId: DeleteClusterShare
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the cluster share.
+          in: path
+          name: share_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating the cluster share was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a cluster share.
+      tags:
+        - clusters
+    get:
+      description: Retrieve a cluster share.
+      operationId: ReadClusterShare
+      parameters:
+        - description: ID of the cluster.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the cluster share.
+          in: path
+          name: share_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterShare'
+          description: Response containing details about the specified cluster share.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a cluster share.
+      tags:
+        - clusters
+  /byoc/v1/config-versions:
+    get:
+      description: List database configuration versions.
+      operationId: ListConfigVersions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ConfigVersion'
+                type: array
+          description: Response containing a list of database configuration versions.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List database configuration versions.
+      tags:
+        - config-versions
+  /byoc/v1/config-versions/{version}:
+    get:
+      description: Retrieve a database configuration version.
+      operationId: GetConfigVersion
+      parameters:
+        - description: Configuration version to return.
+          in: path
+          name: version
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigVersion'
+          description: Response containing a specific configuration version.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a database configuration version.
+      tags:
+        - config-versions
+  /byoc/v1/databases:
+    get:
+      description: List databases.
+      operationId: ListDatabases
+      parameters:
+        - description: Filter databases to a specific cluster ID.
+          in: query
+          name: cluster_id
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Start time for database retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for database retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Database'
+                type: array
+          description: Response containing a list of databases.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List databases.
+      tags:
+        - databases
+    post:
+      description: Create a database.
+      operationId: CreateDatabase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatabaseInput'
+        description: The database definition.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Database'
+          description: Response containing details about the newly created database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}:
+    delete:
+      description: Delete a database.
+      operationId: DeleteDatabase
+      parameters:
+        - description: ID of the database to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the database deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a database.
+      tags:
+        - databases
+    get:
+      description: Retrieve a database.
+      operationId: GetDatabase
+      parameters:
+        - description: ID of the database to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: The user type whose credentials will be returned.
+          in: query
+          name: user_type
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Database'
+          description: Response containing the database definition.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a database.
+      tags:
+        - databases
+    patch:
+      description: Update a database.
+      operationId: UpdateDatabase
+      parameters:
+        - description: ID of the database to update.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDatabaseInput'
+        description: The database parameters to update.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Database'
+          description: Response containing the updated database definition.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Update a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}/backup:
+    post:
+      description: Initiate a backup for a database.
+      operationId: BackupDatabase
+      parameters:
+        - description: ID of the database to backup.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBackupInput'
+        description: The backup configuration.
+        required: true
+      responses:
+        "200":
+          description: Empty response indicating a backup was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Initiate a backup for a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}/logs:
+    get:
+      description: Retrieve logs for a database.
+      operationId: GetDatabaseLogs
+      parameters:
+        - description: ID of the database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Name of the database to get logs for.
+          in: query
+          name: component_name
+          required: true
+          schema:
+            type: string
+        - description: Maximum number of log lines to retrieve.
+          in: query
+          name: max_lines
+          schema:
+            default: 100
+            type: integer
+        - description: List of node(s) to get logs for.
+          in: query
+          name: nodes
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLogsResponse'
+          description: Response containing logs for the specified database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve logs for a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}/metrics:
+    get:
+      description: Retrieve metrics for a database.
+      operationId: GetDatabaseMetrics
+      parameters:
+        - description: ID of the database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: The interval to group the metrics by, specified in value, unit format.
+          in: query
+          name: interval
+          schema:
+            type: string
+        - description: The node name to filter the metrics by.
+          in: query
+          name: node_name
+          schema:
+            type: string
+        - description: The columns to return, comma separated.
+          in: query
+          name: columns
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricSeriesContainer'
+          description: Response containing metrics for the specified database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve metrics for a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}/restore:
+    post:
+      description: Initiate a restore for a database.
+      operationId: RestoreDatabase
+      parameters:
+        - description: ID of the database to restore.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestoreInput'
+        description: The restore configuration.
+        required: true
+      responses:
+        "200":
+          description: Empty response indicating a restore was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error
+      security:
+        - AccessToken: []
+      summary: Initiate a restore for a database.
+      tags:
+        - databases
+  /byoc/v1/databases/{id}/roles/{role_name}/rotate-password:
+    post:
+      description: Rotate the password for a built-in database role.
+      operationId: RotateDatabaseRolePassword
+      parameters:
+        - description: ID of the database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Name of the built-in role.
+          in: path
+          name: role_name
+          required: true
+          schema:
+            enum:
+              - admin
+              - app
+              - app_read_only
+            type: string
+      responses:
+        "204":
+          description: Empty response indicating the password rotation was successful.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request. The provided role is not a built-in role.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal server error. The password rotate operation failed.
+      security:
+        - AccessToken: []
+      summary: Rotate the password for a built-in database role.
+      tags:
+        - databases
+  /byoc/v1/ingresses:
+    get:
+      description: List ingresses.
+      operationId: ListIngresses
+      parameters:
+        - description: Start time for ingress retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for ingress retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Ingress'
+                type: array
+          description: Response containing a list of ingresses.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List ingresses.
+      tags:
+        - ingresses
+    post:
+      description: Create an ingress.
+      operationId: CreateIngress
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIngressInput'
+        description: The ingress details.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingress'
+          description: Response containing details about the newly created ingress.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create an ingress.
+      tags:
+        - ingresses
+  /byoc/v1/ingresses/{id}:
+    delete:
+      description: Delete an ingress.
+      operationId: DeleteIngress
+      parameters:
+        - description: The ID of the ingress to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the ingress deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete an ingress.
+      tags:
+        - ingresses
+    get:
+      description: Retrieve an ingress.
+      operationId: GetIngress
+      parameters:
+        - description: The ID of the ingress to get.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingress'
+          description: Response containing details about the specified ingress.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve an ingress.
+      tags:
+        - ingresses
+  /byoc/v1/ingresses/{id}/services:
+    get:
+      description: List services for an ingress.
+      operationId: ListIngressServices
+      parameters:
+        - description: The ID of the ingress.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ServiceRegistration'
+                type: array
+          description: Response containing a list of services.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List services for an ingress.
+      tags:
+        - ingresses
+    post:
+      description: Register a service on an ingress.
+      operationId: CreateIngressService
+      parameters:
+        - description: The ID of the ingress.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterServiceInput'
+        description: The service registration details.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceRegistration'
+          description: Response containing the registered service.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Register a service on an ingress.
+      tags:
+        - ingresses
+  /byoc/v1/ingresses/{id}/services/{service_id}:
+    delete:
+      description: Deregister a service from an ingress.
+      operationId: DeleteIngressService
+      parameters:
+        - description: The ID of the ingress.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: The service ID to deregister.
+          in: path
+          name: service_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Empty response indicating the service was deregistered.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Deregister a service from an ingress.
+      tags:
+        - ingresses
+  /byoc/v1/open-api:
+    get:
+      description: Retrieve the OpenAPI specification for the pgEdge API.
+      operationId: GetOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: Response containing the OpenAPI specification for the pgEdge API in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve the OpenAPI specification for the pgEdge API.
+      tags:
+        - open-api
+  /byoc/v1/openapi.json:
+    get:
+      description: The published public contract for the pgEdge BYOC API. Requires no authentication and always describes the Enterprise-plan surface; runtime access remains enforced per token.
+      operationId: GetByocPublicOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: The public OpenAPI contract in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security: []
+      summary: Retrieve the published public contract for the BYOC API.
+      tags:
+        - open-api
+  /byoc/v1/ssh-keys:
+    get:
+      description: List SSH keys.
+      operationId: ListSshKeys
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SshKey'
+                type: array
+          description: Response containing a list of SSH keys.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List SSH keys.
+      tags:
+        - ssh-keys
+    post:
+      description: Create an SSH key.
+      operationId: CreateSshKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSshKeyInput'
+        description: The SSH key details.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKey'
+          description: Response containing details about the newly created SSH key.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create an SSH key.
+      tags:
+        - ssh-keys
+  /byoc/v1/ssh-keys/{id}:
+    delete:
+      description: Delete an SSH key.
+      operationId: DeleteSshKey
+      parameters:
+        - description: ID of the SSH key to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that the SSH key was deleted.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete an SSH key.
+      tags:
+        - ssh-keys
+    get:
+      description: Retrieve an SSH key.
+      operationId: GetSshKey
+      parameters:
+        - description: ID of the SSH key to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKey'
+          description: Response containing details about the specified SSH key.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve an SSH key.
+      tags:
+        - ssh-keys
+  /byoc/v1/tasks:
+    get:
+      description: List tasks.
+      operationId: ListTasks
+      parameters:
+        - description: Filter tasks by subject id.
+          in: query
+          name: subject_id
+          schema:
+            type: string
+        - description: Filter tasks by kind.
+          in: query
+          name: subject_kind
+          schema:
+            type: string
+        - description: Filter tasks by id.
+          in: query
+          name: id
+          schema:
+            type: string
+        - description: Filter tasks by name.
+          in: query
+          name: name
+          schema:
+            type: string
+        - description: Filter tasks by status.
+          in: query
+          name: status
+          schema:
+            enum:
+              - queued
+              - running
+              - succeeded
+              - failed
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Task'
+                type: array
+          description: Response containing a list of tasks.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List tasks.
+      tags:
+        - tasks
+  /byoc/v1/templates/permissions/cloudformation:
+    get:
+      description: Retrieve a link to a CloudFormation template for pgEdge permissions.
+      operationId: GetCloudFormationTemplate
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CloudFormationTemplate'
+                type: array
+          description: Response containing a link to the CloudFormation template.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a link to a CloudFormation template for pgEdge permissions.
+      tags:
+        - templates
+servers:
+  - url: https://api.pgedge.com
+tags:
+  - name: backup-repositories
+  - name: backup-stores
+  - name: cloud-accounts
+  - name: clusters
+  - name: config-versions
+  - name: databases
+  - name: ingresses
+  - name: open-api
+  - name: ssh-keys
+  - name: tasks
+  - name: templates

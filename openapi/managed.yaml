@@ -1,0 +1,2436 @@
+components:
+  schemas:
+    Backup:
+      properties:
+        created_at:
+          format: date-time
+          type: string
+        database_id:
+          type: string
+        finished_at:
+          format: date-time
+          type: string
+        id:
+          type: string
+        kind:
+          description: 'Backup tier: "hot" or "durable".'
+          type: string
+        metadata:
+          type: object
+        name:
+          type: string
+        purpose:
+          description: 'What the backup was taken for. Current values: "user" (on-demand), "scheduled" (the daily run), "prebranch" (the snapshot a branch create cut against the source), "prerestore" (the rollback anchor taken before a restore), and "postrestore" (the anchor taken on the new incarnation after a restore). The set is open — new values may appear as operations gain provenance — so treat an unrecognized value as informational rather than an error. Absent when the provenance is unknown.'
+          type: string
+        status:
+          description: CNPG backup phase. Only "completed" backups are usable restore points.
+          type: string
+      required:
+        - id
+        - database_id
+        - name
+        - created_at
+        - status
+        - kind
+        - metadata
+      type: object
+    Branch:
+      properties:
+        connectable_at:
+          description: When the branch first became connectable. The branch bills from this moment until its deletion is requested. Absent while the branch is still being created.
+          nullable: true
+          type: string
+        connection:
+          $ref: '#/components/schemas/ManagedConnection'
+        created_at:
+          type: string
+        database_id:
+          description: The root database this branch was taken from, at any depth.
+          type: string
+        deletion_requested_at:
+          description: When deletion was requested; absent before then. Billing stops and the branch's slot frees here, ahead of teardown completing.
+          nullable: true
+          type: string
+        depth:
+          description: 1 for a branch of the database.
+          type: integer
+        display_name:
+          description: Display name of the branch. Absent if not set.
+          maxLength: 25
+          nullable: true
+          type: string
+        domain:
+          type: string
+        id:
+          type: string
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: 'Source addresses permitted to reach the branch''s POSTGRES endpoint, with the posture the rules express. Each AI service''s own endpoint reports its allowlist on its entry in services. Every branch allowlist is fixed at creation: it cannot be changed afterwards, and changes to the source database''s lists never reach the branch. To change one, recreate the branch.'
+        name:
+          description: Server-assigned name; also the branch's hostname label.
+          type: string
+        options:
+          items:
+            type: string
+          type: array
+        parent_branch_id:
+          description: The branch this branch was taken from. Absent when branched directly from the database.
+          nullable: true
+          type: string
+        pg_version:
+          type: string
+        port:
+          description: Externally reachable Postgres port.
+          type: integer
+        region:
+          type: string
+        services:
+          description: 'AI services on the branch, copied from the source''s configuration at creation with the branch''s own secrets: each MCP service gets a freshly minted bearer token (the source''s tokens never authenticate against the branch), returned as mcp_config.init_tokens on the single-branch GET, while the source''s provider API keys are inherited so embedding and completion calls work as they do on the source. Like every branch property, the services are fixed at creation.'
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          type: array
+        size:
+          description: Managed size name, copied from the source at creation.
+          type: string
+        status:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - database_id
+        - depth
+        - name
+        - region
+        - size
+        - status
+        - pg_version
+        - created_at
+        - updated_at
+        - ip_allowlist
+      type: object
+    ClientIPAddress:
+      properties:
+        ip_address:
+          description: The source address this request arrived with.
+          type: string
+      required:
+        - ip_address
+      type: object
+    CreateBackupRequest:
+      properties:
+        kind:
+          description: 'Backup tier to take: "hot" (fast local VolumeSnapshot) or "durable" (base backup streamed to object storage; requires the durable tier to be enabled for the database).'
+          type: string
+      required:
+        - kind
+      type: object
+    CreateBranchRequest:
+      properties:
+        display_name:
+          description: Optional display name for the branch.
+          maxLength: 25
+          type: string
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: 'Source addresses permitted to reach the branch''s POSTGRES endpoint. Omitted, the branch copies the source database''s current rules, so its Postgres endpoint is reachable from wherever its source''s is. Explicit rules replace the copy; explicit empty rules close the Postgres endpoint (the branch''s AI services still reach it in-cluster). This field governs Postgres only: each AI service''s own HTTP endpoint keeps the allowlist copied with its service config from the source, reported per service in the response. Every branch allowlist is fixed at creation — changes to the source never reach the branch, and to change one, recreate the branch.'
+        source_branch_id:
+          description: Reserved for branching a branch; refused until that ships.
+          type: string
+      type: object
+    CreateManagedDatabaseInput:
+      properties:
+        display_name:
+          description: Display name for the database.
+          maxLength: 25
+          nullable: true
+          type: string
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: Source addresses permitted to reach the Postgres endpoint. Omitted, the database is created closed and reaches nobody until a rule is added. Each service's allowlist rides its entry in services, with the same closed default.
+        name:
+          type: string
+        options:
+          items:
+            type: string
+          type: array
+        pg_version:
+          description: PostgreSQL major version. Fixed for the life of the database; defaults to the newest supported version when omitted.
+          enum:
+            - "18"
+            - "17"
+            - "16"
+          type: string
+        region:
+          description: Region in which to place the managed database.
+          type: string
+        services:
+          description: AI services to provision on the database.
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          type: array
+        size:
+          description: |
+            Size for the managed database (e.g. "small", "large",
+            "xl"). Validated server-side against the active
+            managed-size catalog.
+          type: string
+      required:
+        - name
+        - region
+        - size
+      type: object
+    CreateRestoreRequest:
+      properties:
+        backup_id:
+          description: ID of the backup to restore from. Must be a completed backup of this database.
+          type: string
+      required:
+        - backup_id
+      type: object
+    DatabaseLogsResponse:
+      properties:
+        logs:
+          items:
+            type: object
+          type: array
+      required:
+        - logs
+      type: object
+    Error:
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        reason:
+          description: |
+            Stable, machine-readable discriminator for programmatic client handling. Absent for generic errors. Clients must treat an unrecognized value as a generic error of the given status code.
+          enum:
+            - membership_revoked
+            - plan_expired
+            - developer_plan_backup
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    IPAllowlist:
+      description: 'One endpoint''s source-address allowlist. Every endpoint keeps its own: a rule on one has no effect on any other, and none of them inherit.'
+      properties:
+        rules:
+          items:
+            $ref: '#/components/schemas/IPAllowlistRule'
+          maxItems: 50
+          type: array
+        state:
+          description: 'The posture the rules express: "closed" when there are none and no source address reaches the endpoint, "open" when a rule admits every address, "restricted" otherwise. Derived from the rules; ignored on input.'
+          enum:
+            - closed
+            - restricted
+            - open
+          readOnly: true
+          type: string
+      required:
+        - rules
+      type: object
+    IPAllowlistRule:
+      properties:
+        cidr:
+          description: 'An IPv4 address or CIDR block, e.g. "203.0.113.7" or "203.0.113.0/24". A bare address is stored as a /32, and a block is stored masked to its network address. IPv6 is rejected: the ingress these rules are enforced at is reachable over IPv4 only.'
+          type: string
+        label:
+          description: Optional note describing what the entry is for.
+          maxLength: 64
+          type: string
+      required:
+        - cidr
+      type: object
+    MCPServiceConfig:
+      description: |
+        MCP service configuration. Only the generate_embedding / embedding block is exposed here. NLA / web chat proxy (llm.*) configuration is not yet exposed through the SaaS API.
+      properties:
+        allow_writes:
+          description: |
+            Grant the MCP service read-write (INSERT/UPDATE/DELETE) access to the database via its query_database tool.
+
+            WARNING: enabling this allows the LLM to modify, delete, or corrupt data. Only enable on development or test databases where data loss is acceptable.
+
+            Defaults to false (read-only).
+          type: boolean
+        embedding_api_key:
+          description: |
+            API key for the embedding provider. Required when
+            embedding_provider is set on create; on update the
+            stored key is reused if omitted. Stored encrypted
+            server-side; returned on the single-database and
+            single-branch GETs. A branch inherits the source's
+            key at creation.
+          type: string
+        embedding_model:
+          description: |
+            Embedding model identifier. Required when embedding_provider is set.
+          type: string
+        embedding_provider:
+          description: |
+            Embedding provider. Setting this enables the generate_embedding tool on the MCP server.
+          enum:
+            - voyage
+            - openai
+          type: string
+        init_tokens:
+          description: |
+            Bearer token forwarded to the MCP server as INIT_TOKENS.
+            Generated server-side when omitted, since the MCP server
+            requires one. Stored encrypted server-side; returned on
+            the single-database and single-branch GETs. A branch
+            never shares its source's token: branch creation mints
+            the branch its own.
+          type: string
+        init_users:
+          description: |
+            Optional comma-separated list of username:password pairs
+            forwarded to the MCP server as INIT_USERS. Stored
+            encrypted server-side; returned in
+            GET /managed/v1/databases/{id}. Branches neither inherit
+            nor mint init_users; a branch MCP authenticates by its
+            minted token only.
+          type: string
+      type: object
+    ManagedConnection:
+      properties:
+        database:
+          type: string
+        external_ip_address:
+          type: string
+        host:
+          type: string
+        password:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+      required:
+        - username
+        - password
+        - port
+        - database
+      type: object
+    ManagedDatabase:
+      properties:
+        branch_count:
+          description: Number of live branches of this database. A branch counts until its deletion is requested.
+          type: integer
+        branch_limit:
+          description: Maximum number of live branches allowed on this database. Null means unlimited.
+          nullable: true
+          type: integer
+        connection:
+          $ref: '#/components/schemas/ManagedConnection'
+        created_at:
+          type: string
+        deletion_protection:
+          default: false
+          description: Whether deletion protection is enabled.
+          type: boolean
+        display_name:
+          description: Display name of the database. Null if not set.
+          maxLength: 25
+          nullable: true
+          type: string
+        domain:
+          type: string
+        id:
+          type: string
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: Source addresses permitted to reach the Postgres endpoint, with the posture the rules express. Each service reports its own allowlist on its entry in services.
+        name:
+          type: string
+        options:
+          items:
+            type: string
+          type: array
+        pg_version:
+          type: string
+        port:
+          description: Externally reachable Postgres port.
+          type: integer
+        region:
+          type: string
+        services:
+          description: AI services provisioned on the database.
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          type: array
+        size:
+          description: Current managed size name (e.g. "small", "large").
+          type: string
+        status:
+          type: string
+        storage_used:
+          format: int64
+          type: integer
+        updated_at:
+          type: string
+      required:
+        - id
+        - region
+        - name
+        - size
+        - status
+        - created_at
+        - updated_at
+        - ip_allowlist
+      type: object
+    ManagedPGVersion:
+      description: A Postgres major version a managed database can run.
+      properties:
+        default:
+          description: |
+            Whether this is the version a create that omits pg_version
+            provisions. Exactly one version is the default.
+          type: boolean
+        version:
+          description: |
+            Postgres major version, as accepted by the pg_version field
+            on database creation (e.g. "18").
+          type: string
+      required:
+        - version
+        - default
+      type: object
+    ManagedRegion:
+      description: A region that can host a managed database.
+      properties:
+        region:
+          description: |
+            Provider region identifier (e.g. "us-east-1").
+          type: string
+      required:
+        - region
+      type: object
+    Message:
+      properties:
+        level:
+          type: string
+        progress:
+          type: integer
+        status:
+          type: string
+        step:
+          type: string
+        text:
+          type: string
+        time:
+          type: string
+      required:
+        - time
+        - level
+        - text
+      type: object
+    MetricSeries:
+      properties:
+        columns:
+          items:
+            type: string
+          type: array
+        name:
+          type: string
+        values:
+          items:
+            items: {}
+            type: array
+          type: array
+      required:
+        - name
+        - values
+        - columns
+      type: object
+    MetricSeriesContainer:
+      properties:
+        series:
+          items:
+            $ref: '#/components/schemas/MetricSeries'
+          type: array
+      required:
+        - series
+      type: object
+    OpenApiSpec:
+      type: object
+    PostgRESTServiceConfig:
+      properties:
+        cors_origins:
+          description: Optional comma-separated list of allowed CORS origins.
+          type: string
+        db_anon_role:
+          description: Postgres role used for unauthenticated requests.
+          type: string
+        db_pool:
+          description: Number of DB connections to keep open (1-30). Defaults to 10.
+          maximum: 30
+          minimum: 1
+          type: integer
+        db_schemas:
+          description: Comma-separated Postgres schemas to expose as REST (e.g. "public" or "public,api").
+          type: string
+        jwt_audience:
+          description: Optional JWT audience claim.
+          type: string
+        jwt_role_claim_key:
+          description: Optional JSONPath to the JWT role claim.
+          type: string
+        jwt_secret:
+          description: Optional JWT signing secret (min 32 chars). Write-only; stored in AWS Secrets Manager and never returned.
+          type: string
+          writeOnly: true
+        max_rows:
+          description: Maximum rows returned per request (1-10000). Defaults to 1000.
+          maximum: 10000
+          minimum: 1
+          type: integer
+      required:
+        - db_schemas
+        - db_anon_role
+      type: object
+    RAGCorsConfig:
+      properties:
+        allowed_origins:
+          description: Allowed origins when CORS is enabled (e.g. "https://app.example.com").
+          items:
+            type: string
+          type: array
+        enabled:
+          description: Whether CORS is enabled.
+          type: boolean
+      required:
+        - enabled
+      type: object
+    RAGEmbeddingTable:
+      properties:
+        filter:
+          description: SQL WHERE clause to scope searches (e.g. "tenant_id = '123'").
+          type: string
+        id_column:
+          description: Primary key column. Defaults to "id".
+          type: string
+        table:
+          description: Postgres table name (e.g. "public.documents").
+          type: string
+        text_column:
+          description: Column containing the text chunk.
+          type: string
+        vector_column:
+          description: Column containing the embedding vector.
+          type: string
+      required:
+        - table
+        - text_column
+        - vector_column
+      type: object
+    RAGLLMConfig:
+      properties:
+        api_key:
+          description: API key for the LLM provider. Write-only; stored in AWS Secrets Manager.
+          type: string
+          writeOnly: true
+        model:
+          description: Model identifier passed to the LLM provider.
+          type: string
+        provider:
+          description: LLM provider.
+          enum:
+            - openai
+            - anthropic
+          type: string
+      required:
+        - provider
+        - model
+      type: object
+    RAGPipelineConfig:
+      properties:
+        completion_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Override the RAG server completion LLM for this pipeline. Inherits from RAGServiceConfig when omitted.
+        description:
+          type: string
+        embedding_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Override the RAG server embedding LLM for this pipeline. Inherits from RAGServiceConfig when omitted.
+        hybrid_enabled:
+          description: Enable hybrid search. Defaults to true.
+          type: boolean
+        min_similarity:
+          description: Minimum cosine similarity (0.0-1.0) a result must meet to reach the LLM. Guards grounded answers against irrelevant matches. Defaults to 0.0 (no floor).
+          format: double
+          type: number
+        name:
+          description: Pipeline name. Used in request paths.
+          type: string
+        system_prompt:
+          description: System prompt for the LLM. Defaults to RAG server built-in prompt.
+          type: string
+        tables:
+          description: Embedding tables this pipeline searches.
+          items:
+            $ref: '#/components/schemas/RAGEmbeddingTable'
+          minItems: 1
+          type: array
+        token_budget:
+          description: Max tokens for completion. Inherits from RAGServiceConfig when omitted.
+          type: integer
+        top_n:
+          description: Number of results to retrieve. Inherits from RAGServiceConfig when omitted.
+          type: integer
+        vector_weight:
+          description: Weight for vector search in hybrid mode (0.0-1.0). Defaults to 0.5.
+          format: double
+          maximum: 1
+          minimum: 0
+          type: number
+      required:
+        - name
+        - tables
+      type: object
+    RAGServiceConfig:
+      properties:
+        completion_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Default completion LLM for all pipelines.
+        cors:
+          allOf:
+            - $ref: '#/components/schemas/RAGCorsConfig'
+          description: HTTP CORS policy for the RAG server. Off by default; enable when a browser-hosted client calls the service from another origin.
+        embedding_llm:
+          allOf:
+            - $ref: '#/components/schemas/RAGLLMConfig'
+          description: Default embedding LLM for all pipelines.
+        pipelines:
+          items:
+            $ref: '#/components/schemas/RAGPipelineConfig'
+          minItems: 1
+          type: array
+        token_budget:
+          description: Default max completion tokens across all pipelines. Defaults to 1000.
+          type: integer
+        top_n:
+          description: Default number of results to retrieve. Defaults to 10.
+          type: integer
+      required:
+        - embedding_llm
+        - completion_llm
+        - pipelines
+      type: object
+    ResizeManagedDatabaseInput:
+      properties:
+        size:
+          description: Target managed size name (e.g. "large").
+          type: string
+      required:
+        - size
+      type: object
+    ServiceConfig:
+      properties:
+        host_ids:
+          description: Cluster host IDs to deploy this service on. Omit to deploy on all database node hosts.
+          items:
+            type: string
+          type: array
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: Source addresses permitted to reach this service's endpoint. A new service that omits it starts closed and reaches nobody until a rule is added; an existing service that omits it keeps its current rules.
+        mcp_config:
+          $ref: '#/components/schemas/MCPServiceConfig'
+        port:
+          description: Host port for the service. Present in responses; assigned server-side based on service type.
+          readOnly: true
+          type: integer
+        postgrest_config:
+          $ref: '#/components/schemas/PostgRESTServiceConfig'
+        public_domain:
+          description: Public DNS name for this service (the database's domain). Null when the domain is not yet assigned. Managed services share this name and are routed by path; see uri for the full base URL.
+          nullable: true
+          readOnly: true
+          type: string
+        rag_config:
+          $ref: '#/components/schemas/RAGServiceConfig'
+        service_id:
+          description: |
+            SaaS-generated 8-char hex ID. Present in responses;
+            omitted on create (assigned server-side).
+          type: string
+        service_type:
+          description: Type of service to deploy.
+          enum:
+            - mcp
+            - rag
+            - postgrest
+          type: string
+        state:
+          description: 'Runtime state of the service, observed on the deployment actually serving it: "running" once it is serving its current configuration, "failed" if it did not come up, and "pending" while a change to the database is still being applied. A configuration change is live on a service only once this reads "running" again.'
+          readOnly: true
+          type: string
+        target_nodes:
+          description: Ordered list of database node names to include in the MCP service connection string. Nodes are tried in the order listed. Omit to connect to all nodes with the local node first.
+          items:
+            type: string
+          type: array
+        uri:
+          description: Base URL to call this service on, e.g. https://my-db.us-east-2.pgedge.cloud/mcp/v1. Omitted until the database's domain is assigned, as public_domain is. MCP additionally requires a bearer token, returned as mcp_config.init_tokens on the single-database or single-branch GET.
+          nullable: true
+          readOnly: true
+          type: string
+      required:
+        - service_type
+      type: object
+    Size:
+      description: |
+        A single managed-K8s size definition. Shape fields (name,
+        version, qos_class, the K8s quantity strings, and
+        postgres_settings) are immutable for the lifetime of a row;
+        a size-shape change is modeled as a new row at the next
+        version. The mutable fields are display_name and status.
+      properties:
+        cpu_limit:
+          description: |
+            Kubernetes resource quantity string for the CPU limit
+            (e.g. "2000m").
+          type: string
+        cpu_request:
+          description: |
+            Kubernetes resource quantity string for the CPU request
+            (e.g. "500m").
+          type: string
+        created_at:
+          description: RFC3339 timestamp the row was inserted.
+          format: date-time
+          type: string
+        deprecated_at:
+          description: |
+            RFC3339 timestamp the row was deprecated. Non-null iff
+            status is deprecated or retired.
+          format: date-time
+          nullable: true
+          type: string
+        display_name:
+          description: Marketing-copy label shown in the GUI.
+          type: string
+        id:
+          description: The unique identifier of the managed-size row.
+          type: string
+        memory_limit:
+          description: |
+            Kubernetes resource quantity string for the memory limit
+            (e.g. "4Gi").
+          type: string
+        memory_request:
+          description: |
+            Kubernetes resource quantity string for the memory request
+            (e.g. "1Gi").
+          type: string
+        name:
+          description: |
+            Customer-visible size identifier (e.g. "small", "large",
+            "xl"). Stable across versions.
+          type: string
+        postgres_settings:
+          additionalProperties:
+            type: string
+          description: |
+            Per-size Postgres tuning map. Keys map 1:1 to keys CNPG
+            copies into spec.postgresql.parameters. Values are strings
+            because postgresql.conf parses every value as a string.
+          type: object
+        pricing:
+          $ref: '#/components/schemas/SizePricing'
+        qos_class:
+          description: |
+            Kubernetes pod QoS class the managed database runs under.
+          enum:
+            - burstable
+            - guaranteed
+          type: string
+        retired_at:
+          description: |
+            RFC3339 timestamp the row was retired. Non-null iff status
+            is retired.
+          format: date-time
+          nullable: true
+          type: string
+        shared_memory_size:
+          description: Kubernetes resource quantity string for the shared memory size (e.g. "1Gi").
+          type: string
+        status:
+          description: Lifecycle state of the managed-size row.
+          enum:
+            - active
+            - deprecated
+            - retired
+          type: string
+        storage_size:
+          description: |
+            Kubernetes resource quantity string for the persistent
+            volume size (e.g. "25Gi").
+          type: string
+        temporary_data_size:
+          description: Kubernetes resource quantity string for the temporary data size (e.g. "2Gi").
+          type: string
+        version:
+          description: |
+            Monotonically increasing version number per name. Starts
+            at 1.
+          type: integer
+      required:
+        - id
+        - name
+        - version
+        - display_name
+        - qos_class
+        - cpu_request
+        - cpu_limit
+        - memory_request
+        - memory_limit
+        - storage_size
+        - temporary_data_size
+        - shared_memory_size
+        - postgres_settings
+        - status
+        - created_at
+      type: object
+    SizePricing:
+      description: |
+        Current price for a managed size. Present only when the request
+        asked for it via include=pricing, and only for sizes that have
+        a configured price — a size with no price omits the field
+        rather than reporting zero.
+      properties:
+        billing_interval:
+          description: Interval the price recurs on (e.g. "month").
+          type: string
+        currency:
+          description: ISO 4217 currency code, lowercase.
+          type: string
+        price_amount:
+          description: |
+            Price in the currency's smallest unit (e.g. cents for usd).
+          format: int64
+          type: integer
+      required:
+        - price_amount
+        - currency
+        - billing_interval
+      type: object
+    Task:
+      properties:
+        created_at:
+          type: string
+        error:
+          type: string
+        id:
+          type: string
+        messages:
+          items:
+            $ref: '#/components/schemas/Message'
+          type: array
+        name:
+          type: string
+        request:
+          additionalProperties: {}
+          type: object
+        response:
+          additionalProperties: {}
+          type: object
+        status:
+          type: string
+        subject_id:
+          type: string
+        subject_kind:
+          type: string
+        updated_at:
+          type: string
+      required:
+        - id
+        - created_at
+        - updated_at
+        - subject_kind
+        - subject_id
+        - name
+        - messages
+        - status
+      type: object
+    UpdateManagedDatabaseInput:
+      properties:
+        deletion_protection:
+          description: Whether deletion protection is enabled. When true, delete requests are rejected until protection is disabled.
+          type: boolean
+        display_name:
+          description: |
+            Display name for the database. Set to null to remove
+            the existing display name.
+          maxLength: 25
+          nullable: true
+          type: string
+        ip_allowlist:
+          allOf:
+            - $ref: '#/components/schemas/IPAllowlist'
+          description: |-
+            Source addresses permitted to reach the Postgres endpoint. Replaces the current rules; pass empty rules to close the endpoint. Omitted, the rules are unchanged. Each service's allowlist rides its entry in services.
+
+            Like any other modification, the change is applied one at a time: the database must be "available" and moves through "modifying" while the rules are pushed to the ingress. Postgres is not restarted and open sessions are not cut; the rules govern new connections.
+        options:
+          items:
+            type: string
+          type: array
+        services:
+          description: AI services to provision on the database. Replaces the current service list on update.
+          items:
+            $ref: '#/components/schemas/ServiceConfig'
+          type: array
+      type: object
+  securitySchemes:
+    AccessToken:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
+info:
+  description: pgEdge API
+  license:
+    name: pgEdge Community License
+    url: https://github.com/pgEdge/nodectl/blob/main/PGEDGE-COMMUNITY-LICENSE.md
+  title: pgEdge API
+  version: 1.0.0
+openapi: 3.0.0
+paths:
+  /managed/v1/backups:
+    get:
+      description: List backups.
+      operationId: ListBackups
+      parameters:
+        - description: Filter backups to a specific database ID.
+          in: query
+          name: database_id
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: 'Filter backups to a specific kind: "hot" (VolumeSnapshot) or "durable" (object store).'
+          in: query
+          name: kind
+          schema:
+            enum:
+              - hot
+              - durable
+            type: string
+        - description: Start time for backup retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for backup retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            default: 100
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            default: 0
+            minimum: 0
+            type: integer
+        - description: Sort by creation time in descending order. Defaults to true, so the newest restore points come first.
+          in: query
+          name: descending
+          schema:
+            default: true
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Backup'
+                type: array
+          description: Response containing a list of backups.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List backups.
+      tags:
+        - backups
+  /managed/v1/backups/{id}:
+    get:
+      description: Retrieve a backup.
+      operationId: GetBackup
+      parameters:
+        - description: ID of the backup to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backup'
+          description: Response containing the backup.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Backup not found.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a backup.
+      tags:
+        - backups
+  /managed/v1/client-ip:
+    get:
+      description: |-
+        Report the source address the API observed for this caller, so a client can offer it as an IP allowlist entry without asking a third-party address-echo service.
+
+        The address is what this request arrived with and is not authoritative: a caller that sets its own forwarding headers changes what is reported here. It is a convenience for filling in an allowlist entry, never an input to enforcement.
+      operationId: GetManagedClientIP
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientIPAddress'
+          description: Response containing the observed source address.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Report the source address the API observed for this caller.
+      tags:
+        - databases
+  /managed/v1/databases:
+    get:
+      description: List managed databases.
+      operationId: ListManagedDatabases
+      parameters:
+        - description: Filter databases to a specific region.
+          in: query
+          name: region
+          schema:
+            type: string
+        - description: Start time for database retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_after
+          schema:
+            format: date-time
+            type: string
+        - description: End time for database retrieval as an RFC3339 timestamp.
+          in: query
+          name: created_before
+          schema:
+            format: date-time
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            minimum: 0
+            type: integer
+        - description: Sort in descending order.
+          in: query
+          name: descending
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ManagedDatabase'
+                type: array
+          description: Response containing a list of managed databases.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List managed databases.
+      tags:
+        - databases
+    post:
+      description: Create a managed database.
+      operationId: CreateManagedDatabase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateManagedDatabaseInput'
+        description: The managed database definition.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabase'
+          description: Response containing details about the newly created managed database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a managed database.
+      tags:
+        - databases
+  /managed/v1/databases/{id}:
+    delete:
+      description: Delete a managed database. Refused while the database has branches unless force is set, in which case every branch is deleted first.
+      operationId: DeleteManagedDatabase
+      parameters:
+        - description: ID of the managed database to delete.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Also delete every branch of the database, ahead of the database itself. Branch data cannot be recovered.
+          in: query
+          name: force
+          schema:
+            default: false
+            type: boolean
+      responses:
+        "204":
+          description: Empty response indicating that managed database deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database has branches; delete them first or repeat with force=true.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a managed database.
+      tags:
+        - databases
+    get:
+      description: Retrieve a managed database.
+      operationId: GetManagedDatabase
+      parameters:
+        - description: ID of the managed database to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: 'The user type whose credentials will be returned: "application", "admin", or "application_read_only". Defaults to the application user, the role an application connects as for day-to-day work. "application_read_only" is the read-only role the AI services connect as; a database created before it existed does not have one. While the database is "modifying" because of a password rotation, the credential returned here is the new one and does not authenticate yet; the previous one still does until the database returns to "available".'
+          in: query
+          name: user_type
+          schema:
+            default: application
+            enum:
+              - application
+              - admin
+              - application_read_only
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabase'
+          description: Response containing the managed database definition.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a managed database.
+      tags:
+        - databases
+    patch:
+      description: |-
+        Update a managed database. Changing display_name, options, or deletion_protection takes effect immediately.
+
+        Changing "services" is asynchronous: the new configuration is recorded and the database moves to the "modifying" status while the running services are replaced with ones using it. Until the database returns to "available" the services still answer on their previous configuration. Poll GET /managed/v1/databases/{id} and wait for "available" — and for the service's own "state" to be "running" — before relying on the new configuration.
+
+        If a service fails to come up the database ends "degraded" and that service's "state" is "failed", while services that did roll out successfully still report "running".
+      operationId: UpdateManagedDatabase
+      parameters:
+        - description: ID of the managed database to update.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateManagedDatabaseInput'
+        description: The managed database parameters to update.
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabase'
+          description: Response containing the updated managed database definition.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database is busy with another operation and cannot be updated until it becomes available.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Update a managed database.
+      tags:
+        - databases
+  /managed/v1/databases/{id}/backup:
+    post:
+      description: |
+        Take an on-demand backup of a managed database. A "hot" backup is a fast local VolumeSnapshot; a "durable" backup streams a fresh base backup to object storage and requires the database to have the durable tier enabled. The backup runs asynchronously; poll GET /managed/v1/backups to track it.
+      operationId: CreateBackup
+      parameters:
+        - description: ID of the database to back up.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBackupRequest'
+        description: The tier of backup to take.
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Backup'
+          description: |
+            Backup accepted. Returns the pending backup, already listable via GET /managed/v1/backups; its status advances as the backup runs.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Database not found.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Take an on-demand backup of a managed database.
+      tags:
+        - backups
+  /managed/v1/databases/{id}/branches:
+    get:
+      description: List the database's branches. Deleted branches are excluded unless include_deleted is set.
+      operationId: ListBranches
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Include deleted branches (the audit view).
+          in: query
+          name: include_deleted
+          schema:
+            default: false
+            type: boolean
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            default: 100
+            maximum: 100
+            minimum: 1
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            default: 0
+            minimum: 0
+            type: integer
+        - description: Sort by creation time in descending order, newest first.
+          in: query
+          name: descending
+          schema:
+            default: false
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Branch'
+                type: array
+          description: Response containing the database's branches.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database does not exist under this tenant.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List the branches of a managed database.
+      tags:
+        - branches
+    post:
+      description: |-
+        Create a copy-on-write branch of the database. The branch gets its own name, hostname, and credentials, and copies the source's size, Postgres version, options, and service configuration at creation; nothing propagates from the source afterwards. The branch runs and bills from the moment it becomes connectable until its deletion is requested.
+
+        Creation is refused with a reason when the source is not available, when the database is at its branch limit (deleting a branch frees its slot immediately), or while the subscription has a failed payment.
+      operationId: CreateBranch
+      parameters:
+        - description: ID of the managed database to branch.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBranchRequest'
+        description: The branch parameters.
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: Response containing the branch being created.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database does not exist under this tenant.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database is at its branch limit; deleting a branch frees its slot immediately.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Create a branch of a managed database.
+      tags:
+        - branches
+  /managed/v1/databases/{id}/branches/{branch_id}:
+    delete:
+      description: Request deletion of the branch. Billing stops and the branch's slot frees at the request; the branch and its data are then torn down and cannot be recovered. A branch still being created cannot be deleted until it settles.
+      operationId: DeleteBranch
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the branch to delete.
+          in: path
+          name: branch_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "204":
+          description: Empty response indicating that branch deletion was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database or branch does not exist under this tenant, or the branch is not a branch of this database.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The branch is still being created; retry once it is available.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Delete a branch.
+      tags:
+        - branches
+    get:
+      description: Retrieve a branch, including its connection details. The connection's database name is the source's Postgres database name, which travels with the branched data; the credentials are the branch's own. The connection is present only while the branch is available.
+      operationId: GetBranch
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the branch to retrieve.
+          in: path
+          name: branch_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: The user type whose credentials will be returned. Defaults to the application user. "application_read_only" is the read-only role the branch's AI services connect as.
+          in: query
+          name: user_type
+          schema:
+            default: application
+            enum:
+              - application
+              - admin
+              - application_read_only
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+          description: Response containing the branch.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database or branch does not exist under this tenant, or the branch is not a branch of this database.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a branch.
+      tags:
+        - branches
+  /managed/v1/databases/{id}/branches/{branch_id}/logs:
+    get:
+      description: Retrieve the branch's own Postgres log lines, on the same terms as the database's. A branch's lines never appear under the source database's logs, and the source's lines never appear here.
+      operationId: GetBranchLogs
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the branch.
+          in: path
+          name: branch_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Maximum number of log lines to retrieve.
+          in: query
+          name: max_lines
+          schema:
+            default: 100
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Start of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the start and the most recent lines are returned.
+          in: query
+          name: start_time
+          schema:
+            format: date-time
+            type: string
+        - description: End of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the end.
+          in: query
+          name: end_time
+          schema:
+            format: date-time
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLogsResponse'
+          description: Response containing logs for the branch.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database or branch does not exist under this tenant, or the branch is not a branch of this database.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve logs for a branch.
+      tags:
+        - branches
+  /managed/v1/databases/{id}/branches/{branch_id}/metrics:
+    get:
+      description: Retrieve the branch's own metrics, on the same terms as the database's. A branch's series never appear under the source database's metrics, and the source's series never appear here.
+      operationId: GetBranchMetrics
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: ID of the branch.
+          in: path
+          name: branch_id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Relative lookback window for the metrics, specified in value, unit format (e.g. "15,minutes"). It determines the window only when neither start_time nor end_time is supplied, but is validated in all cases.
+          in: query
+          name: interval
+          schema:
+            pattern: ^[0-9]{1,4}[ ,](second|minute|hour|day)s?$
+            type: string
+        - description: Start of an absolute time window as an RFC3339 timestamp. When omitted while end_time is supplied, the window is open at the start rather than falling back to interval.
+          in: query
+          name: start_time
+          schema:
+            format: date-time
+            type: string
+        - description: End of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the end.
+          in: query
+          name: end_time
+          schema:
+            format: date-time
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricSeriesContainer'
+          description: Response containing metrics for the branch.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database or branch does not exist under this tenant, or the branch is not a branch of this database.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve metrics for a branch.
+      tags:
+        - branches
+  /managed/v1/databases/{id}/logs:
+    get:
+      description: Retrieve logs for a managed database.
+      operationId: GetManagedDatabaseLogs
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Maximum number of log lines to retrieve.
+          in: query
+          name: max_lines
+          schema:
+            default: 100
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Start of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the start and the most recent lines are returned.
+          in: query
+          name: start_time
+          schema:
+            format: date-time
+            type: string
+        - description: End of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the end.
+          in: query
+          name: end_time
+          schema:
+            format: date-time
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseLogsResponse'
+          description: Response containing logs for the specified managed database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database does not exist under this tenant.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve logs for a managed database.
+      tags:
+        - databases
+  /managed/v1/databases/{id}/metrics:
+    get:
+      description: Retrieve metrics for a managed database.
+      operationId: GetManagedDatabaseMetrics
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Relative lookback window for the metrics, specified in value, unit format (e.g. "15,minutes"). It determines the window only when neither start_time nor end_time is supplied, but is validated in all cases.
+          in: query
+          name: interval
+          schema:
+            pattern: ^[0-9]{1,4}[ ,](second|minute|hour|day)s?$
+            type: string
+        - description: Start of an absolute time window as an RFC3339 timestamp. When omitted while end_time is supplied, the window is open at the start rather than falling back to interval.
+          in: query
+          name: start_time
+          schema:
+            format: date-time
+            type: string
+        - description: End of an absolute time window as an RFC3339 timestamp. When omitted, the window is open at the end.
+          in: query
+          name: end_time
+          schema:
+            format: date-time
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricSeriesContainer'
+          description: Response containing metrics for the specified managed database.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Not found. The database does not exist under this tenant.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve metrics for a managed database.
+      tags:
+        - databases
+  /managed/v1/databases/{id}/restore:
+    post:
+      description: |
+        Restore a managed database in place from one of its backups. A new incarnation is provisioned from the chosen restore point and cut over to, preserving the database's identity (id, slug, URL); the prior incarnation is retired once the new one serves. The restore point is given as backup_id in the body and must be a completed backup of this database.
+      operationId: RestoreManagedDatabase
+      parameters:
+        - description: ID of the database to restore.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestoreRequest'
+        description: The restore point to recover from.
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagedDatabase'
+          description: Restore accepted; the database is now restoring.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Database or backup not found.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database is busy with another operation and cannot be restored until it becomes available.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Restore a managed database in place from one of its backups.
+      tags:
+        - backups
+  /managed/v1/databases/{id}/roles/{role_name}/rotate-password:
+    post:
+      description: |-
+        Rotate the password for a built-in database role. The rotation is asynchronous: this call generates the new credential and starts the work, and the database moves to the "modifying" status until it is live. Poll GET /managed/v1/databases/{id} and wait for "available" before using the new credential.
+
+        Until then the previous password still authenticates and the new one does not, so a client that switches credentials the moment this call returns will be rejected. Rotating a role a service connects as also restarts that service, since each reads its password once at startup; they are back on the new credential by the time the database returns to "available".
+
+        A rotation that fails leaves the database "degraded" with the new credential recorded but not applied to Postgres, so the previous password remains the working one. A rotation is only accepted while the database is "available", so a degraded database must be recovered before one can be attempted again.
+      operationId: RotateManagedDatabaseRolePassword
+      parameters:
+        - description: ID of the managed database.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+        - description: Name of the built-in role.
+          in: path
+          name: role_name
+          required: true
+          schema:
+            enum:
+              - admin
+              - app
+              - app_read_only
+            type: string
+      responses:
+        "204":
+          description: Empty response indicating the password rotation was accepted and is in progress. The new credential is not yet live; wait for the database to return to "available".
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request. The provided role is not a built-in role.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database is busy with another operation and cannot have a password rotated until it becomes available.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Internal server error. The password rotate operation failed.
+      security:
+        - AccessToken: []
+      summary: Rotate the password for a built-in database role.
+      tags:
+        - databases
+  /managed/v1/databases/{id}/size:
+    post:
+      description: Resize a managed database to a different size.
+      operationId: ResizeManagedDatabase
+      parameters:
+        - description: ID of the managed database to resize.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResizeManagedDatabaseInput'
+        description: The target size.
+        required: true
+      responses:
+        "204":
+          description: Empty response indicating a resize was initiated.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "402":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Payment required. Every resize target is a paid size, so the tenant needs a payment method on file before the upgrade can start.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Conflict. The database is busy with another operation and cannot be resized until it becomes available.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Resize a managed database to a different size.
+      tags:
+        - databases
+  /managed/v1/open-api:
+    get:
+      description: Retrieve the OpenAPI specification for the pgEdge Managed API.
+      operationId: GetManagedOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: Response containing the OpenAPI specification for the pgEdge Managed API in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve the OpenAPI specification for the pgEdge Managed API.
+      tags:
+        - open-api
+  /managed/v1/openapi.json:
+    get:
+      description: The published public contract for the pgEdge Managed API. Requires no authentication and always describes the Enterprise-plan surface; runtime access remains enforced per token.
+      operationId: GetManagedPublicOpenApiSpec
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenApiSpec'
+          description: The public OpenAPI contract in JSON format.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security: []
+      summary: Retrieve the published public contract for the Managed API.
+      tags:
+        - open-api
+  /managed/v1/pg-versions:
+    get:
+      description: |
+        Return the Postgres major versions a managed database can be
+        created with, newest first. Platform-level and not tenant-scoped;
+        the response is identical for every caller, and does not vary by
+        region — every managed cluster serves the same image catalog.
+      operationId: ListManagedPGVersions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ManagedPGVersion'
+                type: array
+          description: Response containing the list of available Postgres versions.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List Postgres versions available for managed databases.
+      tags:
+        - pg-versions
+  /managed/v1/regions:
+    get:
+      description: |
+        Return the distinct regions that currently host an active
+        managed cluster, and are therefore valid placements for a new
+        managed database. Platform-level and not tenant-scoped; the
+        response is identical for every caller.
+      operationId: ListManagedRegions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ManagedRegion'
+                type: array
+          description: Response containing the list of available regions.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List regions available for managed databases.
+      tags:
+        - regions
+  /managed/v1/sizes:
+    get:
+      description: |
+        Return the currently-active managed-size row for each size
+        name. Managed-size rows are platform-level and not tenant-
+        scoped; the response is identical for every caller.
+
+        By default this reads only the local size catalog. Requesting
+        `include=pricing` additionally resolves each size's price from
+        the billing provider, which costs an upstream call — omit it
+        when you only need size shapes.
+      operationId: ListSizes
+      parameters:
+        - description: |
+            Related data to embed in each size. `pricing` resolves the
+            size's current price from the billing provider; sizes with
+            no configured price omit the field.
+          explode: false
+          in: query
+          name: include
+          schema:
+            items:
+              enum:
+                - pricing
+              type: string
+            type: array
+          style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Size'
+                type: array
+          description: Response containing the list of active sizes.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List active managed-K8s sizes.
+      tags:
+        - sizes
+  /managed/v1/sizes/{id}:
+    get:
+      description: |
+        Retrieve a single managed-size row by id regardless of its
+        lifecycle status. Useful for inspecting deprecated or retired
+        size versions that a database may still be running on.
+      operationId: GetSize
+      parameters:
+        - description: ID of the managed-size row to retrieve.
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            x-go-type: UUID
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Size'
+          description: Response containing the requested managed-size row.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Size not found.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: Retrieve a managed-K8s size.
+      tags:
+        - sizes
+  /managed/v1/tasks:
+    get:
+      description: |
+        List the calling tenant's tasks. Managed database operations
+        record their progress here, with subject_kind "database" and the
+        database id as subject_id.
+      operationId: ListManagedTasks
+      parameters:
+        - description: Filter tasks by subject id.
+          in: query
+          name: subject_id
+          schema:
+            type: string
+        - description: Filter tasks by kind.
+          in: query
+          name: subject_kind
+          schema:
+            type: string
+        - description: Filter tasks by id.
+          in: query
+          name: id
+          schema:
+            type: string
+        - description: Filter tasks by name.
+          in: query
+          name: name
+          schema:
+            type: string
+        - description: Filter tasks by status.
+          in: query
+          name: status
+          schema:
+            enum:
+              - queued
+              - running
+              - succeeded
+              - failed
+            type: string
+        - description: Maximum number of results to return.
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Offset into the results for pagination.
+          in: query
+          name: offset
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Task'
+                type: array
+          description: Response containing a list of tasks.
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Bad request.
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Authorization information is missing or invalid.
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Unexpected error.
+      security:
+        - AccessToken: []
+      summary: List tasks.
+      tags:
+        - tasks
+servers:
+  - url: https://api.pgedge.com
+tags:
+  - name: backups
+  - name: branches
+  - name: databases
+  - name: open-api
+  - name: pg-versions
+  - name: regions
+  - name: sizes
+  - name: tasks

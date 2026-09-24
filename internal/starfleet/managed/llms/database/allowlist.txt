@@ -1,0 +1,282 @@
+# pgedge starfleet managed database allowlist
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist -->
+##### pgedge starfleet managed database allowlist
+
+**Usage:** `pgedge starfleet managed database allowlist <command>`
+
+Manage which addresses may reach a database
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database allowlist
+
+Manage the source-address rules on one endpoint of a managed database.
+Only an address matching a rule can open a new connection. A database
+has one allowlist for its Postgres endpoint and one for each deployed
+service. Every command edits the Postgres allowlist unless `--service`
+names a deployed service type (mcp, rag or postgrest). Nothing is
+shared between the allowlists, so opening Postgres does not open MCP.
+A `--service` naming a type not deployed on the database is exit
+status 4, and nothing is sent.
+
+A rule is an IPv4 address or CIDR block. The API stores a bare address
+as a /32, masks a block to its network address, and refuses IPv6 and
+malformed input with HTTP 400. The CLI refuses an allowlist over 50
+rules, or a `--label` over 64 characters, with exit status 2 before
+any request.
+
+The allowlist reads back as `ip_allowlist`, a `rules` array plus a
+read-only state "closed" when there are no rules, "open" when a rule is
+literally 0.0.0.0/0, and "restricted" otherwise. Two rules that
+together cover every address still read restricted. `database
+list` omits `ip_allowlist`. `database get` returns it and prints an
+Allowlists section with one row per endpoint.
+
+Every write sends the endpoint's whole allowlist, never a nil one. An
+omitted `ip_allowlist` leaves the API's rules unchanged, `[]` closes
+the endpoint, and a populated array replaces the rules. A write to the
+Postgres endpoint runs the `update-managed-ip-allowlists` task. A write
+to a service endpoint runs `update-managed`, the same task as every
+other services write. Filter `task list` by whichever name applies.
+Both need the database at status "available" first, and the API
+refuses the write at any other status. The write moves the database
+through "modifying" and settles "available" or "degraded". A degraded
+database carries no reason. The task carries it. Postgres is not
+restarted and its open sessions are not cut: the rules govern new
+connections.
+
+`allowlists` is accepted as a plural alias.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist get e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 --my-ip
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 203.0.113.7 --service mcp
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist get -->
+###### pgedge starfleet managed database allowlist get
+
+**Usage:** `pgedge starfleet managed database allowlist get <database_id> [flags]`
+
+Show an endpoint's allowlist and its state
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist get
+
+Show one endpoint's rules and the state they add up to.
+
+Text output is an Endpoint line, a State line and a CIDR/LABEL table.
+With no rules, the two lines print and stderr says the endpoint is
+closed. `-o json` prints the endpoint's own `rules` and `state` object,
+with state "closed" filled in for an endpoint that has never been
+written.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist get e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database allowlist get e5f6a7b8-c9d0-1234-efab-567890123456 --service mcp -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist add -->
+###### pgedge starfleet managed database allowlist add
+
+**Usage:** `pgedge starfleet managed database allowlist add <database_id> [<cidr>...] [flags]`
+
+Allow addresses to reach an endpoint
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--label string` | No |  | Note stored on each rule added by this call, at most 64 characters |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist add
+
+Append rules to one endpoint and keep the existing rules. Give one or
+more addresses or blocks, or `--my-ip`, or both. A rule already
+present is skipped and named on stderr. When every input is already
+present, nothing is sent and the exit status is 0. `add` never prompts.
+
+`--my-ip` adds the address the API sees this command arriving from,
+which is not necessarily the address your Postgres client connects
+from. That caveat prints on stderr every time. When the API reports no
+address, or an IPv6 one, the exit status is 1 and nothing is sent.
+
+`--label` is stored on every rule this call adds. Adding 0.0.0.0/0 by
+hand is accepted and prints the warning `open` prints.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 --my-ip
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 203.0.113.0/24 198.51.100.9 --label office
+pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-567890123456 203.0.113.7 --service mcp --wait
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist remove -->
+###### pgedge starfleet managed database allowlist remove
+
+**Usage:** `pgedge starfleet managed database allowlist remove <database_id> <cidr>... [flags]`
+
+Stop addresses reaching an endpoint
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt when removing the last rule |
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist remove
+
+Drop rules from one endpoint and keep the rest. Name a rule as stored
+or as typed: a bare address matches its stored /32, and a block
+matches its masked network address. A rule that is not present is exit
+status 4, and nothing is sent. Removing the last rule closes the
+endpoint, so that case prompts for confirmation unless `--force` is
+given.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist remove e5f6a7b8-c9d0-1234-efab-567890123456 203.0.113.7
+pgedge starfleet managed database allowlist remove e5f6a7b8-c9d0-1234-efab-567890123456 198.51.100.0/24 --service rag
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist set -->
+###### pgedge starfleet managed database allowlist set
+
+**Usage:** `pgedge starfleet managed database allowlist set <database_id> <cidr>... [flags]`
+
+Replace an endpoint's allowlist
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--label string` | No |  | Note stored on every rule set by this call, at most 64 characters |
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist set
+
+Replace one endpoint's rules with exactly the addresses given, in one
+request. Use it from configuration that states the whole allowlist,
+and use `add` and `remove` to change one rule at a time. With no
+address the exit status is 2: use `clear` to close an endpoint. The
+same `--label`, bounds and warning apply as for `add`.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist set e5f6a7b8-c9d0-1234-efab-567890123456 203.0.113.0/24 198.51.100.9 --label ci
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist open -->
+###### pgedge starfleet managed database allowlist open
+
+**Usage:** `pgedge starfleet managed database allowlist open <database_id> [flags]`
+
+Let every address reach an endpoint
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist open
+
+Replace one endpoint's rules with the single rule 0.0.0.0/0, so the
+API reports state "open" and any address can connect. The API has no
+off switch, and this is the nearest thing to one. There is no prompt,
+because open is the posture every pre-feature database already has,
+and it is never a default: a new database starts closed. A warning
+that Postgres roles and passwords are the only guard prints on stderr.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist open e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database allowlist open e5f6a7b8-c9d0-1234-efab-567890123456 --service mcp
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database allowlist clear -->
+###### pgedge starfleet managed database allowlist clear
+
+**Usage:** `pgedge starfleet managed database allowlist clear <database_id> [flags]`
+
+Close an endpoint to every address
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database allowlist clear
+
+Remove every rule from one endpoint by sending `[]`, so no address can
+open a new connection to it. Postgres sessions already open stay up.
+The command prompts for confirmation unless `--force` is given, and
+that prompt is the whole lockout guard: no command checks for your
+own address.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database allowlist clear e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database allowlist clear e5f6a7b8-c9d0-1234-efab-567890123456 --service rag --force
+```

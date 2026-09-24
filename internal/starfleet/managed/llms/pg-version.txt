@@ -1,0 +1,64 @@
+# pgedge starfleet managed pg-version
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed pg-version -->
+#### pgedge starfleet managed pg-version
+
+**Usage:** `pgedge starfleet managed pg-version <command>`
+
+Discover Postgres versions for managed databases
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed pg-version
+
+Discover the Postgres major versions a managed database can be created
+on.
+
+These are the accepted values for `database create --pg-version`, and
+the version is fixed for the life of the database — a PATCH naming
+`pg_version` is refused outright — so it is the one create flag worth
+reading the catalog for first.
+
+**Example:**
+
+```bash
+pgedge starfleet managed pg-version list
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed pg-version list -->
+##### pgedge starfleet managed pg-version list
+
+**Usage:** `pgedge starfleet managed pg-version list`
+
+List available Postgres versions
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed pg-version list
+
+List every Postgres major version a managed database can be created
+on, and which one a create that omits `--pg-version` provisions.
+
+Expected: a two-column VERSION/DEFAULT table, or the raw array under
+`-o json`/`-o yaml`. DEFAULT renders `yes` for exactly one row and
+`no` for the rest; a json consumer reads `.[].version` and
+`.[].default`, where `default` is a boolean rather than the table's
+yes/no.
+
+The list is platform-level: the same for every tenant and region.
+
+`--pg-version` is still checked against the CLI's own list before any
+request, so a misspelled version costs exit 2 rather than a round
+trip. This verb reports what the API publishes, and the two lists
+agree.
+
+**Example:**
+
+```bash
+pgedge starfleet managed pg-version list
+pgedge starfleet managed pg-version list -o json
+```

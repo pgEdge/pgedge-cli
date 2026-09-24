@@ -1,0 +1,255 @@
+# pgedge starfleet managed
+
+> pgEdge Starfleet Managed: single-master Postgres hosted and operated
+> by pgEdge, with the MCP and RAG services deployed alongside a
+> database. PostgREST is a third service type in the API that the
+> platform does not accept on a managed database.
+
+This is the managed sub-reference of the `starfleet` module, printed by
+`pgedge llms starfleet managed`. It describes only
+`pgedge starfleet managed` commands. Authentication, the account-level
+resources and the connection every `starfleet` command shares are in
+the `starfleet` reference: run `pgedge llms starfleet`. Global flags,
+profiles, environment variables and exit statuses are in the index: run
+`pgedge llms`.
+
+Each resource has its own page, listed under Pages at the end, and the
+`database` page lists the pages below it: `allowlist`, `branch`,
+`logs`, `metrics` and the service pages. Two topic pages cover tasks
+that span resources: `loading-data` and `connecting-a-client`. This
+index holds what every page leans on: authentication, exit statuses,
+IDs, paging, the differences from BYOC, and the status and wait rules
+every write shares.
+
+In a generated flags table on any page, Default is the value a flag is
+declared with, and a blank cell is the type's zero value (an empty
+string, 0, false or an empty list). Where the CLI or the API supplies
+an effective default later, the Description says so.
+
+## Sub-reference: managed
+
+A managed database runs on infrastructure pgEdge operates: there is no
+cluster to create, no node to place and no cloud account to attach.
+`database` owns the lifecycle and the `allowlist`, `branch`, `mcp`,
+`rag`, `postgrest` and `service` subgroups. `backup`, `pg-version`,
+`region`, `size` and `task` are the other groups, and `client-ip`
+prints the address the API sees you arriving from.
+
+### Reaching a new database
+
+**A new database is closed: no address can connect to its Postgres
+endpoint until an allowlist rule admits one**, and each service
+deployed on it starts closed with an allowlist of its own. When a
+managed database refuses every connection, admit the caller:
+
+```bash
+pgedge starfleet managed database allowlist add <database_id> --my-ip --wait
+```
+
+`--my-ip` adds the address the API saw this command arrive from, which
+is not necessarily where your Postgres client connects from. Pass an
+IPv4 address or CIDR block for a client elsewhere, and `--service mcp`
+(or `rag`) for a service's own endpoint. `database create` takes
+`--allow`, `--my-ip` and `--open` to set the rules at create time.
+`database get` shows each endpoint's allowlist `state`: `closed` with
+no rule, `open` with a `0.0.0.0/0` rule, `restricted` otherwise. The
+`database allowlist` page has the rule syntax.
+
+### Authentication
+
+Managed shares the `starfleet` module's connection and cached token,
+so one `pgedge starfleet auth login` serves it. `--client-id`,
+`--client-secret` and `--api-url` on `pgedge starfleet` override the
+profile, and `pgedge starfleet doctor` diagnoses the connection.
+Managed commands run on any plan, but the plan sets values such as
+`branch_limit`, so read those from `database get`.
+
+### Exit statuses
+
+The CLI-wide table is in `pgedge llms`: 0 success, 1 general failure,
+2 the command was malformed, 3 timed out, 4 not found, 5
+authentication failed.
+
+### IDs
+
+Every ID input takes a full UUID. Anything else, an ID prefix or a
+database name included, is exit status 2 with nothing sent; run
+`database list` to map a name to its ID. An empty filter such as
+`backup list --database-id ""` is exit status 2 too, so omit the flag
+to list across every subject.
+
+### Paging
+
+Omit a flag to take the server's default. `--limit 0`, `--limit -1`
+and a negative `--offset` are exit status 2 with nothing sent, and
+`--offset` has no maximum.
+
+| Command | `--limit` accepts |
+|---|---|
+| `backup list` | 1 to 100, and 100 is also the default, so it can only narrow |
+| `database list` | 1 to 1000 |
+| `task list` | 1 upwards, with no maximum |
+
+A value above a declared maximum is refused before any request, and the
+error names the bound. `task list`'s large values are clamped by the
+server. When a page comes back full, a list prints a `Showing first N
+results...` hint on stderr: more rows might exist, so page with
+`--offset`. Each command's page says what it returns when `--limit` is
+omitted.
+
+### How managed differs from byoc
+
+The two trees read alike, and these are the rules byoc does not share:
+
+- **Network access is per endpoint and closed by default** (above).
+  byoc opens cluster ports with `--firewall-rule` instead.
+- **There is no node placement.** pgEdge places a managed database,
+  and the API discards any placement it is sent.
+- **An omitted service secret is carried forward on an update**, so
+  `rag update` and `service remove` need no keys. Deploying a new
+  service still does.
+- **A service is addressed by type**, at most one of each per
+  database. The platform refuses `postgrest` on a managed database.
+- **No built-in role is a Postgres superuser**, unlike byoc's admin.
+  The `loading-data` page says what that means for extensions and a
+  data load.
+- **A database can be branched.** One with branches refuses `resize`
+  and a plain `delete` with 409: see the `branch` page.
+- **MCP takes only `openai` or `voyage`** for `--embedding-provider`.
+
+### Dry-run checks
+
+`--dry-run` runs the CLI's own checks and sends no write, but the
+reads a check needs still go out, so it needs credentials. `database
+create` checks the name (managed refuses an underscore), `--size`
+against `size list`, and `--pg-version` and `--region` when given.
+`database resize` checks `--size`. Only a size `size list` publishes
+passes. With no credentials, an unpublished `--size` is exit status 5
+rather than 2. When a catalog read comes back empty the value is sent
+unchecked, and only the dry-run report says so.
+
+### What a `get` prints
+
+A `get` opens with a one-row table, not a FIELD/VALUE block. The
+columns are the ones the matching `list` prints, so a field `list` has
+no column for needs `-o json`. `database get` adds a `Display name:`
+line when one is set, a Services table when a service is deployed, and
+an Allowlists table with the columns ENDPOINT, STATE and RULES. `task
+get` prints its row and then a label/value block.
+
+### Asynchronous verbs
+
+A command whose flags table declares `--wait` exits 0 when the API
+accepts the request, not when the work finishes: a create that fails
+to provision still exits 0. In anything scripted, pass `--wait`
+(bounded by `--wait-timeout`) or `--follow` (which also streams the
+task's steps to stderr). Both exit 0 on success, 1 on failure with the
+task's error, and 3 on timeout. **A `rotate-password` timeout means
+the outcome is unknown**: read the `task` page before rotating again.
+
+No command returns its task's ID, so the CLI finds the task by
+subject. If its pre-mutation task read fails, the write still runs and
+`--wait` accepts only a task created near the attempt. A timeout
+naming that floor on a write that plainly succeeded usually means a
+skewed machine clock.
+
+Without either flag, text output prints how to monitor the task on
+stderr, and `-o json` and `-o yaml` keep stdout silent.
+
+### Database status
+
+`status` is a bare string in the contract. These are the values the
+platform uses:
+
+| Status | Meaning |
+|---|---|
+| `creating` | Being provisioned. |
+| `available` | Ready. The only status every write is admissible from. |
+| `modifying` | A restore, resize, services or allowlist write, or rotation is in flight. |
+| `deleting` | Being torn down. |
+| `failed` | The last create, teardown, suspend or resume failed, or a restore reported success without a committed cutover. The row is kept. |
+| `degraded` | A resize or allowlist write failed after the database was up. |
+| `suspending` | Hibernating. This CLI cannot suspend or resume a database. |
+| `suspended` | Hibernated. |
+| `resuming` | Coming back from hibernation. |
+
+Wait for `available`, and compare against it rather than against "not
+`creating`": `failed` and `degraded` never pass through `creating`
+again. A `degraded` database carries no reason; find the task with
+`task list --subject-id <database_id>` and read it with `task get`.
+
+**A succeeded task means the status is set, not that the database is
+usable.** Read `database get`'s status after `--wait`. After a delete,
+`database get` exiting 4 is the confirmation.
+
+**Every write except `database delete` and a metadata-only `database
+update` requires `available`**, and is refused in any other status,
+`modifying` included. The CLI reports it at exit status 1 with a
+message saying the resource is busy and to retry once it settles.
+Read `database get` for the current status.
+
+Run writes one at a time:
+
+- `backup restore`, `database resize`, `rotate-password` and every
+  `allowlist` write: chain them on `--wait`.
+- A services write: pass `--wait`, which exits 1 with the task's
+  error, then read the service's own `state`. A failure confined to a
+  service leaves the database `available` with that service `failed`.
+- `backup create` never changes the database's status. Poll `backup
+  get <backup_id>` until it reaches `completed` or `failed`, and let it
+  finish before a `backup restore`, which takes its own pre-restore
+  backup.
+
+**`database delete` works from every status but `deleting`** and does
+not wait for a restore. It is refused with 409 just after a create,
+during a resize, after a provisioning failure not yet reconciled, and
+on a database with branches unless `--delete-branches` is passed. A
+metadata-only `database update` (`--display-name`, `--options`,
+`--deletion-protection`) also succeeds against a busy database.
+
+**A deployed service is ready only when it answers.** Its `state`
+reads `running` while the endpoint can still answer 503, and a deploy,
+update or removal reaches the endpoint after its task succeeds. Act on
+a `failed` `state`, and check readiness as `pgedge llms starfleet
+managed connecting-a-client` describes. Rotating the role a service
+connects as restarts that service: RAG connects as app_read_only, and
+so does MCP unless its writes are allowed, when it connects as app.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed -->
+### pgedge starfleet managed
+
+**Usage:** `pgedge starfleet managed <command>`
+
+Manage pgEdge Managed databases
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed
+
+Print the module's help: what `managed` covers and the persistent
+flags every subcommand inherits.
+
+**Example:**
+
+```bash
+pgedge starfleet managed
+pgedge starfleet managed --help
+```
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge starfleet managed -->
+| Page | Read | Covers |
+|------|------|--------|
+| `backup` | `pgedge llms starfleet managed backup` | Inspect, take and restore pgEdge Managed backups |
+| `client-ip` | `pgedge llms starfleet managed client-ip` | Show the source address the API sees for you |
+| `connecting-a-client` | `pgedge llms starfleet managed connecting-a-client` | Connect a client to a deployed MCP or RAG service |
+| `database` | `pgedge llms starfleet managed database` | Manage pgEdge Managed databases |
+| `loading-data` | `pgedge llms starfleet managed loading-data` | Load a schema and data into a managed database |
+| `pg-version` | `pgedge llms starfleet managed pg-version` | Discover Postgres versions for managed databases |
+| `region` | `pgedge llms starfleet managed region` | Discover pgEdge Managed regions |
+| `size` | `pgedge llms starfleet managed size` | Discover pgEdge Managed sizes |
+| `task` | `pgedge llms starfleet managed task` | Inspect pgEdge Managed tasks |
+<!-- END GENERATED ROUTING -->

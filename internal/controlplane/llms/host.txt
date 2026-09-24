@@ -1,0 +1,106 @@
+# pgedge controlplane host
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane host -->
+### pgedge controlplane host
+
+**Usage:** `pgedge controlplane host <command>`
+
+Manage Control Plane hosts
+
+<!-- END GENERATED -->
+
+host lists, inspects, and removes the hosts that make up
+the control-plane cluster.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane host list -->
+#### pgedge controlplane host list
+
+**Usage:** `pgedge controlplane host list`
+
+List hosts
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge controlplane host list
+pgedge controlplane host list -o json
+```
+
+Expected: a table with ID, ORCHESTRATOR, STATE, UPDATED columns
+(or the raw JSON/YAML object under `-o json`/`-o yaml`). STATE is
+`healthy`, `degraded`, `unreachable` or `unknown`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane host get -->
+#### pgedge controlplane host get
+
+**Usage:** `pgedge controlplane host get <host_id>`
+
+Show host details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge controlplane host get host-1
+pgedge controlplane host get host-1 -o yaml
+```
+
+Expected: a table with ID, ORCHESTRATOR, STATE, UPDATED columns
+(or the raw JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane host remove -->
+#### pgedge controlplane host remove
+
+**Usage:** `pgedge controlplane host remove <host_id> [flags]`
+
+Remove a host from the cluster
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--force-lost` | No |  | Remove a permanently lost host even if instances exist or quorum would be violated (disaster recovery only) |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Remove a host from the cluster. Destructive; databases on the host
+are affected. Prompts for confirmation; use --force to skip it.
+--force-lost additionally removes a permanently lost host even if
+instances exist or quorum would be violated — disaster recovery
+only.
+Asynchronous; use --wait/--follow to track the removal task.
+
+**Example:**
+
+```bash
+pgedge controlplane host remove host-3
+pgedge controlplane host remove host-3 --force
+pgedge controlplane host remove host-3 --force --wait
+```
+
+Expected: confirmation message ("Host removal task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`, and any database update tasks the
+removal spawned are under `update_database_tasks`.
+
+---

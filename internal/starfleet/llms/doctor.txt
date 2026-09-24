@@ -1,0 +1,68 @@
+# pgedge starfleet doctor
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet doctor -->
+### pgedge starfleet doctor
+
+**Usage:** `pgedge starfleet doctor`
+
+Diagnose the pgEdge Starfleet connection
+
+<!-- END GENERATED -->
+
+Diagnose the Starfleet connection: which credential source is in
+effect, whether the cached token is still valid, and whether the
+resolved API base URL is reachable. It never fails on missing
+credentials, so it is safe to run precisely when authentication is
+broken. For the install itself — version, config file, shell — run
+`pgedge doctor`.
+
+**Checks:**
+
+| Check | What it verifies |
+|-------|-----------------|
+| Auth | Which credential source resolved (flags, env, keychain, config), whether a token is cached, and whether it is still valid. `error` if no credentials are found; `warning` if credentials resolve but the token is expired or absent, or if a cached, unexpired token was minted for a different connection than the one now configured — a different credential, or a different API base URL (`auth.token_bound` is `false` in the JSON; the table row says "the cached token was minted with a different credential or API URL"). A cache with no recorded binding reports the same mismatch warning rather than being trusted. This is where token state is reported. When resolution failed for a reason more specific than "nothing configured", the JSON carries `auth.problem` naming it and the table row prints it instead of "not authenticated". Those reasons are a half-supplied flag or `PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, `--profile` given while that pair is set, and a keychain that cannot be read. With env credentials the row is `ok` and says tokens are never cached. |
+| API connectivity | HTTP GET to the resolved API base URL; records status and latency. |
+| Tenant | Names the tenant the active credential authenticates as, and its **plan**. `ok` only for an `enterprise` plan; `warning` for any other, naming it — because a profile carries one Starfleet credential that byoc and managed both borrow, so a profile IS a tenant and the plan decides which modules work. On a non-enterprise plan the byoc verbs are entitlement-denied server-side, and the symptom is otherwise an empty list or a `plan does not allow ...` error far from its cause. `warning` with "could not resolve tenant" when the credential cannot read one — the command still exits 0. |
+| Environment | Reports OS/arch and whether `NO_COLOR` is set. Env credentials appear on the Auth row instead. |
+
+**Example:**
+
+```bash
+pgedge starfleet doctor
+pgedge starfleet doctor -o json
+```
+
+**Example output (table):**
+
+```
+CHECK             STATUS  DETAILS
+Auth              ok      authenticated via config (expires 2026-12-31T23:59:59Z)
+API connectivity  ok      https://api.pgedge.com (200, 87ms)
+Tenant            ok      acme (d1e2f3a4-b5c6-7890-def0-123456789abc, plan: enterprise)
+Environment       ok      darwin/arm64
+```
+
+On a plan that cannot drive byoc, the Tenant row says so rather than
+leaving an empty `pgedge starfleet byoc cluster list` to be misread as "no
+clusters yet":
+
+```
+Tenant            warning  acme (a1b2c3d4-..., plan: managed); byoc verbs are entitlement-denied on a managed plan
+```
+
+With `NO_COLOR` exported, the Environment row adds it:
+
+```
+Environment       ok       darwin/arm64, NO_COLOR: set
+```
+
+`-o json` emits `auth`, `api`, `tenant` and `environment` objects. The
+environment object's keys are `os`, `arch` and `no_color_set`. `-o yaml`
+carries the same fields under the same keys: one rule holds tree-wide —
+the yaml key is the json key.
+
+---

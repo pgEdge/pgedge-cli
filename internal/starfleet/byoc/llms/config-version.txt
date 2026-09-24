@@ -1,0 +1,91 @@
+# pgedge starfleet byoc config-version
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc config-version -->
+#### pgedge starfleet byoc config-version
+
+**Usage:** `pgedge starfleet byoc config-version <command>`
+
+Inspect pgEdge BYOC configuration versions
+
+<!-- END GENERATED -->
+
+#### config-version
+
+A configuration version pins the container images a cluster runs and the
+Postgres majors it supports. These are read-only platform records: the
+catalog is the same for every account.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc config-version list -->
+##### pgedge starfleet byoc config-version list
+
+**Usage:** `pgedge starfleet byoc config-version list`
+
+List configuration versions
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc config-version list
+```
+
+**Example output (table):**
+
+```
+NAME    PG VERSIONS  MANAGED EXTENSIONS
+15.6.0  16, 17, 18
+14.1.8  16, 17       postgis, vector
+```
+
+`MANAGED EXTENSIONS` is blank rather than absent on the current 15.x
+line: the API reports `managed_extensions` as null there.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc config-version get -->
+##### pgedge starfleet byoc config-version get
+
+**Usage:** `pgedge starfleet byoc config-version get <version>`
+
+Show configuration version details
+
+<!-- END GENERATED -->
+
+The argument is the version name, not a UUID. An unknown name answers
+`404 failed to find config version`.
+
+The table shows the supported Postgres majors; choose `-o json` or
+`-o yaml` to see the container images the version pins.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc config-version get 15.6.0 -o yaml
+```
+
+**Example output (yaml):**
+
+```yaml
+images:
+    pgcat: ""
+    postgres: -pg16
+    tricorder: pgedge/tricorder:3.5
+    vector: timberio/vector:0.36.0-debian
+name: 15.6.0
+supported_pg_versions:
+    - "16"
+    - "17"
+    - "18"
+```
+
+`managed_extensions` is absent rather than null: the field is omitted
+when the API sends no value, so a reader keying on it must handle the
+key being missing. The `images` map carries whatever the version pins —
+`pgcat` and `postgres` come back partly unset on the 15.x line.
+
+---

@@ -1,0 +1,195 @@
+# pgedge starfleet managed database service
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database service -->
+##### pgedge starfleet managed database service
+
+**Usage:** `pgedge starfleet managed database service <command>`
+
+Manage services deployed on a database
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database service
+
+Manage the services deployed alongside a managed database.
+
+These commands read and remove services. To deploy or configure one,
+use the per-type subgroups: `mcp` and `rag`. `postgrest` exists too,
+but is not yet supported on managed databases — see the `postgrest`
+command group below.
+
+A database carries at most one service of each type, so these commands
+name a service by type.
+
+`services` is accepted as a plural alias.
+
+**Deploying and updating a service.** `deploy` creates a service of a
+given type and `update` reconfigures one that is already deployed.
+Each refuses to run in the other's place:
+`deploy` is exit status 1 when a service of that type already exists,
+naming `update` as the fix, and `update` is exit status 1 when none
+does, naming `deploy`. Both checks are client-side, because the API's
+PATCH has no create-versus-update distinction of its own, so a refusal
+sends no write.
+
+A caller that used `deploy` idempotently needs a two-command recipe
+instead. `service get` is exit status 4 when the type is absent, so the
+branch needs no output parsing, but branch on `$?` being that one
+value, not on "non-zero". An `if pgedge ...; then update; else deploy;
+fi` reads an authentication failure (exit status 5), a network error or
+a mistyped database ID as "absent" and deploys a second service off a
+read that never ran:
+
+```bash
+pgedge starfleet managed database service get "$DB" mcp >/dev/null 2>&1
+case $? in
+  0) pgedge starfleet managed database mcp update "$DB" --allow-writes ;;
+  4) pgedge starfleet managed database mcp deploy "$DB" --allow-writes ;;
+  *) echo "service get failed: deploying nothing" >&2; exit 1 ;;
+esac
+```
+
+Two unrelated failures share a message prefix at different exit
+statuses. `service get` and `service remove` on an absent type, and
+`update` on an absent type, all open with `no "<type>" service deployed
+on database <id>`. The first two are exit status 4, and `update`'s
+guard is exit status 1 and appends `; use "... deploy" to create one`.
+Branch on the exit status, never on the message.
+
+Exit status 4 does not separate "no such database" from "no such
+service on it". An exit status names a class rather than a cause, so
+the message is what tells them apart:
+
+| Argument | Exit status | Message |
+|---|---|---|
+| not a UUID | 2 | `invalid database ID "x": invalid UUID length: 1` |
+| a UUID naming no database | 4 | `resource not found (404): ... managed database not found` |
+| a real database, absent type | 4 | `no "<type>" service deployed on database <id>` |
+
+A malformed identifier is refused at exit status 2 before any request,
+so the `case` above sends it to the failure arm. What still reaches the
+`deploy` arm is a well-formed UUID naming no database. No wrong write
+can land, because `deploy` resolves the identifier the same way and
+answers exit status 4 itself, but the error you then read names the
+deploy, two steps after the identifier that caused it. So resolve the
+database with `database get` first when the identifier came from
+outside the script.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database service list <database_id>
+pgedge starfleet managed database service get <database_id> mcp
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database service list -->
+###### pgedge starfleet managed database service list
+
+**Usage:** `pgedge starfleet managed database service list <database_id>`
+
+List services deployed on a database
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database service list
+
+List the services deployed on a database. The table shows SERVICE
+ID, TYPE, STATE and ENDPOINT.
+
+ENDPOINT is the URL a caller dials, as the API reports it in the
+service's `uri`, and it carries no port. That value is the database's
+own domain plus the service's path segment, but read it rather than
+assembling it: the segment is the platform's to choose.
+When the API omits `uri` the CLI composes the same string itself,
+appending `/mcp`, `/rag` or `/rest` — PostgREST routes under `rest`,
+not under its own type name. ENDPOINT is empty when neither is
+available, which is the case until the API assigns the domain.
+
+A reported `uri` carries the service's version segment, so MCP's
+streamable-HTTP endpoint is ENDPOINT itself and a RAG pipeline hangs
+one segment below it — see `pgedge llms starfleet managed
+connecting-a-client`. The CLI's own fallback string, composed only when the
+API omits `uri`, carries no version segment.
+
+STATE is the deployment's own runtime state where one has been recorded,
+so two services on one database can differ. It is still not a readiness
+signal: `failed` is the value worth acting on, and `running` proves
+nothing, as `pgedge llms starfleet managed connecting-a-client`
+explains. A managed service is always reached over HTTPS on 443, so the
+table has no PORT column. `-o json` renders the full `ServiceConfig`
+object, port included.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database service list e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database service list e5f6a7b8-c9d0-1234-efab-567890123456 -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database service get -->
+###### pgedge starfleet managed database service get
+
+**Usage:** `pgedge starfleet managed database service get <database_id> <type>`
+
+Show details of a service
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database service get
+
+Show one service, named by type.
+
+Exits 4 if that type is not deployed on the database.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database service get e5f6a7b8-c9d0-1234-efab-567890123456 mcp
+pgedge starfleet managed database service get e5f6a7b8-c9d0-1234-efab-567890123456 rag -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database service remove -->
+###### pgedge starfleet managed database service remove
+
+**Usage:** `pgedge starfleet managed database service remove <database_id> <type> [flags]`
+
+Remove a service type from a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database service remove
+
+Remove a service type from a database.
+
+Destructive — the service's configuration and credentials are
+unrecoverable — so it prompts unless `--force` is given. Exits 4 if that
+type is not deployed.
+
+The other service types on the database are preserved.
+
+Removal converges after the command exits. The endpoint keeps
+answering for a short while and then stops, so a check made
+immediately after this returns can still reach a service that is on
+its way out.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database service remove e5f6a7b8-c9d0-1234-efab-567890123456 mcp
+pgedge starfleet managed database service remove e5f6a7b8-c9d0-1234-efab-567890123456 rag --force
+```

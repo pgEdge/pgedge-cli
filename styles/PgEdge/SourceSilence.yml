@@ -1,0 +1,11 @@
+extends: existence
+message: "'%s' describes what the source does not document, not what the product does — see ant-docs-writer's 'Say less, or say nothing'."
+level: error
+ignorecase: true
+nonword: true
+# "none" is deliberately unmatched: its uses here contrast endpoints
+# that publish a maximum against ones that do not, where the silence is
+# what the reader asked about, not an assertion about the product.
+tokens:
+  - '\b(?:publishes|exposes|declares|documents|attaches)\s+no\b'
+  - '\bnothing\s+in\s+the\s+(?:API|spec|specification|contract|reference)\b'

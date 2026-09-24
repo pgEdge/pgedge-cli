@@ -1,0 +1,173 @@
+# pgedge starfleet byoc database mcp
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database mcp -->
+##### pgedge starfleet byoc database mcp
+
+**Usage:** `pgedge starfleet byoc database mcp <command>`
+
+Manage the MCP server on a database
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database mcp deploy -->
+###### pgedge starfleet byoc database mcp deploy
+
+**Usage:** `pgedge starfleet byoc database mcp deploy <database_id> [flags]`
+
+Deploy an MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required for openai and voyage) |
+| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: ollama, openai, or voyage |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--ollama-url string` | No |  | Endpoint URL for an Ollama server (required when --embedding-provider is ollama) |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Deploy an MCP server alongside an existing database. The MCP server exposes
+a Model Context Protocol endpoint that AI agents can connect to for
+structured database access.
+
+**`deploy` creates the service.** If one is already deployed on this
+database, it exits 1 and names `mcp update` as the fix, rather than
+silently reconfiguring it — no write is sent.
+
+Node names are resolved to host UUIDs automatically. On single-node
+clusters, `--target-nodes` can be omitted and the node is auto-selected.
+On multi-node clusters, `--target-nodes` is required.
+
+On a cluster whose `node_location` is `private`, the service is
+reachable from outside the network only through an ingress. The
+`ingress` page covers creating one and registering the service.
+
+**Query results through this endpoint default to 100 rows, and that
+is a default rather than a cap.** The query tool takes a `limit`
+(default 100, maximum 1000) and an `offset`, appended to the query
+when it does not already carry them. Truncation is announced: past
+the limit the response says more is available and names the offset to
+continue from, where a complete result of that size reports only its
+row count, so a caller that needs more than 100 rows asks for up to
+1000 and the boundary is the limit in force, not 101. A separate
+row-count tool returns the total, and a complete result and a
+truncated one are therefore distinguishable.
+
+**All of that depends on the server supplying the limit.** The check
+for an existing one is a substring test over the query text, so if
+that text contains `LIMIT` anywhere — your own clause, or merely a
+column name or alias like `unlimited` — nothing is appended and
+truncation is not flagged. The check is byte-identical in the server
+image byoc deploys and the one managed deploys, so this is a property
+of the binary rather than of one product. A query ending `LIMIT 200`
+over 5000 rows answers "Results (200 rows)", which is
+indistinguishable from a complete result, and `SELECT g AS unlimited`
+over 300 rows returns all 300 because the default was disabled too.
+Pass `limit` as a parameter rather than writing it into the SQL.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database mcp deploy f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --embedding-provider openai \
+    --embedding-model text-embedding-3-small \
+    --embedding-api-key "$OPENAI_API_KEY"
+```
+
+`mcp deploy` applies a services update to the database and returns
+the updated *database* object (not a standalone service object); in
+text/table mode that means no table at all, just a confirmation.
+
+**Example output (text, stderr):**
+
+```
+MCP service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+Check the deployed service's real fields (`SERVICE ID`, `TYPE`,
+`STATE`, `ENDPOINT`) with `database service list <db-id>` (see that
+command above). The task is the deployment signal. `STATE` is recorded
+when a write succeeds and is not refreshed afterward, so read it for
+a `failed` that names a service that did not come up, never as a
+readiness signal.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database mcp update -->
+###### pgedge starfleet byoc database mcp update
+
+**Usage:** `pgedge starfleet byoc database mcp update <database_id> [flags]`
+
+Update the MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required for openai and voyage) |
+| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: ollama, openai, or voyage |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--ollama-url string` | No |  | Endpoint URL for an Ollama server (required when --embedding-provider is ollama) |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Update the MCP server configuration on a database. Accepts the same flags
+as `mcp deploy`.
+
+**`update` requires a deployed MCP service.** If none is deployed on
+this database, it exits 1 and names `mcp deploy` as the fix.
+
+**This is a partial update.** Only the flags you pass are changed;
+every other setting — including the embedding provider and model and
+the service's node placement — is read from the deployed service and
+preserved. `--target-nodes` is only needed to MOVE the service.
+
+MCP's secrets are preserved too — `embedding_api_key`, `init_tokens`
+and `init_users` are returned by `GET /databases/{id}`, so the update
+carries them. They are NOT returned by `database list`, so read a
+service's configuration with `database get`, never from a list entry.
+
+`--allow-writes` is a boolean, so it cannot express "leave it alone"
+through its value: omit it to keep the current access level, pass
+`--allow-writes` to grant write access, and `--allow-writes=false` to
+revoke it.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database mcp update f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --allow-writes
+```
+
+**Example output (table):**
+
+```
+MCP service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---

@@ -1,0 +1,84 @@
+<!-- topic: Load a schema and data into a managed database -->
+# Loading a schema and data into a managed database
+
+> A topic page of the `starfleet managed` reference: the order of
+> operations across `database connection-string`, Postgres and
+> pg_restore, rather than one command's reference. `pgedge llms
+> starfleet managed` is the index.
+
+No built-in role is a superuser. admin and app both hold CREATE on the
+database: either can create a schema or an object in public, and an
+object belongs to the role that created it. app_read_only can create
+nothing, because every write it attempts is refused. Load the schema and the
+data as app, so the objects end up owned by the role the application
+and its migrations connect as. `database connection-string
+<database_id> --user-type admin` (or `app`) prints the URI to connect
+with, and `database get` returns the same credentials.
+
+## Extensions
+
+**Install only a supported extension.** Every other extension is
+unsupported, including those admin can install: several install as
+admin and then fail for app. Each supported extension has one role
+that installs it:
+
+- Installed on every database already: plpgsql, pg_stat_statements
+  and pgaudit.
+- Install as app: btree_gin, btree_gist, citext, cube, dict_int,
+  fuzzystrmatch, hstore, intarray, isn, lo, ltree, pg_trgm, pgcrypto,
+  pgmq, seg, tablefunc, tcn, tsm_system_rows, tsm_system_time,
+  unaccent and uuid-ossp. app then owns the extension, and a migration
+  can only manage an extension its own role owns. pgmq installed as
+  admin refuses app access to its schema.
+- Install as admin: vector, postgis, postgis_raster and
+  postgis_sfcgal. The extension is then owned by `postgres`, and app
+  can use it.
+
+As app, `Must be superuser to create this extension` on an extension
+in the admin list means: install it as admin. As admin, the same
+message means no role on the database can install it.
+
+A fresh database ships plpgsql, pg_stat_statements and pgaudit
+installed, and vector available but not installed. A
+dump that depends on a privileged extension needs the admin connection
+once, before the load:
+
+1. Connect with the URI `database connection-string <database_id>
+   --user-type admin` prints, and install the privileged extensions the
+   dump depends on, each with its own `CREATE EXTENSION`.
+2. Connect with the URI `database connection-string <database_id>
+   --user-type app` prints, and install the trusted extensions the
+   dump needs.
+3. Load the schema and the data over that app connection.
+
+Loading a schema before its extensions exist fails on the first object
+that needs one.
+
+## Loading data with pg_restore
+
+`pg_restore --disable-triggers` cannot work on a managed database. It
+emits `ALTER TABLE ... DISABLE TRIGGER ALL`, which is superuser-only,
+and so is the usual alternative `SET session_replication_role =
+replica`. Every disable and every re-enable statement errors, so
+foreign keys stay enforced for the whole load.
+
+pg_restore restores table data in the dump's TOC order, not in the
+order of the `-t` flags. A child table can therefore be loaded before
+its parent, its COPY aborts on the foreign key, and pg_restore carries
+on with the rest. The result is exit status 1 with most tables
+populated and one silently empty.
+
+So load parent tables first, in separate passes:
+
+```bash
+pg_restore -d "$APP_URL" --data-only --no-owner --no-acl \
+    -t <parent-table> dump.pgc
+pg_restore -d "$APP_URL" --data-only --no-owner --no-acl \
+    -t <child-table> dump.pgc
+```
+
+Alternatively, drop the foreign-key constraints as app, which owns them,
+load, and add them back. Either way, check row counts afterward: a
+pg_restore that exits 1 has still written everything that did not error,
+so "mostly succeeded" is not a result to act on. BYOC's admin is a real
+superuser, so a recipe carried across from BYOC loses data here.

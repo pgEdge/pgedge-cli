@@ -1,0 +1,218 @@
+# pgedge controlplane database instance
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane database instance -->
+#### pgedge controlplane database instance
+
+**Usage:** `pgedge controlplane database instance <command>`
+
+Control individual database instances
+
+<!-- END GENERATED -->
+
+Control individual database instances (the per-host Postgres
+containers backing a database). `start`, `stop` and `restart` each
+spawn an asynchronous task; use --wait/--follow to track it. `list` is
+a plain read and takes neither flag.
+
+**--force skips the confirmation prompt, and nothing else.** The
+server-side unmodifiable-state override is its own flag,
+--force-unmodifiable:
+
+| Verb | Prompts? | Server-side override |
+|---|---|---|
+| `start` | No | `--force-unmodifiable` starts even if unmodifiable; the verb has no `--force` at all (unknown flag, exit 2) |
+| `stop` | Yes | `--force-unmodifiable` stops even if unmodifiable |
+| `restart` | Yes | none — the endpoint takes no force parameter |
+
+`stop` and `restart` interrupt service, so both refuse to run
+non-interactively without --force, exiting 2 with "this operation is
+destructive; run with --force to confirm, or run interactively to be
+prompted". `start` interrupts nothing and never prompts, so it runs
+unattended as-is.
+
+The remaining asymmetry is the API's: `start-instance` and
+`stop-instance` take a `force` query parameter and no body, so they
+cannot be scheduled; `restart` takes a body with `scheduled_at` and no
+`force` parameter, so **only `restart` has --scheduled-at**, and no
+--force-unmodifiable exists on it.
+
+**Example:**
+
+```bash
+pgedge controlplane database instance start storefront storefront-n1-689qacsi
+pgedge controlplane database instance restart storefront storefront-n1-689qacsi \
+  --force
+```
+
+**Instance IDs are server-generated and cannot be constructed.** The
+Control Plane names an instance `<database>-<node>-<suffix>`, where the
+suffix is random — `storefront-n1-689qacsi`. Read one from
+`pgedge controlplane database instance list`, or from the ID column of
+`pgedge controlplane database get <database_id>`. The same value is what
+`node switchover --candidate` and `node failover --candidate` take.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database instance list -->
+##### pgedge controlplane database instance list
+
+**Usage:** `pgedge controlplane database instance list [flags]`
+
+List database instances
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database string` | No |  | Database ID whose instances to show (default: all) |
+
+<!-- END GENERATED -->
+
+list shows every instance across every database, or one database's with
+--database. This is where the other instance verbs get their
+<instance_id>. 'database get' shows the same IDs for one database.
+
+**Example:**
+
+```bash
+pgedge controlplane database instance list
+pgedge controlplane database instance list --database storefront
+pgedge controlplane database instance list -o json
+```
+
+Expected: a table (DATABASE, ID, NODE, HOST, STATE, ROLE, PG, SPOCK).
+ROLE is `primary`, `replica` or `uninitialized`, and reads `-` until
+the Control Plane reports it.
+An unknown --database exits 4 (resource not found); a real database
+with no instances prints "No instances found." to stderr and exits 0,
+so a typo cannot pass as an empty database. `-o json`/`-o yaml` emit
+each instance as the API object plus a `database_id` key.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database instance start -->
+##### pgedge controlplane database instance start
+
+**Usage:** `pgedge controlplane database instance start <database_id> <instance_id> [flags]`
+
+Start a database instance
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force-unmodifiable` | No |  | Start even if the database is in an unmodifiable state |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Bring a stopped instance back online. It interrupts nothing, so it
+does not prompt and runs unattended as-is; --force-unmodifiable
+starts the instance even if the database is in an unmodifiable
+state.
+
+**Example:**
+
+```bash
+pgedge controlplane database instance start storefront storefront-n1-689qacsi
+pgedge controlplane database instance start storefront storefront-n1-689qacsi --wait
+```
+
+Expected: confirmation message ("Start task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database instance stop -->
+##### pgedge controlplane database instance stop
+
+**Usage:** `pgedge controlplane database instance stop <database_id> <instance_id> [flags]`
+
+Stop a database instance
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--force-unmodifiable` | No |  | Stop even if the database is in an unmodifiable state |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Take an instance offline until restarted. Disruptive; prompts for
+confirmation (use --force to skip it); --force-unmodifiable stops
+even in an unmodifiable state.
+
+**Example:**
+
+```bash
+pgedge controlplane database instance stop storefront storefront-n1-689qacsi
+pgedge controlplane database instance stop storefront storefront-n1-689qacsi \
+  --force --wait
+```
+
+Expected: confirmation message ("Stop task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database instance restart -->
+##### pgedge controlplane database instance restart
+
+**Usage:** `pgedge controlplane database instance restart <database_id> <instance_id> [flags]`
+
+Restart a database instance
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--scheduled-at string` | No |  | Schedule the restart at an RFC3339 time (default now) |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Bounce an instance's Postgres process, dropping its connections.
+Disruptive; prompts for confirmation (use --force to skip it).
+--scheduled-at defers the restart to an RFC3339 time — the prompt is
+answered when the restart is queued, not when it runs, and an invalid
+--scheduled-at is rejected before anything is asked. Unlike `start`
+and `stop`, restart has no --force-unmodifiable: the endpoint takes
+no force parameter, so it cannot restart in an unmodifiable state.
+
+**Example:**
+
+```bash
+pgedge controlplane database instance restart storefront storefront-n1-689qacsi
+pgedge controlplane database instance restart storefront storefront-n1-689qacsi \
+  --force --scheduled-at 2026-07-17T22:00:00Z
+```
+
+Expected: confirmation message ("Restart task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---

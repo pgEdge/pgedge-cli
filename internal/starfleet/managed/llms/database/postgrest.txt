@@ -1,0 +1,163 @@
+# pgedge starfleet managed database postgrest
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database postgrest -->
+##### pgedge starfleet managed database postgrest
+
+**Usage:** `pgedge starfleet managed database postgrest <command>`
+
+Manage PostgREST on a database (not yet supported)
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database postgrest
+
+Manage the PostgREST API deployed alongside a managed database: the
+REST interface generated from its schemas.
+
+**Not yet supported on managed databases.** The platform rejects the
+`postgrest` service type outright, so `deploy` always fails with a
+400. Since no PostgREST service can ever be deployed, `update` always
+ends in the deploy/update guard at exit 1, but only if it gets that
+far, and three things come first. A malformed database id or an
+out-of-range `--db-pool`, `--max-rows` or `--jwt-secret` is refused
+at exit 2 with no request sent at all. Then credentials resolve, so
+`update` with none configured exits 5. Then the database is read, so
+an unreachable API or an id that does not exist answers there. The
+guard is last. `mcp` and `rag` are the service types
+that deploy. The commands stay documented below for their
+intended usage once the platform accepts the service type.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database postgrest deploy <database_id> \
+  --db-schemas public --db-anon-role app_read_only
+pgedge starfleet managed database postgrest update <database_id> --max-rows 500
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database postgrest deploy -->
+###### pgedge starfleet managed database postgrest deploy
+
+**Usage:** `pgedge starfleet managed database postgrest deploy <database_id> [flags]`
+
+Deploy PostgREST on a database (not yet supported)
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cors-origins string` | No |  | Comma-separated list of allowed CORS origins |
+| `--db-anon-role string` | Yes |  | Postgres role used for unauthenticated requests |
+| `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
+| `--db-schemas string` | Yes |  | Comma-separated schemas to expose as REST (e.g. public,api) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--jwt-audience string` | No |  | JWT audience claim to require |
+| `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
+| `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
+| `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database postgrest deploy
+
+Stand up a PostgREST API on a database.
+
+Not yet supported on managed databases: the platform rejects the
+service type, so this currently fails with a 400. `mcp` and `rag`
+are the service types that deploy.
+
+**`deploy` creates the service.** The deploy/update guard applies
+unchanged even though the service type is not yet accepted: if a
+PostgREST service were already deployed on this database, `deploy`
+would exit 1 and name `postgrest update` as the fix, rather than
+silently reconfiguring it.
+
+`--db-schemas` and `--db-anon-role` are required: they decide what is
+exposed and which role unauthenticated requests run as.
+
+`--db-pool` accepts 1-30 and `--max-rows` accepts 1-10000; the CLI
+rejects anything outside those bounds at exit 2, before a credential is
+resolved. `--jwt-secret` must be at least 32 characters, checked the
+same way. So are `--db-schemas` and `--db-anon-role` on `deploy`: an
+explicitly empty value satisfies the required-flag rule and is refused
+here instead.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database postgrest deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --db-schemas public --db-anon-role app_read_only
+pgedge starfleet managed database postgrest deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --db-schemas public,api --db-anon-role app_read_only \
+  --max-rows 500 --jwt-secret <32-char-minimum-secret>
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database postgrest update -->
+###### pgedge starfleet managed database postgrest update
+
+**Usage:** `pgedge starfleet managed database postgrest update <database_id> [flags]`
+
+Update PostgREST on a database (not yet supported)
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cors-origins string` | No |  | Comma-separated list of allowed CORS origins |
+| `--db-anon-role string` | No |  | Postgres role used for unauthenticated requests |
+| `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
+| `--db-schemas string` | No |  | Comma-separated schemas to expose as REST (e.g. public,api) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--jwt-audience string` | No |  | JWT audience claim to require |
+| `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
+| `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
+| `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database postgrest update
+
+Change the PostgREST API's configuration.
+
+Not yet supported on managed databases: the platform rejects the
+service type outright, so `deploy` always fails with a 400 and no
+PostgREST service can ever be deployed to update. `mcp` and `rag`
+are the service types that deploy.
+
+**`update` requires a deployed PostgREST service.** Since none can be
+deployed, `update` exits 1 client-side (naming `postgrest
+deploy`) rather than reaching the platform's 400, because the guard
+fires first.
+
+One check comes before that guard: `--db-pool`, `--max-rows` and
+`--jwt-secret` are range-checked at exit 2 before a credential is
+resolved, so a value outside its bounds answers 2 and never reaches
+the guard at all. The same bounds apply on `deploy`.
+
+Only the flags you pass are changed; everything else is read from the
+deployed service and preserved.
+
+`--jwt-secret` is write-only: the API never returns it, and keeps the
+stored secret when an update omits it. Pass `--jwt-secret` only to
+rotate it.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database postgrest update e5f6a7b8-c9d0-1234-efab-567890123456 --max-rows 500
+pgedge starfleet managed database postgrest update e5f6a7b8-c9d0-1234-efab-567890123456 --db-schemas public,api
+```
+
+---

@@ -1,0 +1,32 @@
+# pgedge controlplane version
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane version -->
+### pgedge controlplane version
+
+**Usage:** `pgedge controlplane version`
+
+Show the Control Plane server version
+
+<!-- END GENERATED -->
+
+Show the Control Plane server version — the version of the
+control-plane server that controlplane is pointed at, distinct from
+`pgedge version` (the CLI's own version). Doubles as a reachability
+check. Below this CLI's supported floor (>= 0.10.0), prints a
+one-time warning to stderr naming both versions.
+
+**Example:**
+
+```bash
+pgedge controlplane version
+pgedge controlplane version -o json
+```
+
+Expected: a single row with VERSION, REVISION, ARCH (or the raw
+JSON/YAML object under `-o json`/`-o yaml`).
+
+---

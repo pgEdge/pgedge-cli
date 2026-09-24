@@ -1,0 +1,9 @@
+extends: substitution
+message: "Use 'Postgres' instead of 'PostgreSQL' in prose."
+level: error
+ignorecase: false
+nonword: false
+action:
+  name: replace
+swap:
+  PostgreSQL: Postgres

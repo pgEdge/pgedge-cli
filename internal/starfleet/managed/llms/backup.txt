@@ -1,0 +1,266 @@
+# pgedge starfleet managed backup
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed backup -->
+#### pgedge starfleet managed backup
+
+**Usage:** `pgedge starfleet managed backup <command>`
+
+Inspect, take and restore pgEdge Managed backups
+
+<!-- END GENERATED -->
+
+### pgedge starfleet managed backup
+
+Inspect the backups of a managed database, take one on demand, and
+restore from one.
+
+The platform also backs up on its own schedule, so `create` adds a
+backup alongside those. There is no delete verb: retention belongs to
+the platform, whose backup records the API only mirrors.
+
+`create` takes `--kind hot` (the fastest to restore from) or
+`--kind durable` (kept apart from the database's own storage and
+slower to restore). `create` reports acceptance, not completion, and
+the backup runs in the background. It is listable and gettable from
+the moment `create` returns, in status `pending`; poll `backup get
+<id>` or `backup list` to watch it reach a terminal state.
+
+`backups` is accepted as a plural alias.
+
+**Example:**
+
+```bash
+pgedge starfleet managed backup list --database-id <database_id>
+pgedge starfleet managed backup create --database-id <database_id> --kind hot
+pgedge starfleet managed backup restore <backup_id>
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed backup list -->
+##### pgedge starfleet managed backup list
+
+**Usage:** `pgedge starfleet managed backup list [flags]`
+
+List backups
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--created-after string` | No |  | Only backups created at or after this RFC3339 time |
+| `--created-before string` | No |  | Only backups created at or before this RFC3339 time |
+| `--database-id string` | No |  | Filter by database (full UUID) |
+| `--descending` | No | `true` | Sort newest first (--descending=false for oldest first) |
+| `--kind string` | No |  | Filter by kind (e.g. hot, durable) |
+| `--limit int` | No |  | Maximum number of results to return (1-100, and 100 is also the default) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed backup list
+
+List the backups in the active account, newest first (pass
+`--descending=false` for oldest first).
+
+Expected: an ID, DATABASE, KIND, PURPOSE, STATUS, CREATED, FINISHED
+table. The table omits the backup's `name`, which is derived from the
+database, kind and creation time, which have their own columns. It, and
+the per-backup `metadata` map, are in the `-o json` and `-o yaml`
+output.
+
+PURPOSE names what the backup was taken for: `user` (on-demand),
+`scheduled` (the platform's daily run), `prebranch` (taken by every
+`database branch create`, including one whose branch then fails),
+`prerestore` or `postrestore`. The set is open, so an unrecognized value renders as
+given rather than erroring, and the column is blank when provenance
+is unknown.
+
+The server returns **100 rows by default**, which is also the declared
+maximum, so `--limit` can only narrow a page. A value **above 100 is
+refused** at exit 2 before any request, because `managed.yaml`
+publishes that bound. A full page prints a `Showing first N results...`
+hint to stderr. Reach older backups with `--created-before`,
+`--descending=false` or `--offset`.
+
+This list is account-wide unless `--database-id` narrows it, and it
+includes backups belonging to databases that no longer exist — a deleted
+database's backups keep consuming the page until they leave retention.
+So how far back a page reaches is not a property of the account's
+current databases, and cannot be estimated from a backup-per-day rate:
+both tiers run on the platform's own schedule, and each ages out on a
+different retention window. **Narrow with
+`--database-id` before reasoning about history depth at all.**
+`--database-id` takes a full UUID. KIND values
+come from the platform's backup tiers (e.g. `hot`, `durable`).
+
+**Example:**
+
+```bash
+pgedge starfleet managed backup list
+pgedge starfleet managed backup list \
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable
+pgedge starfleet managed backup list --created-after 2026-08-01T00:00:00Z
+pgedge starfleet managed backup list --offset 100 -o json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed backup get -->
+##### pgedge starfleet managed backup get
+
+**Usage:** `pgedge starfleet managed backup get <backup_id>`
+
+Show backup details
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed backup get
+
+Show one backup. The argument takes a full UUID; exits 4 if nothing
+matches.
+
+The `metadata` map is only visible under `-o json`/`-o yaml`, and its
+keys vary by backup method, so read it as opaque detail rather than a
+stable schema.
+
+**Example:**
+
+```bash
+pgedge starfleet managed backup get <backup_id>
+pgedge starfleet managed backup get b8c9d0e1-f2a3-4567-bcde-678901234567 -o yaml
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed backup create -->
+##### pgedge starfleet managed backup create
+
+**Usage:** `pgedge starfleet managed backup create [flags]`
+
+Take an on-demand backup
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database-id string` | Yes |  | Database to back up (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--kind string` | Yes |  | Backup tier to take: hot or durable |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed backup create
+
+Take a backup now, rather than waiting for the platform's schedule.
+
+`--kind` is required and takes one of two tiers. `hot` is the
+fastest to restore from. `durable` is kept apart from the database's
+own storage and is slower to restore. An unknown value is refused
+locally with exit 2, before any request is sent.
+
+`--database-id` takes a full UUID.
+
+The API returns 202 with the NEW BACKUP, which `-o json` writes to
+stdout. Read its `id` from there rather than searching `backup list`
+for it. That is acceptance, not completion: the backup runs in the
+background and arrives in status `pending`. It is listable and
+gettable immediately, so poll `backup get <id>` — or `backup list`
+filtered by `--database-id` — to watch it reach a terminal state. This
+verb has no `--wait`. A `backup create` DOES spawn a `backup-managed`
+task: the call returns `status pending` and a `backup-managed` task
+appears for the database shortly afterward.
+
+**The task and the backup record disagree.** The task reaches
+`succeeded` while the backup record is still `pending`, and its own
+steps read `Configuring System` then `Taking Backup` at
+`progress: 100, status: succeeded`. So the task claims to have taken the
+backup while the record it produced says otherwise. Both reach a
+terminal state, but they do not reach it together.
+
+A `--wait` on that task would therefore report success over a backup
+still in progress. **Poll the backup record** rather than the task.
+
+In text mode the report names the database the backup was taken on and
+the backup's own id, which are different values: a backup's `name`
+embeds its database id, so do not read one for the other.
+
+**Example:**
+
+```bash
+pgedge starfleet managed backup create \
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind hot
+pgedge starfleet managed backup create \
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable -o json
+pgedge starfleet managed backup list \
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --limit 1
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed backup restore -->
+##### pgedge starfleet managed backup restore
+
+**Usage:** `pgedge starfleet managed backup restore <backup_id> [flags]`
+
+Restore a database from a backup
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+#### pgedge starfleet managed backup restore
+
+Recover a managed database from one of its backups. The backup names its
+own database, so the backup's ID is the only argument.
+
+**This replaces the database's current data** — anything written since
+the backup was taken is no longer in the database, though the database
+keeps its ID and connection details. It is destructive, so it prompts
+for confirmation unless `--force` is given, and asynchronous: the API
+answers with the database (status `modifying`) and recovers in the
+background. Pass `--wait` to block until the restore's task reaches a
+terminal state — see "Asynchronous verbs" above. The backup must be in
+the `completed` state; the API refuses any other restore point upfront.
+
+**A hot backup of the current state is taken first, so a restore run
+by mistake can itself be undone.** Before replacing anything, the
+restore takes a `hot` backup of the database as it stands. That step
+is mandatory. If that backup cannot be taken the restore fails rather
+than proceeding, and a backup already running fails it too. That
+refusal arrives on the restore's TASK, not as an error from the
+command: the API has already accepted the request and the database is
+already `modifying`, so a script sees it only through `--wait`,
+`--follow` or `task get`.
+
+The pre-restore backup is an ordinary backup and can be restored from
+like any other, but it does not appear in `backup list` immediately. A
+hand-taken backup is listable the moment `backup create` returns
+because that path writes a pending row first; a restore writes none, so
+its pre-restore backup surfaces only when the platform's backup mirror
+next sweeps, so poll `backup list` rather than expecting it at once.
+
+The pre-restore backup's PURPOSE is `prerestore`, which tells it apart
+from a `hot` backup taken by hand. On a database
+with durable backups the restore also leaves a `durable` anchor whose
+PURPOSE is `postrestore`, taken from the restored database once it
+is up. That one records the state the restore produced, not the
+state it replaced, so it is not a way back.
+
+No retention is published for the pre-restore backup either, so treat
+it as a way back from a mistake noticed soon after, not as an archive.
+
+Under `-o json`/`-o yaml` the accepted response — the database being
+restored — is written to stdout.
+
+**Example:**
+
+```bash
+pgedge starfleet managed backup restore <backup_id>
+pgedge starfleet managed backup restore <backup_id> --force --wait
+```

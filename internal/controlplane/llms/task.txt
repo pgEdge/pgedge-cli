@@ -1,0 +1,202 @@
+# pgedge controlplane task
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane task -->
+### pgedge controlplane task
+
+**Usage:** `pgedge controlplane task <command>`
+
+Inspect Control Plane tasks
+
+<!-- END GENERATED -->
+
+Inspect Control Plane tasks. Mutations (database create, host
+remove, ...) spawn asynchronous tasks; this group lists them, shows
+their status and logs, and can cancel a running database task. Task
+IDs are UUIDs, and a task argument takes the whole UUID: a shortened
+one is exit 2. To wait on a task, pass `--wait` or `--follow` to the
+verb that starts it.
+
+**Example:**
+
+```bash
+pgedge controlplane task list
+pgedge controlplane task get --database my-db <task_id>
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane task list -->
+#### pgedge controlplane task list
+
+**Usage:** `pgedge controlplane task list [flags]`
+
+List tasks
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database string` | No |  | List tasks for a single database |
+| `--entity-id string` | No |  | Filter the global list by entity (database_id or host_id) |
+| `--host string` | No |  | List tasks for a single host |
+| `--limit int` | No |  | Maximum tasks to return |
+| `--scope string` | No |  | Filter the global list by scope: database or host |
+
+<!-- END GENERATED -->
+
+List tasks, newest first. Filter the global list by --scope and
+--entity-id, or list a single resource's tasks with --database or
+--host (mutually exclusive with each other and with
+--scope/--entity-id). Cap the count with --limit.
+
+**Example:**
+
+```bash
+pgedge controlplane task list
+pgedge controlplane task list --scope database --entity-id my-db --limit 20
+pgedge controlplane task list --database my-db
+pgedge controlplane task list --host host-1
+```
+
+Expected: a table with TASK-ID, TYPE, STATUS, SCOPE, ENTITY, CREATED
+columns (or the raw JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane task get -->
+#### pgedge controlplane task get
+
+**Usage:** `pgedge controlplane task get <task_id> [flags]`
+
+Show a task's status
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database string` | No |  | Database ID that owns the task (required unless --host) |
+| `--host string` | No |  | Host ID that owns the task (required unless --database) |
+
+<!-- END GENERATED -->
+
+Show a single task's status by UUID. One of --database or --host is
+required, naming the task's scope entity — the value in the ENTITY
+column of `task list`. Omitting both is exit 2, reported before any
+request.
+
+**Example:**
+
+```bash
+pgedge controlplane task get --database my-db <task_id>
+pgedge controlplane task get --host host-1 <task_id>
+```
+
+Expected: a table with TASK-ID, TYPE, STATUS, SCOPE, ENTITY, CREATED
+columns (or the raw JSON/YAML object under `-o json`/`-o yaml`).
+
+A failed task is followed by an `Error` heading and its reason,
+printed verbatim on its own lines — these are wrapped chains of
+errors and read better with their structure intact. A task that did
+not fail prints no such section.
+
+**A failed `database create` explains itself on the task.** The
+Control Plane records no reason on any instance of a failed create.
+A spec that fails during planning never creates an instance at all,
+so `database get` shows a `failed` database with nothing under it; a
+failure after the instances exist leaves the database `failed` with
+its instance rows still present, and an instance there can read
+`available`. Read the database's `state`, then reach for the task.
+`task logs` carries the step-by-step trace, but the reason itself is
+on the task.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane task logs -->
+#### pgedge controlplane task logs
+
+**Usage:** `pgedge controlplane task logs <task_id> [flags]`
+
+Show a task's log
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database string` | No |  | Database ID that owns the task (required unless --host) |
+| `--host string` | No |  | Host ID that owns the task (required unless --database) |
+
+<!-- END GENERATED -->
+
+Show a task's log entries by UUID. One of --database or --host is
+required, naming the task's scope entity — the value in the ENTITY
+column of `task list`. Omitting both is exit 2, reported before any
+request.
+
+**Example:**
+
+```bash
+pgedge controlplane task logs --database my-db <task_id>
+```
+
+Expected: one line per log entry (RFC3339 timestamp and message) to
+stdout (or the raw JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane task cancel -->
+#### pgedge controlplane task cancel
+
+**Usage:** `pgedge controlplane task cancel <task_id> [flags]`
+
+Cancel a running database task
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database string` | No |  | Database ID that owns the task (required) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--host string` | No |  | Host ID (cancel is not supported for host tasks) |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Request cancellation of a running database task by UUID. Provide
+--database to name the task's database; only database tasks can be
+canceled (--host is rejected). Destructive; prompts for confirmation,
+use --force to skip it. Asynchronous; use --wait/--follow to track
+the cancellation.
+
+**Example:**
+
+```bash
+pgedge controlplane task cancel --database my-db <task_id>
+pgedge controlplane task cancel --database my-db <task_id> --force --wait
+```
+
+Expected: confirmation message ("Cancellation of task <id>
+requested.") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's response verbatim on
+stdout — unlike every other controlplane verb, this endpoint returns a bare
+task object with no wrapping envelope, so the task sits at the
+document's top level (`task_id`, not `task.task_id`).
+
+---
+
+Note on the Required column: it reads "No" throughout controlplane.
+Every "required" controlplane flag (`-f/--file` on database
+create/update/restore, `--image` on database upgrade,
+`--token`/`--server-url` on cluster join, `--database` on task
+cancel, and one of `--database`/`--host` on task get and task logs)
+is checked when the command runs and rejected with a usage error, so
+the column reads No even where the flag's own description says
+required. Each affected command's own text calls out that
+enforcement.

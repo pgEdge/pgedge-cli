@@ -1,0 +1,106 @@
+# pgedge controlplane doctor
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane doctor -->
+### pgedge controlplane doctor
+
+**Usage:** `pgedge controlplane doctor`
+
+Diagnose the Control Plane connection
+
+<!-- END GENERATED -->
+
+Diagnose the Control Plane connection. Shows the resolved
+connection and probes EACH configured server twice: `/v1/version`
+for reachability and `/v1/cluster` for whether a cluster exists.
+Use it first when a controlplane command cannot connect. A reachable server
+below this CLI's supported floor (>= 0.10.0) reports as a
+`warning` row naming both versions, not as an error; doctor's own
+exit code is unaffected either way.
+
+**The `Cluster` row and `cluster_initialized`.** A Control Plane
+can be reachable, on a supported version, and still have no
+cluster — in which case every verb except `version`, `doctor`,
+`config` and `cluster init`/`join` answers 409
+`cluster_not_initialized`.
+<!-- doc-gate: deliberately-wrong cluster_not_initialized — the
+Control Plane's own error NAME, quoted so a reader can match it, not
+a field of any CLI response -->
+The row reads `initialized`,
+`uninitialized — run 'pgedge controlplane cluster init', or 'pgedge controlplane
+cluster join' to join an existing cluster`, or `the configured
+servers disagree`.
+
+`-o json` carries `cluster_initialized` at the top level and one
+per entry in `servers[]`, and the two have different absence
+rules.
+
+A **per-server** key is absent when that server could not be
+asked — unreachable, or a reply that did not parse. The
+**top-level** key summarizes ONLY the servers that answered, and
+is absent when none answered or when those that answered
+disagree. So one unreachable member does not suppress the
+top-level verdict while another member is still answering.
+
+Treat absent as "unknown", **never as "needs init"**: running
+`cluster init` against a fleet that already has a cluster is the
+outcome to avoid. A verdict over the servers that answered can
+miss a cluster held by one that did not, so read `servers[]`
+before acting on it.
+
+**doctor exits 0 whatever it finds**, including an UNREACHABLE
+Control Plane, which prints a `Reachable` row reading `error`
+and still exits 0. `starfleet doctor` behaves the same way. So
+`pgedge controlplane doctor && <next step>` reads as a safe gate
+and is not one. Read `reachable` from `-o json` instead:
+
+```bash
+if ! pgedge controlplane doctor -o json > doctor.json
+then
+    echo "controlplane doctor itself failed" >&2
+    exit 1
+fi
+if [ "$(jq -r .reachable doctor.json)" != true ]
+then
+    echo "no Control Plane reachable" >&2
+    exit 1
+fi
+# reachable is NOT readiness. An uninitialized Control Plane is
+# reachable and on a supported version, and every verb after this
+# point would answer 409. Absent counts as not-ready: the key is
+# omitted when the state is unknown or the servers disagree, and
+# jq prints "null" for it.
+if [ "$(jq -r .cluster_initialized doctor.json)" != true ]
+then
+    echo "cluster not confirmed ready: no cluster, unknown, or the" >&2
+    echo "servers disagree — read doctor.json before acting" >&2
+    exit 1
+fi
+```
+
+**Example:**
+
+```bash
+pgedge controlplane doctor
+pgedge controlplane doctor -o json
+```
+
+Expected: a table with CHECK, STATUS, DETAILS columns (or raw
+JSON object under `-o json`/`-o yaml`) containing `base_urls`,
+`mtls`, `insecure`, `reachable`, and a `servers[]` array whose
+entries carry `base_url`, `server_version`, `warning` (empty
+unless that server is below the supported floor) and
+`cluster_initialized` (absent when that server could not be
+asked).
+
+Two more keys appear only when they apply: `cluster_initialized`
+at the top level, and `problem` when the active profile carries a
+field that will not parse — a `timeout:` that is not a Go
+duration, say. `problem` is a string and it is OMITTED rather
+than empty when there is nothing wrong, in both output formats,
+so test the KEY and not the value.
+
+---

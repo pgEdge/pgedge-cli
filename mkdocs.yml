@@ -1,0 +1,132 @@
+site_name: pgedge
+
+markdown_extensions:
+  - admonition
+  - meta
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+
+validation:
+  anchors: warn
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  # logo: docs/img/pgedge-logo-light.svg  # re-enable once the
+  # pgEdge logo SVG is added to docs/img/ (no logo asset ships in
+  # the repo-ready skill's templates/docs/ as of this writing)
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.prune
+    - navigation.top
+    - toc.follow
+
+copyright: Copyright &copy; 2026 pgEdge, Inc
+
+repo_url: https://github.com/pgEdge/pgedge-cli
+
+nav:
+  - Overview: index.md
+  - Getting Started: getting-started.md
+  - Authentication and profiles: auth-and-profiles.md
+  - Inspect a database: inspect-a-database.md
+  - ORM and framework integration: orm-and-frameworks.md
+  - Networking and TLS: networking-and-tls.md
+  - AI agents: ai-agents.md
+  - How the CLI behaves:
+      - Configuration and environment: configuration.md
+      - Exit codes: exit-codes.md
+      - Output formats and paging: output-and-paging.md
+      - Dry runs: dry-run.md
+      - Tasks and async operations: tasks-and-async.md
+      - Health checks: doctor.md
+      - Updating the CLI: updating.md
+      - Versions, uninstall and support: support-versioning-and-uninstall.md
+      - Telemetry and privacy: telemetry-and-privacy.md
+  # One section per module, holding every guide for it. A fact shared
+  # by every module lives on one of the core pages above.
+  # MkDocs derives a page's URL from its path under docs/, so the
+  # grouping here never changes a link.
+  - Starfleet account:
+      - Account, tenant and API clients: starfleet/account-and-clients.md
+      - Onboard a teammate: starfleet/team-onboarding.md
+      - Rotate the CLI's own credential: starfleet/rotate-credentials.md
+      - Command reference: reference/starfleet.md
+  - Managed:
+      - Provision a managed database: managed/provision.md
+      - Controlling network access: managed/network-access.md
+      - Connect an application: managed/connect-an-application.md
+      - Supported extensions: managed/extensions.md
+      - Load schema and data: managed/load-data.md
+      - Export data: managed/export-data.md
+      - Migrate an existing database: managed/migrate-into-managed.md
+      - Schema migrations: managed/schema-migrations.md
+      - Deploy managed services: managed/services.md
+      - Back up and restore: managed/backup-restore.md
+      - Branching a managed database: managed/branching.md
+      - Rotate a database password: managed/rotate-credentials.md
+      - Roles: managed/roles.md
+      - Logs and metrics: managed/logs-and-metrics.md
+      - Monitoring and alerts: managed/monitoring-and-alerts.md
+      - Incident runbooks: managed/incident-runbooks.md
+      - Troubleshooting: managed/troubleshooting.md
+      - Command reference: reference/starfleet-managed.md
+  - BYOC:
+      - Provision a BYOC cluster: byoc/provision.md
+      - Register a cloud account: byoc/cloud-accounts.md
+      - Manage clusters: byoc/clusters.md
+      - Manage databases: byoc/databases.md
+      - Connect an application: byoc/connect-an-application.md
+      - Schema migrations: byoc/schema-migrations.md
+      - Deploy services: byoc/services.md
+      - Expose a service: byoc/expose-service.md
+      - Back up and restore: byoc/backup-restore.md
+      - Rotate a database password: byoc/rotate-credentials.md
+      - Logs and metrics: byoc/logs-and-metrics.md
+      - Monitoring and alerts: byoc/monitoring-and-alerts.md
+      - Incident runbooks: byoc/incident-runbooks.md
+      - Troubleshooting: byoc/troubleshooting.md
+      - Command reference: reference/starfleet-byoc.md
+  - Control Plane:
+      - Stand up a local server: controlplane/local-server.md
+      - Manage databases: controlplane/databases.md
+      - High availability operations: controlplane/ha.md
+      - Back up and restore: controlplane/backup-restore.md
+      - Monitoring and alerts: controlplane/monitoring-and-alerts.md
+      - Incident runbooks: controlplane/incident-runbooks.md
+      - Troubleshooting: controlplane/troubleshooting.md
+      - Command reference: reference/controlplane.md
+  - CI and automation: ci.md
+  - Command reference: reference/pgedge.md
+  - Troubleshooting: troubleshooting.md
+  - Error catalog: error-catalog.md
+
+# docs/changelog.md is a contributor ledger (an entry per behaviour
+# change, by convention; several doc gates read the file), not a
+# public changelog. so it stays in the repo but out of the built
+# site.
+exclude_docs: |
+  changelog.md

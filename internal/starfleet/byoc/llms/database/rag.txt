@@ -1,0 +1,211 @@
+# pgedge starfleet byoc database rag
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database rag -->
+##### pgedge starfleet byoc database rag
+
+**Usage:** `pgedge starfleet byoc database rag <command>`
+
+Manage the RAG server on a database
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database rag deploy -->
+###### pgedge starfleet byoc database rag deploy
+
+**Usage:** `pgedge starfleet byoc database rag deploy <database_id> [flags]`
+
+Deploy a RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--completion-llm-api-key string` | Yes |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | Yes |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | Yes |  | Completion LLM provider (e.g. openai) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | Yes |  | Embedding LLM provider (openai or anthropic) |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Deploy a RAG server (Ellie) alongside an existing database. The RAG server
+provides retrieval-augmented generation pipelines backed by pgvector.
+
+**`deploy` creates the service.** If one is already deployed on this
+database, it exits 1 and names `rag update` as the fix, rather than
+silently reconfiguring it — no write is sent.
+
+The pipeline config must contain **at least one pipeline**, each with a
+name and **at least one table**. An empty array is rejected. Pipeline
+names must be unique and cannot be the reserved name `_default`, and
+every table needs `table`, `text_column` and `vector_column`. The CLI
+checks all of this before sending the request. The smallest config the
+API accepts is:
+
+```json
+[{"name": "docs", "tables": [
+    {"table": "public.documents",
+     "text_column": "content",
+     "vector_column": "embedding"}]}]
+```
+
+`--pipeline-config` also takes the `{"pipelines": [...]}` object form,
+which is the API's `rag_config` shape, so a configuration read back
+with `database get -o json` can be written straight to a file. Each
+pipeline takes optional tuning fields beside `name` and `tables`:
+
+```json
+{"pipelines": [{
+    "name": "search",
+    "system_prompt": "Answer questions using the provided context.",
+    "hybrid_enabled": true,
+    "vector_weight": 0.5,
+    "min_similarity": 0.2,
+    "tables": [{"table": "public.documents",
+                "text_column": "content",
+                "vector_column": "embedding"}]}]}
+```
+
+`hybrid_enabled` (default true) turns on hybrid search, and
+`vector_weight` (0.0 to 1.0, default 0.5) is the weight of vector
+search within it. `min_similarity` (0.0 to 1.0, default 0.0) is the cosine
+similarity a result must reach to be passed to the LLM. A pipeline can
+also set its own `top_n`, `token_budget`, `embedding_llm` and
+`completion_llm`, each inheriting the service-wide value when omitted.
+
+**Anything wrong with that file is exit 2, not 1.** A path with no file
+on it, a path that is a directory, JSON that does not parse, an object
+without a `pipelines` key, and every structural rule above all report
+the same code, because they are all the same mistake: the input you
+handed the command. No write is sent in any of them, but the database
+GET that precedes the file read has already gone out. The completeness
+guard on the LLM flags — `... is required to deploy a RAG service` — is
+exit 2 too. `rag update` answers identically for the same file.
+
+Node names are resolved to host UUIDs automatically. On single-node
+clusters, `--target-nodes` can be omitted and the node is auto-selected.
+On multi-node clusters, `--target-nodes` is required.
+
+On a cluster whose `node_location` is `private`, the service is
+reachable from outside the network only through an ingress. The
+`ingress` page covers creating one and registering the service.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database rag deploy f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --embedding-llm-provider openai \
+    --embedding-llm-model text-embedding-3-small \
+    --embedding-llm-api-key "$OPENAI_API_KEY" \
+    --completion-llm-provider openai \
+    --completion-llm-model gpt-4o \
+    --completion-llm-api-key "$OPENAI_API_KEY" \
+    --top-n 5 \
+    --token-budget 2048
+```
+
+`rag deploy` applies a services update to the database and returns
+the updated *database* object (not a standalone service object); in
+text/table mode that means no table at all, just a confirmation.
+
+**Example output (text, stderr):**
+
+```
+RAG service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+Check the deployed service's real fields with `database service list
+<db-id>` (see that command above). The task is the deployment signal.
+`STATE` is recorded when a write succeeds and is not refreshed
+afterward, so read it for a `failed` that names a service that did
+not come up, never as a readiness signal.
+
+**There is no bearer-token flag for RAG, and that is not evidence the
+endpoint is authenticated.** MCP's `--init-tokens` has no RAG
+equivalent here or on managed. On managed the pipeline endpoint
+answers unauthenticated requests. On byoc nothing establishes it
+either way, so what stands in front of `/rag/v1/...` in your own cloud
+account is unknown. Establish that yourself before deciding what a
+pipeline may retrieve.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database rag update -->
+###### pgedge starfleet byoc database rag update
+
+**Usage:** `pgedge starfleet byoc database rag update <database_id> [flags]`
+
+Update the RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | No |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | No |  | Completion LLM provider (e.g. openai) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider (openai or anthropic) |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Update the RAG server configuration on a database. Accepts the same flags
+as `rag deploy`.
+
+**This is a partial update.** Only the flags you pass are changed;
+every other setting — both LLM configurations, the deployed pipelines
+and the service's node placement — is read from the deployed service
+and preserved. `--target-nodes` is only needed to MOVE the service.
+
+**The LLM API keys are the one exception.** `api_key` is write-only and
+is never returned by the API, so there is nothing to read back and
+merge. Pass `--embedding-llm-api-key` and `--completion-llm-api-key`
+again whenever you change the provider or model they belong to.
+PostgREST's `--jwt-secret` behaves the same way. MCP's secrets do not —
+the API returns those, so `mcp update` preserves them.
+
+**`update` requires a deployed RAG service.** If none is deployed on
+this database, it exits 1 and names `rag deploy` as the fix, rather
+than sending a request that can only fail server-side with
+`rag_config must have at least one pipeline`.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database rag update f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --top-n 10
+```
+
+**Example output (table):**
+
+```
+RAG service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---

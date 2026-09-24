@@ -1,0 +1,31 @@
+name: Vulnerability scan
+
+# Kept out of ci.yml on purpose. govulncheck's verdict depends on a
+# live database as well as the commit, so a new advisory can turn a
+# green tree red with no code change, and an advisory with no fixed
+# version (x/crypto carries one today, uncalled) has no remedy. A red
+# scan must be seen, so it runs on every PR and push to main, and it
+# must not take the build signal down with it, so nothing needs it.
+# The nightly run catches advisories published on days nobody pushes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      # Pinned by version rather than @latest, the way ci.yml pins vale
+      # and golangci-lint, so the tool cannot change under the check.
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...

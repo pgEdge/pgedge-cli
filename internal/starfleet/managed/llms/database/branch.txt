@@ -1,0 +1,248 @@
+# pgedge starfleet managed database branch
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch -->
+##### pgedge starfleet managed database branch
+
+**Usage:** `pgedge starfleet managed database branch <command>`
+
+Manage branches of a managed database
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database branch
+
+A branch is a copy-on-write copy of a managed database: its size,
+Postgres version, options and service configuration at the moment it
+is taken. Nothing propagates afterward in either direction, so a
+write to the source after branching never reaches the branch and a
+write to the branch never reaches the source.
+
+A branch's Postgres allowlist copies the source's current rules at
+creation and is then fixed; each AI service's own allowlist is copied
+the same way with its service config. To change either, recreate the
+branch. `source_branch_id` (branching a branch) is reserved and
+refused until that ships, so every branch today is taken directly
+from a database.
+
+A branch bills from the moment it first becomes connectable until its
+deletion is requested, at which point billing stops and its slot
+frees, ahead of teardown completing. Deleting a branch is
+unrecoverable. `branches` is accepted as a plural alias.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database branch create e5f6a7b8-c9d0-1234-efab-567890123456 --display-name dev-copy
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch list -->
+###### pgedge starfleet managed database branch list
+
+**Usage:** `pgedge starfleet managed database branch list <database_id> [flags]`
+
+List a database's branches
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--descending` | No |  | List the newest branches first |
+| `--include-deleted` | No |  | Also show deleted branches |
+| `--limit int` | No |  | Maximum number of results to return (1-100, and 100 is also the default) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch list
+
+Lists the branches taken from one database, oldest first by creation
+time; `--descending` reverses that. `--include-deleted` adds the audit
+view: branches already torn down. The server returns 100
+rows by default, which is also the maximum, so `--limit` can only
+narrow a page and a value above 100 is refused locally with exit 2.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456 --include-deleted
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch get -->
+###### pgedge starfleet managed database branch get
+
+**Usage:** `pgedge starfleet managed database branch get <database_id> <branch_id> [flags]`
+
+Show branch details
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--user-type string` | No |  | Role whose credentials to return: admin, app or app_read_only (default app) |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch get
+
+Shows one branch's detail row. `--user-type` picks which role's
+credentials come back in the connection block, admin, app (the
+default) or app_read_only; the connection is present only while the branch is
+connectable. An MCP service on a branch has its own `uri` and its own
+bearer token in `mcp_config.init_tokens`, both read from this GET; the
+source's token is refused with 401 at the branch's endpoint.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch get e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901
+pgedge starfleet managed database branch get e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901 --user-type admin -o yaml
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch create -->
+###### pgedge starfleet managed database branch create
+
+**Usage:** `pgedge starfleet managed database branch create <database_id> [flags]`
+
+Create a branch of a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--display-name string` | No |  | Display name for the branch, at most 25 characters |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch create
+
+Takes a branch of the named database. The API accepts the request and
+returns the new branch, already listable and gettable by its id; pass
+`--wait` to block until it reaches a terminal state instead of just
+reporting acceptance. Each create first takes a `hot` backup of the
+source whose PURPOSE is `prebranch`.
+
+A database at its `branch_limit` refuses a create with 409 `the
+database has <n> of <n> branches; deleting a branch frees its slot`,
+at exit 1, and waiting does not clear it. `branch_count` counts every
+branch not yet deleted, a `creating` or a `failed` one included, so a
+failed branch keeps its slot until `branch delete` removes it.
+
+**Create branches one at a time, each with `--wait`.** Several creates
+sent together on one database are all accepted, but some then fail
+with the task error `prebranch snapshot: context deadline exceeded`
+while the others succeed. Read each failed branch's task with `task
+list --subject-id <branch_id>`, delete the failed branch to free its
+slot, and create it again.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch create e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database branch create e5f6a7b8-c9d0-1234-efab-567890123456 --display-name dev-copy --wait
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch delete -->
+###### pgedge starfleet managed database branch delete
+
+**Usage:** `pgedge starfleet managed database branch delete <database_id> <branch_id> [flags]`
+
+Delete a branch
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch delete
+
+Deletes a branch. Destructive and unrecoverable, so it prompts for
+confirmation unless `--force` is given. This deletes the named branch
+only. A failed branch deletes the same way. A branch still `creating` is
+refused with 409 `the branch is still being created; retry once it is
+available`, at exit 1.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch delete e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901 --force
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch metrics -->
+###### pgedge starfleet managed database branch metrics
+
+**Usage:** `pgedge starfleet managed database branch metrics <database_id> <branch_id> [flags]`
+
+Read a branch's metrics
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--end-time string` | No |  | Window end as an RFC3339 timestamp |
+| `--start-time string` | No |  | Window start as an RFC3339 timestamp |
+| `--window string` | No |  | Relative lookback window, in value,unit form (1 or more) |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch metrics
+
+Reads a branch's own Postgres and container metrics, kept separate from
+its source database's. Otherwise identical to `database metrics` — same
+window flags, same newest-complete-sample selection in text mode, same
+tie and single-sample notes on stderr.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch metrics e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901
+pgedge starfleet managed database branch metrics e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901 --window 5,minutes
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database branch logs -->
+###### pgedge starfleet managed database branch logs
+
+**Usage:** `pgedge starfleet managed database branch logs <database_id> <branch_id> [flags]`
+
+Read a branch's logs
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--end-time string` | No |  | Window end as an RFC3339 timestamp |
+| `--max-lines int` | No |  | Maximum log records to return, 1 to 1000 (API default 100) |
+| `--start-time string` | No |  | Window start as an RFC3339 timestamp |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database branch logs
+
+Reads a branch's own Postgres log records, kept separate from its source
+database's. Otherwise identical to `database logs` — newest first, not
+re-ordered, `--max-lines` takes 1 to 1000, and the API default is 100.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database branch logs e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901
+pgedge starfleet managed database branch logs e5f6a7b8-c9d0-1234-efab-567890123456 b1c2d3e4-f5a6-7890-bcde-f12345678901 --max-lines 500
+```

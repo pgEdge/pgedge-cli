@@ -1,0 +1,80 @@
+# pgedge controlplane config
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane config -->
+### pgedge controlplane config
+
+**Usage:** `pgedge controlplane config <command>`
+
+Manage the Control Plane connection
+
+<!-- END GENERATED -->
+
+config stores and shows the connection controlplane uses to reach a
+control-plane for the active profile.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane config set -->
+#### pgedge controlplane config set
+
+**Usage:** `pgedge controlplane config set`
+
+Save Control Plane connection settings
+
+<!-- END GENERATED -->
+
+Save Control Plane connection settings to the active profile in
+~/.pgedge/cli/config.yaml. Only flags you pass are written; omitted
+fields keep their current value. The settings it writes are controlplane's own
+persistent connection flags (--base-url, --ca-cert, --client-cert,
+--client-key, --insecure, --timeout — see `pgedge controlplane`); `config set`
+takes no flags of its own beyond the inherited connection flags.
+
+**Example:**
+
+```bash
+pgedge controlplane config set --base-url https://cp-1:3000 \
+  --ca-cert ~/.pgedge/certs/ca.crt \
+  --client-cert ~/.pgedge/certs/client.crt \
+  --client-key ~/.pgedge/certs/client.key \
+  --timeout 45s
+```
+
+Expected: confirmation message to stderr.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane config view -->
+#### pgedge controlplane config view
+
+**Usage:** `pgedge controlplane config view`
+
+Show the resolved Control Plane connection
+
+<!-- END GENERATED -->
+
+Show the resolved Control Plane connection, with flags folded in
+over the stored profile.
+
+**Example:**
+
+```bash
+pgedge controlplane config view
+pgedge controlplane config view -o yaml
+```
+
+Expected: a table with SETTING and VALUE columns — rows base-urls,
+ca-cert, client-cert, client-key, insecure, timeout, plus a seventh
+`problem` row when a configured value will not parse, carrying the
+error while the row above it shows the default that stood in for it.
+`-o json` and `-o yaml` print an object rather than the same key
+names: `base_urls` (an array, not the joined string the table shows),
+`ca_cert`, `client_cert`, `client_key`, `insecure_skip_verify`, and
+`timeout` as a duration string, with the same conditional `problem`
+key.
+
+---

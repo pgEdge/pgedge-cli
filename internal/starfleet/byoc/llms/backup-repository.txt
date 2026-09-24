@@ -1,0 +1,116 @@
+# pgedge starfleet byoc backup-repository
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-repository -->
+#### pgedge starfleet byoc backup-repository
+
+**Usage:** `pgedge starfleet byoc backup-repository <command>`
+
+Inspect pgEdge BYOC backup repositories
+
+<!-- END GENERATED -->
+
+#### backup-repository
+
+A backup repository is not a backup store. A store is the cloud bucket
+you register with `backup-store`; a repository is the per-database
+pgBackRest stanza BYOC writes into one. Repositories are created for you
+by the database service, and these two reads are the whole surface.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-repository list -->
+##### pgedge starfleet byoc backup-repository list
+
+**Usage:** `pgedge starfleet byoc backup-repository list [flags]`
+
+List backup repositories
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database-id string` | No |  | Filter to one database's repositories (full UUID) |
+| `--descending` | No |  | Sort in descending order |
+| `--limit int` | No |  | Maximum number of results to return (API default 10) |
+| `--offset int` | No |  | Offset into the results for pagination |
+| `--type string` | No |  | Filter by repository type (for example s3) |
+
+<!-- END GENERATED -->
+
+When a page comes back full (10 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-repository list --limit 100
+```
+
+**Example output (table):**
+
+```
+ID                                    DATABASE ID                           TYPE  LOCATION         RETENTION  CREATED
+11111111-2222-4333-8444-555555555503  27937dd4-e554-4d38-80f8-56f83559f60a  s3    example-backups  30 (time)  2024-06-19
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup-repository get -->
+##### pgedge starfleet byoc backup-repository get
+
+**Usage:** `pgedge starfleet byoc backup-repository get <repository_id> <node_name> [flags]`
+
+Show a backup repository's backups
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--descending` | No |  | Sort backups in descending order |
+| `--limit int` | No |  | Maximum number of backups to return |
+| `--offset int` | No |  | Offset into the backups for pagination |
+| `--type string` | No |  | Filter backups by type: full, diff, or incr |
+
+<!-- END GENERATED -->
+
+This verb contacts pgBackRest inside the backup store rather than
+reading a database row, so it answers `500 failed to connect to backup
+repository` when the store is unreachable or the database behind it is
+gone. That is a live-storage failure, not a missing record.
+
+The repository and node line is written to stderr; the backups table
+goes to stdout. When the backups page comes back full (100 rows by
+default, or the `--limit` given), get also prints a `Showing first
+N backups...` hint to stderr — the API reports no total, so the hint
+can only say more backups might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares none. Unlike the list endpoints this one has no known cap,
+so a larger `--limit` is honored rather than clamped; the only
+bound is the repository's own inventory.
+
+`--type` takes `full`, `diff` or `incr`. Anything else is exit 2,
+checked locally before a credential is resolved, and names the three.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup-repository get 11111111-2222-4333-8444-555555555503 n1
+```
+
+**Example output (table):**
+
+```
+Repository 11111111-2222-4333-8444-555555555503, node n1, status ok, PostgreSQL 16.
+LABEL             TYPE  SIZE     DATABASE SIZE  STARTED     FINISHED
+20240619-195803F  full  1.0 MiB  2.0 MiB        2024-06-19  2024-06-19
+```
+
+---

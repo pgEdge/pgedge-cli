@@ -1,0 +1,174 @@
+# pgedge starfleet managed database mcp
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database mcp -->
+##### pgedge starfleet managed database mcp
+
+**Usage:** `pgedge starfleet managed database mcp <command>`
+
+Manage the MCP server on a database
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database mcp
+
+Manage the MCP server deployed alongside a managed database: the
+endpoint that lets an LLM query it.
+
+**Query results through this endpoint default to 100 rows, and that
+is a default rather than a cap.** The query tool takes a `limit`
+(default 100, maximum 1000) and an `offset`, appended to the query
+when it does not already carry them, so a caller that needs more than
+100 rows asks for up to 1000. Truncation is announced: past the limit
+the response says more is available and names the offset to continue
+from, where a complete result of that size reports only its row
+count. A separate row-count tool returns the total. A complete result
+and a truncated one are therefore distinguishable, and the boundary is
+the limit in force, not 101.
+
+**All of that depends on the server supplying the limit.** The check
+for an existing one is a substring test over the query text, so if
+that text contains `LIMIT` anywhere — your own clause, or merely a
+column name or alias like `unlimited` — nothing is appended and
+truncation is not flagged. `... LIMIT 200` over 5000 rows answers
+"Results (200 rows)", which is indistinguishable from a complete
+result, and `SELECT g AS unlimited` over 300 rows returns all 300
+because the default is disabled too.
+Pass `limit` as a parameter rather than writing it into the SQL.
+
+**Managed takes `openai` or `voyage` for `--embedding-provider`, and
+nothing else.** Any other value is refused with exit 2 before any
+request.
+
+`--embedding-api-key` is required alongside the provider on deploy; on
+update the stored key is reused when the flag is omitted.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database mcp deploy <database_id>
+pgedge starfleet managed database mcp update <database_id> --allow-writes
+```
+
+`pgedge llms starfleet managed connecting-a-client` carries the MCP
+endpoint's shape, a branch's own token and a worked example.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database mcp deploy -->
+###### pgedge starfleet managed database mcp deploy
+
+**Usage:** `pgedge starfleet managed database mcp deploy <database_id> [flags]`
+
+Deploy an MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
+| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database mcp deploy
+
+Stand up an MCP server on a database.
+
+**`deploy` creates the service.** If one is already deployed on this
+database, it exits 1 and names `mcp update` as the fix, rather than
+silently reconfiguring it — no PATCH is sent.
+
+Every flag is optional; the API accepts a config with none of them set,
+which yields a read-only MCP server. If no bearer token is supplied the
+API generates one.
+
+`--allow-writes` grants the LLM read-write access to the database.
+Without it the server connects as app_read_only, and the database
+refuses every write it attempts. With it the server connects as app.
+
+Exit 0 means the API accepted the deploy, not that the server is
+serving. The endpoint returns 503 while it starts, and the service
+`state` already reads `running` at that point. Run `POST <uri>` with
+an `initialize` call until it succeeds. That is the only readiness
+signal there is.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --allow-writes
+pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --embedding-provider openai \
+  --embedding-model text-embedding-3-small \
+  --embedding-api-key sk-...
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database mcp update -->
+###### pgedge starfleet managed database mcp update
+
+**Usage:** `pgedge starfleet managed database mcp update <database_id> [flags]`
+
+Update the MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
+| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database mcp update
+
+Change the MCP server's configuration.
+
+**`update` requires a deployed MCP service.** If none is deployed on
+this database, it exits 1 and names `mcp deploy` as the fix.
+
+Only the flags you pass are changed; everything else is read from the
+deployed service and preserved, and omitted secrets are preserved by
+the API.
+
+`--allow-writes` is a boolean, so it can only be turned on by passing it
+and off by passing `--allow-writes=false`. Omitting it leaves the
+current access level alone — passing an unrelated flag will not quietly
+revoke write access.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database mcp update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --allow-writes
+pgedge starfleet managed database mcp update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --allow-writes=false
+pgedge starfleet managed database mcp update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --embedding-model text-embedding-3-large
+```
+
+**`--wait` proves the task finished, not that the running MCP server
+has picked the change up.** The `update-managed` task settles before
+the running server does, so even with `--wait` a script that updates
+and immediately queries the server should tolerate briefly seeing the
+old configuration.

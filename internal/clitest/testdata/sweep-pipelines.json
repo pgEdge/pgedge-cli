@@ -1,0 +1,12 @@
+[
+    {
+        "name": "p1",
+        "tables": [
+            {
+                "table": "public.docs",
+                "text_column": "content",
+                "vector_column": "embedding"
+            }
+        ]
+    }
+]

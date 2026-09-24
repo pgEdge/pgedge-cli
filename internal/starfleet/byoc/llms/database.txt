@@ -1,0 +1,492 @@
+# pgedge starfleet byoc database
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database -->
+#### pgedge starfleet byoc database
+
+**Usage:** `pgedge starfleet byoc database <command>`
+
+Manage pgEdge BYOC databases
+
+<!-- END GENERATED -->
+
+#### database
+
+Manage pgEdge BYOC databases, along with MCP servers, RAG servers, and
+other services deployed alongside them.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database list -->
+##### pgedge starfleet byoc database list
+
+**Usage:** `pgedge starfleet byoc database list [flags]`
+
+List databases
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cluster-id string` | No |  | Filter by cluster (full UUID) |
+| `--limit int` | No |  | Maximum number of results to return (API default 10) |
+| `--offset int` | No |  | Offset into the results for pagination |
+
+<!-- END GENERATED -->
+
+When a page comes back full (10 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database list \
+    --cluster-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME  STATUS     CLUSTER                               CREATED
+f6a7b8c9-d0e1-2345-fabc-456789012345  mydb  available  a1b2c3d4-e5f6-7890-abcd-ef1234567890  2026-02-01
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database get -->
+##### pgedge starfleet byoc database get
+
+**Usage:** `pgedge starfleet byoc database get <database_id>`
+
+Show database details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database get f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME  STATUS     PG VERSION  CLUSTER                               CREATED
+f6a7b8c9-d0e1-2345-fabc-456789012345  mydb  available  16          a1b2c3d4-e5f6-7890-abcd-ef1234567890  2026-02-01
+```
+
+`PG VERSION` is a column `get` has and `list` does not. The list
+response carries no `pg_version`. `list` is otherwise the same five
+columns in the same order.
+
+`get` can still print a blank one: a `failed` database has returned
+`"pg_version": ""` rather than a version.
+
+The table is a small part of what this returns. `-o json` adds
+`display_name`, `domain`, `private_domain`, `roles`, `services`,
+`extensions`, `components`, `nodes`, `backups`, `tables`,
+`storage_used`, `config_version` and `deletion_protection` — and it is
+one of the readers that returns MCP service secrets, which
+`database list` omits.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database inspect -->
+##### pgedge starfleet byoc database inspect
+
+**Usage:** `pgedge starfleet byoc database inspect <database_id> <analysis> [flags]`
+
+Run a read-only diagnostic against one node of a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--internal` | No |  | Connect over the node's internal_host, from inside the cluster |
+| `--node string` | No |  | Node to connect to (required with several nodes) |
+
+<!-- END GENERATED -->
+
+Connect to one node of a BYOC database with the credentials
+`database get` returns and run one read-only diagnostic, printing the
+rows. The analyses and their output are `pgedge inspect`'s (see
+`pgedge llms inspect`): `table-sizes`, `index-sizes`, `unused-indexes`,
+`seq-scans`, `long-running-queries`, `locks`, `vacuum-stats`, `bloat`,
+`calls`, `outliers`, `replication-slots`, `replication-lag` and
+`subscriptions`. The argument takes a full UUID; the analysis is the
+second positional and completes.
+
+The node is chosen exactly as `connection-string` chooses it, with the
+same refusals before anything is dialled: one node needs no flag,
+several need `--node <name>` or the nodes are listed at exit 2, a
+label two nodes share is exit 2, and `--internal` connects over
+`internal_host`, with a node that has only the other network's address
+refused at exit 1 naming the flag. Statistics views are per node, so
+the same analysis on another node reads differently. `calls` and
+`outliers` need the pg_stat_statements extension and are exit 1 naming
+it when the database lacks it. Nothing is written, and no API state
+changes.
+
+The replication analyses are per node in that same sense: a node's
+slots and the replicas connected to it describe what that node sends,
+so reading the whole database means running the analysis once per
+node. On a database of more than one node those are the slots and
+connections Spock replicates over. `subscriptions` reads Postgres's
+own subscription catalog, which Spock does not use, so it answers
+empty on every node of a Spock database.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database inspect f6a7b8c9-d0e1-2345-fabc-456789012345 table-sizes
+pgedge starfleet byoc database inspect f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    locks --node n2 --internal -o json
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database create -->
+##### pgedge starfleet byoc database create
+
+**Usage:** `pgedge starfleet byoc database create [flags]`
+
+Create a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cluster-id string` | Yes |  | Cluster to deploy the database on (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--name string` | Yes |  | Database name |
+| `--pg-version string` | No |  | Postgres version (e.g. 16) |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**`--name` is checked before the request is sent.** A name that
+cannot be a byoc database name exits 2 with no API call. The rule is
+Postgres's, not Kubernetes's: at most 63 bytes, starting with a letter
+or an underscore, and letters, digits and underscores only.
+
+"Letters" means Unicode letters, not ASCII — an accented name is
+legal. The 63 are bytes rather than characters, and they are counted
+after the name is lowercased, which is what the API stores.
+
+Underscores are legal here and hyphens are not, which is the reverse
+of cluster, node and backup-store names in this same module. A name
+joining two words with an underscore is valid; the same name with a
+hyphen is refused.
+
+The API trims surrounding whitespace and lowercases the name before
+storing it, so `--name "  MyDB  "` is accepted and creates `mydb`. The
+CLI sends the name as typed and applies the same normalization only to
+decide whether to send it.
+
+**This is NOT the managed rule.** A managed name is also a Kubernetes
+object name, so it is capped at 50 characters and forbids underscores.
+A name legal in one module may be refused by the other.
+
+**`--pg-version ""` is exit 2, not the default.** An empty value is
+refused rather than treated as an absent flag: `pg_version` is not on
+`database update`, so the version is fixed at create, and
+`--pg-version "$PGV"` with the variable unset would otherwise take the
+API's default silently. Omit the flag to take that default. Unlike
+managed, byoc checks nothing but emptiness, so a wrong-but-nonempty
+version is the API's to refuse. Read the supported set from
+`config-version list`.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database create \
+    --name mydb \
+    --cluster-id a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+    --pg-version 16
+```
+
+**Example output (table):**
+
+```
+Database "mydb" created (id: f6a7b8c9-d0e1-2345-fabc-456789012345, status: creating).
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database update -->
+##### pgedge starfleet byoc database update
+
+**Usage:** `pgedge starfleet byoc database update <database_id> [flags]`
+
+Update a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--display-name string` | No |  | Display name for the database, at most 25 characters |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--options strings` | No |  | Comma-separated list of options |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database update f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --display-name "My Production DB"
+```
+
+**Example output (table):**
+
+```
+Database "mydb" updated (id: f6a7b8c9-d0e1-2345-fabc-456789012345, status: available).
+```
+
+Unlike `cluster update` and `database delete`, this verb does not track
+a task: it takes no `--wait`/`--follow`, prints no `Monitor with:` line,
+and returns as soon as the response is decoded. The `status` it echoes
+is the one the API returned, so a change that does provoke background
+work will show that status rather than `available`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database delete -->
+##### pgedge starfleet byoc database delete
+
+**Usage:** `pgedge starfleet byoc database delete <database_id> [flags]`
+
+Delete a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database delete f6a7b8c9-d0e1-2345-fabc-456789012345 --force
+```
+
+**Example output (table):**
+
+```
+Database f6a7b8c9-d0e1-2345-fabc-456789012345 deleted.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database rotate-password -->
+##### pgedge starfleet byoc database rotate-password
+
+**Usage:** `pgedge starfleet byoc database rotate-password <database_id> [flags]`
+
+Rotate a built-in role's password
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--role string` | Yes |  | Built-in role to rotate: admin, app, or app_read_only |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Rotation is asynchronous: the API accepts the request, moves the
+database to `modifying`, and spawns an `update` task. Exit 0 without
+`--wait` therefore means "accepted", not "rotated" — pass `--wait` to
+learn the outcome, or follow the task with
+`pgedge starfleet byoc task list --subject-id <database_id>`.
+
+Both the database and its cluster must be `available`, and the database
+is checked first. A request made while a previous rotation is still
+running is refused with `400 database update cannot be completed.
+database is not in available status`, which the CLI reports as a busy
+resource — exit 1, a message saying to wait and retry, and the server's
+own body.
+
+That guidance is right for a database that is `modifying`. It is wrong
+for a `failed` database, which never becomes available and returns the
+same message — the CLI cannot tell them apart, because byoc's body does
+not name the status. Run `database get` before retrying; for a
+`deleting` database, waiting ends in a 404 rather than a success.
+
+A refusal naming the **cluster** rather than the database
+(`cluster is not in available status`) is a different condition with a
+different remedy, and is passed through as a bad request unchanged.
+
+The new password is not printed. Read it back with `database get`.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database rotate-password f6a7b8c9-d0e1-2345-fabc-456789012345 --role app --force --wait
+```
+
+**Example output (table):**
+
+```
+Password rotated for role "app" on database 11111111-2222-4333-8444-555555555501.
+Tracking task 11111111-2222-4333-8444-555555555502...
+Task 11111111-2222-4333-8444-555555555502: running...
+Task 11111111-2222-4333-8444-555555555502: succeeded.
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database restore -->
+##### pgedge starfleet byoc database restore
+
+**Usage:** `pgedge starfleet byoc database restore <database_id> [flags]`
+
+Restore a database from a backup
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--delta` | No |  | pgBackRest delta restore: only replace files that differ |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--node-name string` | Yes |  | Node whose backup is restored |
+| `--pgbackrest-force` | No |  | pgBackRest force option (not the confirmation --force) |
+| `--provider string` | No | `pgbackrest` | Backup provider to restore from |
+| `--repository stringArray` | Yes |  | Backup repository UUID from backup-repository list (repeatable) |
+| `--set string` | No |  | pgBackRest backup set to restore, for example 20240619-195803F |
+| `--target string` | No |  | pgBackRest recovery target, paired with --type; an RFC3339 time with offset for --type time |
+| `--target-exclusive` | No |  | Stop recovery before the target rather than including it |
+| `--target-nodes strings` | No |  | Nodes to restore onto (comma-separated or repeatable; defaults to all nodes) |
+| `--type string` | No |  | pgBackRest recovery type, for example time or immediate |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+This is the counterpart to `backup create`. Find the repository to
+restore from with
+`pgedge starfleet byoc backup-repository list --database-id <database_id>`.
+
+`--force` skips the confirmation prompt. It is NOT pgBackRest's own
+force option, which is exposed separately as `--pgbackrest-force`;
+the two are independent, and `--force` alone never sets it.
+
+Restore is asynchronous in the same way as rotate-password, and the
+database must be in a modifiable state.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database restore f6a7b8c9-d0e1-2345-fabc-456789012345 \
+  --node-name n1 --repository 11111111-2222-4333-8444-555555555507 \
+  --force --wait
+```
+
+**Example output (table):**
+
+```
+Restore started for database 11111111-2222-4333-8444-555555555501.
+Tracking task 9a1f3c07-2d55-4a1e-9b2c-7c6b1f0e5d44...
+Task 9a1f3c07-2d55-4a1e-9b2c-7c6b1f0e5d44: running...
+Task 9a1f3c07-2d55-4a1e-9b2c-7c6b1f0e5d44: succeeded.
+```
+
+---
+
+> **WARNING: Destructive API behavior.** The pgEdge BYOC API treats the
+> `services` field as fully declarative — whatever you send REPLACES all
+> existing services on the database. If you deploy a RAG server without
+> including the existing MCP server in the request, the MCP server will be
+> destroyed. The CLI handles this automatically via a read-modify-write
+> pattern, but direct API callers must include all existing services in
+> every update.
+
+Service mutations (`mcp deploy`, `mcp update`, `postgrest deploy`,
+`postgrest update`, `rag deploy`, `rag update`, `service remove`) are
+asynchronous, as the index's "Asynchronous operations" section
+describes: exit 0 means accepted, not done, so pass `--wait`. They
+return the updated database, never a task. Change one service at a
+time: a second write while the first is still `modifying` the
+database is refused.
+
+**`deploy` creates a service of a given type; `update` reconfigures
+one that is already deployed.** Each refuses to run in the other's
+place: `deploy` exits 1 if a service of that type already exists,
+naming `update` as the fix, and `update` exits 1 if none does, naming
+`deploy`. Both checks are client-side — the API's
+`PATCH .../byoc/v1/databases/{id}` has no create-vs-update
+distinction of its own, so a refusal sends no write at all.
+
+A caller that used `deploy` idempotently needs the two-command recipe
+below instead. Unlike managed, byoc's `service get` addresses a
+service by its generated ID, not its type, so checking for a type
+before it has an ID means filtering `service list`'s output instead.
+Test the read's own exit code before the filter: a pipeline reports
+its LAST command's status, so `pgedge … | jq -e` reports `jq`'s, and
+`jq -e` exits 1 both when no service matches and when the read failed
+and printed nothing.
+
+**Example:**
+
+```bash
+if ! pgedge starfleet byoc database service list "$DB" -o json > svc.json
+then
+  echo "service list failed — deploying nothing" >&2
+  exit 1
+fi
+
+if jq -e '.[] | select(.service_type=="mcp")' svc.json >/dev/null
+then
+  pgedge starfleet byoc database mcp update "$DB" --allow-writes
+else
+  pgedge starfleet byoc database mcp deploy "$DB" --allow-writes
+fi
+```
+
+Without the first check a 404, a credential that no longer mints or
+a network error
+selects the `else` branch, and the recipe deploys a second MCP
+service off a read that never ran.
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge starfleet byoc database -->
+| Page | Read | Covers |
+|------|------|--------|
+| `connection-string` | `pgedge llms starfleet byoc database connection-string` | Print a connection string for one node of a database |
+| `logs` | `pgedge llms starfleet byoc database logs` | Read a database component's logs |
+| `mcp` | `pgedge llms starfleet byoc database mcp` | Manage the MCP server on a database |
+| `metrics` | `pgedge llms starfleet byoc database metrics` | Read a database's metrics |
+| `postgrest` | `pgedge llms starfleet byoc database postgrest` | Manage the PostgREST API on a database |
+| `rag` | `pgedge llms starfleet byoc database rag` | Manage the RAG server on a database |
+| `service` | `pgedge llms starfleet byoc database service` | Manage services deployed on a database |
+<!-- END GENERATED ROUTING -->

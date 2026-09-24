@@ -1,0 +1,94 @@
+# pgedge starfleet membership
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet membership -->
+### pgedge starfleet membership
+
+**Usage:** `pgedge starfleet membership <command>`
+
+Manage pgEdge Starfleet team memberships
+
+<!-- END GENERATED -->
+
+#### membership
+
+Manage Starfleet team memberships — list current members and remove
+members from the tenant.
+
+There is no `role` field and no membership-level status field
+anywhere in this API. Every row `membership list` returns is a
+current member, and no state word like `active` ever appears.
+
+The one distinction the schema does draw is `is_owner`, a required
+boolean naming the member who owns the tenant. It is not a role
+system: it is one flag with no second value, so it separates the owner
+from everyone else and says nothing about what anyone else may do.
+
+<!-- BEGIN GENERATED: pgedge starfleet membership list -->
+#### pgedge starfleet membership list
+
+**Usage:** `pgedge starfleet membership list`
+
+List team memberships
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet membership list
+```
+
+**Example output (table):**
+
+```
+ID                                    USER NAME  USER EMAIL         OWNER  CREATED
+f8a9b0c1-d2e3-4567-fabc-678901234567  Alice Doe  alice@example.com  yes    2026-01-15
+```
+
+`CREATED` shows only the date: an RFC3339 value is truncated to its
+first 10 characters, as in `invite`'s `EXPIRES`/`CREATED` columns.
+
+`OWNER` renders the `is_owner` boolean as `yes` or `no`, the way every
+boolean column in this CLI renders. Under `-o json` it stays a
+boolean, `is_owner`.
+
+Columns, in order: `ID`, `USER NAME`, `USER EMAIL`, `OWNER`,
+`CREATED`. `-o json` emits the raw API object, which also carries
+`user_id` and `user_picture` (present when the user has one) alongside
+the five columns above.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet membership delete -->
+#### pgedge starfleet membership delete
+
+**Usage:** `pgedge starfleet membership delete <membership_id> [flags]`
+
+Remove a team member
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet membership delete a9b0c1d2-e3f4-5678-abcd-789012345678 --force
+```
+
+**Example output (table):**
+
+```
+Membership a9b0c1d2-e3f4-5678-abcd-789012345678 deleted.
+```
+
+---

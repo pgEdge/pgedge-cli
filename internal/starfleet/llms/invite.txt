@@ -1,0 +1,177 @@
+# pgedge starfleet invite
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet invite -->
+### pgedge starfleet invite
+
+**Usage:** `pgedge starfleet invite <command>`
+
+Manage pgEdge Starfleet team invites
+
+<!-- END GENERATED -->
+
+#### invite
+
+Manage Starfleet team invites — send, accept, and revoke invitations for
+new team members.
+
+There is no `status` field on an invite anywhere in this API. Do not
+report an invite's "status".
+
+<!-- BEGIN GENERATED: pgedge starfleet invite list -->
+#### pgedge starfleet invite list
+
+**Usage:** `pgedge starfleet invite list`
+
+List invites
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet invite list
+```
+
+**Example output (table):**
+
+```
+ID                                    EMAIL              INVITED BY  TEAM  EXPIRES     CREATED
+d6e7f8a9-b0c1-2345-defa-456789012345  alice@example.com  bob         acme  2026-06-10  2026-06-03
+```
+
+`EXPIRES` and `CREATED` (like every other timestamp column in this
+CLI) show only the date: an RFC3339 value is truncated to its first
+10 characters.
+
+Columns, in order: `ID`, `EMAIL`, `INVITED BY`, `TEAM`, `EXPIRES`,
+`CREATED`. `INVITED BY` is blank when the API omits it. `-o json`
+emits the raw API object, which also carries `token` (present when
+the API returns one) and `accept_url` (`omitempty` in the schema) —
+neither is guaranteed present on every invite.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet invite get -->
+#### pgedge starfleet invite get
+
+**Usage:** `pgedge starfleet invite get <invite_id>`
+
+Show invite details
+
+<!-- END GENERATED -->
+
+Get details for a specific invite. Same fields and column order as
+`invite list`, for one invite.
+
+**Example:**
+
+```bash
+pgedge starfleet invite get d6e7f8a9-b0c1-2345-defa-456789012345
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet invite create -->
+#### pgedge starfleet invite create
+
+**Usage:** `pgedge starfleet invite create [flags]`
+
+Create an invite (needs the web UI)
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--email string` | No |  | Email address to invite |
+| `--expiration int` | No |  | Invite expiration in hours (optional) |
+
+<!-- END GENERATED -->
+
+**This cannot run with CLI credentials.** Issuing an invite needs a
+signed-in user, and every credential the CLI accepts is a client ID
+and secret, which identifies an application rather than a person.
+Starfleet answers `400 cannot create invites from an api client`, so
+the CLI refuses before making the request and exits **5**. The flags
+stay declared so the operation's shape is documented, and none is
+marked required, so the refusal is the error you see rather than
+"required flag not set".
+
+Invite teammates from the Team page in the Starfleet UI. `invite
+list`, `get` and `delete` all work normally from the CLI.
+
+**Example output (stderr):**
+
+```
+Error: invite create needs a signed-in user. The CLI authenticates with a client ID and secret, which identifies an application rather than a person, so Starfleet rejects this operation whatever the credentials. Invite teammates from the Team page in the Starfleet UI.
+```
+
+No `-o` value changes this. The refusal happens before the request is
+made, so stdout is empty and the exit code is 5 in every format.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet invite delete -->
+#### pgedge starfleet invite delete
+
+**Usage:** `pgedge starfleet invite delete <invite_id> [flags]`
+
+Delete an invite
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet invite delete d6e7f8a9-b0c1-2345-defa-456789012345 --force
+```
+
+**Example output (table):**
+
+```
+Invite d6e7f8a9-b0c1-2345-defa-456789012345 deleted.
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet invite accept -->
+#### pgedge starfleet invite accept
+
+**Usage:** `pgedge starfleet invite accept <invite_id> [flags]`
+
+Accept an invite (needs the web UI)
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--token string` | No |  | Invite token |
+
+<!-- END GENERATED -->
+
+**This cannot run with CLI credentials**, for the same reason as
+`invite create`: accepting an invite records *which person* joined,
+and a client credential names no person. Starfleet derives identity
+from the token's claims, where a user token sets `X-User-ID` and a
+client token sets `X-Client-ID` but never both, and answers 401 on an
+empty user ID. The CLI refuses before making the request and exits
+**5**.
+
+The operation is excluded from the published public API contract.
+
+Accept an invite from the link in the invitation email, or in the
+Starfleet UI.
+
+---

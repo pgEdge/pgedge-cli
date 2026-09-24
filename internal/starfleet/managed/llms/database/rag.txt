@@ -1,0 +1,174 @@
+# pgedge starfleet managed database rag
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database rag -->
+##### pgedge starfleet managed database rag
+
+**Usage:** `pgedge starfleet managed database rag <command>`
+
+Manage the RAG server on a database
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database rag
+
+Manage the RAG server deployed alongside a managed database: the
+retrieval-augmented-generation pipelines built over its data.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database rag deploy <database_id> \
+  --embedding-llm-provider openai \
+  --embedding-llm-model text-embedding-3-small \
+  --embedding-llm-api-key "$OPENAI_API_KEY" \
+  --completion-llm-provider openai \
+  --completion-llm-model gpt-4o \
+  --completion-llm-api-key "$OPENAI_API_KEY" \
+  --pipeline-config pipelines.json
+pgedge starfleet managed database rag update <database_id> --top-n 10
+```
+
+`pgedge llms starfleet managed connecting-a-client` carries the RAG
+endpoint's shape and how it authenticates.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database rag deploy -->
+###### pgedge starfleet managed database rag deploy
+
+**Usage:** `pgedge starfleet managed database rag deploy <database_id> [flags]`
+
+Deploy a RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--completion-llm-api-key string` | Yes |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | Yes |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | Yes |  | Completion LLM provider (e.g. openai, anthropic) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | Yes |  | Embedding LLM provider (openai or anthropic) |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database rag deploy
+
+Stand up a RAG server on a database.
+
+**`deploy` creates the service.** If one is already deployed on this
+database, it exits 1 and names `rag update` as the fix, rather than
+silently reconfiguring it — no PATCH is sent.
+
+Both LLM settings and a pipeline config are required, because the API
+requires all three and rejects a partial config outright.
+
+`--pipeline-config` points at a JSON file holding the pipeline
+definitions. It accepts either a bare array of pipelines or an object
+with a `pipelines` key — the latter is the shape the API returns, so a
+config read back from `database get` can be pasted straight into a
+file. The CLI validates names, duplicate names and each pipeline's
+tables before sending.
+
+**Anything wrong with that file is exit 2, not 1.** A path with no file
+on it, a path that is a directory, JSON that does not parse, an object
+without a `pipelines` key, and every structural rule checked after the
+parse all report the same code, because they are all the same mistake:
+the input you handed the command. No write is sent in any of them, but
+the database GET that precedes the file read has already gone out. The
+completeness guard on the LLM flags — `... is required to deploy a RAG
+service` — is exit 2 too. `rag update` answers identically for the same
+file.
+
+Exit 0 means the API accepted the deploy, not that the server is
+serving, and the service `state` field cannot tell you which — it
+reads `running` either way. How long RAG takes to converge is not
+known: unlike MCP it has no readiness handshake to measure against.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database rag deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --embedding-llm-provider openai \
+  --embedding-llm-model text-embedding-3-small \
+  --embedding-llm-api-key sk-... \
+  --completion-llm-provider anthropic \
+  --completion-llm-model claude-sonnet-5 \
+  --completion-llm-api-key sk-ant-... \
+  --pipeline-config pipelines.json
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database rag update -->
+###### pgedge starfleet managed database rag update
+
+**Usage:** `pgedge starfleet managed database rag update <database_id> [flags]`
+
+Update the RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | No |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | No |  | Completion LLM provider (e.g. openai, anthropic) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider (openai or anthropic) |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database rag update
+
+Change the RAG server's configuration.
+
+**`update` requires a deployed RAG service.** If none is deployed on
+this database, it exits 1 and names `rag deploy` as the fix.
+
+Only the flags you pass are changed; the deployed pipelines and every
+other setting are read back and preserved.
+
+**The LLM API keys may be omitted.** The API never returns them, and
+refills an omitted key from the service's stored state on an update.
+Pass `--embedding-llm-api-key` or `--completion-llm-api-key` only to
+rotate one.
+
+`--top-n 0` and `--token-budget 0` are honored as explicit zeros, not
+treated as unset.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database rag update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --top-n 10
+pgedge starfleet managed database rag update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --pipeline-config pipelines.json
+pgedge starfleet managed database rag update e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --completion-llm-api-key sk-ant-...
+```
+
+**`--wait` proves the task finished, not that the running pipeline
+reflects the change.** The `update-managed` task settles before the
+running pipeline does, so even with `--wait`, a script that updates a
+pipeline and immediately queries it should tolerate briefly seeing the
+old configuration. Without `--wait` the verb exits 0 the moment the API
+accepts the change.

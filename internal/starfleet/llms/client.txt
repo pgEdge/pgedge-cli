@@ -1,0 +1,274 @@
+# pgedge starfleet client
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet client -->
+### pgedge starfleet client
+
+**Usage:** `pgedge starfleet client <command>`
+
+Manage pgEdge Starfleet API clients
+
+<!-- END GENERATED -->
+
+#### client
+
+Manage the machine-to-machine API clients on your Starfleet account:
+list, get, create, update and delete. There is no rotate endpoint, so
+rotating a client's credentials takes two commands: create a new client,
+then delete the old one. Both calls authenticate, so to replace a
+credential the server already rejects, run them with another working
+credential on the same tenant.
+
+**`create` is the only command that can render a secret. `list`, `get`
+and `update` cannot, in any output format.** That is structural:
+`POST /account/v1/clients` answers a `CreateApiClientResponse` carrying
+`auth0_secret`, while every read answers an `ApiClient`, which has no
+such field. A body that carries the key anyway has it discarded when the
+generated client unmarshals it, so no renderer can reach the value.
+
+There is no client-side strip on the read path, so do not assume one
+exists.
+
+Field names differ by format:
+
+- `-o json` uses the API's own snake_case keys — `id`, `name`,
+  `description`, `auth0_id`, `created_at`, `updated_at`, all strings,
+  plus `auth0_secret` on `create` only. `list` returns a bare array of
+  these objects with no wrapping envelope.
+- `-o yaml` uses those same keys, because the renderer normalizes
+  through the json tags before encoding. So `yq '.auth0_secret'` and
+  `jq '.auth0_secret'` agree on `create`, and on `list`/`get`/`update`
+  there is no `auth0_secret` key at all.
+- Table output has no secret column at all.
+
+<!-- BEGIN GENERATED: pgedge starfleet client list -->
+#### pgedge starfleet client list
+
+**Usage:** `pgedge starfleet client list`
+
+List API clients
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet client list
+pgedge starfleet client list -o json
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME  DESCRIPTION             AUTH0 ID                          CREATED     UPDATED
+b0c1d2e3-f4a5-6789-bcde-890123456789  ci    Continuous integration  a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6  2026-02-10  2026-02-11
+```
+
+`CREATED` and `UPDATED` show only the date: an RFC3339 value is
+truncated to its first 10 characters, as in `invite`'s and
+`membership`'s timestamp columns.
+
+Columns, in order: `ID`, `NAME`, `DESCRIPTION`, `AUTH0 ID`,
+`CREATED`, `UPDATED`. `-o json` returns a bare array of client
+objects (no wrapping envelope), field for field the generated
+`ApiClient` type: `id`, `name`, `description`, `auth0_id`,
+`created_at`, `updated_at`, all strings. The read type has no
+`auth0_secret`, so the key is absent from both `-o json` and `-o yaml`
+— absent, not null in one. See the per-format key list at the top of
+this `client` section.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet client get -->
+#### pgedge starfleet client get
+
+**Usage:** `pgedge starfleet client get <client_id>`
+
+Show API client details
+
+<!-- END GENERATED -->
+
+Get details for a specific API client. Same fields and column order
+as `client list`, for one client.
+
+**Example:**
+
+```bash
+pgedge starfleet client get b0c1d2e3-f4a5-6789-bcde-890123456789
+pgedge starfleet client get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml
+```
+
+The `<client_id>` argument must be a UUID; an invalid one fails
+before any request is made.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet client create -->
+#### pgedge starfleet client create
+
+**Usage:** `pgedge starfleet client create [flags]`
+
+Create an API client
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--description string` | Yes |  | What this client is for |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | Yes |  | Name for the new API client |
+
+<!-- END GENERATED -->
+
+Create a machine-to-machine API client and print its credentials.
+This is the only command in the CLI that renders a secret, and the
+API returns that secret exactly once — nothing can fetch it again.
+Lose it and the client is useless; the remedy is to delete it and
+create another.
+
+Both are required because `CreateApiClientInput` declares both as
+non-pointer fields — the API rejects a request that omits either.
+
+**Where the secret goes, per format:**
+
+- `-o text` (default) writes **the secret alone to stdout** and every
+  line of prose — the created-confirmation, the client ID, the
+  `Client secret:` label, the save-it-now warning — to **stderr**. So
+  `secret=$(pgedge starfleet client create --name ci --description CI)`
+  captures exactly the secret and nothing else, and
+  `... > secret.txt` writes a file containing only the secret.
+- `-o json` writes the whole client object to stdout, secret
+  included, under the key **`auth0_secret`**. stdout carries nothing
+  else, so it is safe to pipe into `jq`; stderr stays empty unless the
+  no-secret warning below fires.
+- `-o yaml` writes the same object under the same key,
+  **`auth0_secret`**, so `yq '.auth0_secret'` and
+  `jq '.auth0_secret'` both return the secret.
+
+**Example:**
+
+```bash
+pgedge starfleet client create --name ci --description "CI runner"
+pgedge starfleet client create --name ci --description "CI runner" \
+    -o json
+```
+
+**Example output (table — prose on stderr, secret on stdout):**
+
+```
+API client "ci" created (id: b0c1d2e3-f4a5-6789-bcde-890123456789).
+Client ID:     a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+Client secret: <secret printed on stdout>
+Save the secret now — it is shown once and cannot be retrieved again.
+```
+
+**Failure modes:**
+
+- A 2xx with no parseable body means the secret was minted server-side
+  and is already unreachable. That exits non-zero in *every* format,
+  saying the secret is unrecoverable.
+- A body that comes back without a secret prints a warning on stderr
+  in every format, telling you to delete the client and create
+  another.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet client update -->
+#### pgedge starfleet client update
+
+**Usage:** `pgedge starfleet client update <client_id> [flags]`
+
+Update an API client
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--description string` | No |  | New description for the API client |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | No |  | New name for the API client |
+
+<!-- END GENERATED -->
+
+Change an API client's name or description. Only the flags you pass
+are sent, so an omitted flag leaves that field untouched —
+`UpdateApiClientInput`'s fields are pointers and the command overlays
+only what cobra reports as changed.
+
+`update` never touches credentials. Replacing a secret means
+`client create` followed by `client delete`.
+
+Passing neither `--name` nor `--description` is a usage error
+(exit 2, "nothing to update") and sends no request at all. The
+`<client_id>` argument must be a UUID; an invalid one fails before any
+request is made.
+
+**Example:**
+
+```bash
+pgedge starfleet client update b0c1d2e3-f4a5-6789-bcde-890123456789 \
+    --name ci-runner
+pgedge starfleet client update b0c1d2e3-f4a5-6789-bcde-890123456789 \
+    --description "Nightly CI" -o json
+```
+
+On success it renders the updated client with the same columns and
+keys as `client get`. `PATCH` answers the same `ApiClient` type the
+reads do, which has no `auth0_secret` field, so neither `-o json` nor
+`-o yaml` carries the key at all.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet client delete -->
+#### pgedge starfleet client delete
+
+**Usage:** `pgedge starfleet client delete <client_id> [flags]`
+
+Delete an API client
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--force` | No |  | Skip the confirmation prompt |
+
+<!-- END GENERATED -->
+
+Destructive, so it prompts for confirmation. On a non-TTY stdin
+without `--force` it exits **2** with "this operation is destructive;
+run with --force to confirm, or run interactively to be prompted" and
+issues no request — scripts and agents fail loudly rather than hang.
+The `<client_id>` argument must be a UUID; an invalid one fails before
+any request is made.
+
+Anything still authenticating with the deleted client's credentials
+stops working immediately — including this CLI, if you delete the
+client the active profile is configured with.
+
+**Example:**
+
+```bash
+pgedge starfleet client delete b0c1d2e3-f4a5-6789-bcde-890123456789 \
+    --force
+```
+
+**Example output (table):**
+
+```
+API client b0c1d2e3-f4a5-6789-bcde-890123456789 deleted.
+```
+
+The API answers 204 with an empty body, so nothing is written to
+stdout in any format; the one-line confirmation above is on stderr.
+Exit 0 on success.
+
+That 204 arrives carrying `Content-Type: application/json` with a
+zero-byte body. The command checks the status code directly rather than
+parsing the body, so the behavior above holds for either 204 shape
+rather than depending on the header the server sends.
+
+---

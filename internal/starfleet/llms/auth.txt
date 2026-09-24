@@ -1,0 +1,290 @@
+# pgedge starfleet auth
+
+> One page of the `starfleet` reference. `pgedge llms starfleet` is the index:
+> authentication, exit codes, IDs, paging and the workflows that span resources
+> live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet auth -->
+### pgedge starfleet auth
+
+**Usage:** `pgedge starfleet auth <command>`
+
+Manage pgEdge Starfleet authentication
+
+<!-- END GENERATED -->
+
+#### auth
+
+Manage authentication credentials for Starfleet.
+
+<!-- BEGIN GENERATED: pgedge starfleet auth login -->
+#### pgedge starfleet auth login
+
+**Usage:** `pgedge starfleet auth login [flags]`
+
+Authenticate with pgEdge Starfleet
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
+
+<!-- END GENERATED -->
+
+Takes a client ID and secret, exchanges them for an access token, and
+saves them to the active profile. The secret goes to the OS keychain,
+and the client ID and API URL go to `~/.pgedge/cli/config.yaml`. Run
+this once per profile: the credentials
+serve the whole starfleet tree, and the account-level commands, byoc and
+managed all share that one connection and one token.
+
+**This command is scriptable.** Pass both `--client-id` and
+`--client-secret` and it never reads stdin, so it works with no
+terminal attached. Omit both and it prompts for each in turn. The
+secret is never echoed in either case.
+
+Passing only one of the pair is a usage error (exit 2), not a prompt
+for the other: completing a half pair from a prompt would let a
+mistyped `--client-id` sign you in and store credentials under a
+different identity. Supply both or neither.
+
+Unlike every other command, `login` does **not** fall back to the
+stored profile when the flags are absent — it is the command that
+writes that config, so it asks rather than answering "who are you
+signing in as?" from state that is already there. It ignores
+`PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` too, and warns on stderr
+when either is set, because every other command then uses the
+variables instead of the profile it just saved.
+
+**Where the secret goes.** When no keychain can be used, `login`
+writes the secret to the config file instead, prints a warning on
+stderr naming the cause, and still ends with exit status 0. Pass `--insecure-storage`
+to write it to the config file without trying the keychain. A later
+`login` to the keychain removes a secret the file held.
+
+**Example:**
+
+```bash
+pgedge starfleet auth login
+pgedge starfleet auth login --api-url https://api.pgedge.com
+pgedge starfleet auth login --client-id ID --client-secret SECRET
+pgedge starfleet auth login --insecure-storage
+```
+
+**Example output:**
+
+```
+Client ID: my-client-id
+Client Secret:
+Authenticated. Token expires 2026-12-31T23:59:59Z.
+Client secret saved to the OS keychain; client ID and API URL saved to /Users/alice/.pgedge/cli/config.yaml
+```
+
+With both flags supplied there is no prompt, and the first two lines
+are absent.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet auth status -->
+#### pgedge starfleet auth status
+
+**Usage:** `pgedge starfleet auth status`
+
+Show current authentication state
+
+<!-- END GENERATED -->
+
+`-o json` renders `authenticated`, `source`, `problem`, `client_id`,
+`api_url`, `token_valid`, `token_bound` and `expires_at` as a single
+object, every field but `authenticated`/`token_valid`/`token_bound`
+`omitempty`. `-o yaml` carries the same eight facts under the same
+names and omits the same fields, so `yq '.client_id'` and
+`jq '.client_id'` are interchangeable. `client_id` is printed (an
+identifier, not a credential); the client secret's value never
+appears in any format, and neither does the token's binding
+fingerprint — `token_bound` is the only thing that fact is ever
+rendered as. `token_bound` is `false` whenever the cached token was
+minted with a different credential *or* for a different API URL; one
+digest covers both, so it does not say which.
+
+`source` is `flags`, `env`, `keychain` or `config`. With `env`, the
+text form prints `Token:        never cached (env credentials)`, and
+the token fields stay `false`, because env credentials never use the
+token cache.
+
+**Exit codes:** 5 when no usable credentials resolve — the auth code,
+same as any other command that cannot authenticate. A keychain that
+cannot be read is also 5, and `problem` names it. 2 for a
+half-supplied `--client-id`/`--client-secret` pair or
+`PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, or `--profile` given
+while that env pair is set, because that is the command being
+malformed rather than a credential being absent (see `problem` for
+which it was). 0 whenever credentials do resolve, even
+with no cached token or an expired one, since the CLI mints a new token
+on demand the next time it is needed.
+This command calls no endpoint at all, so passing
+(`authenticated: true`) means credentials *resolved*, not that the
+server accepts them — a wrong secret that merely resolves reports
+`authenticated: true` exactly like a real one.
+
+`starfleet doctor`'s Auth row means the same thing and no more. Its Tenant
+row is the part that proves the server ACCEPTS the credential: reading
+the tenant is an authenticated call, so a resolved tenant means the
+credential worked. That is the only check either command makes that
+proves anything about the credential — doctor's API row is an
+unauthenticated reachability probe, and says nothing about it.
+
+Doctor may exchange a token to make that call; on a warm, bound cache
+it reuses the cached one and exchanges nothing. Either way the token
+is never written to the cache, so running doctor does not change which
+token a later command will use.
+
+Do not gate a script on `token_valid` from doctor. It describes the
+token CACHE, which doctor does not write, so on a profile with
+credentials and no cached token it stays `false` however many times
+doctor runs. `tenant.resolved` is the honest gate.
+
+When `tenant.resolved` is false, read `api.reachable` before blaming
+the credential. `api.reachable: false` proves the endpoint is the
+cause and a login will not help; `true` does not prove the opposite,
+since a reachable host whose token endpoint or `/tenants` route is
+broken also leaves the tenant unresolved with a perfectly good
+credential.
+
+**Example:**
+
+```bash
+pgedge starfleet auth status
+pgedge starfleet auth status -o json
+```
+
+**Example output:**
+
+```
+Client ID:    my-client-id
+Auth source:  keychain
+API URL:      https://api.pgedge.com
+Token:        valid (expires 2026-12-31T23:59:59Z)
+```
+
+```json
+{"authenticated":true,"source":"keychain","client_id":"my-client-id","api_url":"https://api.pgedge.com","token_valid":true,"token_bound":true,"expires_at":"2026-12-31T23:59:59Z"}
+```
+
+`-o yaml` for the same state, keyed identically to the json:
+
+```yaml
+api_url: https://api.pgedge.com
+authenticated: true
+client_id: my-client-id
+expires_at: "2026-12-31T23:59:59Z"
+source: keychain
+token_bound: true
+token_valid: true
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet auth whoami -->
+#### pgedge starfleet auth whoami
+
+**Usage:** `pgedge starfleet auth whoami`
+
+Show the identity the API accepts you as
+
+<!-- END GENERATED -->
+
+`whoami` answers the question `status` cannot: who the API accepts you
+as. It is also the CLI's answer to "who am I": the account API's user
+endpoint needs a signed-in user, and every CLI credential is an
+application's, so the CLI carries no user command. `status` resolves credentials locally and calls nothing, so it
+reports what is CONFIGURED. `whoami` reads the API, so what it reports
+is what the server accepts. A wrong secret that merely resolves gives
+`status` an `authenticated: true` and gives `whoami` exit 5.
+
+It reads two lists, the API clients of the tenant the credential is
+scoped to and the tenants that credential can reach, and creates no
+resource. It does cache the token it mints, like every command that
+calls the API, so it is not the command to reach for while diagnosing
+a broken credential. `starfleet doctor` is: doctor mints its token
+without writing the cache and never fails on a missing credential.
+Under `--api-url`, whoami caches a token bound to the host it dialled,
+which displaces any token cached for the profile's own host.
+
+Two identifiers name the API client and they are not
+interchangeable. `client_id` is the credential's own ID, the value
+`--client-id` takes and the one `auth status` reports under the same
+key, and the client list reports it in its `AUTH0 ID` column.
+`client_record_id` is the record's UUID, the argument `client get`
+takes. `whoami` is what maps one to the other: without it, matching a
+configured credential to a named client means reading `client list`
+and comparing the `AUTH0 ID` column by eye.
+
+`plan` is the tenant's plan, and reading it is how an entitlement
+refusal stops being a mystery: a byoc verb answering `plan does not
+allow ...` on a `managed` plan is the plan doing its job, not a broken
+credential. `plan_trial` is `true` only on a trial, and the text
+output appends `(trial)` to the plan rather than printing a line of
+its own.
+
+Fields, all strings but `plan_trial` (bool) and `tenant_count` (int),
+`omitempty` except `client_id` and `api_url`: `client_id`,
+`client_name`, `client_record_id`, `client_description`, `tenant_name`,
+`tenant_id`, `plan`, `plan_trial`, `tenant_count`, `api_url`. `-o yaml`
+carries the same names, so `yq '.plan'` and `jq '.plan'` agree.
+
+A client credential reaches one tenant, so `tenant_count` is normally
+absent. It carries a number only above one, so a credential spanning
+more than one tenant is visible rather than reported as its first.
+
+Two absences are reported on stderr rather than failing, because the
+half of the identity that DID resolve is still worth printing. If no
+client in the tenant carries the credential's ID, the client lines are
+absent and stderr says so. If no tenant comes back, the tenant lines
+are absent and stderr says so.
+
+**Exit codes:** 5 when the credential does not authenticate, matching
+every other command that calls the API. 2 for a half-supplied flag or
+env pair, or `--profile` given while the env pair is set, which is the
+command being malformed rather than a credential being absent, the
+same distinction `status` draws. 0 on a read that answers, including the two partial
+cases above.
+
+**Example:**
+
+```bash
+pgedge starfleet auth whoami
+pgedge starfleet auth whoami -o json
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet auth logout -->
+#### pgedge starfleet auth logout
+
+**Usage:** `pgedge starfleet auth logout`
+
+Clear stored pgEdge Starfleet credentials and token
+
+<!-- END GENERATED -->
+
+Removes the active profile's cached token, its stored `client_id` and
+`client_secret`, and its OS keychain entry, and keeps its API URL.
+When the config file holds no secret and the keychain cannot be
+reached, `logout` prints a warning on stderr and still clears the
+rest.
+
+**Example:**
+
+```bash
+pgedge starfleet auth logout
+```
+
+**Example output:**
+
+```
+Logged out. Token and stored credentials removed.
+```
+
+---

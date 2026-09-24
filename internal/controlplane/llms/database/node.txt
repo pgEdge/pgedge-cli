@@ -1,0 +1,181 @@
+# pgedge controlplane database node
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane database node -->
+#### pgedge controlplane database node
+
+**Usage:** `pgedge controlplane database node <command>`
+
+Run per-node database operations
+
+<!-- END GENERATED -->
+
+Per-node database operations. Each takes a database id and a node
+name and spawns an asynchronous task; use --wait/--follow to track it.
+
+**--force means one thing everywhere: skip the confirmation prompt.**
+Where a server-side override exists it is its own flag,
+--force-unmodifiable:
+
+| Verb | Prompts? | Server-side override |
+|------|----------|----------------------|
+| `backup` | No | `--force-unmodifiable` attempts the backup in an unmodifiable state (and the verb has no `--force`: it never prompts) |
+| `switchover` | Yes | none (`--skip-validation` is the separate health-check bypass on failover) |
+| `failover` | Yes | none |
+
+`switchover` and `failover` both interrupt service, so both refuse to
+run non-interactively without --force, exiting 2 with "this operation
+is destructive; run with --force to confirm, or run interactively to
+be prompted". A planned switchover still drops the connections the
+old leader was holding. `switchover` parses --scheduled-at before
+prompting, so a malformed timestamp is a usage error rather than a
+question about an operation that cannot run. `failover` validates
+nothing client-side and has no --scheduled-at at all, and NEITHER
+verb validates --candidate: a bad instance id is not rejected by the
+CLI, so whatever the API makes of it arrives asynchronously in the
+task.
+
+`backup` interrupts nothing and never prompts, so it runs unattended
+with no flag at all; `--force` there is an unknown flag, exit 2.
+
+Neither switchover's nor failover's --force reaches the wire: both
+endpoints take a JSON body and no force parameter.
+
+**Example:**
+
+```bash
+pgedge controlplane database node backup storefront n1 --type full
+pgedge controlplane database node switchover storefront n1 --force
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database node backup -->
+##### pgedge controlplane database node backup
+
+**Usage:** `pgedge controlplane database node backup <database_id> <node_name> [flags]`
+
+Back up a database node
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force-unmodifiable` | No |  | Attempt the backup even in an unmodifiable state |
+| `--type string` | No | `full` | Backup type: full, diff, or incr |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Back up a single database node with pgBackRest. --type selects the
+backup kind (full, diff, or incr; default full). --force-unmodifiable
+attempts the backup even in an unmodifiable state.
+
+**Example:**
+
+```bash
+pgedge controlplane database node backup storefront n1 --type full
+pgedge controlplane database node backup storefront n1 --type incr --wait
+```
+
+Expected: confirmation message ("Backup task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database node switchover -->
+##### pgedge controlplane database node switchover
+
+**Usage:** `pgedge controlplane database node switchover <database_id> <node_name> [flags]`
+
+Switch over a database node
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--candidate string` | No |  | Instance ID of the replica candidate to promote |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--scheduled-at string` | No |  | Schedule the switchover at an RFC3339 time (default now) |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Perform a graceful, planned role change on a node, promoting a
+replica to leader. --candidate targets a specific replica;
+--scheduled-at defers the change to an RFC3339 time.
+
+Without --candidate, the Control Plane promotes the first of the
+node's other instances that it is monitoring, and otherwise the first
+of them at all. It does not rank replicas by replication lag, so pass
+--candidate when the choice matters. With no other instance on the
+node, the task fails.
+
+**Example:**
+
+```bash
+pgedge controlplane database node switchover storefront n1
+pgedge controlplane database node switchover storefront n1 \
+  --candidate storefront-n2-9ptayhma --wait
+```
+
+Expected: confirmation message ("Switchover task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database node failover -->
+##### pgedge controlplane database node failover
+
+**Usage:** `pgedge controlplane database node failover <database_id> <node_name> [flags]`
+
+Fail over a database node
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--candidate string` | No |  | Instance ID of the replica to promote |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--skip-validation` | No |  | Skip health checks that block failover on a healthy cluster |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Force an unplanned promotion of a replica when a leader is unhealthy.
+Destructive; prompts for confirmation (use --force to skip).
+--candidate targets a replica; --skip-validation bypasses the checks
+that block failover on a healthy cluster.
+
+**Example:**
+
+```bash
+pgedge controlplane database node failover storefront n1
+pgedge controlplane database node failover storefront n1 --force --wait
+```
+
+Expected: confirmation message ("Failover task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---

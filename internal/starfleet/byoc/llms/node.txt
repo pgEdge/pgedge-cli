@@ -1,0 +1,143 @@
+# pgedge starfleet byoc node
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc node -->
+#### pgedge starfleet byoc node
+
+**Usage:** `pgedge starfleet byoc node <command>`
+
+Inspect cluster nodes
+
+<!-- END GENERATED -->
+
+#### node
+
+Inspect the individual nodes that make up a cluster. Alias: `nodes`.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc node list -->
+##### pgedge starfleet byoc node list
+
+**Usage:** `pgedge starfleet byoc node list <cluster_id>`
+
+List a cluster's nodes
+
+<!-- END GENERATED -->
+
+List a cluster's nodes: name, region, instance type, and IP address —
+useful for finding node names to target with `--target-nodes` on
+database service deploys.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc node list a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME  REGION     INSTANCE TYPE  IP ADDRESS
+e7f8a9b0-c1d2-3456-efab-567890123456  n1    us-east-1  r7g.medium     10.4.1.10
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc node logs -->
+##### pgedge starfleet byoc node logs
+
+**Usage:** `pgedge starfleet byoc node logs <cluster_id> <node> <log_name> [flags]`
+
+Read a journald log from a cluster node
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--case-sensitive` | No |  | Make --grep case-sensitive |
+| `--dmesg` | No |  | Show only kernel entries |
+| `--grep string` | No |  | Only entries whose message matches this regular expression |
+| `--lines int` | No |  | Maximum number of log lines to return |
+| `--priority string` | No |  | Only entries at this journald priority, such as err |
+| `--reverse` | No |  | Show the newest entries first |
+| `--since string` | No |  | Only entries at or after this RFC3339 timestamp |
+| `--until string` | No |  | Only entries at or before this RFC3339 timestamp |
+
+<!-- END GENERATED -->
+
+Read one journald log from a single cluster node.
+
+The node argument accepts a node name as shown by `node list`, or a
+full node UUID. A name is resolved through the cluster's node list
+first, because the underlying path takes a node UUID and `cluster get`
+does not report one — its node objects carry no id field at all.
+
+**byoc resolves a node name in TWO places.** This one turns the name
+into a node UUID for the log path. `--target-nodes` on the SERVICE
+deploy and update verbs turns names into host UUIDs from that same
+cluster node list, for a different destination.
+
+Everything else that takes a name is pass-through. `--target-nodes`
+on `backup create` and on `database restore` reaches `target_nodes`
+in the request body with only surrounding whitespace trimmed: the
+names are never resolved or checked against the cluster. The flag
+shares only its name with the service verbs. `--nodes` on
+`database logs` reaches the query string unchanged. And a
+`<service_id>` is 8-char hex the platform assigned, not something
+resolved.
+
+The CLUSTER argument takes a full UUID, like every other ID input.
+
+`--lines` has no upper bound: the CLI sends whatever you pass. A very
+large read is bounded only by the 30-second per-request `--timeout`,
+so raise it, or pass `--timeout 0` to disable the bound, before asking
+for a whole journal.
+
+**The API does not validate the log name.** It is a journald selector,
+every name answers 200, and an unrecognized one returns the same
+`-- No entries --` body as a real log with nothing in it, so nothing can
+distinguish a typo from an idle log. The CLI passes that notice through
+rather than rewriting it.
+
+These results are recorded from observation rather than declared by
+the API contract:
+
+| Log name | Result |
+|----------|--------|
+| `system`, `docker`, `containerd` | real entries |
+| `postgresql`, `pgedge`, `patroni`, `messages`, `syslog`, `journal`, `kern`, `daemon`, `spock` | `-- No entries --` |
+| `postgres` | `500 failed to read log` |
+
+For Postgres's own log use `database logs`, not this command.
+
+`--priority`, `--reverse` and `--dmesg` work. **`--grep`, `--since` and
+`--until` are currently refused server-side** with
+`500 failed to read log`, even against a log that returns entries
+without them — so this is an API-side fault, not an argument problem.
+The CLI sends them unchanged so they start working when the API does.
+`--since` and `--until` take RFC3339 timestamps; a bare date is refused
+with `400 failed to parse since`. Filters are sent only when set.
+
+Table output prints each entry's raw text, one per line, and drops the
+blank entry the API appends to every response. `-o json` also carries
+`level`, `message` and `time`, but the API leaves all three **empty**
+today — only `raw_text` is populated.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc node logs a1b2c3d4-e5f6-7890-abcd-ef1234567890 n1 system
+pgedge starfleet byoc node logs a1b2c3d4-e5f6-7890-abcd-ef1234567890 n1 docker \
+    --lines 200 --reverse
+```
+
+**Example output (table):**
+
+```
+Aug 04 12:56:31 11111111-2222-4333-8444-555555555504 systemd[1]: Finished
+Aug 04 12:56:27 11111111-2222-4333-8444-555555555504 kernel: docker_gwbridge
+```
+
+---

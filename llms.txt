@@ -1,0 +1,550 @@
+# pgedge
+
+> Unified CLI for the pgEdge product suite: `pgedge <module>
+> <resource> <verb>`. Supports text, JSON, and YAML output. Designed
+> for both human operators and AI agents.
+
+This document ships inside the binary: run `pgedge llms` to print it
+from any installed copy — no repo checkout needed. AI agents should
+read it before composing commands instead of improvising from
+`--help`.
+
+This file is the INDEX. It covers what is true across the whole CLI:
+global flags, configuration and profiles, environment variables,
+output formats and exit codes. Each top-level command group has a page
+of its own, listed under Top-Level Commands.
+
+## Modules
+
+Each module ships its own reference. Print it with `pgedge llms
+<module>`, and read only the one you are working in.
+
+| Module | Reference | Covers |
+|--------|-----------|--------|
+| `starfleet` | `pgedge llms starfleet` | Starfleet: authentication, API clients, invites, memberships, tenant |
+| `controlplane` | `pgedge llms controlplane` | A self-hosted pgEdge Control Plane |
+
+`starfleet` splits one level further, because its tree carries two
+product sub-trees. Read the sub-reference for the one you are working
+in rather than the whole module:
+
+| Sub-reference | Print with | Covers |
+|---------------|-----------|--------|
+| `starfleet byoc` | `pgedge llms starfleet byoc` | pgEdge BYOC clusters, databases, backups, ingresses, tasks |
+| `starfleet managed` | `pgedge llms starfleet managed` | pgEdge Managed single-master databases and their MCP, RAG and PostgREST services |
+
+Each of those is itself an index ending in a Pages table, one page
+per resource, read with the command path (`pgedge llms starfleet byoc
+cluster`). The `database` page routes once more, to its sub-resources
+(`pgedge llms starfleet managed database mcp`). Read the index, then
+only the page for the resource you are working on.
+
+The whole `starfleet` tree shares one connection: authenticate once
+with `pgedge starfleet auth login` and every starfleet subcommand,
+byoc and managed included, borrows it. `controlplane` has no login: it
+targets `--base-url` directly, at a Control Plane you run yourself,
+which the controlplane reference's "Getting a Control Plane" section
+covers.
+
+`byoc` runs databases in your own cloud account, on clusters and nodes
+you create. `managed` runs single-master databases pgEdge hosts and
+operates, with no cluster or node to choose. The two read alike
+deliberately, and the managed sub-reference names where they differ.
+
+<!-- BEGIN GENERATED: pgedge -->
+# pgedge
+
+**Usage:** `pgedge <command> [flags]`
+
+Unified CLI for the pgEdge product suite
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--config string` | No |  | Path to config file (default ~/.pgedge/cli/config.yaml) |
+| `--debug` | No |  | Dump HTTP requests and responses to stderr (implies --verbose) |
+| `--no-color` | No |  | Disable color in text output |
+| `-o, --output string` | No | `text` | Output format: text, json, yaml |
+| `--profile string` | No |  | Use a configured profile (see 'pgedge profile list') |
+| `-v, --verbose` | No |  | Log requests and responses to stderr, without bodies |
+
+<!-- END GENERATED -->
+
+## Installation
+
+You are reading this from an installed binary, so the CLI is already
+installed here. To install it on another machine, hand the install to
+an AI agent there: `README.md` in the pgEdge/pgedge-cli repository
+opens its Install section with a prompt written for one. This document
+is embedded in the binary, so you may be reading it with no checkout —
+fetch the prompt without one:
+
+    gh api repos/pgEdge/pgedge-cli/contents/README.md --jq .content \
+      | base64 -d
+
+It needs an authenticated `gh` unless the repository is public.
+
+## Shell completion
+
+After installing, enable Tab completion:
+
+```bash
+pgedge completion install
+```
+
+This installs automatically for bash, zsh, fish and PowerShell. Any
+shell's script can also be printed on its own with `pgedge completion
+<shell>` for manual wiring.
+
+## Global Flags
+
+These persistent flags are registered on the root command and apply
+to every module and resource — see the `pgedge` command reference
+near the top of this document for the current flag table.
+
+Module-specific flags — for example the starfleet module's `--api-url`,
+`--client-id`, and `--client-secret` — are documented in that
+module's own reference.
+
+A stray argument to any group command (`pgedge starfleet bogus`,
+`pgedge starfleet byoc cluster bogus`) is a usage error (exit 2). That
+holds with `--help` appended: `pgedge
+controlplane bogus --help` is exit 2 with an `unknown command` message
+and no help, so `<cmd> --help` is a reliable test of whether a command
+exists. A leaf's own arguments are
+a different matter: `pgedge starfleet tenant get --help` prints help
+at exit 0 with no ID supplied, because a leaf's arguments are checked
+only when it runs.
+
+A near miss offers the correction, at every depth and with `--help`
+appended: `pgedge starfleet tenat` names `tenant`.
+
+## Dry Runs
+
+Every verb that writes to an API accepts `--dry-run`. It runs each
+client-side check the CLI has, stops before the write leaves the
+process, and reports the request that would have been sent: the
+actual bytes the generated client assembled.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database mcp deploy 3f1c2a9e-5b7d-4e8a-9c6f-0d2b4a8e1f37 \
+    --allow-writes --dry-run
+```
+
+```text
+checks passed:
+  ✓ database 3f1c2a9e-5b7d-4e8a-9c6f-0d2b4a8e1f37 resolved
+  ✓ no "mcp" service already deployed (deploy intent)
+would send:
+  PATCH https://api.pgedge.com/managed/v1/databases/3f1c2a9e-5b7d-4e8a-9c6f-0d2b4a8e1f37
+  {
+    "services": [
+      {
+        "mcp_config": {
+          "allow_writes": true
+        },
+        "service_type": "mcp"
+      }
+    ]
+  }
+nothing was written; the server was not consulted and may still reject this request.
+```
+
+What a dry run proves, and where it stops:
+
+- Requests that only READ still go to the API, so `--dry-run` needs
+  working credentials and a reachable API. `deploy` and `update`
+  fetch the resource first to tell each other apart.
+- This is a CLIENT dry run, as in kubectl's `--dry-run=client`.
+  Neither Starfleet nor Control Plane has a validate endpoint, so a
+  clean dry run means every check this CLI can perform passed, not
+  that the API accepted anything. Under `-o json` and `-o yaml` the
+  report carries `server_validated: false`.
+- The previewed body is masked and bounded exactly as `--debug` output
+  is (see Diagnostics), so a large spec's preview is truncated.
+- "Writes" is decided per OPERATION, not per HTTP method. Control Plane
+  declares two state-changing operations as `GET` (`cluster init` and
+  `task cancel`), and a dry run stops those exactly as it stops a POST.
+- The exit codes a dry run produces are the real run's: a clean dry run
+  is 0, a bad flag is 2, an unknown resource is 4, a plan-entitlement
+  rejection from a read is 5. It cannot produce a code only the server
+  would have reached, so **`cmd --dry-run && cmd` is not a gate on the
+  real run's exit code**. Treat a clean dry run as "the checks listed
+  passed", and read the list.
+- Which checks a verb has is a property of that verb, and the report
+  lists the ones it ran. A check that measures a flag against a list
+  the CLI fetches costs a read, so the same bad value can answer 2 or
+  5 depending on whether credentials are configured. The byoc and
+  managed references name their checks, including what is NOT checked;
+  for `controlplane` and `starfleet`, read the report.
+- When a check refuses the command, the checks that had already passed
+  print to stderr before the error, as text even under `-o json`.
+
+`--dry-run` is registered only on verbs that write. On a read-only verb
+it is an unknown flag (exit 2). `--dry-run` and `--dry-run=checks` are
+the same thing, and `checks` is the only accepted value;
+`--dry-run=server` is rejected with a message naming the missing
+platform capability.
+
+Six commands change only local state (the config file, the token cache
+or a shell rc file) and have no `--dry-run`: `pgedge profile use`,
+`pgedge controlplane config set`, `pgedge starfleet auth login`,
+`pgedge starfleet auth logout`, `pgedge completion install` and
+`pgedge completion uninstall`. `pgedge controlplane database init`
+has none either: it sends no request.
+
+## Configuration and Profiles
+
+Configuration lives at `~/.pgedge/cli/config.yaml`. It holds named
+profiles, each carrying per-module sections — for example a
+`starfleet` section with an API URL and credentials, written by
+`pgedge starfleet auth login`. Select a profile with `--profile` or
+`current_profile` in the config file; the built-in default profile is
+named `default`.
+
+A profile name must name a profile that already exists. Anything else
+fails with exit 1 and a message naming the profiles that do exist, or
+how to create one when none do. The rule covers the `--profile` flag,
+`current_profile`, `pgedge profile show <name>` and `pgedge profile use
+<name>`, so a hand-edited `current_profile` naming nothing is rejected
+rather than silently resolving to the default production URL.
+
+The built-in `default` is accepted without a matching section by the
+first three, even with no config file at all. `pgedge profile use
+default` fails on a config with no `default` section: to return to
+the built-in, remove the `current_profile` line.
+
+Two commands create the profile they name, and so accept a name with
+no matching profile: `pgedge starfleet auth login --profile
+<new-name>` and `pgedge controlplane config set --profile <new-name>`.
+
+**Six commands are exempt from the unknown-profile rule**: `version`, `llms`,
+`help` and the whole `completion` tree never read the config, and the two above
+create the profile. All six still fail the checks below.
+
+`--config` names the file the profiles live in. A missing path, or
+one naming a directory, is exit 1, and an empty value is exit 2. Only
+the default `~/.pgedge/cli/config.yaml` may be absent, because a first
+run has none yet: to use a new path, create the file and its directory
+first.
+
+An EMPTY `--profile` is exit 2: `--profile "$P"` with the variable
+unset would otherwise resolve `current_profile`, and a profile is a
+tenant, so the silent answer is a different account. Omit the flag to
+ask for the active profile.
+
+Both `--config` checks and the empty `--profile` check run before the
+command, so `--help` and completion requests (`__complete`) still
+exit 0.
+
+Two commands keep working when `current_profile` itself is the
+unresolvable one, because they are the way out: `pgedge profile list`
+marks the active row `yes (unresolved)` with no Starfleet URL
+(`"resolved": false` under `-o json`), and `pgedge profile use <name>`
+writes a good name back. An explicitly typed `--profile <unknown>` is
+still rejected on both.
+
+Commands that write the config edit it in place: comments, key order,
+indentation and keys this version does not recognize are preserved, so
+an older binary can safely write a config a newer one created. Blank
+separator lines are dropped, and `starfleet auth logout`
+deliberately deletes the stored `client_id` and `client_secret`.
+`starfleet auth login` keeps the secret in the OS keychain, not the
+file, unless no keychain can be used or `--insecure-storage` is
+passed.
+
+## Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `NO_COLOR` | Disables color output |
+| `PGEDGE_CLIENT_ID`, `PGEDGE_CLIENT_SECRET` | Starfleet credential, both or neither |
+
+`NO_COLOR` is the only environment variable that affects how output
+is rendered. The credential pair ranks between the flags and the
+profile, and acts as a separate profile that is never saved: no
+credential or API URL comes from the config file, nothing is written
+to it, the token cache goes unused, the API URL is `--api-url` or
+the production default, and `--profile` alongside it is exit status
+2.
+`pgedge llms starfleet` has the full rules. No other `PGEDGE_*`
+variable is read, so an exported API URL or profile is ignored. (cobra's completion
+protocol reads two variables of its own, with `COBRA_*` fallbacks —
+`PGEDGE_COMPLETION_DESCRIPTIONS`, which trims suggestion
+descriptions when set to a false value, and the currently inert
+`PGEDGE_ACTIVE_HELP` — and both touch shell completion only.)
+
+Three variables are read as plumbing, not configuration: `HOME`
+locates the config file, the token cache and the completion install
+paths; `XDG_CONFIG_HOME` is honored only by completion's fish path
+(and PowerShell's profile fallback); and `SHELL` drives completion's
+shell autodetect and the shell row in `doctor`.
+
+## Exit Codes
+
+One number, one meaning, across every module. This table is the whole
+contract.
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General runtime failure |
+| 2 | The command was malformed |
+| 3 | Timed out |
+| 4 | Not found |
+| 5 | Authentication failed |
+
+**2 covers every way of getting the command wrong**: an unknown command or
+flag, a missing required flag, a missing or extra positional argument, an
+unsupported `--output` value, a `pgedge help` topic that resolves to no command
+at any depth (`pgedge help <group> <typo>` is 2, not the group's help), and
+`--client-id` without `--client-secret` (or the reverse). Read stderr for
+which.
+
+**An input file a command was pointed at counts as part of the
+command.** A `-f` spec, a `--pipeline-config` file or a TLS file that
+is absent, a directory, unreadable, unparseable or structurally
+invalid is exit 2, and no write is sent. The config file is the
+exception: it is read on every invocation, so a missing, unreadable or
+unparseable one is exit 1 (see Configuration and Profiles).
+
+**5 is the server or the credential store saying no**: no credentials resolve
+at all, a rejected client ID or secret, a 401/403 from the API, or a
+plan-entitlement 400 (below). `starfleet auth login` and `starfleet auth
+status` report it the same way every resource command does. On `controlplane`,
+exit 5 is any 401 or 403, and `pgedge llms controlplane` names the paths that
+classify a refusal themselves and never exit 5.
+
+**A plan-entitlement 400 is 5, not 1.** Some byoc capabilities are
+plan-gated server-side: the API answers a 400 whose body contains
+`plan does not allow ...` when the tenant's plan doesn't cover the
+resource. The CLI reports that as exit 5, the same class as a rejected
+credential. Other list verbs are not plan-gated and answer 200 with an
+empty array on any plan: `pgedge llms starfleet byoc` says which is
+which.
+
+**A router-level 404 is 1, not 4.** A Starfleet 404 whose body is not a
+Starfleet error — the API router's plain `{"message":"Not Found"}`,
+a proxy or SSO gateway's HTML page, an empty body, anything missing
+the `code` field every pgEdge error carries — means the server does
+not serve the endpoint at all: the base URL is not a Starfleet API
+root, the server is older than this CLI, or something in front of it
+answered instead. The CLI reports "this server does not serve an
+endpoint this command needs" and exits 1, while a handler's JSON
+not-found error (`{"code":404,...}`) exits 4. The controlplane module
+draws the same line against its router's plain "404 page not found".
+
+In every module, a non-JSON error body labeled as JSON is still
+classified by its status rather than failing to decode. Response
+bodies quoted in an error message are truncated and redacted, but
+classification always reads the whole body.
+
+Four deliberate exceptions:
+
+- `pgedge starfleet doctor` exits **0** even when authentication is
+  broken, because it is meant to be safe to run when auth is the
+  suspected problem. Read `auth.authenticated` in `-o json`, not `$?`.
+- `pgedge controlplane doctor` exits **0** for the same reason,
+  including when the Control Plane is **unreachable**, has no cluster,
+  or the active profile carries a field that will not parse. Read
+  `reachable` and `cluster_initialized` in `-o json`, not `$?`.
+  <!-- doc-gate: correct-for controlplane cluster_initialized — a key controlplane doctor
+  builds into its own json map, not a field of any generated struct --> So `pgedge controlplane doctor && <next step>` is not a gate,
+  and `reachable` alone is not readiness either.
+- `pgedge controlplane config view` exits **0** on a profile it cannot
+  fully resolve, and reports the offending value as a `problem` row.
+- `pgedge profile use <unknown>` and `pgedge --profile <unknown>` both
+  exit **1**, not 2: the name is well formed and names nothing. The
+  flag form is exempt on the six commands Configuration and Profiles
+  names.
+
+## Paging
+
+`--limit` and `--offset` mean the same thing wherever a verb has them.
+Exactly eleven verbs carry `--limit`: byoc's six list
+verbs plus `backup-repository get`, managed's three list verbs, and
+`controlplane task list`, which has no `--offset`. On any other verb
+an `unknown flag` exit 2 is the flag not existing.
+
+**Omitting a flag is how you ask for the server's default.** A value
+it cannot mean is refused locally at exit **2** with **no request
+sent**: `--limit 0`, `--limit -1`, and any negative `--offset`.
+Writing `--limit "$N"` with `N` unset is the usual way that happens.
+`--offset 0` is an ordinary value and is sent.
+
+**Any maximum is per ENDPOINT, not per flag name.** Where the API
+publishes a bound the CLI enforces it and the error names it. Where it
+publishes none the CLI enforces none, even where the server is known
+to clamp. Only managed declares any maximum, on two operations, and
+`--offset` has none anywhere.
+
+**A server-side clamp is reported.** Every byoc and managed list verb that
+takes `--limit` prints a `Showing first N results...` hint to stderr when a
+page comes back full, so `managed task list --limit 500` returning 100 rows
+says so. The API reports no total, so the hint means more rows MIGHT exist:
+page with `--offset` to find out. `managed database list` applies no default
+page, so only a `--limit` you set can cut it short. A full `controlplane task
+list` page may be truncated, and `pgedge llms controlplane` says how to narrow
+it. A verb without `--limit`, such as `managed size list` or `database service
+list`, returns everything. Check a verb's `--help` to see whether it is paged.
+
+## Diagnostics
+
+Two ordered levels, both on **stderr** so `-o json` stays pipeable into
+`jq` with either one on. They apply to every module.
+
+`--verbose` logs one line per request and one per response: method, URL,
+status, elapsed time, and a masked `Authorization` header when one was
+sent.
+
+`--debug` adds every request and response header and both bodies.
+**`--debug` implies `--verbose`** — passing it alone gives you the
+superset, and passing both is the same as passing `--debug`.
+
+    $ pgedge starfleet byoc cluster get abc --debug
+    > GET https://api.pgedge.com/byoc/v1/clusters/abc
+    > Authorization: ████
+    > Accept: application/json
+    < 200 OK (412ms)
+    < Content-Type: application/json
+    < {"id":"abc","name":"prod","plan_expires_at":null}
+
+`--debug` is the tool for a question about the wire that a typed result
+cannot answer, such as whether a field arrived as an explicit `null` or
+was omitted, which the parsers collapse to the same Go `nil`.
+Bodies are printed as the bytes that arrived, so that distinction
+survives.
+
+What it hides:
+
+- Credential-bearing values. `Authorization`, `Proxy-Authorization`,
+  `Cookie`, `Set-Cookie` and `X-Api-Key` are masked as `████`. A JSON
+  body carrying `access_token`, `refresh_token`, `client_secret` or
+  `password` at any depth is replaced by its top-level key names — so
+  the token exchange shows its shape and never its secret.
+  <!-- doc-gate: deliberately-wrong refresh_token — the redactor watches the whole OAuth2 credential family, not only fields a pgEdge struct declares; no struct declares this one and covering it anyway is the point -->
+
+- More than 8 KB of any one body. It says when it truncated, and gives
+  the full byte count.
+
+Answer a wire question with `--debug` rather than `curl`: it shows the
+payload without anyone handling a raw credential.
+
+## Output
+
+**A `-o yaml` key is the `-o json` key.** The renderer normalizes every
+payload through its json tags before encoding yaml, so a `yq` path
+always matches the equivalent `jq` path, and an unset optional field
+is absent from both. Generated API types render their json tag
+(`has_credentials`, not `hascreds`). `pgedge version` declares yaml
+tags identical to its json tags (`build_date`). The map payloads of
+`pgedge controlplane doctor` and `pgedge controlplane config view`
+keep their keys verbatim, so snake_case survives: `base_urls`,
+`server_version`.
+<!-- doc-gate: correct-for controlplane server_version — a key of controlplane doctor's
+map payload, which is the point being made: it belongs to no struct,
+so no struct-field scan can find it -->
+
+**A success carrying no body prints nothing to stdout**, under `-o
+json` and `-o yaml` as well as text: most deletes, both modules'
+`rotate-password`, `managed database resize`, `byoc backup create`,
+`byoc database restore` and `controlplane cluster join`. The
+acknowledgment is **exit 0**, and the sentence for a person goes to
+stderr, which keeps `<cmd> -o json | jq` clean. The rule follows what
+the API returns, not the verb name: `controlplane database delete`,
+`controlplane host remove` and both modules' `database service remove`
+return an object and print it. Read the spec or `-o json` to tell
+which kind a verb is.
+
+`byoc backup-repository get` is the one read that can print nothing at
+exit 0, when the repository holds no data for that node. That is no
+document, not the `[]` an empty list prints, so test the output for
+emptiness before parsing it. `starfleet auth logout` and `controlplane
+config set` also exit 0 with nothing on stdout. `--dry-run` is the
+exception to all of this: its report is the result, so it goes to
+stdout in the requested format.
+
+Read the status, never stdout:
+
+```bash
+set -e
+pgedge starfleet managed database rotate-password "$DB_ID" --role app --force
+```
+
+A failure exits non-zero, so an empty stdout at exit 0 means the
+operation succeeded.
+
+## Top-Level Commands
+
+`version` and `llms` are documented here. Each other top-level group
+has its own page:
+
+<!-- BEGIN GENERATED ROUTING: pgedge -->
+| Page | Read | Covers |
+|------|------|--------|
+| `completion` | `pgedge llms completion` | Generate and install shell completion scripts |
+| `doctor` | `pgedge llms doctor` | Diagnose the pgedge installation |
+| `inspect` | `pgedge llms inspect` | Run a read-only diagnostic against a Postgres database |
+| `profile` | `pgedge llms profile` | Manage named CLI profiles |
+| `self` | `pgedge llms self` | Manage the pgedge binary itself |
+<!-- END GENERATED ROUTING -->
+
+<!-- BEGIN GENERATED: pgedge version -->
+## pgedge version
+
+**Usage:** `pgedge version`
+
+Print the pgedge CLI version
+
+<!-- END GENERATED -->
+
+Print the version of the unified pgedge binary and each module it
+carries, with the launcher's build commit and date. Honors the global
+`-o` flag: text (default), json, or yaml.
+
+**Example:**
+
+```bash
+pgedge version
+pgedge version -o json
+```
+
+Expected (text): line 1 is the bare launcher version (grep-stable),
+then `commit:` and `build date:` lines, then a `modules:` block with
+one `<name> <version>` line per built-in module. `-o json`/`-o yaml`
+add a `modules` array to the version object.
+
+---
+
+<!-- BEGIN GENERATED: pgedge llms -->
+## pgedge llms
+
+**Usage:** `pgedge llms [module|page] [sub-reference]`
+
+Print the AI-agent reference
+
+<!-- END GENERATED -->
+
+With no argument, print this index to stdout: global flags,
+configuration and profiles, environment variables, exit codes, and
+tables routing you to each module's reference and each top-level
+command's page. With a module name, print that module's reference
+instead; with a module and one of its sub-references, print that
+sub-scope alone. With a top-level command group, such as `inspect`,
+print that group's page. The documents are embedded in the binary, so they are always
+available and always match the installed version — AI agents should
+run this before composing commands.
+
+**Example:**
+
+```bash
+pgedge llms
+pgedge llms starfleet
+pgedge llms starfleet byoc
+```
+
+---
+

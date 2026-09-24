@@ -1,0 +1,147 @@
+# pgedge starfleet byoc database postgrest
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database postgrest -->
+##### pgedge starfleet byoc database postgrest
+
+**Usage:** `pgedge starfleet byoc database postgrest <command>`
+
+Manage the PostgREST API on a database
+
+<!-- END GENERATED -->
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database postgrest deploy -->
+###### pgedge starfleet byoc database postgrest deploy
+
+**Usage:** `pgedge starfleet byoc database postgrest deploy <database_id> [flags]`
+
+Deploy a PostgREST API on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cors-origins string` | No |  | Comma-separated list of allowed CORS origins |
+| `--db-anon-role string` | Yes |  | Postgres role used for unauthenticated requests |
+| `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
+| `--db-schemas string` | Yes |  | Comma-separated schemas to expose as REST (e.g. public,api) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--jwt-audience string` | No |  | JWT audience claim to require |
+| `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
+| `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
+| `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Deploy a PostgREST API alongside an existing database. PostgREST serves a
+REST API generated directly from the database schema, so exposed tables
+and views become endpoints without any application code.
+
+**`deploy` creates the service.** If one is already deployed on this
+database, it exits 1 and names `postgrest update` as the fix, rather
+than silently reconfiguring it — no write is sent.
+
+`--db-schemas` and `--db-anon-role` are required: they decide which
+schemas are reachable and which Postgres role serves unauthenticated
+requests. Grant that role only the privileges anonymous callers should
+have — never admin, which is a real superuser here (see "Built-in
+roles" above).
+
+`--db-pool`, `--max-rows` and `--jwt-secret` are range-checked in the
+CLI at exit 2, before a credential is resolved, so a bad value costs
+neither a token exchange nor a read. `--db-schemas` and
+`--db-anon-role` are checked the same way on `deploy`: an explicitly
+empty value satisfies the required-flag rule and is refused here
+instead.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database postgrest deploy f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --db-schemas public,api \
+    --db-anon-role web_anon \
+    --max-rows 500 \
+    --wait
+```
+
+**Example output (table):**
+
+```
+PostgREST service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Tracking task 7b3e1a90-4c22-4f8d-9a6e-2f1d3c4b5a60...
+Task 7b3e1a90-4c22-4f8d-9a6e-2f1d3c4b5a60: running...
+Task 7b3e1a90-4c22-4f8d-9a6e-2f1d3c4b5a60: succeeded.
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database postgrest update -->
+###### pgedge starfleet byoc database postgrest update
+
+**Usage:** `pgedge starfleet byoc database postgrest update <database_id> [flags]`
+
+Update the PostgREST API on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--cors-origins string` | No |  | Comma-separated list of allowed CORS origins |
+| `--db-anon-role string` | No |  | Postgres role used for unauthenticated requests |
+| `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
+| `--db-schemas string` | No |  | Comma-separated schemas to expose as REST (e.g. public,api) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--jwt-audience string` | No |  | JWT audience claim to require |
+| `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
+| `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
+| `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Update the PostgREST configuration on a database. Accepts the same flags
+as `postgrest deploy`, but none are required: every flag you omit keeps
+the value already deployed, read back from the service before the change
+is applied.
+
+`--jwt-secret` is the one exception. The API stores it write-only and
+never returns it, so it cannot be read back and preserved — pass it
+again whenever you change other JWT settings.
+
+`--db-pool`, `--max-rows` and `--jwt-secret` are range-checked on
+`update` exactly as on `deploy`: exit 2, before a credential is
+resolved. `--db-schemas` and `--db-anon-role` are not required here,
+being inherited from the deployed service — but passing either as an
+explicitly empty value blanks it, and that is refused at exit 2 too,
+after the read that supplied the rest of the configuration.
+
+**`update` requires a deployed PostgREST service.** If none is deployed
+on this database, it exits 1 and names `postgrest deploy` as the fix.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database postgrest update f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --max-rows 500
+```
+
+**Example output (table):**
+
+```
+PostgREST service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
+Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---

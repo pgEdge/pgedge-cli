@@ -1,0 +1,222 @@
+# pgedge starfleet byoc task
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc task -->
+#### pgedge starfleet byoc task
+
+**Usage:** `pgedge starfleet byoc task <command>`
+
+Inspect pgEdge BYOC tasks
+
+<!-- END GENERATED -->
+
+#### task
+
+Manage pgEdge BYOC tasks — long-running asynchronous operations such as
+cluster creation, database provisioning, and service deployments.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc task list -->
+##### pgedge starfleet byoc task list
+
+**Usage:** `pgedge starfleet byoc task list [flags]`
+
+List tasks
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--limit int` | No |  | Maximum number of results to return (API default 25) |
+| `--name string` | No |  | Filter by task name (e.g. update, delete) |
+| `--offset int` | No |  | Offset into the results for pagination |
+| `--status string` | No |  | Filter by status (queued, running, succeeded, failed) |
+| `--subject-id string` | No |  | Filter by subject (full UUID) |
+| `--subject-kind string` | No |  | Filter by subject kind |
+
+<!-- END GENERATED -->
+
+When a page comes back full (25 rows by default, or the `--limit`
+given, up to the server's cap of 100), list prints a `Showing first
+N results...` hint to stderr — the API reports no total, so the
+hint can only say more rows might exist, never confirm it. That
+default is the server's behavior, not a contract: the spec
+declares neither it nor the cap. A `--limit` above 100 is clamped
+silently, so `--limit 500` returning 100 rows does not mean there are
+only 100.
+
+`--name` filters by the KIND of operation. The parameter is a bare
+string with no enum in the contract, so an unknown name matches nothing
+rather than being refused — which makes a wrong name
+**indistinguishable from no such task**.
+
+So read the names rather than guessing, and read them PAGED:
+
+```bash
+pgedge starfleet byoc task list --limit 100 -o json
+```
+
+then `--offset` onward. This reference lists no names: the contract
+declares none, and the first page of a read is dominated by `create`,
+`update` and `delete`, so a single page under-samples the names a
+tenant has actually used.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc task list --limit 2
+```
+
+**Example output (table):**
+
+```
+ID                                    NAME    STATUS     SUBJECT                                            CREATED
+11111111-2222-4333-8444-555555555506  delete  succeeded  backup_store/11111111-2222-4333-8444-555555555505  2026-08-08
+820114dc-1aad-4eea-8482-6de9985da597  delete  succeeded  cluster/671e90ee-76a7-480b-839f-49fb37632f2a       2026-08-08
+```
+
+SUBJECT is `<kind>/<id>`, not a bare ID, and CREATED is a date — the
+column drops the time, so two tasks on one subject minutes apart look
+alike here. Use `task get` for the full timestamps.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc task get -->
+##### pgedge starfleet byoc task get
+
+**Usage:** `pgedge starfleet byoc task get <task_id>`
+
+Show task details
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc task get b0c1d2e3-f4a5-6789-bcde-890123456789
+```
+
+Text output is the summary row followed by a detail block: the task's
+full `created_at` and `updated_at`, its newest step with that step's
+status and progress, and the failure reason when it has one. The row's
+CREATED column is a date alone, so the block is where two tasks on one
+subject minutes apart are told apart.
+
+**Example output (table):**
+
+```
+ID                                    NAME    STATUS     SUBJECT                                            CREATED
+11111111-2222-4333-8444-555555555506  delete  succeeded  backup_store/11111111-2222-4333-8444-555555555505  2026-08-08
+
+Created  2026-08-08T15:14:34Z
+Updated  2026-08-08T15:14:54Z
+Step     Deleting backup store: succeeded (100%)
+```
+
+A failed task adds the reason, on a line of its own because these are
+wrapped error chains that read better with their structure intact:
+
+```
+Step     [error] failed to restart postgres: failed (45%)
+
+Error
+failed to restart postgres: failed to restart database component
+```
+
+Use `-o json`/`-o yaml` for the whole `messages` array — the complete
+per-step trace, of which text shows only the last entry.
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc task wait -->
+##### pgedge starfleet byoc task wait
+
+**Usage:** `pgedge starfleet byoc task wait <task_id> [flags]`
+
+Wait for a task to complete
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--follow` | No |  | Stream the task's step messages instead of bare status lines |
+| `--wait-interval int` | No | `5` | Polling interval in seconds |
+| `--wait-timeout int` | No | `600` | Maximum seconds to wait for task completion |
+
+<!-- END GENERATED -->
+
+Poll a task until it reaches a terminal state (succeeded or failed).
+Exits with code 0 on success, 1 on failure, 3 on timeout, and 4 when
+no task has that ID.
+
+Use this to attach to work this CLI did not start. For work it is
+starting, `--wait` on the mutating verb is better: it captures the
+subject's newest task *before* the mutation, so it cannot mistake an
+earlier task for the new one.
+
+`--follow` streams the task's step messages as they appear, in place of
+the bare status lines. This verb always blocks, so here the flag
+changes only what is printed.
+
+The step messages are byte-identical to what `--follow` on the mutating
+verb streams. What differs is the lines around them:
+
+- **Either outcome.** The mutating verb announces the task it
+  discovered (`Tracking task <id>...`) before any step message, and in
+  text mode prints its own mutation confirmation first as well. This
+  verb prints neither — it was handed the ID. Both lines appear on the
+  failing path too, so their presence says nothing about how the task
+  ends.
+- **Text mode.** Neither verb writes anything to stdout, on success or
+  on failure, so **gate on the exit code**.
+- **`-o json`.** Both write to stdout, but not the same object. This
+  verb writes the TASK, so its `status` and `error` describe the
+  outcome. The mutating verb writes the RESOURCE **as it stood before
+  the task ran** and never refreshes it, so a failed create still shows
+  the status it had on acceptance and carries no error — its stdout is
+  byte-identical whether the task succeeds or fails. Gate on this
+  verb's stdout; do not gate on the mutating verb's.
+- **Terminal line.** On success this verb ends `Task <id>: succeeded`,
+  the mutating verb ends the same with a period, and under `-o json`
+  this verb prints no terminal line at all. On failure both print the
+  same `Error: task <id> failed` line — with `: <reason>` appended when
+  the task carries one — and exit 1, in either mode, because the
+  command returns an error and that is what prints it.
+
+A mutating verb may print further lines of its own — `cluster create`
+warns when no backup store is configured, for instance — so treat the
+list above as the differences that matter, not a closed set.
+
+Reach for it whenever no `--follow` was passed at mutation time —
+someone else's operation, one begun in a session that has ended, or one
+this CLI started without the flag. Streaming is otherwise unavailable
+after the fact; `task get -o json` still shows the messages as a
+snapshot.
+
+`task wait` exits 4 on an unknown task ID rather than waiting for one to
+appear, so a task read immediately after a mutation may need a moment
+before it can be waited on. `--wait` on the mutating verb absorbs that
+delay; this verb cannot.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc task wait b0c1d2e3-f4a5-6789-bcde-890123456789 \
+    --wait-timeout 900 \
+    --wait-interval 10
+
+pgedge starfleet byoc task wait b0c1d2e3-f4a5-6789-bcde-890123456789 \
+    --follow
+```
+
+**Example output (table):**
+
+```
+Task b0c1d2e3-f4a5-6789-bcde-890123456789: queued...
+Task b0c1d2e3-f4a5-6789-bcde-890123456789: running...
+Task b0c1d2e3-f4a5-6789-bcde-890123456789: succeeded
+```
+
+---

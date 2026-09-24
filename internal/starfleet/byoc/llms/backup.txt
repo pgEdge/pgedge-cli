@@ -1,0 +1,62 @@
+# pgedge starfleet byoc backup
+
+> One page of the `starfleet byoc` reference. `pgedge llms starfleet byoc` is
+> the index: authentication, exit codes, IDs, paging and the workflows that
+> span resources live there.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup -->
+#### pgedge starfleet byoc backup
+
+**Usage:** `pgedge starfleet byoc backup <command>`
+
+Manage pgEdge BYOC backups
+
+<!-- END GENERATED -->
+
+#### backup
+
+Take an on-demand backup of a BYOC database. `create` is the only verb.
+Nothing in this CLI lists or reads back a BYOC backup. A BYOC backup
+runs through the Control Plane, so it creates no BYOC task either. On a
+self-hosted control plane, `pgedge controlplane database node backup`
+takes one and `pgedge controlplane task` follows the work.
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc backup create -->
+##### pgedge starfleet byoc backup create
+
+**Usage:** `pgedge starfleet byoc backup create [flags]`
+
+Create a backup
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--database-id string` | Yes |  | Database to back up (full UUID) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--name string` | No |  | Optional backup name |
+| `--provider string` | Yes |  | Backup provider |
+| `--target-nodes strings` | No |  | Comma-separated list of target nodes |
+| `--type string` | No |  | Optional backup type |
+
+<!-- END GENERATED -->
+
+**Example:**
+
+```bash
+pgedge starfleet byoc backup create \
+    --database-id f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --name pre-migration \
+    --provider pgbackrest
+```
+
+**Example output:**
+
+```
+Backup initiated.
+```
+
+The API answers with an empty body: the notice goes to stderr and stdout
+stays empty in every output mode.
+
+---

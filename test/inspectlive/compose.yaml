@@ -1,0 +1,37 @@
+# Two Postgres servers for the live inspect suite: a publisher, which
+# also carries pg_stat_statements, and a subscriber that replicates one
+# table from it over native logical replication. PG_VERSION picks the
+# image tag (18 by default). PUBLISHER_PORT and SUBSCRIBER_PORT move the
+# host ports off 55432 and 55433; the suite's default connection strings
+# name those two, so a run against moved ports sets
+# PGEDGE_INSPECT_LIVE_PUBLISHER and PGEDGE_INSPECT_LIVE_SUBSCRIBER too.
+#
+# The health check names the host explicitly: while the image's
+# entrypoint runs initdb its temporary server listens on the socket
+# only, and a bare pg_isready reports ready against it before the real
+# server is up.
+name: pgedge-inspectlive
+
+x-postgres: &postgres
+  image: postgres:${PG_VERSION:-18}
+  environment:
+    POSTGRES_USER: inspect
+    POSTGRES_PASSWORD: inspect
+    POSTGRES_DB: inspect
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -h localhost -U inspect -d inspect"]
+    interval: 2s
+    timeout: 5s
+    retries: 30
+
+services:
+  publisher:
+    <<: *postgres
+    command: -c wal_level=logical -c shared_preload_libraries=pg_stat_statements
+    ports:
+      - "${PUBLISHER_PORT:-55432}:5432"
+  subscriber:
+    <<: *postgres
+    command: -c wal_level=logical
+    ports:
+      - "${SUBSCRIBER_PORT:-55433}:5432"

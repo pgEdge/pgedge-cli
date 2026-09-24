@@ -1,0 +1,9 @@
+extends: existence
+message: "Use the canonical sentinel 'CHANGE-ME', not '%s'."
+level: error
+ignorecase: false
+tokens:
+  - CHANGEME
+  - change-me
+  - CHANGE_ME
+  - ChangeMe

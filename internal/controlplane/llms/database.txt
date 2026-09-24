@@ -1,0 +1,476 @@
+# pgedge controlplane database
+
+> One page of the `controlplane` reference. `pgedge llms controlplane` is the
+> index: authentication, exit codes, IDs, paging and the workflows that span
+> resources live there.
+
+<!-- BEGIN GENERATED: pgedge controlplane database -->
+### pgedge controlplane database
+
+**Usage:** `pgedge controlplane database <command>`
+
+Manage Control Plane databases
+
+<!-- END GENERATED -->
+
+database lists, inspects, creates, updates, and deletes
+the distributed Postgres databases managed by the control-plane.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database list -->
+#### pgedge controlplane database list
+
+**Usage:** `pgedge controlplane database list`
+
+List databases
+
+<!-- END GENERATED -->
+
+List databases managed by the control-plane: ID, state, created,
+and updated time.
+
+**Example:**
+
+```bash
+pgedge controlplane database list
+pgedge controlplane database list -o json
+```
+
+Expected: a table with ID, STATE, CREATED, UPDATED columns (or the
+raw JSON/YAML object under `-o json`/`-o yaml`).
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database get -->
+#### pgedge controlplane database get
+
+**Usage:** `pgedge controlplane database get <database_id> [flags]`
+
+Show database details
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--upgrades` | No |  | Also list the newer images this database can upgrade to |
+
+<!-- END GENERATED -->
+
+Show details of a single database by ID. Use -o yaml to produce a
+spec file you can edit and re-apply with 'database update -f'.
+
+**Example:**
+
+```bash
+pgedge controlplane database get storefront
+pgedge controlplane database get storefront -o yaml
+```
+
+Expected (text): a summary table (ID, STATE, CREATED, UPDATED),
+then an Instances section (ID, NODE, HOST, STATE, ROLE, PG, SPOCK,
+ADDRESSES, PORT) and a Services section (SERVICE, STATE, HOST, READY,
+HEALTH, IMAGE, ADDRESSES, PORTS) when the database has them. The
+instance ID is the argument the `instance start`/`stop`/`restart`
+verbs and `node switchover --candidate`/`node failover --candidate`
+take. ROLE is `primary`, `replica` or `uninitialized`, and reads `-`
+until the Control Plane reports it. Match `primary` to find a node's
+leader. ADDRESSES/PORT come from each instance's `connection_info`, and
+a service's READY, HEALTH, IMAGE, ADDRESSES and PORTS come from its
+`status`; every one of them reads `-` when the Control Plane has not
+reported it yet. A service's PORTS cell lists `name:port` pairs, the
+host port where one is published and the container port otherwise.
+
+The spec follows, one section per part the database carries and
+nothing for a part it lacks:
+
+- **Details**, a FIELD/VALUE block: the database's own TENANT, then
+  the spec's DATABASE NAME, POSTGRES, SPOCK, CPUS, MEMORY, PORT and
+  PATRONI PORT. The tenant is not a spec field, so it has no place in
+  a document handed to `update -f`. A port left unset in the spec
+  reads `-`.
+- **Nodes** (NODE, HOSTS, PG, PORT, PATRONI PORT, CPUS, MEMORY,
+  SOURCE): the per-node overrides, so a node inheriting the database
+  value shows `-` in that column.
+- **Users** (USERNAME, OWNER, ROLES, ATTRIBUTES). No password column
+  exists: the field is on the spec type but the Control Plane never
+  returns it, and text mode would not print it if it did.
+- **Configured services** (SERVICE, TYPE, VERSION, HOSTS, PORT, CONNECT
+  AS): what the spec asks for, as against the Services table above,
+  which is what is running. The service `config` map is not shown in
+  text mode because it holds provider API keys.
+- **Backup repositories** (REPOSITORY, TYPE, LOCATION, RETENTION,
+  RETENTION TYPE) and **Backup schedules** (SCHEDULE, TYPE, CRON).
+  LOCATION is the bucket and region for s3, the bucket for gcs,
+  account/container for azure, and the base path for posix and cifs.
+  A base path set on a cloud type is appended after a space.
+  Repository keys are never shown, and the Control Plane strips them
+  from responses anyway.
+- **Restore**, a FIELD/VALUE block: SOURCE DATABASE, SOURCE DATABASE
+  NAME, SOURCE NODE, REPOSITORY, REPOSITORY TYPE, LOCATION.
+
+`pg_hba_conf`, `pg_ident_conf`, `postgresql_conf`, `scripts`,
+`orchestrator_opts` and the per-node backup and restore overrides are
+in `-o json`/`-o yaml` only, which emit the full raw object.
+
+`--upgrades` adds `include=available_upgrades` to the request and
+renders an **Available upgrades** table (IMAGE, PG, SPOCK) of the
+newer images in the same Postgres and Spock major; the IMAGE value is
+what `database upgrade --image` takes. Asked and none: a sentence on
+stderr and no table. Without the flag the field is not requested and
+no section appears.
+
+An "Instance errors" or "Service errors" section follows its table
+whenever something has a reason attached, and is omitted entirely
+otherwise. Messages are flattened onto one line so they cannot break the
+table; `-o json` carries them verbatim. `database get` is the only
+command that renders these error sections.
+`controlplane database instance list` derives its view from the database
+list call.
+
+Those sections report runtime health, not provisioning failures:
+
+- They are **runtime health**, written by the Control Plane's instance
+  monitor when it cannot reach Patroni or open a database connection.
+  A stopped instance reports e.g. `instance stopped: no postgres
+  container found`.
+- A **provisioning** failure records no reason on any instance. A
+  spec that fails during planning never creates an instance at all,
+  so `database get` shows a `failed` database with no instances in
+  any output format; a failure after the instances exist leaves the
+  database `failed` with its instance rows present, and an instance
+  there can read `available`, so decide on the database's `state`,
+  not an instance's. **The
+  reason for that class of failure lives on the task**, so use
+  `pgedge controlplane task get --database <database_id> <task_id>` — the scope
+  flag is not optional there, and without it the command exits 2
+  instead of showing the task. `database create --wait` also prints
+  the reason on the way out.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database init -->
+#### pgedge controlplane database init
+
+**Usage:** `pgedge controlplane database init [flags]`
+
+Generate a starter database spec
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `-i, --interactive` | No |  | Interview for spec values instead of a blank template |
+| `--nodes int` | No | `3` | Number of nodes to include in the template |
+
+<!-- END GENERATED -->
+
+Print a commented starter database spec to stdout. Redirect it to
+a file, edit it, then apply with 'database create -f'. Use --nodes
+to set how many nodes the template includes (default 3). The
+template is fully annotated: every DatabaseSpec section is emitted
+as a commented, doc-linked stub even when not populated —
+database_users, backup_config, restore_config, services,
+postgresql_conf, pg_hba_conf, and per-node overrides on the nodes
+block — so the file doubles as inline reference.
+
+init also tries to detect the target Control Plane's orchestrator —
+the same resolved connection every controlplane verb uses (profile, --base-url,
+mTLS flags) — and shapes the template to match. Detection runs under
+one short deadline that bounds it as a whole, not per request: a
+profile listing several base URLs is walked in order, and the whole
+walk plus the host lookup that follows share that single budget, so a
+profile of unreachable servers costs it once rather than once per
+server. A shorter --timeout wins over the default budget.
+
+A systemd Control Plane gets `port` and `patroni_port` set on every
+node, uncommented, with distinct values per node so nodes that end up
+sharing a host cannot collide. The port sequence starts at 5432, or
+at the cluster-wide port you answered under -i, and the patroni
+sequence at 8008; a port you set on an individual node is kept as
+answered and the allocation walks past it rather than handing the
+same value to another node. A Docker Swarm Control Plane gets no
+per-node ports.
+
+When detection is inconclusive — nothing configured, an unreachable
+--base-url, a Control Plane reporting no hosts, hosts reporting more
+than one orchestrator, or one this CLI does not recognize — init stays
+usable offline and falls back to the generic, annotated template, both
+port fields commented and marked required-on-systemd. Detection always
+falls back rather than failing the command, and init always prints one
+stderr line naming what it found (or didn't), even offline. Each of
+those lines is specific about which case it is, and the fallback ones
+advise setting `port` and `patroni_port` per node — never uncommenting
+the top-level pair, which the Control Plane folds into every node that
+does not override it and then rejects for colliding. That rejection is a
+400 naming the field, such as `nodes[1].port`.
+
+Use -i/--interactive to be interviewed for spec values instead of
+emitting a blank template. Interactive mode requires a terminal
+(errors otherwise); prompts are written to stderr and the resulting
+spec is written to stdout, so `-i` is still safe to redirect. The
+interview walks through the scaffold (database name, node count and
+per-node name/host IDs, admin username, port) and then a guided
+backups section (repository type, type-specific fields, retention,
+optional cron schedule); backup credentials are never prompted for
+or written — the generated spec documents them as a commented note
+instead. --nodes seeds the interview's default node-count prompt
+(still overridable at the prompt) rather than fixing it.
+
+It then offers a guided services section: per service it collects the
+service type (mcp, postgrest, or rag), a service id, the connect-as
+database user, host IDs, and version, plus — for mcp — a guided LLM
+config. Configuring LLM settings sets `llm_enabled: true` (Control Plane
+rejects `llm_provider`/`llm_model`/the provider credential unless it is
+set) and asks the provider as an enum (anthropic, openai, or ollama).
+The provider credential is never prompted for or written as a real
+value. The interview derives the credential key from the chosen provider
+— `anthropic_api_key` for anthropic, `openai_api_key` for openai,
+`ollama_url` for ollama, each the key Control Plane requires for that
+provider — and writes it as an uncommented `CHANGE-ME` placeholder;
+`database create` refuses the spec until you replace it. A separate
+prompt, independent of the LLM settings, offers an `init_token` (also
+`CHANGE-ME` if accepted) — a bootstrap-only credential Control Plane
+accepts on create and rejects on update. mcp has a second bootstrap-only
+key the interview does not ask for, `init_users`: a list of
+`{username, password}` accounts mcp starts with, accepted on create and
+rejected on update exactly like `init_token`. Add it to a service's
+`config` by hand when you need it. The interview skips rag and postgrest
+config; every service type's `init`-generated template carries its own
+config example in a commented block instead. Full per-type key
+inventory:
+
+| Service | Shape | `config: {}` valid? | Notes |
+|---|---|---|---|
+| mcp | 27 flat keys, mostly optional | Yes | LLM/knowledgebase keys are gated behind `llm_enabled`/`kb_enabled`; `init_token` and `init_users` are create-time only |
+| rag | 2 top-level keys (`pipelines`, `defaults`) over a closed nested tree | No — `pipelines` is required, >= 1 entry | Every nested key is closed-world (unknown nested keys are rejected, not just the top two) |
+| postgrest | 8 flat keys | No — `db_anon_role` is required | Everything else defaults |
+
+It then offers a guided restore_config section: opt in to create the
+database by restoring an existing backup, then supply the repository
+type (s3, gcs, azure, posix, or cifs) and its fields, the source
+database id, source database name, and source node name, and an
+optional point-in-time recovery target (kind time or lsn plus a target
+value). Repository credentials are never prompted for or written — they
+fall back to the instance credential chain — so restore_config carries
+no secret.
+
+Finally it offers a guided per-node overrides step: for each node you
+choose to customize, it collects an optional Postgres port and version
+plus postgresql.conf settings and pg_hba.conf rules that override the
+cluster-wide values for that node. Nodes you do not customize keep the
+cluster defaults.
+
+Add -o json with -i to emit the interview's populated spec as JSON
+(dropping YAML stubs) for piping into `database create -f -`; this
+mode requires -i (`-o json` without `-i` exits with a usage error;
+non-interactive init stays YAML-only).
+
+**Example:**
+
+```bash
+pgedge controlplane database init > spec.yaml
+pgedge controlplane database init --nodes 3 | pgedge controlplane database create db -f -
+pgedge controlplane database init -i > storefront.yaml
+pgedge controlplane database init -i -o json | pgedge controlplane database create db -f -
+```
+
+Expected: commented YAML spec on stdout with database_name,
+database_users, and the requested number of nodes (template mode), or a
+stdout spec built from interview answers with prompts on stderr
+(interactive mode), or JSON-formatted spec when -o json is supplied with
+-i. Every mode also prints one orchestrator-detection line on stderr
+(e.g. `controlplane: detected orchestrator "swarm" at
+http://localhost:3000 — wrote a swarm template.`); stdout stays pure
+YAML/JSON.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database create -->
+#### pgedge controlplane database create
+
+**Usage:** `pgedge controlplane database create <database_id> [flags]`
+
+Create a database from a spec file
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `-f, --file string` | No |  | Spec file path, or - for stdin (required) |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--tenant-id string` | No |  | Optional tenant ID override |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Create a database from a spec file (-f spec.yaml, spec.json, or -
+for stdin). Asynchronous; use --wait/--follow to track the create
+task. Optionally override the owning tenant with --tenant-id. It
+refuses a spec still holding the "CHANGE-ME" placeholder — in a
+node's host_ids, a database user's password, a backup repository's
+credentials, `restore_config`'s source fields or repository
+credentials, a service's host_ids, or a service config value at any
+depth — exiting with a usage error naming the field before any API
+call. `update -f` applies the same check. It also validates any
+`postgres_version` (cluster-wide or per-node): it must be in
+major.minor form (e.g. "16.14") — a bare major like "16" is a usage
+error, caught before the round trip.
+
+Spec files are decoded strictly. An unrecognized key is a usage error
+naming the field, and a file that parses but carries no
+`database_name` or no `nodes` is refused before the API call. Both
+`create -f` and `update -f` also accept a whole `database get`
+document and read its `spec:` section, so that output can be applied
+without restructuring.
+
+`-f/--file` is enforced at run time, and omitting it is a usage
+error. The Required column above reads No.
+
+**Example:**
+
+```bash
+pgedge controlplane database create storefront -f spec.yaml --wait
+cat spec.yaml | pgedge controlplane database create storefront -f -
+```
+
+Expected: confirmation message ("Create task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database update -->
+#### pgedge controlplane database update
+
+**Usage:** `pgedge controlplane database update <database_id> [flags]`
+
+Update a database from a spec file
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `-f, --file string` | No |  | Spec file path, or - for stdin (required) |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Update a database from a spec file (-f spec.yaml, spec.json, or -
+for stdin). Round-trips with 'database get -o yaml'. Asynchronous;
+use --wait/--follow to track the update task. As with create, any
+`postgres_version` must be in major.minor form (e.g. "16.14") or the
+command exits with a usage error before calling the API.
+
+**Example:**
+
+```bash
+pgedge controlplane database get storefront -o yaml > spec.yaml
+pgedge controlplane database update storefront -f spec.yaml --wait
+```
+
+Expected: confirmation message ("Update task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database delete -->
+#### pgedge controlplane database delete
+
+**Usage:** `pgedge controlplane database delete <database_id> [flags]`
+
+Delete a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--force-unmodifiable` | No |  | Delete even if the database is in an unmodifiable state |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Delete a database and all its instances. Destructive and
+irreversible. Prompts for confirmation; use --force to skip it.
+Use --wait/--follow to track the delete task.
+
+**Example:**
+
+```bash
+pgedge controlplane database delete storefront
+pgedge controlplane database delete storefront --force --wait
+```
+
+Expected: confirmation message ("Delete task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+<!-- BEGIN GENERATED: pgedge controlplane database upgrade -->
+#### pgedge controlplane database upgrade
+
+**Usage:** `pgedge controlplane database upgrade <database_id> [flags]`
+
+Upgrade a database to a new image
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation prompt |
+| `--image string` | No |  | Target container image reference (required) |
+| `--wait` | No |  | Wait for the task to reach a terminal state |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
+
+<!-- END GENERATED -->
+
+Apply a minor-version upgrade, moving the database to the container
+image given by --image (a newer build in the same Postgres/Spock major
+bucket). Restarts the database; prompts for confirmation (use --force
+to skip).
+
+**Example:**
+
+```bash
+pgedge controlplane database upgrade storefront --image pgedge/pgedge:16.4-1
+pgedge controlplane database upgrade storefront --image pgedge/pgedge:16.4-1 --force --wait
+```
+
+Expected: confirmation message ("Upgrade task <id> accepted
+(<status>).") to stderr, then task progress when --wait/--follow is
+set. -o json/-o yaml also emit the API's accepted-response object on
+stdout — the task is under `task`.
+
+---
+
+## Pages
+
+Each resource below has its own page. Read only the one you need.
+
+<!-- BEGIN GENERATED ROUTING: pgedge controlplane database -->
+| Page | Read | Covers |
+|------|------|--------|
+| `instance` | `pgedge llms controlplane database instance` | Control individual database instances |
+| `node` | `pgedge llms controlplane database node` | Run per-node database operations |
+| `restore` | `pgedge llms controlplane database restore` | Restore a database from a spec file |
+<!-- END GENERATED ROUTING -->

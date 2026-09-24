@@ -73,6 +73,14 @@ homebrew_casks:
       bash: completions/pgedge.bash
       zsh: completions/pgedge.zsh
       fish: completions/pgedge.fish
+    # The macOS binary is not notarized, so without this macOS refuses
+    # a brew-installed pgedge as "damaged and cannot be opened".
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/pgedge"]
+          end
 # Tags with a pre-release suffix (v0.2.0-alpha.1) publish as GitHub
 # Pre-releases automatically. Without this the first alpha published
 # as a full release and had to be demoted by hand (2026-08-06) — and

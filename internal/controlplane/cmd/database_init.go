@@ -62,11 +62,8 @@ Example:
 				}
 			}
 			if interactive {
-				// The TTY guard comes before detection so a non-TTY
-				// 'init -i' fails on the pure usage error immediately
-				// instead of paying for a network probe it will
-				// discard. Every path that goes on to emit a template
-				// detects first (below).
+				// Before detection, so a non-TTY 'init -i' fails on the
+				// usage error without paying for a network probe.
 				if !term.IsTerminal(int(os.Stdin.Fd())) {
 					return &ExitError{
 						msg:  "interactive mode requires a terminal",
@@ -97,8 +94,6 @@ Example:
 				fmt.Fprintln(rt.Stderr, orchestratorNote(det))
 				return nil
 			}
-			// No interview runs here: emit the pure annotated
-			// template with the requested node count.
 			det := detectOrchestrator(rt, cmd)
 			v := specValues{
 				nodes:        make([]nodeValue, nodes),
@@ -113,24 +108,21 @@ Example:
 		"Number of nodes to include in the template")
 	cmd.Flags().BoolVarP(&interactive, "interactive", "i", false,
 		"Interview for spec values instead of a blank template")
-	// Deliberately NOT cli.MarkMutating: init prints a template to
-	// stdout and issues no write at all. Its only network traffic is the
-	// GET-based orchestrator detection. It was marked mutating in the
-	// first version of dry-run purely because the verb is called "init",
-	// which made --dry-run an accepted flag that did nothing — the exact
-	// thing TestNoReadOnlyLeafCarriesDryRun calls worse than an unknown
-	// flag. Recorded in nonMutatingExceptions.
+	// Deliberately not cli.MarkMutating: init issues no write, only the
+	// GET-based orchestrator detection. Marking it would make --dry-run
+	// an accepted flag that does nothing, which
+	// TestNoReadOnlyLeafCarriesDryRun treats as worse than an unknown
+	// flag. Listed in nonMutatingExceptions.
 
 	return cmd
 }
 
-// emitSpecJSON renders a populated spec YAML (from the interview) as
-// indented JSON on out, for piping into 'database create -f -'. It
-// decodes through the same loader create -f uses (loadSpecBytes ->
-// api.DatabaseSpec2), so the JSON is guaranteed create-consumable and
-// the template's commented stubs — being YAML comments — are dropped.
-// A failure here means buildSpec produced something the loader can't
-// read, an internal inconsistency, so it surfaces at ExitGeneral.
+// emitSpecJSON renders the interviewed spec YAML as indented JSON for
+// 'database create -f -'. It decodes through create's own loader
+// (loadSpecBytes into api.DatabaseSpec2), so the JSON is
+// create-consumable and the commented stubs drop out. A failure means
+// buildSpec wrote something the loader cannot read, an internal fault,
+// hence ExitGeneral.
 func emitSpecJSON(out io.Writer, specYAML string) error {
 	var spec api.DatabaseSpec2
 	if err := loadSpecBytes([]byte(specYAML), &spec); err != nil {
@@ -150,13 +142,10 @@ func emitSpecJSON(out io.Writer, specYAML string) error {
 	return nil
 }
 
-// runInterview walks the user through the scaffold fields — database
-// name, node count and per-node name/hosts, admin username, and port —
-// and returns the resulting spec YAML via buildSpec. nodes seeds the
-// default node count prompt. det carries the orchestrator detection
-// 'database init' already ran (offline-safe, see detectOrchestrator),
-// so the interviewed spec gets the same systemd/swarm-aware template
-// shape as the non-interactive path.
+// runInterview prompts for the spec values and returns the YAML from
+// buildSpec. nodes seeds the node-count default; det carries init's
+// orchestrator detection, so the interviewed spec gets the same
+// systemd/swarm shape as the non-interactive path.
 func runInterview(
 	in io.Reader, errOut io.Writer, nodes int, det detectionResult,
 ) (string, error) {
@@ -417,26 +406,18 @@ func interviewServices(
 	}
 }
 
-// interviewMCPConfig asks the mcp config keys Control Plane actually
-// validates (internal/controlplane/svccfg mirrors the full set). LLM settings
-// are opt-in and independent of the init_token prompt that always
-// follows:
+// interviewMCPConfig asks the mcp keys Control Plane validates
+// (internal/controlplane/svccfg mirrors the full set):
 //
-//   - Opting into LLM settings sets llm_enabled: true and asks the
-//     provider as an enum (CP's own three: anthropic, openai, ollama)
-//     rather than free text, then requires a model name -- CP rejects
-//     llm_provider/llm_model unless llm_enabled is true, and requires
+//   - Opting into LLM settings sets llm_enabled: true, asks the provider
+//     from CP's three, and requires a model: CP rejects
+//     llm_provider/llm_model unless llm_enabled is true and requires
 //     both once it is (mcp_service_config.go:200-205,:157-178 @
 //     v0.10.0).
-//   - The provider API key/URL is still never prompted for (a
-//     secret). Instead of a generic "needs a key?" yes/no,
-//     secretKey resolves to the credential key CP will actually look
-//     for: anthropic_api_key, openai_api_key, or ollama_url -- each
-//     required once its provider is chosen, none optional.
-//   - init_token is independent of llm_enabled (it is CP's
-//     bootstrap-only security field, mcp_service_config.go:109-116),
-//     so it is asked regardless of whether LLM settings were
-//     configured.
+//   - The provider key or URL, a secret, is never asked; secretKey
+//     names the one CP requires for the chosen provider.
+//   - init_token is asked regardless, since it is independent of
+//     llm_enabled (mcp_service_config.go:109-116).
 func interviewMCPConfig(
 	r *bufio.Reader, errOut io.Writer, s *serviceValue,
 ) error {
@@ -583,13 +564,11 @@ func interviewRestore(
 	return nil
 }
 
-// interviewRepoFields asks only the fields relevant to repoType and
-// stores each answer under its json key in fields. Credentials
-// (s3_key/s3_key_secret, gcs_key, azure_key) are intentionally never
-// asked here — populated backup/restore blocks document them as a
-// commented note instead so a generated spec never bakes in a secret.
-// Shared by the guided backups and guided restore interviews so their
-// repository prompts cannot drift.
+// interviewRepoFields asks the fields relevant to repoType, storing
+// each under its json key. Credentials (s3_key/s3_key_secret, gcs_key,
+// azure_key) are never asked, so a generated spec never bakes in a
+// secret; the populated blocks carry a commented note instead. Backup
+// and restore share it so their prompts cannot drift.
 func interviewRepoFields(
 	r *bufio.Reader, errOut io.Writer,
 	repoType string, fields map[string]string,

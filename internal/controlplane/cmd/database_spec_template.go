@@ -15,33 +15,26 @@ type specValues struct {
 	adminUser    string         // "" => "admin"
 	port         string         // "" => commented
 	backup       *backupValue   // nil => annotated stub
-	services     []serviceValue // len 0 => corrected annotated stub
-	restore      *restoreValue  // nil => corrected annotated stub
-	// orchestrator is what 'database init' detected before building
-	// this spec (see detectOrchestrator). Its zero value is the
-	// undetected/fallback case, which is also what every caller that
-	// pre-dates orchestrator detection (tests, buildSpec(specValues{}))
-	// gets for free: the safe, annotated generic template.
+	services     []serviceValue // len 0 => annotated stub
+	restore      *restoreValue  // nil => annotated stub
+	// orchestrator is what 'database init' detected (detectOrchestrator).
+	// Its zero value, the undetected case, gives the annotated generic
+	// template.
 	orchestrator detectionResult
 }
 
 // secretSentinel is the placeholder written in place of a required
-// secret (e.g. an mcp provider API key). It is never a real
-// credential. The writer emits it uncommented so 'database create'
-// can detect an unfilled secret and refuse the spec (see
-// checkUnfilledPlaceholders). Defined once here so writer and
-// validator cannot drift.
+// secret, such as an mcp provider API key. It is emitted uncommented so
+// 'database create' can refuse an unfilled spec
+// (checkUnfilledPlaceholders); one constant keeps writer and validator
+// in step.
 const secretSentinel = "CHANGE-ME"
 
-// serviceValue is one populated service block. mcp is the only service
-// type the interview writes real config into; config/secretKey/
-// initToken are only ever populated for mcp, per internal/controlplane/svccfg's
-// mirror of Control Plane's per-service key sets. rag and postgrest
-// have real, source-derived config shapes too (see
-// serviceConfigGuidance), but their trees are too deep for a prompt
-// loop, so an interviewed rag/postgrest service renders the same
-// commented per-type guidance block as the blank template -- literally
-// the same text, from the same source.
+// serviceValue is one populated service block. Only mcp gets real
+// config from the interview (config, secretKey, initToken; key sets per
+// internal/controlplane/svccfg). rag and postgrest trees are too deep
+// for a prompt loop, so they render the blank template's guidance, from
+// the same source (serviceConfigGuidance).
 type serviceValue struct {
 	serviceType string // mcp|postgrest|rag; "" => mcp
 	serviceID   string
@@ -49,18 +42,14 @@ type serviceValue struct {
 	hostIDs     []string // empty => [CHANGE-ME]
 	version     string   // "" => latest
 	config      map[string]string
-	// secretKey is the provider-specific mcp credential key the
-	// interview resolved from the chosen llm_provider ("" => none
-	// needed): anthropic_api_key, openai_api_key, or ollama_url. CP
-	// requires exactly the one matching the provider once
-	// llm_enabled is true (mcp_service_config.go:157-178 @ v0.10.0),
-	// so this replaces a generic "needs a key?" yes/no with the key
-	// CP will actually look for.
+	// secretKey is the credential key for the chosen llm_provider
+	// (anthropic_api_key, openai_api_key or ollama_url; "" => none). CP
+	// requires exactly that one once llm_enabled is true
+	// (mcp_service_config.go:157-178 @ v0.10.0).
 	secretKey string
-	// initToken emits mcp's init_token: CHANGE-ME sentinel when true.
-	// Independent of llm_enabled -- init_token is CP's bootstrap-only
-	// security field (mcp_service_config.go:109-116 @ v0.10.0),
-	// rejected on update, accepted on create.
+	// initToken emits init_token: CHANGE-ME. It is independent of
+	// llm_enabled: CP's bootstrap-only field, accepted on create and
+	// rejected on update (mcp_service_config.go:109-116 @ v0.10.0).
 	initToken bool
 }
 
@@ -92,15 +81,11 @@ type scheduleValue struct {
 	id   string
 }
 
-// restoreValue is a populated restore_config. When nil on specValues,
-// buildSpec emits the corrected restore_config stub instead. Restore
-// carries no required secret: repository credentials fall back to the
-// instance credential chain (same as backup), so no secretSentinel is
-// involved. Interactive interviews re-prompt blank required source_*
-// fields (promptRequired), so a live wizard never leaves them empty;
-// the CHANGE-ME rendering below (orChangeMe) is a defensive fallback for
-// a restoreValue constructed directly with empty source_* fields, and
-// checkUnfilledRestorePlaceholders refuses the result.
+// restoreValue is a populated restore_config. It carries no secret:
+// repository credentials fall back to the instance credential chain, as
+// for backup. The interview never leaves a source_* field blank, so
+// orChangeMe's CHANGE-ME is a fallback for a value built directly, and
+// checkUnfilledRestorePlaceholders refuses it.
 type restoreValue struct {
 	repoType       string            // s3|gcs|azure|posix|cifs; "" => s3
 	repoFields     map[string]string // s3_bucket, s3_region, base_path…
@@ -193,12 +178,10 @@ func buildSpec(v specValues) string {
 	return b.String()
 }
 
-// writeHeader emits the edit-note preamble and doc pointer, plus --
-// when 'database init' detected a single-orchestrator Control Plane --
-// a provenance note naming what it found and why the template below is
-// shaped the way it is. The undetected/fallback case (v.orchestrator's
-// zero value) adds nothing here; its guidance lives inline on the
-// port/patroni_port fields themselves (writeIdentity).
+// writeHeader emits the edit note and doc pointer, plus a provenance
+// note when 'database init' detected an orchestrator. The undetected
+// case adds nothing here; its guidance sits on the port fields
+// (writeIdentity).
 func writeHeader(b *strings.Builder, v specValues) {
 	b.WriteString(`# pgEdge Control Plane database spec.
 # Edit this file, then create the database with:
@@ -227,19 +210,12 @@ func writeHeader(b *strings.Builder, v specValues) {
 	}
 }
 
-// writeIdentity emits database_name plus port / postgres_version.
-// port is populated when set on v (an interviewed value always wins);
-// under a detected systemd Control Plane it ALSO seeds the per-node
-// allocation in planSystemdPorts, so node 1 carries the same value
-// rather than the top-level answer being shadowed by an allocated
-// default. Otherwise its commented guidance depends on what 'database init'
-// detected: a systemd Control Plane leaves it as today's plain stub
-// (the real values live per-node, see writeNodes); a swarm one adds an
-// inline note that the field is optional there; the undetected/
-// fallback case -- including every caller that predates detection --
-// gets the prominent REQUIRED-on-systemd guidance for both port and
-// patroni_port, since that is the one case where 'database init'
-// cannot tell the user what their cluster needs.
+// writeIdentity emits database_name, postgres_version and port. An
+// interviewed port always wins, and under systemd it also seeds
+// planSystemdPorts. Otherwise the port stub follows detection: plain
+// under systemd (the real values are per-node), optional under swarm,
+// and in the undetected case the REQUIRED-on-systemd note for port and
+// patroni_port, since init cannot tell the user what the cluster needs.
 func writeIdentity(b *strings.Builder, v specValues) {
 	name := v.databaseName
 	if name == "" {
@@ -284,14 +260,12 @@ func writeDatabaseUsers(b *strings.Builder, v specValues) {
 	b.WriteString("    attributes: [LOGIN, SUPERUSER]\n")
 }
 
-// writeNodes emits one block per node. With no interviewed nodes it
-// falls back to n1..nN (N = len or defaultNodeCount) with CHANGE-ME
-// host placeholders. When v.orchestrator detected systemd, each node
-// additionally gets an uncommented port/patroni_port pair (see
-// planSystemdPorts) -- systemd requires both, and the per-host
-// uniqueness rule (validateUniquePorts on the Control Plane) means a
-// single shared value would collide the moment every node's still-
-// placeholder host_ids are filled in with one host.
+// writeNodes emits one block per node, falling back to n1..nN with
+// CHANGE-ME hosts. Under detected systemd each node also gets a
+// port/patroni_port pair (planSystemdPorts): systemd requires both, and
+// the Control Plane's per-host uniqueness rule (validateUniquePorts)
+// makes one shared value collide once the placeholder host_ids are
+// filled with a single host.
 func writeNodes(b *strings.Builder, v specValues) {
 	count := len(v.nodes)
 	if count == 0 {
@@ -342,40 +316,28 @@ type systemdNodePorts struct {
 	patroniPort int
 }
 
-// Bases for the systemd per-node port allocation. The port base is only
-// a default: an interviewed cluster-wide port (specValues.port) seeds
-// the sequence instead, so the answer the user actually gave is what
-// node 1 gets rather than being silently shadowed by 5432.
+// Bases for the systemd per-node port allocation. An interviewed
+// cluster-wide port (specValues.port) replaces the port base.
 const (
 	systemdPortBase        = 5432
 	systemdPatroniPortBase = 8008
 )
 
-// planSystemdPorts resolves the port/patroni_port pair for each of
-// count nodes under a detected systemd Control Plane, which requires
-// both on every node.
+// planSystemdPorts resolves each node's port/patroni_port under a
+// detected systemd Control Plane. Every value is distinct across the
+// spec: validateUniquePorts keys uniqueness per host, and init cannot
+// know the node-to-host mapping while host_ids are placeholders, so
+// only values distinct in every topology are safe.
 //
-// The allocation is contiguous from a base and, critically, DISTINCT
-// across every value the spec ends up carrying: the Control Plane's
-// validateUniquePorts keys port and patroni_port uniqueness per host,
-// and `init` cannot know the node→host mapping (every host_ids is still
-// a CHANGE-ME placeholder), so values that are distinct in every
-// topology are the only collision-free choice. Two things make that
-// non-trivial, and both are handled here rather than in the writer:
+//   - An interviewed cluster-wide port (v.port) seeds the sequence, so
+//     6000 yields 6000, 6001, 6002 rather than being shadowed by an
+//     allocated 5432 on every node.
+//   - An interviewed per-node port is kept and claimed up front, so the
+//     allocation walks past it; otherwise 5432 on node 2 would collide
+//     with node 1's allocated 5432.
 //
-//   - an interviewed cluster-wide port (v.port) seeds the port
-//     sequence, so `init -i` answering 6000 yields 6000, 6001, 6002…
-//     instead of the interviewed value being written at the top level
-//     and then shadowed by an allocated 5432 on every node;
-//   - an interviewed PER-NODE port (v.nodes[i].port) is honoured as-is
-//     and its value is claimed up front, so the allocation walks past
-//     it. Without that, answering 5432 for node 2 would collide with
-//     node 1's allocated 5432 while the template's own header promised
-//     distinct values.
-//
-// The patroni sequence starts at its own base but shares the claimed
-// set, so it can never land on a port already allocated above — which
-// an interviewed port near 8008 would otherwise make possible.
+// The patroni sequence shares the claimed set, so an interviewed port
+// near 8008 cannot collide with it.
 func planSystemdPorts(v specValues, count int) []systemdNodePorts {
 	claimed := map[int]bool{}
 	explicit := make([]bool, count)
@@ -414,11 +376,9 @@ func planSystemdPorts(v specValues, count int) []systemdNodePorts {
 	return out
 }
 
-// writeSystemdNodePorts emits one node's port/patroni_port pair as
-// planned by planSystemdPorts. A zero port is skipped: the node has an
-// explicit interviewed override that writeNodeOverrideFields renders
-// immediately after this call. patroni_port has no interview-collected
-// override, so it always renders here.
+// writeSystemdNodePorts emits one node's planned pair. A zero port is
+// skipped because writeNodeOverrideFields renders that node's
+// interviewed port next. patroni_port has no interviewed override.
 func writeSystemdNodePorts(b *strings.Builder, p systemdNodePorts) {
 	if p.port != 0 {
 		fmt.Fprintf(b, "    port: %d\n", p.port)
@@ -426,14 +386,10 @@ func writeSystemdNodePorts(b *strings.Builder, p systemdNodePorts) {
 	fmt.Fprintf(b, "    patroni_port: %d\n", p.patroniPort)
 }
 
-// writeNodeOverrideFields emits any populated per-node overrides inline
-// under a node block (4-space indent, matching name/host_ids). Each
-// field renders only when set, so a node with no overrides is
-// unchanged. postgresql_conf/pg_hba_conf values use quoteYAML; port is
-// emitted bare, mirroring writeIdentity; postgres_version is always
-// double-quoted (like writeIdentity's "17.6") because a bare
-// major.minor value such as 16.4 would parse as a YAML float and fail
-// to decode into the string field.
+// writeNodeOverrideFields emits a node's populated overrides under its
+// block. postgres_version is always quoted, because a bare value such
+// as 16.4 parses as a YAML float and fails to decode into the string
+// field.
 func writeNodeOverrideFields(b *strings.Builder, n nodeValue) {
 	if n.port != "" {
 		fmt.Fprintf(b, "    port: %s\n", n.port)
@@ -541,7 +497,7 @@ func writePopulatedBackup(b *strings.Builder, bk *backupValue) {
 }
 
 // writeRestoreConfig emits a populated restore_config when v.restore is
-// set, otherwise the corrected annotated stub.
+// set, otherwise the annotated stub.
 func writeRestoreConfig(b *strings.Builder, v specValues) {
 	if v.restore != nil {
 		writePopulatedRestore(b, v.restore)
@@ -627,12 +583,10 @@ func writePopulatedRestore(b *strings.Builder, r *restoreValue) {
 	}
 }
 
-// orChangeMe returns the CHANGE-ME placeholder for a blank required
-// value so the emitted block stays valid, round-trippable YAML that
-// clearly flags what the user must fill in (mirrors the [CHANGE-ME]
-// host convention in writeNodes). It is not a secret;
-// checkUnfilledRestorePlaceholders refuses it on create, update and
-// restore.
+// orChangeMe returns CHANGE-ME for a blank required value, so the block
+// stays valid YAML that flags what to fill in, as writeNodes does for
+// hosts. checkUnfilledRestorePlaceholders refuses it on create, update
+// and restore.
 func orChangeMe(s string) string {
 	if s == "" {
 		return "CHANGE-ME"
@@ -645,16 +599,11 @@ func orChangeMe(s string) string {
 // It matches the service_type enum the cobra tree accepts.
 var serviceStubTypes = []string{"mcp", "rag", "postgrest"}
 
-// writeServices emits populated service blocks when v.services is set,
-// otherwise a corrected annotated stub covering all three service
-// types (valid enum, required service_id, and
-// each type's own real config shape instead of one mcp-flavoured
-// guess). The per-type config guidance comes from the single
-// serviceConfigGuidance source, so it cannot drift from what a
-// populated service block renders. See internal/controlplane/svccfg for the key
-// sets this block is gated against
-// (TestInitTemplateNamesOnlyKnownServiceKeys and
-// TestInitTemplateDocumentsEveryRequiredKey in internal/clitest).
+// writeServices emits populated service blocks, or a commented stub for
+// all three service types with each type's config shape from
+// serviceConfigGuidance. TestInitTemplateNamesOnlyKnownServiceKeys and
+// TestInitTemplateDocumentsEveryRequiredKey (internal/clitest) gate the
+// keys against internal/controlplane/svccfg.
 func writeServices(b *strings.Builder, v specValues) {
 	if len(v.services) == 0 {
 		b.WriteString(`# services: extra services to run alongside Postgres.
@@ -686,10 +635,8 @@ func writeService(b *strings.Builder, s serviceValue) {
 	if styp == "" {
 		styp = "mcp"
 	}
-	// Normalize so writeServiceConfig gates on the resolved type, not
-	// the raw (possibly empty) one -- otherwise an empty serviceType
-	// renders as mcp yet skips the config/secret block, silently
-	// defeating create's fail-fast guard.
+	// Otherwise an empty serviceType renders as mcp but skips the
+	// config/secret block, defeating create's unfilled-secret guard.
 	s.serviceType = styp
 	version := s.version
 	if version == "" {
@@ -711,14 +658,10 @@ func writeService(b *strings.Builder, s serviceValue) {
 	writeServiceConfig(b, s)
 }
 
-// writeServiceConfig emits a populated mcp config block (plus the
-// uncommented secret sentinel(s) for whatever the interview resolved
-// -- the provider-specific credential key, init_token, or both) or,
-// for every other case (mcp with nothing populated, or any
-// rag/postgrest service, populated or not), the commented per-type
-// config guidance. It never emits a real credential: writeServiceConfig
-// only ever writes secretSentinel, never a value interviewMCPConfig
-// collected from the user.
+// writeServiceConfig emits a populated mcp config block, with
+// secretSentinel for the resolved credential key and init_token, or
+// otherwise the commented per-type guidance. A secret is only ever
+// written as secretSentinel.
 func writeServiceConfig(b *strings.Builder, s serviceValue) {
 	if s.serviceType == "mcp" &&
 		(len(s.config) > 0 || s.secretKey != "" || s.initToken) {
@@ -748,15 +691,10 @@ func writeServiceConfig(b *strings.Builder, s serviceValue) {
 	writeServiceConfigGuidance(b, s.serviceType, "    ", "# ")
 }
 
-// renderServiceConfigValue renders one mcp config value collected by
-// the interview. Unlike quoteYAML (used elsewhere for free-text
-// interview answers), the boolean literal "true" written by
-// interviewMCPConfig for llm_enabled must stay UNQUOTED so it decodes
-// as a bool rather than the string "true" -- CP's mcp parser
-// type-asserts config values (optionalBool et al. in
-// mcp_service_config.go) and rejects a quoted boolean as the wrong
-// type. Every other value (provider names, model names) is free text
-// and goes through quoteYAML as usual.
+// renderServiceConfigValue leaves "true"/"false" bare so llm_enabled
+// decodes as a bool: CP's mcp parser type-asserts config values
+// (optionalBool et al. in mcp_service_config.go) and rejects a quoted
+// boolean. Every other value is free text for quoteYAML.
 func renderServiceConfigValue(v string) string {
 	switch v {
 	case "true", "false":
@@ -765,22 +703,13 @@ func renderServiceConfigValue(v string) string {
 	return quoteYAML(v)
 }
 
-// serviceConfigGuidance is the ONE copy of the per-service-type config
-// guidance the template emits, keyed by service_type. It is rendered at
-// two different indents -- inside the blank template's fully-commented
-// example (writeServices) and under a live, populated service block
-// (writeServiceConfig) -- by writeServiceConfigGuidance, so the two
-// surfaces cannot drift. Separately maintained copies had diverged
-// (the populated mcp copy showed 5 of the blank copy's 18 keys), with
-// only the blank copy gated; single-sourcing puts both under
-// TestInitTemplateNamesOnlyKnownServiceKeys and
-// TestInitTemplateDocumentsEveryRequiredKey.
+// serviceConfigGuidance is the one copy of each service type's config
+// guidance, rendered in both the blank template and a populated block,
+// so the two cannot drift and both fall under the service-key gates.
 //
-// Format: a leading "# " marks a line that is already a comment in
-// either rendering (the verdict on config: {} and the inline asides);
-// every other line is YAML, indented relative to the service block's
-// config key. Lines are kept to 73 columns so that the 6-column prefix
-// either rendering adds keeps the emitted template inside 79 columns.
+// A leading "# " marks a line that is a comment in either rendering;
+// every other line is YAML relative to the service's config key. Lines
+// stay within 73 columns so the 6-column prefix keeps output inside 79.
 var serviceConfigGuidance = map[string]string{
 	"mcp": `# config: {} is valid for mcp -- every key below is optional.
 config:
@@ -850,19 +779,13 @@ config:
 }
 
 // writeServiceConfigGuidance renders serviceConfigGuidance[serviceType]
-// (falling back to mcp's, matching writeService's default for an empty
-// service_type) with linePrefix in front of every line. hash is
-// prepended to the YAML lines only -- lines that already start with '#'
-// are comments in both renderings and must not be double-commented.
-// The two call sites are:
+// (mcp's when unknown, matching writeService's default) with linePrefix
+// on every line and hash before YAML lines only:
 //
-//   - the blank template, where the whole service example already sits
-//     inside a comment: linePrefix "#     ", hash "";
-//   - a populated service block, which is live YAML the guidance must
-//     not become part of: linePrefix "    ", hash "# ".
+//   - blank template, already inside a comment: "#     ", "";
+//   - populated block, live YAML: "    ", "# ".
 //
-// Both prefixes are 6 columns wide, so the rendered guidance is
-// column-identical either way and one 73-column budget covers both.
+// Both prefixes are 6 columns, so one 73-column budget covers both.
 func writeServiceConfigGuidance(
 	b *strings.Builder, serviceType, linePrefix, hash string,
 ) {
@@ -897,13 +820,9 @@ func writePgHbaConf(b *strings.Builder) {
 `)
 }
 
-// writeNodeOverrides documents per-node overrides on the nodes block.
-// patroni_port is deliberately absent from the "not covered" list: it
-// is no longer buried here -- a detected-systemd template renders it
-// directly on every node (writeSystemdNodePorts), and the undetected
-// fallback template calls it out prominently right next to port
-// (writeIdentity), in both cases before a reader would reach this
-// trailing note.
+// writeNodeOverrides documents per-node overrides. patroni_port is
+// deliberately absent from its list: writeSystemdNodePorts and
+// writeIdentity already surface it earlier in the template.
 func writeNodeOverrides(b *strings.Builder) {
 	b.WriteString(`# Per-node overrides: any node under nodes: may carry its own port,
 #   postgres_version, postgresql_conf, or pg_hba_conf to override the

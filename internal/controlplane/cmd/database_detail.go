@@ -9,17 +9,15 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/output"
 )
 
-// The spec-side sections of `database get` in text mode. Each renders
-// nothing at all when the database carries nothing for it, so a
-// minimal database prints only the summary and its runtime sections.
+// The spec-side sections of `database get` in text mode. Each prints
+// nothing when the database carries nothing for it.
 //
-// Credentials never reach any of these tables. The generated spec
-// types carry a database user's `password`, a service's `config` (which
-// holds LLM provider API keys), a repository's `s3_key`,
-// `s3_key_secret`, `azure_key` and `gcs_key`, and free-form
-// `custom_options`. None is read here; `-o json` and `-o yaml` carry
-// whatever the Control Plane returned, which for the key fields is
-// nothing (the API strips them from every response).
+// Credentials never reach these tables. The generated types carry a
+// user's `password`, a service's `config` (LLM provider API keys), a
+// repository's `s3_key`, `s3_key_secret`, `azure_key` and `gcs_key`,
+// and free-form `custom_options`; none is read here. `-o json` and
+// `-o yaml` carry what the Control Plane returned, which for the key
+// fields is nothing: it strips them from every response.
 
 var (
 	fieldValueColumns = []string{"FIELD", "VALUE"}

@@ -161,7 +161,8 @@ func newSSHKeyCreateCmd(rt *module.Runtime) *cobra.Command {
 		Long: `create registers a new SSH public key on your account.
 
 Use it to add a key that can later be attached to clusters for
-node access. Both --name and --public-key are required.
+node access. Both --name and --public-key are required. DSA
+(ssh-dss) keys are refused, because OpenSSH no longer accepts them.
 
 Example:
   pgedge starfleet byoc ssh-key create --name laptop \
@@ -315,9 +316,9 @@ func sshKeyRowFrom(k api.SshKey) sshKeyRow {
 //   - authorized_keys OPTIONS (`no-pty,command="..." ssh-ed25519 ...`),
 //     a server-side access rule, not part of a key.
 //
-// SSH certificates are accepted, and so is a 1024-bit ssh-dss key:
-// x/crypto v0.57.0 parses it (measured 2026-09-24) and nothing here
-// refuses it.
+// SSH certificates are accepted. DSA keys and DSA certificates are
+// refused: x/crypto v0.57.0 parses them (measured 2026-09-24), but
+// OpenSSH no longer accepts them by default, so a node would not.
 func validatePublicKey(v string) error {
 	reject := func(why string) error {
 		return &cli.UsageError{Msg: fmt.Sprintf(
@@ -349,6 +350,11 @@ func validatePublicKey(v string) error {
 		return reject(fmt.Sprintf(
 			"it is labeled %q but the key material is %q, which "+
 				"OpenSSH will not parse", token, key.Type()))
+	}
+	switch key.Type() {
+	case ssh.InsecureKeyAlgoDSA, ssh.InsecureCertAlgoDSAv01: //nolint:staticcheck // SA1019: named only to refuse it
+		return reject("it is a DSA (ssh-dss) key, which OpenSSH no " +
+			"longer accepts; use an ed25519, ECDSA or RSA key")
 	}
 	return nil
 }

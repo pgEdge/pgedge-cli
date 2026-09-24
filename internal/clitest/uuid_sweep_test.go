@@ -227,20 +227,19 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 
 	// A walk that found nothing looks exactly like a walk that found no
 	// violations — and a LOOSE floor is barely better. At 30 against a
-	// real population of 72, review dropped every `database` verb in
+	// real population of 72, a mutation dropped every `database` verb in
 	// both modules (32 slots) and this still passed. The floor sits
 	// just under the true count, like the others in this file.
 	// EXACT, for the reason the flag arm gives. The floor here was 70
-	// against a measured 75 -- five slots of room, where round 5's own
-	// argument was that four slots of room is what let a reviewer
-	// delete a real check and stay green. Measured: one added
+	// against a measured 75 -- five slots of room, where four slots of
+	// room had already been shown to let a real check be deleted with
+	// the gate green. Measured: one added
 	// uuidPositionalExempt entry for `ingress_id` removes five real
 	// slots, lands on 70 exactly, and every gate stays green, taking
 	// two verbs with it that no hand list covers either.
 	//
-	// The comment that used to sit here claimed 72 and the PR body
-	// claimed 73; both were wrong when written, and no `Use` string
-	// had changed. Hence a number that cannot drift without failing.
+	// Earlier counts written here were wrong when written, with no
+	// `Use` string changed. Hence a number that cannot drift without failing.
 	// 79 -> 85: the six `managed database allowlist` verbs (get, add,
 	// remove, set, open, clear) each take a `<database_id>` positional;
 	// `client-ip` takes none.

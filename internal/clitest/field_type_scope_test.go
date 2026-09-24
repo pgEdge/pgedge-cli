@@ -18,7 +18,7 @@ import (
 // their type groups in docs/controlplane/backup-restore.md passed every
 // existing gate, because both are real BackupRepositorySpec fields —
 // only their pairing with a type was wrong. That swap is the shape of
-// a real defect review caught: base_path was described as
+// a real defect a review caught: base_path was described as
 // posix/cifs-exclusive when the spec says it is REQUIRED for those two
 // types, not restricted to them.
 //

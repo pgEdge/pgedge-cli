@@ -128,7 +128,7 @@ const (
 // The refusal is spec-driven, and its message says only that. What the
 // server does with an over-large value on these two endpoints is
 // unmeasured. The measured clamp (`--limit 500` returning 100 rows on
-// a Managed dev tenant) is on /managed/v1/tasks, which declares no
+// a live managed tenant) is on /managed/v1/tasks, which declares no
 // maximum and never reaches this branch.
 func OptionalIntFlagInRange(
 	fs *pflag.FlagSet, flag string, lowest, highest int,

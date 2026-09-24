@@ -132,13 +132,13 @@ func writeProfilesConfig(t *testing.T, home, current string, profiles []string) 
 	}
 }
 
-// TestUnknownProfileFlag is the behavioural matrix for an
-// explicit --profile naming something that is not configured must
-// fail exactly like `pgedge profile use <unknown>`, except for the
-// commands the plan carves out (never read config, or create the
-// named profile). Every case is hermetic: an isolated per-case HOME,
-// no config or a fixture config this test writes itself, and no
-// network beyond a local httptest stub or a closed port.
+// TestUnknownProfileFlag is the behavioural matrix for one rule: an
+// explicit --profile naming something that is not configured must fail
+// exactly like `pgedge profile use <unknown>`, except for the commands
+// that never read config or that create the named profile. Every case
+// is hermetic: an isolated per-case HOME, no config or a fixture config
+// this test writes itself, and no network beyond a local httptest stub
+// or a closed port.
 func TestUnknownProfileFlag(t *testing.T) {
 	testsupport.ClearEnv(t)
 
@@ -291,7 +291,7 @@ func TestUnknownProfileFlag(t *testing.T) {
 	})
 
 	t.Run("zero-config machine: default and config-free commands work", func(t *testing.T) {
-		// The plan's matrix names "doctor" here too, but doctor's RunE
+		// "doctor" belongs in this matrix too, but doctor's RunE
 		// builds the production selfupdate.Source ladder (a live
 		// api.github.com call with no flag/env override reachable from a
 		// subprocess) whenever DoctorDeps.Source is nil, unconditionally
@@ -999,8 +999,8 @@ func newFlaggingAuthedServer(t *testing.T, hit *int32) string {
 	})
 }
 
-// TestGlobalFlagAsAnotherFlagsValue is the regression matrix for
-// a global flag token that cobra binds as the VALUE of another flag —
+// TestGlobalFlagAsAnotherFlagsValue is the regression matrix for one
+// rule: a global flag token that cobra binds as the VALUE of another flag —
 // one registered on a leaf command, elsewhere in the tree — must have
 // no effect on global behaviour. Deriving the Runtime from cobra's own
 // parsed flags (rather than a pre-cobra scan of os.Args) is what makes
@@ -1661,7 +1661,7 @@ func TestUnknownCurrentProfile(t *testing.T) {
 		}
 		if strings.Contains(stdout, "api.pgedge.com") {
 			t.Errorf("stdout mentions api.pgedge.com — the silent prod "+
-				"dial this issue is about:\n%s", stdout)
+				"dial this matrix guards:\n%s", stdout)
 		}
 	})
 

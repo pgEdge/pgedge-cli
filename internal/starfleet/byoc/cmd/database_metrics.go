@@ -359,7 +359,7 @@ func (r metricRow) Columns() []string {
 // interval, after the server has replaced every comma with a space.
 // The vendored spec declares no pattern, so this is mirrored from the
 // server rather than the contract, and TestMetricsIntervalMirrorsTheAPI
-// records the source. A miss on the server is a plain error, which
+// records when it was read. A miss on the server is a plain error, which
 // reaches the client as a 500.
 const metricsIntervalWirePattern = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
 

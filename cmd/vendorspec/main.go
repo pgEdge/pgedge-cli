@@ -22,9 +22,10 @@
 // validated before any file is written: an `x-pgedge-*` key anywhere
 // in a published contract aborts the run (the upstream filter should
 // have removed it, so one appearing means that filter regressed); so
-// does `x-go-type-import`, which names an API-internal package this
-// module cannot import (a bare `x-go-type` is expected — it names
-// UUID, which each module's api/types.go supplies); and so does a path
+// does `x-go-type-import`, which names a package internal to the API
+// server's Go module, which this module cannot import (a bare
+// `x-go-type` is expected — it names UUID, which each module's
+// api/types.go supplies); and so does a path
 // outside the product's own namespace.
 package main
 

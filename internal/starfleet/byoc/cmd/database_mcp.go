@@ -243,8 +243,7 @@ func applyMCPService(
 // MCP's secrets DO survive this round trip, unlike RAG's api_key and
 // PostgREST's jwt_secret. The spec records embedding_api_key,
 // init_tokens and init_users as "stored encrypted server-side; returned
-// in GET /databases/{id}", and that is accurate — verified live on
-// --profile dev.
+// in GET /databases/{id}", and that is accurate — verified live.
 //
 // It is only true of GET /databases/{id}, though, and that is the trap.
 // The API converts the two read paths differently, so the same service

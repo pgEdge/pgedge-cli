@@ -42,8 +42,8 @@ func TestBackupRepositoryListRun(t *testing.T) {
 		}
 	})
 
-	// backupRepositoryDefaults records this endpoint's page size and cap,
-	// with the API evidence. Assert the flags actually reach the query
+	// backupRepositoryDefaults records this endpoint's page size and cap.
+	// Assert the flags actually reach the query
 	// string rather than being parsed and dropped.
 	t.Run("filter flags reach the query string", func(t *testing.T) {
 		var got string
@@ -204,7 +204,7 @@ func TestBackupRepositoryGetRun(t *testing.T) {
 
 	// The endpoint contacts pgBackRest live, so an unreachable
 	// repository answers 500 rather than an empty 200. Confirmed on
-	// a BYOC dev tenant 2026-08-03.
+	// a live BYOC tenant 2026-08-03.
 	t.Run("unreachable repository", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
 		url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(500,

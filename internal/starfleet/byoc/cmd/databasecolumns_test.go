@@ -151,7 +151,7 @@ func cellStarts(header string) []int {
 //
 // Splitting on padding cannot see an EMPTY cell -- three columns whose
 // middle one is blank collapse to two, and every index after it shifts.
-// That is not hypothetical here: this PR's own reference records two
+// That is not hypothetical here: the byoc reference records two
 // `failed` databases returning `"pg_version": ""`, and against that
 // body a padding split reported `under CLUSTER the row carries
 // "2024-03-15"` -- accusing a column that was fine, which is the same

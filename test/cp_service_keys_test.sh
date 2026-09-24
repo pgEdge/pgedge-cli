@@ -12,9 +12,9 @@
 # a future tag bump retags the fixture instead of producing a
 # misleading "git show <tag> failed" that points at the CP checkout.
 # The BASELINE fixture's key sets are
-# copied verbatim from the real CP source at v0.10.0 (the plan this
-# script implements ships against), so the baseline run doubles as a
-# live check that internal/controlplane/svccfg has not drifted — the same
+# copied verbatim from the real CP source at v0.10.0 (the CP floor
+# the CLI supports), so the baseline run doubles as a live check that
+# internal/controlplane/svccfg has not drifted — the same
 # assertion `make vendor-spec`'s CP re-vendor recipe now runs by hand.
 #
 # Exit codes are captured with `|| rc=$?`, exempt from errexit. See

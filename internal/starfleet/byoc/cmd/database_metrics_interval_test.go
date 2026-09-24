@@ -11,10 +11,9 @@ import (
 
 // TestMetricsIntervalMirrorsTheAPI records where the byoc pattern comes
 // from, since the vendored spec declares none to pin against: the
-// API's own interval check, at openapi/SOURCE's pinned version
-// (read 2026-08-29). The server replaces commas with spaces
-// before matching, which is why the CLI does the same. Re-read the
-// check when the pin moves; this test cannot see it.
+// server's interval check as read on 2026-08-29. The server replaces
+// commas with spaces before matching, which is why the CLI does the
+// same. Re-verify against the live API; this test cannot see it.
 func TestMetricsIntervalMirrorsTheAPI(t *testing.T) {
 	const apiPattern = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
 	if metricsIntervalWirePattern != apiPattern {

@@ -89,8 +89,8 @@ func hostsHandler(t *testing.T, orchestrators ...string) http.HandlerFunc {
 
 // closedServerURL starts and immediately closes an httptest server,
 // returning a URL nothing listens on any more -- the "unreachable,
-// closed listener" case from the plan's golden table, as distinct from
-// an always-slow or always-erroring one.
+// closed listener" case, as distinct from an always-slow or
+// always-erroring one.
 func closedServerURL(t *testing.T) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(

@@ -20,9 +20,10 @@ type specDoc struct {
 	Paths map[string]any `yaml:"paths"`
 }
 
-// starfleetSpecs are the three specs derived from the API's merged document.
-// control-plane.json is deliberately absent: the self-hosted Control
-// Plane is a different API with its own provenance.
+// starfleetSpecs are the three specs captured from the API's
+// per-product public contracts. control-plane.json is deliberately
+// absent: the self-hosted Control Plane is a different API with its own
+// provenance.
 var starfleetSpecs = []string{"byoc.yaml", "managed.yaml", "account.yaml"}
 
 func specPath(name string) string {

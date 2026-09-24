@@ -157,7 +157,7 @@ func checkResponse(status int, body string) error {
 				msg: fmt.Sprintf(
 					"resource not found (%d, a control-plane storage "+
 						"key-miss reported as server_error rather than "+
-						"404 -- see pgEdge/pgedge-cli#252): %s",
+						"404): %s",
 					status, excerpt),
 				code: ExitNotFound,
 			}

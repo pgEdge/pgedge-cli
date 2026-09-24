@@ -374,7 +374,7 @@ func TestRemovedCommandGateCatchesTopLevelSpellings(t *testing.T) {
 //  1. task_id: BYOC never wraps a mutation's result in a task/envelope
 //     object (verified live 2026-07-30: `byoc cluster list`,
 //     `database list`, `task list` and `ingress list` responses on the
-//     dev tenant contain no `task_id` key at any nesting depth, and
+//     live tenant contain no `task_id` key at any nesting depth, and
 //     `internal/starfleet/byoc/api` + `internal/starfleet/account/api` contain zero
 //     `task_id` JSON tags). The default posture for a field that does
 //     not exist is that ANY mention of it is wrong — so this scans
@@ -1202,12 +1202,12 @@ var healthCheckValues = map[string]bool{
 // that every entry's confidence must stay legible rather than silently
 // assumed.
 //
-// Live-verified against the dev tenant, each against at least one
+// Verified against a live tenant, each against at least one
 // real resource (not necessarily every resource that reports the
 // value):
 //   - "available": `byoc cluster list -o json` (cluster) returned it.
 //     UNVERIFIED FOR INGRESS SPECIFICALLY: `byoc ingress list -o json`
-//     on the dev tenant returned only "failed" and "deleting" (every
+//     on a live tenant returned only "failed" and "deleting" (every
 //     real ingress there is unhealthy right now), and
 //     `openapi/byoc.yaml`'s `Ingress.status` is a bare `type: string`
 //     with no enum to fall back on. Kept in this shared allowlist by
@@ -1240,7 +1240,7 @@ var byocStatusFieldValues = map[string]bool{
 
 // byocStateFieldValues covers service `.state`, the only `state`
 // field these docs quote in a form the detectors see. "running" was
-// returned live by a database's embedded services on the dev tenant;
+// returned live by a database's embedded services on a live tenant;
 // "pending" and "failed" are contract-backed rather than
 // live-observed: openapi/managed.yaml's service `state` description
 // and openapi/byoc.yaml's ServiceConfig.state description each name
@@ -1450,12 +1450,12 @@ const tableValueRemedy = "A table or FIELD/VALUE row has no opt-out — it " +
 // NEITHER MAY GROW A POLARITY HEURISTIC OF ITS OWN — this is the
 // sibling note to the one on checkNoEnvelopeClaims above, and it must
 // keep saying the same thing for the same reason: this pairing has
-// already been broken twice in review, in both directions. First,
-// having no polarity awareness at all produced a false positive here —
-// a review round found `... so presence in the list plus a populated
+// already been broken twice, in both directions. First, having no
+// polarity awareness at all produced a false positive here —
+// `... so presence in the list plus a populated
 // \`url\` is the signal, not a \`"status": "registered"\` value` in
 // the byoc reference, a correct warning that quotes a wrong value on
-// purpose, flagged as if it were a claim; the first "fix" was to
+// purpose, was flagged as if it were a claim; the first "fix" was to
 // flatten that concrete example into vaguer prose to dodge the gate,
 // which is backwards. Then, a whole-sentence negation check (rather
 // than one bounded to the phrase it governs) produced a false negative
@@ -2826,7 +2826,7 @@ func TestNoEnvelopeCheckStillExemptsGenuineCPSentences(t *testing.T) {
 // quoted for the WRONG field. The first case is the measured escape —
 // `state` reading `degraded` (a legal resource .status, an illegal
 // service .state) planted in docs/workflows/byoc-services.md passed
-// every gate in review.
+// every gate.
 func TestStatusValueCheckRejectsValueFromTheOtherFieldsVocabulary(t *testing.T) {
 	cases := []struct {
 		name    string

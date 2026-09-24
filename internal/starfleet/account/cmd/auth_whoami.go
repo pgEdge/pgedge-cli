@@ -164,8 +164,8 @@ func whoamiClientRecord(
 
 // whoamiTenants reads the tenants the credential can reach. For a
 // client credential the API answers with exactly one — the tenant the
-// token is scoped to (measured as one on all four profiles across dev
-// and prod on 2026-09-01) — but the length is reported rather than
+// token is scoped to (measured live as one on four credentials on
+// 2026-09-01) — but the length is reported rather than
 // assumed.
 func whoamiTenants(
 	ctx context.Context, client *api.ClientWithResponses,

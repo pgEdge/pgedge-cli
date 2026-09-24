@@ -195,8 +195,8 @@ func TestDatabaseRAGUpdateRun(t *testing.T) {
 //
 // The secrets belong in this fixture: the CLI reads services through
 // GET /databases/{id}, which the API answers with them included, so
-// embedding_api_key and init_tokens really do come back. Verified live
-// against --profile dev. (A LIST response omits them — so a fixture
+// embedding_api_key and init_tokens really do come back. Verified
+// live. (A LIST response omits them — so a fixture
 // modelled on one would understate what the merge has to preserve.)
 const dbWithMCPConfig = `{"id":"` + testDatabaseID + `",` +
 	`"name":"mydb","status":"available","pg_version":"16",` +

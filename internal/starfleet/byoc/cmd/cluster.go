@@ -285,8 +285,8 @@ Example:
 			// (/cloud-accounts/{id}/regions/{region}/availability-
 			// zones) and answers an empty list for a region that does
 			// not exist, so it cannot tell a bad region from a real
-			// one with no zones. Measured against a BYOC dev tenant: `mars-1`
-			// returns an empty list at exit 0.
+			// one with no zones. Measured against a live BYOC tenant:
+			// `mars-1` returns an empty list at exit 0.
 			if err := checkCloudAccountExists(
 				context.Background(), rt, client,
 				opts.cloudAccountID); err != nil {
@@ -818,8 +818,8 @@ func trimSpaces(values []string) []string {
 //
 // This verb sends regions, nodes and networks in one body and has no
 // --nodes or --networks flag, so dropping a region moves nothing out
-// of it: the body would contradict itself. Measured on a BYOC dev tenant
-// 2026-08-22, clusters with a node in every region they declare exist
+// of it: the body would contradict itself. Measured on a live BYOC
+// tenant 2026-08-22, clusters with a node in every region they declare exist
 // and are `available`.
 //
 // What the API does with such a body is not known, and the refusal

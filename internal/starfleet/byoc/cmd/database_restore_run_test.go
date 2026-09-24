@@ -108,8 +108,8 @@ func TestDatabaseRestoreRunBody(t *testing.T) {
 	// The convergence's whole point: a comma splits. Under the old
 	// StringArray parser this exact invocation sent ONE element
 	// "n2,n3" — reverting the parser while keeping the flag name
-	// passes every other test in the tree (measured), so this is the one assertion standing behind the
-	// Slice.
+	// passes every other test in the tree, so this is the one assertion
+	// standing behind the Slice.
 	t.Run("comma-separated target-nodes split", func(t *testing.T) {
 		body := captureRestoreBody(t, restoreArgs(
 			"--target-nodes", "n2,n3"))

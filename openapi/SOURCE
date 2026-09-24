@@ -30,11 +30,11 @@
 # aborts on an `x-pgedge-*` key anywhere in a contract (the upstream
 # filter should have removed every marker, so one appearing means
 # that filter regressed — do not vendor the regression), on
-# `x-go-type-import` (it names an API-internal package this module
-# cannot import, so the generated client would not compile; a bare
-# `x-go-type` is expected — it names UUID, which each module's
-# api/types.go supplies), and on a path outside the product's own
-# namespace. TestVendoredSpecsCarryNoVisibilityMarkers and
+# `x-go-type-import` (it names a package internal to the API server's
+# Go module, which this module cannot import, so the generated client
+# would not compile; a bare `x-go-type` is expected — it names UUID,
+# which each module's api/types.go supplies), and on a path outside
+# the product's own namespace. TestVendoredSpecsCarryNoVisibilityMarkers and
 # TestVendoredSpecsAreCanonical assert the first and third invariants
 # over the committed artefacts too, so a hand edit cannot reintroduce
 # either.
@@ -77,19 +77,19 @@ CP_SPECPATH=api/apiv1/gen/http/openapi3.json
 # v0.9.0 while carrying post-v0.9.0 routes.
 #
 # Re-vendor:
-#   Step 0: internal/cp/svccfg is a hand-written mirror of
+#   Step 0: internal/controlplane/svccfg is a hand-written mirror of
 #     CP's per-service-type config key sets (mcp/rag/postgrest), pinned
 #     to this same CP_TAG via svccfg.KeysFloor. It is NOT covered by
 #     `make vendor-spec` or `make generate` -- reconcile it BEFORE
 #     bumping CP_TAG below:
 #       scripts/cp-service-keys.sh <control-plane checkout>
-#     Fix any reported drift in internal/cp/svccfg (re-reading the
-#     three source files at the NEW tag -- see that package's doc
+#     Fix any reported drift in internal/controlplane/svccfg (re-reading
+#     the three source files at the NEW tag -- see that package's doc
 #     comment), then bump svccfg.KeysFloor to match.
 #   git -C <control-plane checkout> fetch --tags
 #   git -C <control-plane checkout> show \
 #     ${CP_TAG}:${CP_SPECPATH} > openapi/control-plane.json
-#   make generate    # regenerates internal/cp/api
+#   make generate    # regenerates internal/controlplane/api
 #
 # The OpenAPI 3.0.3 document is openapi3.json; its Swagger 2.0
 # sibling openapi.json is NOT the file to vendor.

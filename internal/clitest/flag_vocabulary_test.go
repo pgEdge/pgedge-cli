@@ -72,7 +72,7 @@ func lostSpellingViolations(root *cobra.Command) []string {
 		// Local, own-persistent AND inherited: a banned name
 		// registered persistently ABOVE the banned scope is usable
 		// inside it, and LocalFlags alone never visits it — measured
-		// in review (an --interval on the starfleet group reached
+		// (an --interval on the starfleet group reached
 		// managed leaves with the gate green).
 		c.LocalFlags().VisitAll(check)
 		c.PersistentFlags().VisitAll(check)

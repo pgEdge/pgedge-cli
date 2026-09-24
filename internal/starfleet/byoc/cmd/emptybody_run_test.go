@@ -170,13 +170,13 @@ func TestEveryDestructiveByocCaseIsAccountedFor(t *testing.T) {
 // on stderr, and json/yaml print NOTHING rather than the `null` that
 // rendering a nil pointer would produce.
 func TestBackupRepositoryGetSurvivesItsDeclared204(t *testing.T) {
-	// Every shape this endpoint can answer with nothing, because one
-	// of them is not obvious and cost a review round: `null` decodes
-	// into a struct WITHOUT error and leaves it zero, so treating a
-	// non-empty body as an object printed three blank fields at exit 0
-	// -- a fabricated repository, the one thing this must never print.
-	// `null` is byoc's own idiom for nothing, so it belongs here even
-	// though this operation declares a 204 as well.
+	// Every shape this endpoint can answer with nothing, because
+	// one of them is not obvious: `null` decodes into a struct
+	// WITHOUT error and leaves it zero, so treating a non-empty
+	// body as an object printed three blank fields at exit 0 -- a
+	// fabricated repository, the one thing this must never print.
+	// `null` is byoc's own idiom for nothing, so it belongs here
+	// even though this operation declares a 204 as well.
 	shapes := []struct {
 		name   string
 		status int

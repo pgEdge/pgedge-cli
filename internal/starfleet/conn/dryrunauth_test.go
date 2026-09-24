@@ -77,7 +77,7 @@ func TestHTTPClientForInstallsDryRunWithoutVerbose(t *testing.T) {
 
 // TestHTTPClientForCarriesOnlyTheRepairWhenNothingAsked pins the quiet
 // path. It used to be the SHARED DEFAULT CLIENT — no wrapper, no
-// allocation — but the error-body repair has to run on every command
+// allocation — but the error-body repair has to run on every command,
 // so the quiet path now carries exactly one layer and no
 // more. Neither the logger nor the dry-run interceptor may appear.
 func TestHTTPClientForCarriesOnlyTheRepairWhenNothingAsked(t *testing.T) {

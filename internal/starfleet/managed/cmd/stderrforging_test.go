@@ -124,9 +124,9 @@ func TestForgedTaskErrorCannotAddALine(t *testing.T) {
 }
 
 // TestForgedInstanceNameCannotForgeTheTieNote reproduces the original
-// probe. The reviewer who found the issue set instance_name to a value
-// carrying a newline and a tab and got two fabricated metric rows on
-// stdout and two fabricated lines on stderr.
+// probe. The probe that exposed stderr forging set instance_name to a
+// value carrying a newline and a tab and got two fabricated metric
+// rows on stdout and two fabricated lines on stderr.
 //
 // This is the stderr half, and it is the site the first draft of the
 // stderr work MISSED: tieNote builds its line with fmt.Sprintf and

@@ -238,7 +238,7 @@ func TestAuthStatusValidToken(t *testing.T) {
 
 // TestAuthStatusStaleToken covers the new binding state: credentials
 // resolve and a cached, unexpired token exists, but it was minted by a
-// different credential (D3/D7). status must still exit 0 — the
+// different credential. status must still exit 0 — the
 // credential itself is fine, and the CLI self-corrects on the next
 // command that actually needs a token — but the text must say the
 // token is stale rather than valid, and JSON must carry

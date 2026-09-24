@@ -113,10 +113,10 @@ docs-check:
 # Each contract is served unauthenticated at
 # {base}/{product}/v1/openapi.json, already filtered to the public,
 # enterprise-maximal surface by the API — the tool fetches, validates
-# fail-closed and converts to YAML; nothing here derives or filters. Captures from
-# PRODUCTION by default, because the vendored contract must be the one
-# customers are served; override with SPEC_BASE for a comparison
-# capture. Record what changed in the commit message.
+# fail-closed and converts to YAML; nothing here derives or filters.
+# Captures from PRODUCTION by default, because the vendored contract
+# must be the one customers are served; override with SPEC_BASE for a
+# comparison capture. Record what changed in the commit message.
 SPEC_BASE ?= https://api.pgedge.com
 
 vendor-spec:

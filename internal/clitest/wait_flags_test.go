@@ -47,7 +47,7 @@ var managedWaitVerbs = []string{
 	"starfleet managed database create",
 	"starfleet managed database delete",
 	"starfleet managed database resize",
-	// Rotation spawns rotate-password-managed and returned no
+	// Rotation spawns rotate-password-managed and used to return no
 	// handle; byoc's rotate had the flags all along.
 	"starfleet managed database rotate-password",
 	// All seven service leaves, because applyServices is

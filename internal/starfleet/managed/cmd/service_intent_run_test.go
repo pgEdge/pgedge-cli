@@ -16,13 +16,12 @@ import (
 // until now that helper never asked whether the type it was about to
 // write already existed. `mcp deploy --allow-writes` against an
 // already-deployed read-only MCP service silently escalated its
-// privileges — the hazard the issue reported. guardServiceIntent closes
-// both directions: deploy refuses when the type is already deployed,
-// pointing at update; update refuses when it is not, pointing at
-// deploy. This file drives that guard directly through the command
-// tree, once per service type, so a regression in either direction
-// surfaces here rather than only in a service-specific test that
-// happens to also exercise it.
+// privileges. guardServiceIntent closes both directions: deploy refuses
+// when the type is already deployed, pointing at update; update refuses
+// when it is not, pointing at deploy. This file drives that guard
+// directly through the command tree, once per service type, so a
+// regression in either direction surfaces here rather than only in a
+// service-specific test that happens to also exercise it.
 //
 // ragOnlyServiceJSON and postgrestOnlyServiceJSON let the mcp cases
 // prove the guard matches on TYPE, not on "any service is deployed" —
@@ -191,7 +190,7 @@ func TestServiceIntentMCP(t *testing.T) {
 			}
 		})
 
-	// cell 6: the privilege-flip regression this issue exists to close.
+	// cell 6: the privilege-flip regression this guard exists to close.
 	// A deployed MCP service with allow_writes:false must not be
 	// silently escalated by `mcp deploy --allow-writes`.
 	t.Run("cell 6: deploy --allow-writes on a read-only mcp is refused",

@@ -609,9 +609,9 @@ func TestLoadTokenFailures(t *testing.T) {
 	})
 }
 
-// TestFingerprint covers D1: the digest is stable, varies with any one
-// input on its own, never leaks an input as a substring, and the
-// domain-separating NUL between every field actually does its job.
+// TestFingerprint covers the connection fingerprint: the digest is stable,
+// varies with any one input on its own, never leaks an input as a substring,
+// and the domain-separating NUL between every field actually does its job.
 func TestFingerprint(t *testing.T) {
 	const url = "https://api.example.test"
 
@@ -699,8 +699,8 @@ func TestFingerprint(t *testing.T) {
 	})
 }
 
-// TestSaveTokenRejectsEmptyFingerprint guards D2's "unforgeable
-// invariant": there must be no path that writes a cache file without
+// TestSaveTokenRejectsEmptyFingerprint guards the binding invariant:
+// there must be no path that writes a cache file without
 // a Fingerprint, so the guard lives in SaveToken itself, the one
 // writer.
 func TestSaveTokenRejectsEmptyFingerprint(t *testing.T) {
@@ -757,10 +757,10 @@ func TestSaveLoadRoundTripPreservesFingerprint(t *testing.T) {
 	}
 }
 
-// TestMintedBy covers D3's accept rule in isolation from conn: true
-// only for the exact triple that minted the fingerprint, false for a
-// rotated secret, a different id, a different API URL, or — the legacy
-// case — an empty Fingerprint, which must never match anything.
+// TestMintedBy covers the token accept rule in isolation from conn: true only
+// for the exact triple that minted the fingerprint, false for a rotated
+// secret, a different id, a different API URL, or — the legacy case — an empty
+// Fingerprint, which must never match anything.
 func TestMintedBy(t *testing.T) {
 	const url, other = "https://api.example.test", "https://evil.example.test"
 	tok := &CachedToken{
@@ -788,9 +788,9 @@ func TestMintedBy(t *testing.T) {
 	}
 }
 
-// TestSaveTokenIsAtomic covers D5. os.WriteFile truncates in place, so
-// a reader arriving mid-write saw an empty or half-written file and a
-// crash mid-write left one behind permanently. A temp file plus rename
+// TestSaveTokenIsAtomic covers the atomic cache write. os.WriteFile truncates
+// in place, so a reader arriving mid-write saw an empty or half-written file
+// and a crash mid-write left one behind permanently. A temp file plus rename
 // makes the replacement all-or-nothing.
 //
 // Two of the three subtests fail against os.WriteFile and so are

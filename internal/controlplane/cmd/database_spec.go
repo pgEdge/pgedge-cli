@@ -476,8 +476,9 @@ func updateSpecPlaceholders(
 // configSentinelHit reports whether a config value still carries
 // secretSentinel, returning the dotted-and-indexed path to name in the
 // error. It descends maps AND lists to any depth: rag's credentials
-// sit at config.pipelines[N].embedding_llm.api_key, two levels below
-// a single nested map and behind a list index.
+// sit at config.pipelines[N].embedding_llm.api_key: behind a list
+// index and a second nested map, deeper than a one-level map scan
+// reaches.
 func configSentinelHit(key string, val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:

@@ -334,7 +334,7 @@ Example:
 			case !tok.MintedBy(apiURL, creds.ClientID, creds.ClientSecret):
 				// Unexpired but minted for a different connection — a
 				// rekey, a one-off flag override landing on a
-				// profile-minted cache (D3/D7), or an --api-url naming
+				// profile-minted cache, or an --api-url naming
 				// an endpoint other than the one that minted the token.
 				// Not a failure: the next command that actually
 				// needs a token re-authenticates on its own

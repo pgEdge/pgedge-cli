@@ -88,10 +88,9 @@ func TestSlowPollDoesNotForgeAWaitExpiry(t *testing.T) {
 // bound now rather than getting a flag of its own, which leaves
 // --wait-timeout meaning only what it is documented to mean.
 //
-// What a timed-out capture leaves behind is the second question, and
-// bounding the client answers it without a new rule: a bounded read
-// that expires IS a failed read, so it takes the age floor already
-// built for one.
+// What a timed-out capture leaves behind needs no new rule either: a
+// bounded read that expires IS a failed read, so it takes the age
+// floor already built for one.
 func TestCaptureTaskBaselineIsBounded(t *testing.T) {
 	prevWait := waitFlag
 	waitFlag = true

@@ -279,11 +279,10 @@ func applyRAGService(
 //
 // PostgREST's jwt_secret is in the same position.
 //
-// The evidence for those two is the API's response builders, which is
-// stronger than a probe: the RAG LLM config it returns carries only
+// The evidence for those two was read from the server's source, which
+// is stronger than a probe: the RAG LLM config it returns carries only
 // provider and model, and its PostgREST config omits jwt_secret, so
-// no code path can populate either field. The API has two tests
-// asserting "jwt_secret must never be returned in the response".
+// no code path can populate either field.
 //
 // MCP's secrets are NOT in this position — they come back on
 // GET /databases/{id}, confirmed against the live API. The

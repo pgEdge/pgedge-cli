@@ -56,7 +56,7 @@ const (
 //	          row.
 var (
 	// 25 rows when --limit is omitted, clamped to 100. Cross-checked
-	// live on a managed dev tenant: a bare `task list` returned 25 and
+	// live on a managed tenant: a bare `task list` returned 25 and
 	// `--limit 500` returned 100.
 	taskPageDefaults = cli.PageDefaults{Def: 25, Cap: 100}
 

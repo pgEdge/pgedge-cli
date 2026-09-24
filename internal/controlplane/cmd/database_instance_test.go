@@ -50,7 +50,7 @@ func TestInstanceRestartJSONEmitsTask(t *testing.T) {
 }
 
 // TestInstanceLifecycleForceContract pins the contract the three
-// lifecycle verbs share, re-drawn by the D4 split (2026-08-24):
+// lifecycle verbs share, re-drawn by the --force split (2026-08-24):
 // --force exists on exactly the service-interrupting verbs, where it
 // skips the confirmation prompt and nothing else. start never
 // prompts, so it carries no --force at all — its old --force was

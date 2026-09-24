@@ -238,9 +238,9 @@ type asyncCase struct {
 	bare bool
 	// extraKey, when set, is a top-level key besides "task" that the
 	// payload must also carry verbatim (restore's node_tasks, host
-	// remove's update_database_tasks) — the reason D1 rejected a
-	// synthetic {"task_id":...} envelope in favor of the API's own
-	// response shape.
+	// remove's update_database_tasks) — the reason the CLI emits the
+	// API's own response shape rather than a synthetic
+	// {"task_id":...} envelope.
 	extraKey string
 }
 
@@ -353,8 +353,8 @@ func asyncMatrixCases(t *testing.T, dir string) []asyncCase {
 }
 
 // taskIDAndStatus reads the accepted document's task id and status,
-// honoring the bare/.task split D1 documents rather than papering
-// over it.
+// honoring the bare/.task split in the API's own response shapes
+// rather than papering over it.
 func taskIDAndStatus(t *testing.T, raw []byte, bare bool) (id, status string) {
 	t.Helper()
 	if bare {
@@ -384,7 +384,7 @@ func taskIDAndStatus(t *testing.T, raw []byte, bare bool) (id, status string) {
 // sameKeyShape reports whether a and b (both decoded from
 // encoding/json-compatible documents) carry the same set of keys at
 // every level, regardless of scalar values. It is how the yaml case
-// below pins D1's "same key set as json" guarantee without asserting
+// below pins the "same key set as json" guarantee without asserting
 // on yaml's own (immaterial) scalar formatting.
 func sameKeyShape(a, b any) bool {
 	switch av := a.(type) {
@@ -516,11 +516,11 @@ func acceptThenTerminal(accept, terminal string) http.HandlerFunc {
 	}
 }
 
-// TestAsyncVerbsWaitEmitsSinglePendingDocument is D2's contract for
-// two verbs: under --wait, exactly one JSON document reaches stdout —
-// the accepted (pending) object, emitted once before the poll loop
-// starts — never the terminal task, and never two concatenated
-// documents.
+// TestAsyncVerbsWaitEmitsSinglePendingDocument is the single-document
+// --wait contract for two verbs: under --wait, exactly one JSON
+// document reaches stdout — the accepted (pending) object, emitted once
+// before the poll loop starts — never the terminal task, and never two
+// concatenated documents.
 func TestAsyncVerbsWaitEmitsSinglePendingDocument(t *testing.T) {
 	t.Run("database instance restart", func(t *testing.T) {
 		rt, out, stderr := newTestRuntime(t, "", "json")

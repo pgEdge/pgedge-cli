@@ -24,7 +24,8 @@ var inviteColumns = []string{
 // identifies a user, a client token a client, never both. The CLI's
 // only credential is a client ID and secret, so its token is always a
 // machine token. CreateInvite answers `400 cannot create invites from
-// an api client`, and AcceptInvite answers 401 on the empty user ID. Both were measured live against a dev tenant.
+// an api client`, and AcceptInvite answers 401 on the empty user ID.
+// Both were measured live.
 //
 // This is the same reason `pgedge starfleet user` does not exist: a
 // client-credentials token carries a tenant but never a user, so the API

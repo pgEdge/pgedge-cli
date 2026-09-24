@@ -1989,8 +1989,8 @@ func TestCheckResponseNonPlanBadRequestUnchanged(t *testing.T) {
 // and `backup requires status %q, current status is %q` (no other 400
 // uses the phrase, and no byoc one does).
 //
-// Both bodies below are live captures from 2026-08-18, taken
-// against a throwaway managed database in a Managed dev tenant while it was
+// Both bodies below are live captures from 2026-08-18, taken against a
+// throwaway managed database in a live managed tenant while it was
 // provisioning. The backup producer was captured a second time while
 // that database was being deleted, answering the identical message with
 // `deleting` in the tail, and Ant captured the rotation one on

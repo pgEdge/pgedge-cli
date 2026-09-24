@@ -46,8 +46,8 @@ func failedBaselineHandler(includeFresh bool) http.HandlerFunc {
 	mutated := false
 
 	// Old enough that no plausible clock skew reaches it, and it
-	// mirrors the fixture the issue was reproduced on, whose newest
-	// task was two days old.
+	// mirrors the stale-task bug, whose newest task was two days
+	// old.
 	stale := taskJSON(staleTaskID, "succeeded", "2026-08-05T00:00:00Z")
 
 	return func(w http.ResponseWriter, r *http.Request) {

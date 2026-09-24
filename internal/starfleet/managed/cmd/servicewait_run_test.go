@@ -73,8 +73,8 @@ func serviceWaitHandler(terminalStatus, taskError string) http.HandlerFunc {
 // byoc commands all did. The reference stated the absence correctly, so
 // this was a missing capability rather than a doc defect.
 //
-// All SEVEN service leaves get the flags, not the five the issue
-// names: applyServices is the single write for all of them, so
+// All SEVEN service leaves get the flags, not only the five
+// deploy/update verbs: applyServices is the single write for all of them, so
 // registering on fewer would leave a verb reaching trackMutation and
 // printing `Monitor with:` without declaring the flag that line names.
 //

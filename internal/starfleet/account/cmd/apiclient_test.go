@@ -34,8 +34,8 @@ const createdSecret = "SUPERSECRET"
 // ApiClient field plus auth0_secret. The reads are deliberately fed this
 // same body even though they answer the narrower ApiClient, so their
 // suppression checks are exercised against a body that DOES contain a
-// secret. It is spec-derived, not observed — the dev tenant is shared,
-// so no client was created to watch the real response.
+// secret. It is spec-derived, not observed — the tenant is shared, so
+// no client was created to watch the real response.
 const apiClientCreatedBody = `{"id":"` + testAPIClientID + `",` +
 	`"name":"ci","description":"CI","auth0_id":"auth0|abc",` +
 	`"auth0_secret":"` + createdSecret + `",` +

@@ -93,7 +93,7 @@ func TestNewestUsableSample(t *testing.T) {
 			// instance's scrape has nulls, so completeness — not the
 			// tie-break — selects the retiring one. If that produced no
 			// note, output would be byte-identical to before the fix in
-			// the very mechanism the issue describes.
+			// the very mechanism of the tie defect.
 			s := series(cols,
 				[]interface{}{1.0, "db-x-1-1", 5000.0},
 				[]interface{}{nil, "db-x-2-1", 5000.0},
@@ -521,7 +521,7 @@ func managedReference(t *testing.T) string {
 //
 // The changelog is not read by either gate now. It DESCRIBES the
 // strings rather than quoting them, and it also quotes, deliberately,
-// one note the code no longer produces — the sentence a review round
+// one note the code no longer produces — the sentence a later fix
 // removed. Scanning it for stale quotes would report that history as a
 // defect. One place quotes; that place is pinned here.
 const referenceLabel = "the module reference (../llms.txt + ../llms/**)"
@@ -601,7 +601,7 @@ func readFileOrFail(path string) func(t *testing.T) string {
 // left to be found.
 //
 // docs/changelog.md is excluded on purpose. It quotes, as history, a
-// note a review round REMOVED — the one that said "(2 incomplete, so
+// note a later fix REMOVED — the one that said "(2 incomplete, so
 // not shown)" while showing one of the two — so scanning it would
 // report a corrected entry as a defect. The changelog records what
 // changed; the reference states what the code does now.

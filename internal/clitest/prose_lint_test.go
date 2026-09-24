@@ -178,9 +178,9 @@ func parseBannedWords(raw string) ([]string, error) {
 
 // TestParseBannedWords pins the parser's fail-closed guards. Each
 // rejected shape below was demonstrated to kill the help-text gate
-// silently while Vale kept working (measured in review with a
-// probe file): without the guard, a comment or blank line between
-// items gated 3 or 4 of the 8 words, and a CRLF file gated none.
+// silently while Vale kept working (measured with a probe file):
+// without the guard, a comment or blank line between items gated 3 or 4
+// of the 8 words, and a CRLF file gated none.
 func TestParseBannedWords(t *testing.T) {
 	const good = `extends: existence
 level: error

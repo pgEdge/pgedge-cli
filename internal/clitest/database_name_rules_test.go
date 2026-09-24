@@ -56,7 +56,7 @@ func TestByocAndManagedDatabaseNameRulesDiverge(t *testing.T) {
 		{
 			name:  "unicode letter",
 			input: "café",
-			why: "byoc mirrors the API's unicode.IsLetter; the managed " +
+			why: "byoc mirrors the API's Unicode-letter rule; the managed " +
 				"check narrows to ASCII",
 		},
 	}

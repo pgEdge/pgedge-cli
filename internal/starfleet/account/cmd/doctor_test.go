@@ -214,13 +214,12 @@ func TestAccountDoctorFullyHealthyReportsTokenBound(t *testing.T) {
 	}
 }
 
-// TestAccountDoctorMismatchedTokenIsWarning covers D7's new row: the
-// credential resolves and a token is cached and unexpired, but it was
-// minted by a different credential (a rekey, or a one-off flag
-// override hitting a profile-minted cache). That must be a warning
-// naming the divergence, not the "ok" wording doctor has always used —
-// doctor's whole job is to never again assert something it has not
-// checked.
+// TestAccountDoctorMismatchedTokenIsWarning covers the stale-token row: the
+// credential resolves and a token is cached and unexpired, but it was minted
+// by a different credential (a rekey, or a one-off flag override hitting a
+// profile-minted cache). That must be a warning naming the divergence, not the
+// "ok" wording doctor has always used — doctor's whole job is to never again
+// assert something it has not checked.
 func TestAccountDoctorMismatchedTokenIsWarning(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	apiURL := stubReachableAPI(t)
@@ -349,13 +348,13 @@ func TestAccountDoctorMismatchedTokenJSON(t *testing.T) {
 	}
 }
 
-// TestAccountDoctorLegacyUnboundTokenIsWarning covers D5's invalidation
-// rule end to end: a cache file written before this field existed has
-// no binding fingerprint at all, and must report exactly the same
-// warning as an explicit mismatch — provenance unknown is provenance
-// untrusted, not a third state to explain. A file carrying the older
-// `credential_fingerprint` name decodes into the same state, which is
-// why renaming the key needed no migration code.
+// TestAccountDoctorLegacyUnboundTokenIsWarning covers the legacy-token
+// invalidation rule end to end: a cache file written before this field existed
+// has no binding fingerprint at all, and must report exactly the same warning
+// as an explicit mismatch — provenance unknown is provenance untrusted, not a
+// third state to explain. A file carrying the older `credential_fingerprint`
+// name decodes into the same state, which is why renaming the key needed no
+// migration code.
 func TestAccountDoctorLegacyUnboundTokenIsWarning(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	writeLegacyAccountToken(t, time.Now().Add(time.Hour))
@@ -374,8 +373,8 @@ func TestAccountDoctorLegacyUnboundTokenIsWarning(t *testing.T) {
 	}
 }
 
-// TestAccountDoctorPreBindingKeyNameIsUnbound pins the D3 upgrade
-// story: a cache written by the first binding build spells the
+// TestAccountDoctorPreBindingKeyNameIsUnbound pins the key-rename
+// upgrade story: a cache written by the first binding build spells the
 // field `credential_fingerprint`, which no longer decodes, so the
 // token reads as unbound and is discarded. This is the one-off cost of
 // the rename, and it must be exactly that — a warning and a

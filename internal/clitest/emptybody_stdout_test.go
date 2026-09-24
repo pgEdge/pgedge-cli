@@ -25,9 +25,10 @@ import (
 //
 // The alternative considered and rejected was printing the API's own
 // X-Request-Id. It is a real server value rather than an invented one,
-// but the API returns TWO of them with different values, so the CLI
-// would have to pick one and the one it picked need not be the one in
-// the server's logs — which was the entire point of surfacing it.
+// but the API was seen returning TWO of them with different values,
+// so the CLI would have to pick one and the one it picked need not be
+// the one in the server's logs — which was the entire point of
+// surfacing it.
 //
 // This gate is behavioural: it runs the real tree against a stub and
 // reads the real file descriptors. It does not compare two copies of

@@ -157,9 +157,9 @@ func newTenantUpdateCmd(rt *module.Runtime) *cobra.Command {
 		Short: "Rename a tenant",
 		Long: `update changes a tenant's name.
 
-UpdateTenantInput carries only Name, so --name is the only flag and
-passing none is a usage error (exit 2) — there is nothing to send,
-and nothing is. The argument is the tenant's UUID.
+The name is the only tenant field the API lets you change, so --name
+is the only flag. Passing none is a usage error (exit 2) and sends no
+request. The argument is the tenant's UUID.
 
 Example:
   pgedge starfleet tenant update b0c1d2e3-f4a5-6789-bcde-890123456789 --name acme`,

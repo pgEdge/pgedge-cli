@@ -114,9 +114,8 @@ Rename a tenant
 
 <!-- END GENERATED -->
 
-Change a tenant's name. `UpdateTenantInput` carries only `Name`, so
-`--name` is the only flag and the name is the only field the `PATCH`
-can ever send.
+Change a tenant's name. The name is the only tenant field the API
+lets you change, so `--name` is the only flag.
 
 Passing no `--name` is a usage error (exit 2, "nothing to update —
 pass --name") and sends no request at all. The `<tenant_id>` argument

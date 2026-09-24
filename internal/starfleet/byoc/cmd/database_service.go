@@ -16,20 +16,17 @@ import (
 
 // serviceColumns are the table headers shared by service list and get.
 //
-// There is no PORT column. Service.Port is the host's INTERNAL port
-// (e.g. 14052) — dialing it directly fails with SSL:WRONG_VERSION_
-// NUMBER, since it isn't the TLS-terminating ingress. Printing it
-// next to a domain invited exactly that mistake, so the
-// port is folded into ENDPOINT instead: the actual locator a caller
-// can dial.
+// No PORT column: Service.Port is the host's internal port (e.g.
+// 14052), and dialing it fails with SSL:WRONG_VERSION_NUMBER because it
+// is not the TLS-terminating ingress. ENDPOINT carries what a caller
+// can dial instead.
 var serviceColumns = []string{
 	"SERVICE ID", "TYPE", "STATE", "ENDPOINT",
 }
 
 // NewDatabaseServiceCmd builds the `pgedge starfleet byoc database service`
 // command group, which manages the services deployed alongside a
-// database. The plural "services" is kept as a plural alias
-// (unlisted in help).
+// database. The plural "services" stays as an alias.
 func NewDatabaseServiceCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "service",
@@ -180,10 +177,8 @@ Example:
 			dbID := args[0]
 			svcType := args[1]
 
-			// Before the prompt as well as before the client: a
-			// parse costs nothing, so an ID that cannot name a
-			// database is refused rather than confirmed and then
-			// refused.
+			// Before the prompt, so a bad ID is refused rather than
+			// confirmed and then refused.
 			id, err := parseUUIDArg(dbID, "database ID")
 			if err != nil {
 				return err
@@ -259,8 +254,8 @@ Example:
 // --- shared helpers ---
 
 // fetchDatabaseWith retrieves a Database using an existing API client.
-// It is shared by the service, mcp, and rag command groups, which all
-// read-modify-write a database's service list.
+// It is shared by the service, mcp, rag and postgrest command groups,
+// which all read-modify-write a database's service list.
 func fetchDatabaseWith(
 	rt *module.Runtime, client *api.ClientWithResponses, id uuid.UUID,
 ) (*api.Database, error) {
@@ -283,10 +278,8 @@ func fetchDatabaseWith(
 	return resp.JSON200, nil
 }
 
-// buildServiceList returns a services slice that preserves all existing
-// services whose type differs from newSvc.ServiceType, then appends
-// newSvc. This implements the read-modify-write pattern for service
-// updates.
+// buildServiceList returns the existing services whose type differs
+// from newSvc.ServiceType, then newSvc.
 func buildServiceList(
 	db *api.Database, newSvc api.ServiceConfig,
 ) []api.ServiceConfig {
@@ -303,8 +296,7 @@ func buildServiceList(
 }
 
 // findService returns the deployed service of the given type, or nil.
-// It mirrors managed's helper of the same name (managed/cmd/helpers.go)
-// — the byoc equivalent of "is a service of this type already here".
+// It mirrors managed's helper of the same name.
 func findService(
 	db *api.Database, svcType api.ServiceServiceType,
 ) *api.Service {
@@ -319,10 +311,8 @@ func findService(
 	return nil
 }
 
-// serviceIntent distinguishes a `deploy` call from an `update` call at
-// the one place both share: the apply helper. deploy and update invoke
-// the same helper with identical arguments, so nothing else can tell
-// them apart.
+// serviceIntent tells `deploy` from `update` inside the apply helper
+// they share, which they call with otherwise identical arguments.
 type serviceIntent int
 
 const (
@@ -332,18 +322,15 @@ const (
 
 // guardServiceIntent enforces the create/reconfigure split `deploy` and
 // `update` promise: deploy refuses when a service of that type already
-// exists, and update refuses when none does. Both directions are
-// client-side checks over the GET fetchDatabaseWith already performed —
-// PATCH /databases/{id} has no conditional-create primitive to lean on.
-// This guard is the only thing standing between `mcp deploy
-// --allow-writes` and a silent privilege escalation on a deployed
-// read-only service. See managed/cmd/helpers.go's guard of the
-// same name; the two are intentionally parallel.
+// exists, and update refuses when none does. PATCH /databases/{id} has
+// no conditional-create primitive, so this client-side check is the
+// only thing standing between `mcp deploy --allow-writes` and a silent
+// privilege escalation on a deployed read-only service. Parallel to
+// managed's guard of the same name.
 //
-// group is the command path through the service group (e.g. "pgedge
-// starfleet byoc database mcp"), derived by the caller from
-// cmd.Parent().CommandPath() so the suggested commands are correct in
-// both modules without hard-coding either one's name.
+// group is the caller's cmd.Parent().CommandPath() (e.g. "pgedge
+// starfleet byoc database mcp"), so suggested commands need no
+// hard-coded module name.
 func guardServiceIntent(
 	rt *module.Runtime, db *api.Database, t api.ServiceServiceType,
 	intent serviceIntent, group string,
@@ -371,11 +358,8 @@ func guardServiceIntent(
 			t, db.Id, fmt.Sprintf("%s deploy", group)), ExitGeneral)
 	}
 
-	// The check most worth reporting: it is the only thing standing
-	// between `mcp deploy --allow-writes` and a silent privilege
-	// escalation on a deployed read-only service, and the reason
-	// a dry run reads at all — the guard cannot tell deploy from update
-	// without the GET above.
+	// The check a dry run most needs to report, and the reason a dry
+	// run performs the GET at all.
 	if intent == intentDeploy {
 		rt.DryRun.Pass("no %q service already deployed (deploy intent)", t)
 	} else {
@@ -409,16 +393,13 @@ func existingServiceHostIDs(
 // otherwise the hosts the service is already on, falling back to
 // resolveHostIDs when there is nothing deployed to inherit from.
 //
-// It is shared by all three service verbs on purpose. Placement is the
-// half of the partial-update bug that hit every one of them, and it hit MCP and RAG
-// precisely because each assembled its own request and only PostgREST
-// had been taught to preserve anything. A fourth service that calls
-// this gets the behaviour; one that hand-rolls resolveHostIDs
-// reintroduces the bug, so there is one place to look.
+// Every service verb must call this rather than resolveHostIDs
+// directly: a hand-rolled call drops the existing placement on a
+// partial update.
 //
-// The empty-hostIDs fallback is what keeps a FIRST deploy on a
-// multi-node cluster requiring explicit placement: there is nothing to
-// inherit then, and resolveHostIDs refuses to guess.
+// The empty-hostIDs fallback keeps a first deploy on a multi-node
+// cluster requiring explicit placement: resolveHostIDs refuses to
+// guess.
 func resolveServicePlacement(
 	client *api.ClientWithResponses, db *api.Database,
 	clusterID uuid.UUID, svcType api.ServiceServiceType,
@@ -437,11 +418,9 @@ func resolveServicePlacement(
 // service apply, in machine-readable output modes only — the same
 // contract `database update` follows for the same endpoint.
 //
-// Without it a service deploy writes nothing whatsoever to stdout under
-// -o json: the "applied" line goes to stderr and trackMutation's hint
-// is table/text-only. A caller then has no way to read back the
-// service id, assigned port or public domain it just created, which is
-// exactly what a script or an agent needs next.
+// Without it a service deploy under -o json writes nothing to stdout,
+// leaving a script no way to read back the service id, port or public
+// domain it just created.
 func printUpdatedDatabase(rt *module.Runtime, db *api.Database) error {
 	if !rt.Output.Structured() {
 		return nil
@@ -494,18 +473,12 @@ func serviceRow(svc api.Service) svcRowData {
 // serviceEndpoint renders the locator a caller can actually dial,
 // preferring the public one:
 //
-//   - PublicDomain set: the service sits behind TLS-terminating
-//     ingress, reachable at https://<domain> on 443. Port is the
-//     internal one behind that ingress and is never dialable
-//     directly, so it is dropped entirely here.
-//   - PrivateDomain set, no public domain: there is no public
-//     ingress, so the internal host:port pair IS the real locator —
-//     for a caller on the same private network. The "internal."
-//     naming convention in the domain itself (see
-//     PrivateDomain's doc comment) already marks it as such.
-//   - Neither domain set: only the bare internal port is known.
-//     Label it explicitly so it cannot be mistaken for a dialable
-//     address, which is the bug this replaces.
+//   - PublicDomain set: TLS-terminating ingress at https://<domain>
+//     on 443. Port is the internal one behind it, so it is dropped.
+//   - PrivateDomain only: the internal host:port is the locator, for
+//     a caller on the same private network.
+//   - Neither: only the internal port is known, labelled so it is not
+//     mistaken for a dialable address.
 func serviceEndpoint(svc api.Service) string {
 	port, hasPort := "", false
 	if v, err := svc.Port.Get(); err == nil {
@@ -529,17 +502,13 @@ func serviceEndpoint(svc api.Service) string {
 }
 
 // databaseResolvedNote is the ledger line for a database the GET
-// confirmed exists. managed's copy is identical, deliberately: the two
-// modules cannot share a helper, and a dry-run report that spelled the
-// same fact two ways depending on the product would be worse than the
-// duplication.
+// confirmed exists. managed's copy is identical on purpose: the two
+// modules cannot share a helper, and the report must not spell one fact
+// two ways.
 //
-// It reports the id the SERVER returned rather than the string the
-// caller typed. Those differ only in spelling now that IDs are full
-// UUIDs -- uuid.Parse accepts uppercase and the braced and urn forms --
-// and the canonical id is the one the request carried. An earlier
-// version took both and suppressed a parenthetical when they matched;
-// that existed for prefix and name resolution, which no longer happens.
+// It reports the id the server returned, not the one typed: uuid.Parse
+// accepts uppercase and the braced and urn forms, and the canonical id
+// is the one the request carried.
 func databaseResolvedNote(id string) string {
 	return fmt.Sprintf("database %s resolved", id)
 }

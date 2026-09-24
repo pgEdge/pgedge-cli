@@ -20,7 +20,7 @@ var taskColumns = []string{"ID", "NAME", "STATUS", "SUBJECT", "CREATED"}
 
 // NewTaskCmd builds the `pgedge starfleet byoc task` command group, which
 // inspects the asynchronous tasks the platform spawns for mutations.
-// The plural "tasks" is kept as a plural alias (unlisted in help).
+// The plural "tasks" stays as an alias.
 func NewTaskCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "task",
@@ -72,12 +72,10 @@ Example:
   pgedge starfleet byoc task list --subject-id <cluster_id> --status failed`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad --limit answers 2 rather than
+			// a credential failure. NoUpperBound because byoc.yaml
+			// declares no paging bounds: the server clamps at 100 today,
+			// but a measured clamp is not a published contract.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -88,12 +86,8 @@ Example:
 			if err != nil {
 				return err
 			}
-			// --subject-id names a resource, so it takes a full UUID.
-			// The value used to be forwarded verbatim and the
-			// API answers a malformed subject_id with 500 "failed to
-			// list tasks", so a short ID cost a round trip to be told
-			// nothing. The sibling ?id= filter is typed in the
-			// contract and gets a framework 400 for free.
+			// --subject-id takes a full UUID: the API answers a
+			// malformed subject_id with 500 "failed to list tasks".
 			subject, sendSubject, err := cli.OptionalStringFlag(
 				cmd.Flags(), "subject-id",
 				"pass the subject's full UUID — a cluster, database, "+
@@ -108,9 +102,8 @@ Example:
 				if err != nil {
 					return err
 				}
-				// Canonical, not as typed: uuid.Parse accepts the
-				// braced and urn forms, which the API would answer
-				// with the same unactionable 500.
+				// Canonical, not as typed: the braced and urn forms
+				// parse locally and would get the same 500.
 				subjectUUID = id.String()
 			}
 
@@ -132,10 +125,8 @@ Example:
 			if subjectKind != "" {
 				params.SubjectKind = &subjectKind
 			}
-			// Not validated, deliberately: the endpoint publishes
-			// `name` as a bare string with no enum, so an allowlist
-			// here would refuse a name the API accepts and would rot
-			// the day the API adds a task kind.
+			// Not validated: the endpoint publishes `name` with no
+			// enum, so an allowlist would refuse names the API accepts.
 			if name != "" {
 				params.Name = &name
 			}
@@ -206,14 +197,10 @@ Example:
   pgedge starfleet byoc task get <task_id> -o yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// The id is checked here, before the client, so a
-			// mistyped one answers 2 locally rather than being
-			// forwarded. The task collection's `?id=` filter IS typed
-			// in the contract, so it answered a clean 400 -- but exit
-			// 1 is not the code for a bad argument, and this verb's
-			// sibling `task list --subject-id` already checks its own.
-			// The canonical spelling is what gets sent: the
-			// braced and urn forms parse locally and would 400.
+			// Checked before the client so a mistyped id is exit 2,
+			// not the API's 400 at exit 1. The canonical spelling is
+			// sent: the braced and urn forms parse locally and would
+			// 400.
 			id, err := parseUUIDArg(args[0], "task ID")
 			if err != nil {
 				return err
@@ -252,9 +239,8 @@ Example:
 }
 
 // printTaskDetail renders a single task in text mode: the summary row,
-// then a detail block. See the managed module's copy for why the block
-// exists and why only the latest message is shown; the two trees
-// keep their own copies because each binds its own generated api.Task.
+// then a detail block. See the managed module's copy for why; each
+// tree keeps its own because each binds its own generated api.Task.
 func printTaskDetail(rt *module.Runtime, t *api.Task) error {
 	if err := rt.Output.Print(
 		[]output.Row{taskRow(*t)}, taskColumns); err != nil {
@@ -262,21 +248,17 @@ func printTaskDetail(rt *module.Runtime, t *api.Task) error {
 	}
 
 	out := rt.Output.Out
-	// These three are ONE LINE each, so a newline in the value forges a
-	// line in a block that sits under a sanitized table on stdout —
-	// which is where a caller parses. Escaped for that reason.
+	// Escaped: each is one line, so a newline in the value would forge
+	// a field line on stdout, where a caller parses.
 	fmt.Fprintf(out, "\nCreated  %s\n", output.Sanitize(t.CreatedAt))
 	fmt.Fprintf(out, "Updated  %s\n", output.Sanitize(t.UpdatedAt))
 	if n := len(t.Messages); n > 0 {
 		fmt.Fprintf(out, "Step     %s\n",
 			output.Sanitize(formatTaskStep(t.Messages[n-1])))
 	}
-	// The error body is NOT escaped, and that is the same call controlplane's
-	// printTaskError already made: it owns a region below its own
-	// heading, it is the last thing printed, and these messages are
-	// deeply wrapped `%w` chains that read far better with their line
-	// structure intact. A newline here cannot forge a field line above
-	// it, so escaping would cost readability and buy nothing.
+	// Not escaped, as in controlplane's printTaskError: it is last,
+	// under its own heading, so a newline cannot forge a field line,
+	// and wrapped `%w` chains read better with their line breaks.
 	if msg := strings.TrimSpace(output.DerefString(t.Error)); msg != "" {
 		fmt.Fprintf(out, "\nError\n%s\n", msg)
 	}
@@ -321,14 +303,10 @@ Example:
   pgedge starfleet byoc task wait <task_id> --follow`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// The id is checked here, before the client, so a
-			// mistyped one answers 2 locally rather than being
-			// forwarded. The task collection's `?id=` filter IS typed
-			// in the contract, so it answered a clean 400 -- but exit
-			// 1 is not the code for a bad argument, and this verb's
-			// sibling `task list --subject-id` already checks its own.
-			// The canonical spelling is what gets sent: the
-			// braced and urn forms parse locally and would 400.
+			// Checked before the client so a mistyped id is exit 2,
+			// not the API's 400 at exit 1. The canonical spelling is
+			// sent: the braced and urn forms parse locally and would
+			// 400.
 			id, err := parseUUIDArg(args[0], "task ID")
 			if err != nil {
 				return err
@@ -350,16 +328,12 @@ Example:
 			seen := 0
 
 			for {
-				// Each poll is bounded by the wait deadline,
-				// floored at one requestBound(): --timeout may be
-				// 0 (an unbounded client), and a poll with no
-				// bound of its own would outlive --wait-timeout
-				// forever. The floor keeps the courtesy poll of a
-				// --wait-timeout 0 (which reports the task's last
-				// status), honours a raised --timeout, and ends a
-				// hung poll's wait at most one request allowance
-				// late — the same trade cp makes on its follow
-				// poll.
+				// Bounded by the wait deadline because --timeout 0
+				// is an unbounded client, whose hung poll would
+				// outlive --wait-timeout. Floored at one
+				// requestBound() so --wait-timeout 0 still gets its
+				// one poll and a raised --timeout is honoured; a hung
+				// poll ends at most one request allowance late.
 				pollDeadline := deadline
 				if floor := time.Now().Add(
 					requestBound()); floor.After(pollDeadline) {
@@ -421,10 +395,8 @@ Example:
 					return newExitError(msg, ExitGeneral)
 
 				default:
-					// queued or running — show progress on stderr.
 					// Under --follow the step messages are the
-					// progress report, so the bare status line would
-					// only interleave noise into them.
+					// progress report.
 					if !follow {
 						fmt.Fprintf(rt.Stderr, "Task %s: %s...\n",
 							output.Sanitize(t.Id), output.Sanitize(t.Status))

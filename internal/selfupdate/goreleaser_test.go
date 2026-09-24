@@ -3,6 +3,7 @@ package selfupdate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -25,6 +26,14 @@ type goreleaserConfig struct {
 			Formats []string `yaml:"formats"`
 		} `yaml:"format_overrides"`
 	} `yaml:"archives"`
+	Checksum struct {
+		NameTemplate string `yaml:"name_template"`
+	} `yaml:"checksum"`
+	Signs []struct {
+		Signature string `yaml:"signature"`
+		Artifacts string `yaml:"artifacts"`
+		Output    bool   `yaml:"output"`
+	} `yaml:"signs"`
 }
 
 // loadGoreleaserConfig decodes the repo's .goreleaser.yaml, found
@@ -74,5 +83,33 @@ func TestExtractBinaryMemberNameMatchesGoreleaser(t *testing.T) {
 	default:
 		t.Errorf("archives[0].wrap_in_directory = %v; ExtractBinary "+
 			"only accepts the binary at the archive root", wrap)
+	}
+}
+
+// TestSignatureAssetNamesMatchGoreleaser binds the two asset names
+// self update downloads to the names the release publishes. A rename
+// on either side passes every other test and surfaces only as a 404
+// on the first real update.
+func TestSignatureAssetNamesMatchGoreleaser(t *testing.T) {
+	cfg := loadGoreleaserConfig(t)
+
+	if got := cfg.Checksum.NameTemplate; got != ChecksumsAsset {
+		t.Errorf("checksum.name_template = %q, want %q", got, ChecksumsAsset)
+	}
+
+	if len(cfg.Signs) != 1 {
+		t.Fatalf(".goreleaser.yaml has %d signs entries, want 1", len(cfg.Signs))
+	}
+
+	sign := cfg.Signs[0]
+	if sign.Artifacts != "checksum" || !sign.Output {
+		t.Errorf("signs[0] artifacts=%q output=%v, want checksum and true",
+			sign.Artifacts, sign.Output)
+	}
+
+	got := strings.ReplaceAll(sign.Signature, "${artifact}", ChecksumsAsset)
+	if got != BundleAsset {
+		t.Errorf("signs[0].signature publishes %q, self update reads %q",
+			got, BundleAsset)
 	}
 }

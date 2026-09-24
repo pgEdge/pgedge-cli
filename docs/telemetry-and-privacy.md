@@ -18,7 +18,7 @@ They are there for different reasons and neither reports anything.
 Prometheus reaches the module graph through a dependency of a
 dependency, and no package of it is compiled into the binary at all.
 
-OpenTelemetry is compiled in: seventeen of its packages, reached
+OpenTelemetry is compiled in: twenty of its packages, reached
 through `self update`'s signature verification, where Sigstore's
 transparency-log client is built on an OpenAPI runtime that carries
 tracing hooks. The generated pgEdge API clients are not the route and
@@ -30,7 +30,7 @@ library.
 
 ## What the binary contacts
 
-Seven hosts across six rows, and only one of them is a pgEdge host by
+Six hosts across five rows, and only one of them is a pgEdge host by
 default. Every one of the GitHub and Sigstore calls happens on a
 command you ran deliberately.
 
@@ -42,7 +42,6 @@ The complete outbound set:
 | The Control Plane base URL you configured | every `controlplane` command | The API call the command exists to make. |
 | `http://localhost:3000` | every `controlplane` command, when no profile and no `--base-url` supplies one | The same call, against the address the Control Plane serves on by default. |
 | `api.github.com` and `github.com` | `pgedge self update` and `pgedge doctor` (not under `--no-version-check`) | Listing releases, and downloading an archive when an update proceeds. |
-| `rekor.sigstore.dev` | `pgedge self update` performing a real update | Looking up the transparency-log entry that proves pgEdge's release workflow signed the checksums. |
 | `tuf-repo-cdn.sigstore.dev` | `pgedge self update` performing a real update | Refreshing the Sigstore public-good trust root that the signature is checked against. |
 
 Neither Control Plane row is a pgEdge-owned address. That module has
@@ -64,10 +63,9 @@ deferred reporting. Contact with GitHub happens on exactly two
 commands, and contact with Sigstore on one:
 
 - `pgedge self update` lists releases, and on a real update also
-  downloads the archive, refreshes the Sigstore trust root and queries
-  Rekor. `--check` returns after the release listing, before any
-  download or verification, so it reaches GitHub and neither Sigstore
-  host.
+  downloads the archive and refreshes the Sigstore trust root.
+  `--check` returns after the release listing, before any download or
+  verification, so it reaches GitHub and not Sigstore.
 - `pgedge doctor` lists releases to fill in its latest-version row,
   under a five-second bound, and downloads nothing. Pass
   `--no-version-check` to skip that lookup.
@@ -170,8 +168,8 @@ and the service-config secrets.
 
 ## Avoiding the GitHub and Sigstore calls
 
-The Rekor and Sigstore trust-root calls belong to `self update` alone,
-so an install that never runs that command never makes them. Building
+The Sigstore trust-root call belongs to `self update` alone, so an
+install that never runs that command never makes it. Building
 from a checkout with `make build`, or installing with `go install`,
 both leave you with a binary you update through the tool that put it
 there, and the [updating guide](updating.md) covers which installs

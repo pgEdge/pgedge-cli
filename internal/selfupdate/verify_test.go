@@ -2,17 +2,15 @@ package selfupdate
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/pem"
-	"errors"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/testing/ca"
-	"github.com/sigstore/sigstore-go/pkg/tlog"
 )
 
 // writeArchive drops body at dir/name and returns its path plus the
@@ -145,35 +143,28 @@ func TestVerifyChecksumToleratesBlankAndShortLines(t *testing.T) {
 
 // --- signature -----------------------------------------------------
 //
-// Every case below runs against an ephemeral CA (sigstore-go's
-// VirtualSigstore): its own Fulcio root, its own Rekor key, and a leaf
-// minted per call. Nothing here reaches public-good Sigstore — a real
-// Fulcio certificate lives ten minutes, so a fixture captured from a
-// release would start failing the same day it was written.
+// Most cases run against an ephemeral CA (sigstore-go's
+// VirtualSigstore), because only a CA we hold can mint certificates for
+// the identities these cases need. The sigprobe fixtures are the other
+// half: a bundle cosign v3 really wrote in GitHub Actions, verified
+// offline against the public-good roots captured beside it.
 
 const (
 	testIdentity = "https://github.com/pgEdge/pgedge-cli/" +
 		".github/workflows/release.yml@refs/tags/v0.5.0"
 	testIssuer = "https://token.actions.githubusercontent.com"
+
+	// sigprobeIdentity anchors the SAN of the certificate in the
+	// sigprobe bundle, which was signed from a pull-request run.
+	sigprobeIdentity = `^https://github\.com/pgEdge/pgedge-cli/` +
+		`\.github/workflows/sigprobe\.yml@refs/pull/`
 )
 
-// stubTlog stands in for the Rekor lookup, returning entries the test
-// minted rather than any the public log holds.
-type stubTlog struct {
-	entries []*tlog.Entry
-	err     error
-}
-
-func (s stubTlog) Entries(_, _ []byte) ([]*tlog.Entry, error) {
-	return s.entries, s.err
-}
-
-// signed mints a leaf for identity/issuer, signs payload with it, and
-// returns the three files a release ships: the base64-wrapped PEM
-// certificate, the base64 signature, and the trust material naming the
-// ephemeral CA plus the tlog entry recording that signature.
+// signed returns a bundle over payload for identity/issuer, and trust
+// material naming the ephemeral CA that issued it.
 func signed(t *testing.T, identity, issuer string, payload []byte) (
-	certB64, sigB64 []byte, trusted *TrustedMaterial) {
+	[]byte, *TrustedMaterial,
+) {
 	t.Helper()
 
 	vs, err := ca.NewVirtualSigstore()
@@ -181,87 +172,120 @@ func signed(t *testing.T, identity, issuer string, payload []byte) (
 		t.Fatalf("virtual sigstore: %v", err)
 	}
 
-	certB64, sigB64, entries := signWith(t, vs, identity, issuer, payload)
-
-	return certB64, sigB64, &TrustedMaterial{
-		roots: vs,
-		tlog:  stubTlog{entries: entries},
-		// Opted out deliberately: the ephemeral CA embeds no SCT.
-		// TestVerifySignatureRequiresSCTUnderProductionPosture leaves
-		// this at its strict zero value to prove the opt-out is the
-		// only thing standing between these tests and a real check.
-		skipSCT: true,
-	}
+	return signBundle(t, vs, identity, issuer, payload),
+		&TrustedMaterial{
+			roots: vs,
+			// Opted out deliberately: the ephemeral CA embeds no SCT.
+			// TestVerifySignatureRequiresSCTUnderProductionPosture leaves
+			// this at its strict zero value to prove the opt-out is the
+			// only thing standing between these tests and a real check.
+			skipSCT: true,
+		}
 }
 
-// signWith is signed's body for callers that need a second signature
-// from the SAME certificate authority and transparency log.
-func signWith(t *testing.T, vs *ca.VirtualSigstore,
-	identity, issuer string, payload []byte) (
-	certB64, sigB64 []byte, entries []*tlog.Entry) {
+// sigprobe returns the real bundle, the checksums it signs, and the
+// public-good trust material it verifies against, SCT check included.
+func sigprobe(t *testing.T) (checksums, bundleJSON []byte, trusted *TrustedMaterial) {
 	t.Helper()
 
-	entity, err := vs.Sign(identity, issuer, payload)
+	roots, err := root.NewTrustedRootFromJSON(fixture(t, "trusted_root.json"))
 	if err != nil {
-		t.Fatalf("sign: %v", err)
+		t.Fatalf("trusted root: %v", err)
 	}
 
-	vc, err := entity.VerificationContent()
-	if err != nil {
-		t.Fatalf("verification content: %v", err)
-	}
-
-	sc, err := entity.SignatureContent()
-	if err != nil {
-		t.Fatalf("signature content: %v", err)
-	}
-
-	entries, err = entity.TlogEntries()
-	if err != nil {
-		t.Fatalf("tlog entries: %v", err)
-	}
-
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type: "CERTIFICATE", Bytes: vc.Certificate().Raw,
-	})
-
-	certB64 = []byte(base64.StdEncoding.EncodeToString(certPEM))
-	sigB64 = []byte(base64.StdEncoding.EncodeToString(sc.Signature()))
-
-	return certB64, sigB64, entries
+	return fixture(t, "sigprobe-checksums.txt"),
+		fixture(t, "sigprobe-checksums.txt.sigstore.json"),
+		&TrustedMaterial{roots: roots}
 }
 
 func TestVerifySignatureValidPasses(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+	sig, trusted := signed(t, testIdentity, testIssuer, checksums)
 
-	if err := VerifySignature(checksums, sig, cert, trusted); err != nil {
+	if err := VerifySignature(checksums, sig, trusted); err != nil {
 		t.Fatalf("VerifySignature: %v", err)
 	}
 }
 
-func TestVerifySignatureAcceptsBarePEM(t *testing.T) {
-	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+func TestVerifyBundleAcceptsARealCosignBundle(t *testing.T) {
+	checksums, sig, trusted := sigprobe(t)
 
-	bare, err := base64.StdEncoding.DecodeString(string(cert))
-	if err != nil {
-		t.Fatalf("decode: %v", err)
+	if err := verifyBundle(checksums, sig, trusted, sigprobeIdentity); err != nil {
+		t.Fatalf("verifyBundle: %v", err)
+	}
+}
+
+// The same real bundle through the production entry point: it verifies
+// cryptographically, so only the release identity can be refusing it.
+func TestVerifySignatureRejectsARealBundleFromAnotherWorkflow(t *testing.T) {
+	checksums, sig, trusted := sigprobe(t)
+
+	err := VerifySignature(checksums, sig, trusted)
+	if err == nil {
+		t.Fatal("VerifySignature accepted a sigprobe.yml signature")
 	}
 
-	if err := VerifySignature(checksums, sig, bare, trusted); err != nil {
-		t.Fatalf("VerifySignature on bare PEM: %v", err)
+	if !strings.Contains(err.Error(), "identity") {
+		t.Errorf("error does not name the identity check: %v", err)
+	}
+}
+
+func TestVerifyBundleRejectsTamperedChecksumsUnderARealBundle(t *testing.T) {
+	_, sig, trusted := sigprobe(t)
+	tampered := []byte("cafef00d  pgedge_0.0.0_linux_amd64.tar.gz\n")
+
+	err := verifyBundle(tampered, sig, trusted, sigprobeIdentity)
+	if err == nil {
+		t.Fatal("verifyBundle accepted tampered checksums")
+	}
+
+	if !strings.Contains(err.Error(), "could not verify message") {
+		t.Errorf("error is not the artifact-binding check: %v", err)
+	}
+}
+
+// The real bundle also carries a timestamp authority's timestamp, so
+// with its log entries stripped the certificate is still dated and the
+// only check left to fail is the transparency-log requirement.
+func TestVerifyBundleRequiresATransparencyLogEntry(t *testing.T) {
+	checksums, sig, trusted := sigprobe(t)
+
+	var raw map[string]any
+	if err := json.Unmarshal(sig, &raw); err != nil {
+		t.Fatalf("decode bundle: %v", err)
+	}
+
+	material := raw["verificationMaterial"].(map[string]any)
+	delete(material, "tlogEntries")
+
+	unlogged, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatalf("encode bundle: %v", err)
+	}
+
+	err = verifyBundle(checksums, unlogged, trusted, sigprobeIdentity)
+	if err == nil {
+		t.Fatal("verifyBundle accepted an unlogged signature")
+	}
+
+	if !strings.Contains(err.Error(), "transparency log") {
+		t.Errorf("error does not name the transparency log: %v", err)
 	}
 }
 
 func TestVerifySignatureTamperedChecksumsFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+	sig, trusted := signed(t, testIdentity, testIssuer, checksums)
 
 	tampered := []byte("cafef00d  pgedge_0.5.0_linux_amd64.tar.gz\n")
 
-	if err := VerifySignature(tampered, sig, cert, trusted); err == nil {
+	err := VerifySignature(tampered, sig, trusted)
+	if err == nil {
 		t.Fatal("VerifySignature accepted tampered checksums")
+	}
+
+	if !strings.Contains(err.Error(), "could not verify message") {
+		t.Errorf("error is not the artifact-binding check: %v", err)
 	}
 }
 
@@ -269,9 +293,9 @@ func TestVerifySignatureWrongIdentityFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
 	evil := "https://github.com/attacker/pgedge-cli/" +
 		".github/workflows/release.yml@refs/tags/v0.5.0"
-	cert, sig, trusted := signed(t, evil, testIssuer, checksums)
+	sig, trusted := signed(t, evil, testIssuer, checksums)
 
-	err := VerifySignature(checksums, sig, cert, trusted)
+	err := VerifySignature(checksums, sig, trusted)
 	if err == nil {
 		t.Fatal("VerifySignature accepted a foreign workflow identity")
 	}
@@ -289,9 +313,9 @@ func TestVerifySignatureBranchRunFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
 	branch := "https://github.com/pgEdge/pgedge-cli/" +
 		".github/workflows/release.yml@refs/heads/main"
-	cert, sig, trusted := signed(t, branch, testIssuer, checksums)
+	sig, trusted := signed(t, branch, testIssuer, checksums)
 
-	if err := VerifySignature(checksums, sig, cert, trusted); err == nil {
+	if err := VerifySignature(checksums, sig, trusted); err == nil {
 		t.Fatal("VerifySignature accepted a signature from a branch run")
 	}
 }
@@ -314,6 +338,11 @@ func TestReleaseIdentityRegexpMatchesInstallRecipes(t *testing.T) {
 			t.Errorf("%s does not carry the identity regexp %s",
 				tc.path, tc.quoted)
 		}
+		for _, want := range []string{releaseOIDCIssuer, "--bundle "} {
+			if !strings.Contains(string(raw), want) {
+				t.Errorf("%s does not carry %s", tc.path, want)
+			}
+		}
 		// One recipe per file: a second, laxer regexp beside the
 		// right one would otherwise pass this test.
 		if n := strings.Count(string(raw),
@@ -330,9 +359,9 @@ func TestVerifySignaturePrefixImpostorFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
 	evil := "https://github.com/evil/pgEdge/pgedge-cli/" +
 		".github/workflows/release.yml@refs/tags/v0.5.0"
-	cert, sig, trusted := signed(t, evil, testIssuer, checksums)
+	sig, trusted := signed(t, evil, testIssuer, checksums)
 
-	if err := VerifySignature(checksums, sig, cert, trusted); err == nil {
+	if err := VerifySignature(checksums, sig, trusted); err == nil {
 		t.Fatal("VerifySignature accepted a path-prefixed impostor")
 	}
 }
@@ -343,82 +372,20 @@ func TestVerifySignatureWrongWorkflowFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
 	other := "https://github.com/pgEdge/pgedge-cli/" +
 		".github/workflows/ci.yml@refs/heads/main"
-	cert, sig, trusted := signed(t, other, testIssuer, checksums)
+	sig, trusted := signed(t, other, testIssuer, checksums)
 
-	if err := VerifySignature(checksums, sig, cert, trusted); err == nil {
+	if err := VerifySignature(checksums, sig, trusted); err == nil {
 		t.Fatal("VerifySignature accepted a non-release workflow")
 	}
 }
 
 func TestVerifySignatureWrongIssuerFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(
+	sig, trusted := signed(
 		t, testIdentity, "https://accounts.google.com", checksums)
 
-	if err := VerifySignature(checksums, sig, cert, trusted); err == nil {
+	if err := VerifySignature(checksums, sig, trusted); err == nil {
 		t.Fatal("VerifySignature accepted a foreign OIDC issuer")
-	}
-}
-
-func TestVerifySignatureNoTlogEntryFails(t *testing.T) {
-	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
-	trusted.tlog = stubTlog{}
-
-	err := VerifySignature(checksums, sig, cert, trusted)
-	if err == nil {
-		t.Fatal("VerifySignature accepted an unlogged signature")
-	}
-
-	if !strings.Contains(err.Error(), "transparency log") {
-		t.Errorf("error does not name the transparency log: %v", err)
-	}
-}
-
-func TestVerifySignatureTlogLookupErrorFails(t *testing.T) {
-	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
-	trusted.tlog = stubTlog{err: errors.New("rekor unreachable")}
-
-	err := VerifySignature(checksums, sig, cert, trusted)
-	if err == nil {
-		t.Fatal("VerifySignature ignored a failed transparency-log lookup")
-	}
-
-	if !strings.Contains(err.Error(), "rekor unreachable") {
-		t.Errorf("error does not carry the lookup failure: %v", err)
-	}
-}
-
-// Rekor indexes by artifact digest, so a lookup can return entries for
-// signatures other than ours over the same bytes. The unrelated ones
-// must be dropped: they are logged by the SAME Rekor, so the verifier
-// reaches them and rejects the whole verification rather than skipping
-// them. Verified by mutation: deleting the filter fails this test —
-// though it fails on "duplicate tlog entries", not production's
-// "signature does not match", because the virtual CA stamps log index
-// 1000 on every entry it mints and exports no way to vary it.
-func TestVerifySignatureIgnoresUnrelatedTlogEntries(t *testing.T) {
-	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-
-	vs, err := ca.NewVirtualSigstore()
-	if err != nil {
-		t.Fatalf("virtual sigstore: %v", err)
-	}
-
-	// A stranger signs the identical bytes and logs it first.
-	_, _, strangers := signWith(
-		t, vs, "someone@example.com", testIssuer, checksums)
-	cert, sig, ours := signWith(t, vs, testIdentity, testIssuer, checksums)
-
-	trusted := &TrustedMaterial{
-		roots:   vs,
-		tlog:    stubTlog{entries: append(strangers, ours...)},
-		skipSCT: true,
-	}
-
-	if err := VerifySignature(checksums, sig, cert, trusted); err != nil {
-		t.Fatalf("VerifySignature: %v", err)
 	}
 }
 
@@ -427,10 +394,10 @@ func TestVerifySignatureIgnoresUnrelatedTlogEntries(t *testing.T) {
 // rather than configured and forgotten.
 func TestVerifySignatureRequiresSCTUnderProductionPosture(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+	sig, trusted := signed(t, testIdentity, testIssuer, checksums)
 	trusted.skipSCT = false
 
-	err := VerifySignature(checksums, sig, cert, trusted)
+	err := VerifySignature(checksums, sig, trusted)
 	if err == nil {
 		t.Fatal("VerifySignature accepted a certificate with no SCT")
 	}
@@ -440,42 +407,37 @@ func TestVerifySignatureRequiresSCTUnderProductionPosture(t *testing.T) {
 	}
 }
 
-func TestVerifySignatureMalformedCertificateFails(t *testing.T) {
+func TestVerifySignatureMalformedBundleFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	_, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+	_, trusted := signed(t, testIdentity, testIssuer, checksums)
 
-	if err := VerifySignature(
-		checksums, sig, []byte("not a certificate"), trusted,
-	); err == nil {
-		t.Fatal("VerifySignature accepted a malformed certificate")
-	}
-}
+	for name, raw := range map[string]string{
+		"not json":      "not a bundle",
+		"no media type": `{"verificationMaterial": {}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := VerifySignature(checksums, []byte(raw), trusted)
+			if err == nil {
+				t.Fatal("VerifySignature accepted a malformed bundle")
+			}
 
-func TestVerifySignatureMalformedSignatureFails(t *testing.T) {
-	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, _, trusted := signed(t, testIdentity, testIssuer, checksums)
-
-	if err := VerifySignature(
-		checksums, []byte("!!not base64!!"), cert, trusted,
-	); err == nil {
-		t.Fatal("VerifySignature accepted a malformed signature")
+			if !strings.Contains(err.Error(), "parse signature bundle") {
+				t.Errorf("error does not name the bundle parse: %v", err)
+			}
+		})
 	}
 }
 
 func TestVerifySignatureNilTrustedMaterialFails(t *testing.T) {
 	checksums := []byte("deadbeef  pgedge_0.5.0_linux_amd64.tar.gz\n")
-	cert, sig, trusted := signed(t, testIdentity, testIssuer, checksums)
+	sig, _ := signed(t, testIdentity, testIssuer, checksums)
 
-	cases := map[string]*TrustedMaterial{
-		"nil":         nil,
-		"no roots":    {tlog: trusted.tlog, skipSCT: true},
-		"no log":      {roots: trusted.roots, skipSCT: true},
-		"neither set": {},
-	}
-
-	for name, tm := range cases {
+	for name, tm := range map[string]*TrustedMaterial{
+		"nil":      nil,
+		"no roots": {skipSCT: true},
+	} {
 		t.Run(name, func(t *testing.T) {
-			if err := VerifySignature(checksums, sig, cert, tm); err == nil {
+			if err := VerifySignature(checksums, sig, tm); err == nil {
 				t.Fatal("VerifySignature accepted empty trust material")
 			}
 		})

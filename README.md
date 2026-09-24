@@ -109,8 +109,7 @@ then verify and extract it:
 
     # verify authenticity (optional, requires cosign)
     cosign verify-blob \
-        --certificate checksums.txt.pem \
-        --signature checksums.txt.sig \
+        --bundle checksums.txt.sigstore.json \
         --certificate-identity-regexp \
             '^https://github\.com/pgEdge/pgedge-cli/\.github/workflows/release\.yml@refs/tags/' \
         --certificate-oidc-issuer \

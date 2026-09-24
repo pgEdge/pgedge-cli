@@ -240,8 +240,7 @@ func runSelfUpdate(
 
 	// Resolved first: it touches no network, so a run doomed to refuse
 	// (a Homebrew install, a binary inside a git working tree) fails
-	// before a release fetch, a four-asset download and a Rekor round
-	// trip.
+	// before a release fetch and a three-asset download.
 	//
 	// Under --check a refusal is a note on the answer rather than a
 	// reason to withhold it, since --check swaps nothing. --check exits
@@ -329,15 +328,11 @@ func runSelfUpdate(
 		return classifySelfUpdateError(err)
 	}
 
-	checksums, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt", dstDir)
+	checksums, err := downloadBytes(dlCtx, src, release.TagName, selfupdate.ChecksumsAsset, dstDir)
 	if err != nil {
 		return classifySelfUpdateError(err)
 	}
-	sig, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt.sig", dstDir)
-	if err != nil {
-		return classifySelfUpdateError(err)
-	}
-	certPEM, err := downloadBytes(dlCtx, src, release.TagName, "checksums.txt.pem", dstDir)
+	sigBundle, err := downloadBytes(dlCtx, src, release.TagName, selfupdate.BundleAsset, dstDir)
 	if err != nil {
 		return classifySelfUpdateError(err)
 	}
@@ -352,7 +347,7 @@ func runSelfUpdate(
 	}
 
 	fmt.Fprintln(rt.Stderr, "verifying signature...")
-	if err := selfupdate.VerifySignature(checksums, sig, certPEM, trusted); err != nil {
+	if err := selfupdate.VerifySignature(checksums, sigBundle, trusted); err != nil {
 		return fmt.Errorf("verify signature: %w", err)
 	}
 
@@ -405,9 +400,9 @@ func runSelfUpdate(
 }
 
 // downloadBytes downloads name into dstDir via src and returns its
-// content; the four assets a self update reads (the archive, plus
-// checksums.txt and its signature and certificate) are staged files
-// this command never needs to keep around once it has their bytes.
+// content; the three assets a self update reads (the archive,
+// checksums.txt and its signature bundle) are staged files this
+// command never needs to keep around once it has their bytes.
 func downloadBytes(
 	ctx context.Context, src selfupdate.Source, tag, name, dstDir string,
 ) ([]byte, error) {

@@ -5,10 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -79,16 +77,12 @@ const (
 	testIssuer = "https://token.actions.githubusercontent.com"
 )
 
-// signChecksums mints an ephemeral-CA signature over checksums —
-// following the same recipe internal/selfupdate's own verify_test.go
-// uses (ca.NewVirtualSigstore, one Sign call) — and returns the
-// release's two signing assets plus the hermetic trust material that
-// verifies them. selfupdate.NewTestTrustedMaterial is the seam this
-// task added to trust.go: a command-level test cannot reach
-// TrustedMaterial's unexported fields directly, and this is its only
-// door.
+// signChecksums returns the release's signing asset, a Sigstore bundle
+// over checksums from an ephemeral CA, plus the hermetic trust material
+// that verifies it. selfupdate.NewTestTrustedMaterial is the only door
+// a command-level test has to TrustedMaterial's unexported fields.
 func signChecksums(t *testing.T, checksums []byte) (
-	sig, certPEM []byte, trusted *selfupdate.TrustedMaterial,
+	sigBundle []byte, trusted *selfupdate.TrustedMaterial,
 ) {
 	t.Helper()
 
@@ -96,34 +90,9 @@ func signChecksums(t *testing.T, checksums []byte) (
 	if err != nil {
 		t.Fatalf("virtual sigstore: %v", err)
 	}
-	entity, err := vs.Sign(testIdentity, testIssuer, checksums)
-	if err != nil {
-		t.Fatalf("sign checksums: %v", err)
-	}
 
-	vc, err := entity.VerificationContent()
-	if err != nil {
-		t.Fatalf("verification content: %v", err)
-	}
-	sc, err := entity.SignatureContent()
-	if err != nil {
-		t.Fatalf("signature content: %v", err)
-	}
-	entries, err := entity.TlogEntries()
-	if err != nil {
-		t.Fatalf("tlog entries: %v", err)
-	}
-
-	block := pem.EncodeToMemory(&pem.Block{
-		Type: "CERTIFICATE", Bytes: vc.Certificate().Raw,
-	})
-	// A release ships its .pem asset base64-wrapped over the PEM, per
-	// cosign's own output shape (see verify.go's parseCertificate).
-	certPEM = []byte(base64.StdEncoding.EncodeToString(block))
-	sig = []byte(base64.StdEncoding.EncodeToString(sc.Signature()))
-
-	trusted = selfupdate.NewTestTrustedMaterial(vs, entries)
-	return sig, certPEM, trusted
+	return signBundle(t, vs, testIdentity, testIssuer, checksums),
+		selfupdate.NewTestTrustedMaterial(vs)
 }
 
 // writeArchive builds a tar.gz containing one regular file named
@@ -175,7 +144,7 @@ func writeArchive(t *testing.T, body []byte) (archive []byte, sha256hex string) 
 }
 
 // buildFixture assembles a self-consistent, signed release fixture:
-// the release list, a fixtureSource serving all four assets under
+// the release list, a fixtureSource serving all three assets under
 // archiveBody's own checksum, and the hermetic trust material that
 // verifies its signature. archiveOverride, when non-nil, replaces the
 // bytes the source actually serves for the archive asset — used to
@@ -194,7 +163,7 @@ func buildFixture(t *testing.T, tag string, archiveOverride []byte) (
 	archive, sum := writeArchive(t, body)
 
 	checksums := []byte(sum + "  " + assetName + "\n")
-	sig, certPEM, trusted := signChecksums(t, checksums)
+	sigBundle, trusted := signChecksums(t, checksums)
 
 	served := archive
 	if archiveOverride != nil {
@@ -204,10 +173,9 @@ func buildFixture(t *testing.T, tag string, archiveOverride []byte) (
 	src = &fixtureSource{
 		releases: []selfupdate.Release{{TagName: tag}},
 		assets: map[string][]byte{
-			assetName:           served,
-			"checksums.txt":     checksums,
-			"checksums.txt.sig": sig,
-			"checksums.txt.pem": certPEM,
+			assetName:                     served,
+			"checksums.txt":               checksums,
+			"checksums.txt.sigstore.json": sigBundle,
 		},
 	}
 	return src, trusted, assetName
@@ -900,7 +868,7 @@ func TestSelfUpdateDownloadFailureIsPlainError(t *testing.T) {
 		t.Fatalf("releaseAssetName: %v", err)
 	}
 	for _, failing := range []string{
-		assetName, "checksums.txt", "checksums.txt.sig", "checksums.txt.pem",
+		assetName, "checksums.txt", "checksums.txt.sigstore.json",
 	} {
 		t.Run(failing, func(t *testing.T) {
 			rt, out, stderr := testsupport.NewRuntime(t, "", "json")
@@ -960,16 +928,15 @@ func TestSelfUpdateSignatureVerificationFailure(t *testing.T) {
 	}
 	archive, sum := writeArchive(t, []byte("some binary bytes"))
 	signedChecksums := []byte(sum + "  " + assetName + "\n")
-	sig, certPEM, trusted := signChecksums(t, signedChecksums)
+	sigBundle, trusted := signChecksums(t, signedChecksums)
 
 	servedChecksums := []byte(sum + "  " + assetName + "  tampered\n")
 	src := &fixtureSource{
 		releases: []selfupdate.Release{{TagName: "v0.6.0"}},
 		assets: map[string][]byte{
-			assetName:           archive,
-			"checksums.txt":     servedChecksums,
-			"checksums.txt.sig": sig,
-			"checksums.txt.pem": certPEM,
+			assetName:                     archive,
+			"checksums.txt":               servedChecksums,
+			"checksums.txt.sigstore.json": sigBundle,
 		},
 	}
 	deps := &SelfDeps{Source: src, Trusted: trusted, Resolve: harmlessResolve(t)}
@@ -1002,15 +969,14 @@ func TestSelfUpdateExtractFailure(t *testing.T) {
 	notAnArchive := []byte("not a tar.gz file at all")
 	sum := sha256.Sum256(notAnArchive)
 	checksums := []byte(hex.EncodeToString(sum[:]) + "  " + assetName + "\n")
-	sig, certPEM, trusted := signChecksums(t, checksums)
+	sigBundle, trusted := signChecksums(t, checksums)
 
 	src := &fixtureSource{
 		releases: []selfupdate.Release{{TagName: "v0.6.0"}},
 		assets: map[string][]byte{
-			assetName:           notAnArchive,
-			"checksums.txt":     checksums,
-			"checksums.txt.sig": sig,
-			"checksums.txt.pem": certPEM,
+			assetName:                     notAnArchive,
+			"checksums.txt":               checksums,
+			"checksums.txt.sigstore.json": sigBundle,
 		},
 	}
 	deps := &SelfDeps{Source: src, Trusted: trusted, Resolve: harmlessResolve(t)}

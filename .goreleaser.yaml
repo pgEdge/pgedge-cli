@@ -47,12 +47,10 @@ sboms:
 # stored. install.sh verifies this signature when cosign is present.
 signs:
   - cmd: cosign
-    certificate: '${artifact}.pem'
-    signature: '${artifact}.sig'
+    signature: '${artifact}.sigstore.json'
     args:
       - sign-blob
-      - '--output-certificate=${certificate}'
-      - '--output-signature=${signature}'
+      - '--bundle=${signature}'
       - '${artifact}'
       - --yes
     artifacts: checksum

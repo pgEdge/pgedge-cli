@@ -64,11 +64,12 @@ exit status, so a misbehaving run shows which rung it was on.
 
 ## Verification
 
-Every release ships a `checksums.txt`, a detached Sigstore signature
-and the signing certificate. `self update` downloads all three,
-verifies the signature against the public Sigstore trust root and the
-transparency log, then verifies the archive's checksum against the
-signed list. Only then does it extract and swap.
+Every release ships a `checksums.txt` and a Sigstore bundle,
+`checksums.txt.sigstore.json`, which holds its signature, the signing
+certificate and the transparency-log entry. `self update` downloads
+both and verifies the bundle against the public Sigstore trust root.
+Then it verifies the archive's checksum against the signed list. Only
+then does it extract and swap.
 
 Verifying refreshes the Sigstore trust root over the network and
 caches it under `~/.pgedge/cli/cache/sigstore`. Besides that cache, a

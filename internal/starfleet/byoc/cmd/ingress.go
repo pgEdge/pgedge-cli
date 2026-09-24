@@ -17,9 +17,8 @@ var ingressColumns = []string{
 	"ID", "NAME", "STATUS", "CLUSTER ID", "REGION", "DOMAIN", "CREATED",
 }
 
-// NewIngressCmd builds the `pgedge starfleet byoc ingress` command group. The
-// plural "ingresses" is kept as a plural alias (unlisted in help)
-// so existing scripts keep working.
+// NewIngressCmd builds the `pgedge starfleet byoc ingress` command
+// group.
 func NewIngressCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "ingress",
@@ -74,12 +73,10 @@ Example:
   pgedge starfleet byoc ingress list --limit 20 -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad value exits 2, not 5 for
+			// credentials it never needed. NoUpperBound because byoc.yaml
+			// declares no paging bounds: the server clamps at 100 today,
+			// but a measured clamp is not a published contract.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -225,22 +222,16 @@ Example:
     --region us-east-1 --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client. cluster_id is a bare string in the
-			// contract, so an ID prefix used to be forwarded raw and
-			// the failure named the cluster rather than the ID.
+			// cluster_id is a bare string in the contract, so an
+			// unchecked ID prefix fails naming the cluster, not the ID.
 			cluster, err := parseUUIDArg(clusterID, "cluster ID")
 			if err != nil {
 				return err
 			}
-			// Recorded because the alternative is a LIE. With an empty
-			// ledger the report prints "none — this command has no
-			// client-side checks", which the parse above makes false —
-			// and that line exists precisely so an operator can tell an
-			// unchecked verb from a checked one before trusting a clean
-			// dry run. An earlier draft of this change left it out on
-			// consistency grounds, since 60-odd other parseUUIDArg
-			// sites record nothing; review pointed out that uneven
-			// coverage is a smaller fault than a false report.
+			// Recorded so a dry run does not report "no client-side
+			// checks" for this verb. Most parseUUIDArg sites record
+			// nothing; uneven coverage is a smaller fault than a false
+			// report.
 			rt.DryRun.Pass("cluster ID %s well-formed", cluster)
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
@@ -265,8 +256,7 @@ Example:
 
 			ing := resp.JSON200
 			if ing == nil {
-				// Accepted, but no body to read an id from — nothing to
-				// track.
+				// No body means no id, so nothing to track.
 				fmt.Fprintln(rt.Stderr,
 					"Ingress created (no details returned).")
 				return nil

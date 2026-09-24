@@ -15,81 +15,49 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// byocDatabaseNameMaxLen is the byoc API's ceiling for a database name.
-// It is measured in BYTES, as the API's own check is, not runes.
-//
-// It is NOT the managed limit. Managed names go through
-// ValidateK8sCompatibleDatabaseName, which caps at 50 to leave
-// headroom for CNPG-derived child resource names; a byoc name is only
-// ever a Postgres identifier, so it gets Postgres's 63.
+// byocDatabaseNameMaxLen is the byoc API's ceiling for a database
+// name, in bytes as the API counts it. A byoc name is only a Postgres
+// identifier, so it gets Postgres's 63, not managed's 50, which leaves
+// headroom for Kubernetes child resource names.
 const byocDatabaseNameMaxLen = 63
 
 // validateByocDatabaseName rejects a --name the byoc API would refuse,
 // with ExitUsage, before any API call.
 //
-// It mirrors the API's rule EXACTLY rather than the documented one, and
-// the difference matters in both directions.
+// It mirrors the API's enforced rule, not the documented one. The API
+// validates strings.ToLower(strings.TrimSpace(name)), so `--name MyDB`
+// creates `mydb`; enforcing the documented "lowercase" literally would
+// reject invocations that work. The name is normalised for the check
+// only, and the wire carries what the user typed.
 //
-// The API normalises before it validates: the create path does
-// strings.ToLower(strings.TrimSpace(name)) and validates THAT.
-// So `--name MyDB` is accepted
-// today and creates `mydb`, and `--name " mydb "` is accepted and
-// creates `mydb`. A checker that enforced the documented "lowercase"
-// rule literally would start rejecting invocations that work now, for
-// a rule the server implements by coercion rather than refusal. The
-// name is therefore normalised here for the PURPOSE of the check only;
-// what goes on the wire is what the user typed, so this function
-// changes no request it accepts.
+// Unlike validateManagedDatabaseName, which narrows to the documented
+// managed contract, this does not narrow: the documented and enforced
+// byoc rules agree except on case, and a pre-check that refuses what
+// the server accepts becomes a second, competing API. For the same
+// reason it uses unicode.IsLetter and unicode.IsDigit, as the API does,
+// so `café` is legal.
 //
-// This is deliberately NOT the managed twin's approach. That one
-// (validateManagedDatabaseName) narrows to an ASCII regexp, refusing
-// input the server would take, because the documented managed contract
-// is narrower than the server's tolerance and the SKILL already stated
-// the tighter rule. Here the documented and enforced rules agree
-// except on case, so there is nothing to narrow to — and narrowing
-// anyway would only invent a new way to fail. A client-side pre-check
-// exists to save a round trip on a certain rejection; the moment it
-// refuses something the server accepts, it stops being a pre-check and
-// becomes a second, competing API.
+// ToLower changes no rune's class; it matters only to the byte-length
+// check. Two runes grow under Go's ToLower (U+023A and U+023E, two
+// bytes to three), so a name can fit as typed and not as stored, and
+// the API measures the stored form. The "over the limit only once
+// lowercased" case in TestValidateByocDatabaseName pins it.
 //
-// unicode.IsLetter and unicode.IsDigit are used rather than an ASCII
-// class for the same reason: the API uses exactly those, so `café` is a
-// legal byoc database name and must not be rejected here.
-//
-// Of the two normalisations, TrimSpace is the one that visibly changes
-// which names are accepted. ToLower changes no rune's class — the
-// tests below are case-insensitive by construction — and earns its
-// place only on the length check, which counts BYTES. Exactly two
-// runes in Unicode grow under Go's ToLower (U+023A and U+023E, each
-// two bytes lowering to three); twenty-three shrink. So a name can sit
-// under the limit as typed and over it as stored, and the API measures
-// the stored form. Pinned by the "over the limit only once lowercased"
-// case in TestValidateByocDatabaseName; without it, deleting the
-// ToLower passes every other test.
-//
-// Messages quote the name AS TYPED. Reporting the normalised form
-// would show the user a string they never wrote — worst on the length
-// message, where a 62-byte name is over a 63-byte limit only after
-// lowercasing, so the message says so rather than quoting a byte count
-// the user cannot reproduce from their own input.
+// Messages quote the name as typed, never the normalised form.
 func validateByocDatabaseName(name string) error {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 
-	// Empty is checked first, and locally, because the API handles it
-	// badly. It rejects a literally empty name with 400
-	// "name required", but a whitespace-only name passes that guard and
-	// trims to empty inside the server, where the name check
-	// indexes the first rune of an empty name. Refusing it here means the
-	// CLI never sends the input that reaches that path.
+	// Checked locally because the API handles it badly: it rejects an
+	// empty name with 400 "name required", but a whitespace-only name
+	// passes that guard and trims to empty inside the server, where the
+	// name check indexes the first rune of an empty name.
 	if normalized == "" {
 		return newExitError(
 			"database name is required and cannot be blank", ExitUsage)
 	}
 	if len(normalized) > byocDatabaseNameMaxLen {
-		// "once lowercased" is not padding: the API stores the
-		// lowercased form and measures that, and two Unicode runes grow
-		// a byte when lowered. Without the clause, a user who counted
-		// 62 bytes is told they wrote 93.
+		// Without "once lowercased", a user who counted 62 bytes is
+		// told they wrote 93.
 		return newExitError(fmt.Sprintf(
 			"database name %q is %d bytes once lowercased, over the "+
 				"%d-byte limit", name, len(normalized),
@@ -106,10 +74,8 @@ func validateByocDatabaseName(name string) error {
 		if unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_' {
 			continue
 		}
-		// Hyphens get their own sentence because they are the mistake
-		// this check exists to catch: cluster, node and backup-store
-		// names in this same module all take hyphens, so reaching for
-		// one here is the natural error.
+		// Cluster, node and backup-store names in this module take
+		// hyphens, so a hyphen here is the natural mistake.
 		hint := ""
 		if ch == '-' {
 			hint = " (database names take underscores, not hyphens — " +
@@ -128,31 +94,21 @@ var databaseGetColumns = []string{
 	"ID", "NAME", "STATUS", "PG VERSION", "CLUSTER", "CREATED",
 }
 
-// databaseListColumns are database list's, and they omit PG VERSION
-// because the LIST endpoint does not send it.
+// databaseListColumns omit PG VERSION because the list endpoint does
+// not send it: measured on eight databases across three tenants, get
+// answered `"pg_version": "18"` and every list row omitted the key. A
+// blank cell cannot say whether it means unknown, unset or not sent,
+// so the column is dropped from list (decided 2026-08-21).
 //
-// The two readers return the same generated Database type, so the
-// column was declared once and honest on one of its two readers: `get`
-// answers `"pg_version": "18"` while every list row omits the key
-// entirely. Measured on eight databases across
-// three tenants, blank on list in every one, populated by get. The API
-// fills the two readers from different sources.
-//
-// A blank cell cannot say which of three things it means -- unknown,
-// unset, or not sent -- so the column is dropped from list rather than
-// left to be explained in prose. Decided 2026-08-21: drop it
-// from list, keep it on get.
-//
-// TestDatabaseRowMatchesItsColumnSet is what keeps the cells and the
-// headers in step; a row carrying one more cell than its header set
-// renders an unlabelled column rather than failing.
+// TestDatabaseRowMatchesItsColumnSet keeps cells and headers in step;
+// a row with one more cell than its headers renders an unlabelled
+// column rather than failing.
 var databaseListColumns = []string{
 	"ID", "NAME", "STATUS", "CLUSTER", "CREATED",
 }
 
-// NewDatabaseCmd builds the `pgedge starfleet byoc database` command group. The
-// plural "databases" is kept as a plural alias (unlisted in help) so
-// existing scripts keep working.
+// NewDatabaseCmd builds the `pgedge starfleet byoc database` command
+// group.
 func NewDatabaseCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "database",
@@ -215,12 +171,10 @@ Example:
   pgedge starfleet byoc database list --cluster-id <cluster_id> -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad value exits 2, not 5 for
+			// credentials it never needed. NoUpperBound because byoc.yaml
+			// declares no paging bounds: the server clamps at 100 today,
+			// but a measured clamp is not a published contract.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -238,13 +192,8 @@ Example:
 			if err != nil {
 				return err
 			}
-			// The PARSE belongs here too, not beside the params it
-			// fills. An earlier version checked only emptiness before
-			// the client and left the UUID parse in the params block
-			// below, so `--cluster-id not-a-uuid` answered 5 for
-			// missing credentials instead of 2 for a value the caller
-			// can see. Found by the flag sweep in internal/clitest,
-			// which exists because the positional walk could not.
+			// The parse belongs before the client too, for the same
+			// exit-code reason.
 			var clusterUUID uuid.UUID
 			if sendCluster {
 				clusterUUID, err = parseUUIDArg(cluster, "cluster ID")
@@ -385,19 +334,12 @@ Example:
     --pg-version 16 --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client, so a bad name costs no round trip and
-			// no token exchange.
 			if err := validateByocDatabaseName(name); err != nil {
 				return err
 			}
-			// An explicitly empty --pg-version is refused rather than
-			// treated as absent. byoc publishes no enum to check a
-			// version against — its spec declares pg_version as a bare
-			// string and the supported set lives in the config-version
-			// catalog — so this is the ONLY thing that can be checked
-			// locally, and it is worth checking: pg_version is absent
-			// from `database update`, so the version is fixed at create
-			// as it is on managed, and `--pg-version "$PGV"` with the
+			// The spec declares pg_version as a bare string, so emptiness
+			// is the only local check. It is worth making: the version is
+			// fixed at create, and `--pg-version "$PGV"` with the
 			// variable unset would otherwise take the API's default
 			// silently.
 			if cmd.Flags().Changed("pg-version") && pgVersion == "" {
@@ -406,28 +348,19 @@ Example:
 						"(e.g. 16), or omit the flag to use the API "+
 						"default", ExitUsage)
 			}
-			// Recorded, not just performed. Without this the dry-run
-			// report takes its empty-ledger branch and prints "none —
-			// this command has no client-side checks", which this very
-			// change made false. That line exists precisely so an
-			// operator can tell an unchecked verb from a checked one
-			// before trusting a clean dry run, so leaving it wrong is
-			// worse than having no check at all.
+			// Recorded so a dry run does not report "no client-side
+			// checks" for this verb.
 			rt.DryRun.Pass("database name %q accepted", name)
 
-			// The contract declares cluster_id as a bare string, so
-			// anything typed here reached the server unexamined: an ID
-			// prefix came back as "cluster not found or not available",
-			// which reads like the cluster is busy rather than like the
-			// ID was short. Checked before the client for the
-			// same reason as the name above.
+			// The contract declares cluster_id as a bare string, and the
+			// API answers an ID prefix with "cluster not found or not
+			// available", which reads like a busy cluster, not a short
+			// ID.
 			cluster, err := parseUUIDArg(clusterID, "cluster ID")
 			if err != nil {
 				return err
 			}
 			clusterID = cluster.String()
-			// See the note on `ingress create`: the ledger is what a
-			// dry run reports, and this verb has two checks now.
 			rt.DryRun.Pass("cluster ID %s well-formed", clusterID)
 
 			client, err := clientFromCmd(rt, cmd)
@@ -455,8 +388,7 @@ Example:
 
 			d := resp.JSON200
 			if d == nil {
-				// Accepted, but no body to read an id from — nothing to
-				// track.
+				// No body means no id, so nothing to track.
 				fmt.Fprintln(rt.Stderr,
 					"Database created (no details returned).")
 				return nil
@@ -510,10 +442,7 @@ Example:
     --options key1,key2`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Before the client: a name the caller typed too long
-			// must answer 2, not exit 5 for credentials it never
-			// needed. The same limit as create, which used to accept
-			// 40 characters that this verb would then refuse.
+			// Before the client, so a too-long name exits 2, not 5.
 			if cmd.Flags().Changed("display-name") {
 				if err := conn.ValidateDisplayName(
 					displayName); err != nil {
@@ -594,14 +523,9 @@ Example:
     --force --wait`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Before the prompt. A parse costs nothing, so confirming
-			// an operation whose ID cannot name anything wastes the
-			// operator's answer -- and, on a scripted run without
-			// --force, buries the real fault under a prompt refusal.
-			// It also makes the shipped example reachable by
-			// TestShippedExamplesAreNotMalformed, which waives the
-			// destructive-verb refusal and so cannot see a bad ID
-			// sitting behind it.
+			// Before the prompt, so a scripted run without --force
+			// reports the bad ID, not a prompt refusal, and
+			// TestShippedExamplesAreNotMalformed can reach it.
 			id, err := parseUUIDArg(args[0], "database ID")
 			if err != nil {
 				return err
@@ -653,11 +577,8 @@ Example:
 
 type databaseRow struct {
 	id, name, status, pgVersion, clusterID, created string
-	// showPGVersion selects which of the two header sets this row is
-	// rendered against, and it is a field rather than two row types so
-	// that the cell ORDER has exactly one definition. Two adapters
-	// would have to agree about where CLUSTER sits, and one
-	// declaration serving two readers with different data drifted once.
+	// showPGVersion picks the header set. A field rather than two row
+	// types, so the cell order has one definition.
 	showPGVersion bool
 }
 
@@ -686,10 +607,9 @@ func databaseRowFrom(d api.Database) databaseRow {
 	}
 }
 
-// databaseListRowFrom is databaseRowFrom for the LIST reader, which
-// renders one column fewer. pgVersion is still carried, unread,
-// rather than dropped: the field costs nothing, and the day the list
-// endpoint starts sending it the fix is one bool.
+// databaseListRowFrom is databaseRowFrom for list, which renders no
+// PG VERSION. pgVersion is still carried, so the day list sends it
+// the fix is one bool.
 func databaseListRowFrom(d api.Database) databaseRow {
 	r := databaseRowFrom(d)
 	r.showPGVersion = false

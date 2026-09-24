@@ -16,9 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ragServiceOpts collects the deploy/update flag values so
-// applyRAGService can assemble the request without reaching for
-// package-level state.
+// ragServiceOpts collects the deploy/update flag values.
 type ragServiceOpts struct {
 	embeddingProvider  string
 	embeddingModel     string
@@ -181,10 +179,8 @@ func applyRAGService(
 	rt *module.Runtime, cmd *cobra.Command, dbID string,
 	opts *ragServiceOpts, intent serviceIntent,
 ) error {
-	// Before the client, deliberately: clientFromCmd resolves
-	// credentials, so a malformed ID checked after it reports exit 5
-	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2.
+	// Before the client, so a malformed ID exits 2, not 5 "no
+	// credentials found", as managed's identical verbs do.
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err
@@ -206,12 +202,10 @@ func applyRAGService(
 	}
 
 	// Start from the deployed configuration so an update touches only
-	// the flags the caller passed. RAG needs this more than the other
-	// services do: Provider, Model and Pipelines are all non-pointer
-	// required fields, so a config rebuilt from flags does not merely
-	// lose the values it omits — it sends empty ones, and the API
-	// rejects the request outright with "rag_config must have at least
-	// one pipeline".
+	// the flags passed. Provider, Model and Pipelines are non-pointer
+	// required fields, so a config rebuilt from flags sends empty ones,
+	// and the API rejects it with "rag_config must have at least one
+	// pipeline".
 	cfg := existingRAGConfig(db)
 	if err := applyRAGFlags(rt, cmd, opts, &cfg); err != nil {
 		return err
@@ -272,22 +266,14 @@ func applyRAGService(
 // present.
 //
 // The API keys inside it are always absent: RAGLLMConfig.ApiKey is
-// documented write-only ("stored in AWS Secrets Manager") and never
-// comes back on a GET, so there is nothing to copy. That is the one
-// field this merge cannot preserve, and it is why --*-llm-api-key must
-// be passed again whenever it changes.
+// documented write-only, and the API returns only provider and model
+// for each LLM config. It is the one field this merge cannot preserve,
+// which is why --*-llm-api-key must be passed again whenever it
+// changes. PostgREST's jwt_secret is in the same position.
 //
-// PostgREST's jwt_secret is in the same position.
-//
-// The evidence for those two was read from the server's source, which
-// is stronger than a probe: the RAG LLM config it returns carries only
-// provider and model, and its PostgREST config omits jwt_secret, so
-// no code path can populate either field.
-//
-// MCP's secrets are NOT in this position — they come back on
-// GET /databases/{id}, confirmed against the live API. The
-// asymmetry is deliberate, not an oversight. See existingMCPConfig;
-// do not "unify" the two.
+// MCP's secrets are not: they come back on GET /databases/{id},
+// confirmed against the live API. See existingMCPConfig; do not
+// "unify" the two.
 func existingRAGConfig(db *api.Database) api.RAGServiceConfig {
 	svc := findService(db, api.ServiceServiceTypeRag)
 	if svc == nil || svc.RagConfig == nil {
@@ -298,11 +284,9 @@ func existingRAGConfig(db *api.Database) api.RAGServiceConfig {
 
 // applyRAGFlags overlays the flags the caller actually set onto cfg.
 //
-// Flags().Changed is the test throughout, never a comparison against
-// the zero value. `--top-n 0` and `--token-budget 0` are explicit
-// instructions that a `> 0` check silently swallows, which is how the
-// previous version could not tell "set it to zero" from "leave it
-// alone".
+// Flags().Changed is the test throughout, never a zero-value
+// comparison: `--top-n 0` and `--token-budget 0` are explicit
+// instructions a `> 0` check would swallow.
 func applyRAGFlags(
 	rt *module.Runtime, cmd *cobra.Command, opts *ragServiceOpts,
 	cfg *api.RAGServiceConfig,
@@ -337,13 +321,9 @@ func applyRAGFlags(
 	}
 
 	if f.Changed("pipeline-config") {
-		// Every way this file can be unusable — absent, unreadable,
-		// unparseable, or structurally invalid — is ExitUsage (2),
-		// matching controlplane's spec loader and byoc's own structured-flag
-		// parsers. The caller named the path, nothing was sent, and
-		// the fix is entirely in what they typed. Read and parse are
-		// deliberately not split: one flag answering two codes for one
-		// class of mistake is what this avoids.
+		// Every way this file can be unusable is ExitUsage (2),
+		// matching controlplane's spec loader and byoc's structured-flag
+		// parsers: the caller named the path and nothing was sent.
 		data, readErr := os.ReadFile(opts.pipelineConfigPath)
 		if readErr != nil {
 			return newExitError(fmt.Sprintf(
@@ -365,10 +345,9 @@ func applyRAGFlags(
 		cfg.Pipelines = pipelines
 	}
 
-	// All three are required by the API. On an update they come from the
-	// deployed service, which guardServiceIntent has already confirmed
-	// exists; this branch is reachable only from `deploy`, when the
-	// flags omit one, as long as the API honours its spec.
+	// All three are required by the API. On an update they come from
+	// the deployed service, which guardServiceIntent has confirmed
+	// exists.
 	var missing []string
 	if cfg.EmbeddingLlm.Provider == "" || cfg.EmbeddingLlm.Model == "" {
 		missing = append(missing, "--embedding-llm-provider/--embedding-llm-model")
@@ -381,13 +360,11 @@ func applyRAGFlags(
 		missing = append(missing, "--pipeline-config")
 	}
 	if len(missing) > 0 {
-		// ExitUsage: cobra answers 2 when one of these flags is simply
-		// omitted, so on deploy only an explicitly empty value reaches
-		// this guard, and reporting that as 1 gave one mistake two
-		// codes. update reaches it only if the API returns a
-		// rag_config violating its own spec (pipelines is required,
-		// minItems 1) — with "pipelines":[] a faultless command line
-		// gets 2, which is the cost of not forking this guard.
+		// ExitUsage because cobra answers 2 for an omitted flag, and on
+		// deploy only an explicitly empty value reaches here. update
+		// reaches it only if the API returns a rag_config violating its
+		// own spec (pipelines minItems 1), and then a faultless command
+		// line gets 2.
 		return newExitError(fmt.Sprintf(
 			"%s %s required to deploy a RAG service",
 			joinFlags(missing), pluralIs(len(missing))), ExitUsage)
@@ -395,18 +372,14 @@ func applyRAGFlags(
 	return nil
 }
 
-// parsePipelineConfig parses a RAG pipeline definition file. It accepts
-// either a bare JSON array of pipelines or an object with a "pipelines"
-// key — the latter mirrors the shape the API returns under rag_config,
-// so a config read back from the API can be pasted into a file and used
-// directly.
+// parsePipelineConfig parses a RAG pipeline definition file: a bare
+// JSON array, or an object with a "pipelines" key, the shape the API
+// returns under rag_config, so a config read back can be reused as is.
 func parsePipelineConfig(data []byte) ([]api.RAGPipelineConfig, error) {
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) > 0 && trimmed[0] == '{' {
-		// Object form: require an explicit "pipelines" key so a typo such
-		// as {"pipeline": [...]} is rejected rather than silently treated
-		// as an empty pipeline list. An explicit {"pipelines": []} is
-		// allowed.
+		// Require the key, so {"pipeline": [...]} is refused rather
+		// than read as an empty list.
 		var probe map[string]json.RawMessage
 		if err := json.Unmarshal(trimmed, &probe); err != nil {
 			return nil, err
@@ -434,18 +407,12 @@ func parsePipelineConfig(data []byte) ([]api.RAGPipelineConfig, error) {
 const ragReservedPipelineName = "_default"
 
 // validatePipelines checks a pipeline config against the API's
-// structural rules before the request goes out. All three are rejected
-// server-side with a 400, and the round trip is avoidable: a live run
-// lost a RAG deploy to `rag_config must have at least one pipeline`
-// after supplying an empty array.
-//
-// Table existence is deliberately not checked — the API does not check
-// it either, and the CLI has no database connection to check it with.
+// structural rules, each of which the API refuses with a 400, before
+// the request goes out. Table existence is not checked: the API does
+// not check it either, and the CLI has no database connection.
 func validatePipelines(path string, pipelines []api.RAGPipelineConfig) error {
 	fail := func(format string, args ...any) error {
-		// ExitUsage, not ExitGeneral: this is the file the caller named
-		// failing its structural rules — the same class of mistake as
-		// the parse that precedes it, so the same code.
+		// ExitUsage, the same code as the parse that precedes it.
 		return newExitError(fmt.Sprintf("pipeline config %q: ", path)+
 			fmt.Sprintf(format, args...), ExitUsage)
 	}

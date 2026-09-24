@@ -3,10 +3,8 @@
 // API base, over the module's own authenticated client, with the
 // module's own status-to-exit mapping and the CLI's output formats.
 //
-// It exists for the endpoint no verb covers yet, and it is an escape
-// hatch rather than a second interface: gh api and az rest are the
-// precedents that keep their CLI's contract on the raw call, and this
-// does the same.
+// It is an escape hatch for the endpoint no verb covers yet, and keeps
+// the CLI's contract on the raw call, as gh api and az rest do.
 package apicall
 
 import (
@@ -96,9 +94,8 @@ func Build(ctx context.Context, d Deps, req Request) (*http.Request, error) {
 	if err != nil {
 		return nil, d.UsageErr(fmt.Sprintf("path %q: %v", req.Path, err))
 	}
-	// A query typed into the path travels as typed; only a query that
-	// does not parse is refused, since re-encoding it would send a
-	// different request than the one asked for and report success.
+	// A query typed into the path travels as typed. One that does not
+	// parse is refused: re-encoding it would send a different request.
 	if u.RawQuery != "" {
 		if _, err := url.ParseQuery(u.RawQuery); err != nil {
 			return nil, d.UsageErr(fmt.Sprintf(
@@ -158,10 +155,7 @@ func Build(ctx context.Context, d Deps, req Request) (*http.Request, error) {
 }
 
 // Do sends hreq and prints the response through rt. A non-2xx status
-// goes through d.Check, so the exit code is the one the module's own
-// verbs would give. A 2xx with no body prints nothing on stdout and a
-// sentence on stderr. A JSON body is printed in the requested format,
-// indented in text; any other body is written to stdout as it came.
+// goes through d.Check, so the exit code matches the module's verbs.
 func Do(rt *module.Runtime, d Deps, hreq *http.Request, include bool) error {
 	// The host is the module's own API base and Build refuses an
 	// absolute URL, so the caller chooses only the path.
@@ -202,10 +196,9 @@ func Do(rt *module.Runtime, d Deps, hreq *http.Request, include bool) error {
 			_, err = rt.Stdout.Write(append(body, '\n'))
 			return err
 		case "yaml":
-			// Decoded with UseNumber and re-encoded through yaml.Node,
-			// so a 20-digit integer keeps its digits and its type; the
-			// shared renderer's yaml path would round it through
-			// float64 first.
+			// UseNumber plus yaml.Node keeps a 20-digit integer's
+			// digits and type; the shared renderer's yaml path rounds
+			// it through float64.
 			dec := json.NewDecoder(bytes.NewReader(body))
 			dec.UseNumber()
 			var v any
@@ -233,7 +226,7 @@ func Do(rt *module.Runtime, d Deps, hreq *http.Request, include bool) error {
 }
 
 // yamlNode converts a UseNumber-decoded JSON tree into yaml.Nodes,
-// keeping key order and writing every number with the server's own
+// sorting mapping keys and writing every number with the server's own
 // digits under an int or float tag.
 func yamlNode(v any) *yaml.Node {
 	switch t := v.(type) {

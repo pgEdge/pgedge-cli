@@ -119,11 +119,11 @@ func TestPgVersionListRun(t *testing.T) {
 			"pg-version", "list"); err != nil {
 			t.Fatalf("pg-version list json: %v", err)
 		}
-		// UNMARSHALLED, not substring-matched. A review found that
-		// wrapping the array in an object passed a Contains check:
-		// every substring below still appears inside {"versions":
-		// [...]}, and `jq '.[].version'` would then fail against output
-		// this test called correct. Decoding into a slice is what pins
+		// UNMARSHALLED, not substring-matched. Wrapping the array in
+		// an object passes a Contains check: every substring below
+		// still appears inside {"versions": [...]}, and
+		// `jq '.[].version'` would then fail against output this test
+		// called correct. Decoding into a slice is what pins
 		// the top level as an array, and the typed Default field is
 		// what pins the boolean as a boolean rather than the table's
 		// yes/no.

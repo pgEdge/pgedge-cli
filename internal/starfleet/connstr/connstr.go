@@ -23,11 +23,9 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 )
 
-// String is what -o json and -o yaml print. The URI is the same one
-// text mode prints, and the parts beside it are the ones it was
-// assembled from, so a caller can take either without a second call.
-// Password is omitted, not blanked, without one. Node is set only by
-// byoc, whose string belongs to one node of the database.
+// String is what -o json and -o yaml print: the URI text mode prints
+// and the parts it was assembled from. Node is set only by byoc, whose
+// string belongs to one node of the database.
 type String struct {
 	URI      string `json:"uri"`
 	Node     string `json:"node,omitempty"`
@@ -44,10 +42,9 @@ type String struct {
 // require is safe on every client and stricter is the caller's to add.
 const SSLModeRequire = "require"
 
-// Build assembles the URI. url.URL does the percent-encoding of the
-// userinfo, which is the part a hand-built string gets wrong; the
-// database name goes through the path for the same reason. The caller
-// has already established that host is non-empty.
+// Build assembles the URI through url.URL, which percent-encodes the
+// userinfo and database name a hand-built string gets wrong. The
+// caller has already established that host is non-empty.
 func Build(host string, port int, database, username, password string,
 	withPassword bool,
 ) *String {
@@ -75,15 +72,14 @@ func Build(host string, port int, database, username, password string,
 }
 
 // PrintEnv writes one PG* assignment per line, single-quoted so a
-// value holding a space, a $ or a quote survives `source` and
-// `export $(cat)` alike. PGPASSWORD is absent, not empty, without a
-// password, so a shell that already exports one keeps it.
+// value holding a space, a $ or a quote survives `source` (not
+// `export $(cat)`, which keeps the quotes literal). PGPASSWORD is
+// absent, not empty, without a password, so a shell that already
+// exports one keeps it.
 //
-// A value holding a control character is refused, not rewritten: a
-// newline inside single quotes is still one assignment to a shell,
-// but to a reader it is a forged line, and rewriting the value would
-// print a credential the server never issued. No real host, role or
-// password carries one.
+// A control character is refused, not rewritten: to a reader a quoted
+// newline is a forged line, and rewriting would print a credential
+// the server never issued. No real host, role or password carries one.
 func PrintEnv(w io.Writer, cs *String, withPassword bool) error {
 	values := []string{cs.Host, cs.Database, cs.Username}
 	if withPassword {

@@ -158,7 +158,7 @@ func nameExitCode(t *testing.T, args ...string) int {
 	// hook, so anything else here would test a mapping the binary does
 	// not use. (main.go additionally promotes ExitError to ExitUsage
 	// when no run hook ran at all — a class no case in this file
-	// reaches.) A first draft handled the Code() interface but not
-	// *cli.UsageError, which ExitCode also maps to 2.
+	// reaches.) ExitCode maps *cli.UsageError to 2 as well as the
+	// Code() interface, which a local version is easy to miss.
 	return cli.ExitCode(root.Execute())
 }

@@ -372,10 +372,10 @@ func TestDatabaseGetRejectsAnEmptyUserType(t *testing.T) {
 	if called {
 		t.Error("an empty --user-type should not reach the server")
 	}
-	// The message is asserted, not just the code. A review found that
-	// substituting --config's message verbatim passed every assertion
-	// there, so each of these names something only THIS message can
-	// supply: the flag, the three roles, and the way out.
+	// The message is asserted, not just the code. --config's message
+	// substituted verbatim would pass a looser check, so each of these
+	// names something only THIS message can supply: the flag, the
+	// three roles, and the way out.
 	for _, want := range []string{
 		"--user-type", "empty value", "admin, app or app_read_only",
 		"omit the flag",
@@ -759,8 +759,8 @@ func TestDatabaseDeleteBranchesRequiresConfirmation(t *testing.T) {
 
 // A resize is irreversible by the command's own documentation -- a
 // database can grow but not shrink -- moves the database onto
-// different infrastructure, and on a per-vCPU plan raises the bill.
-// It ran unattended with no confirmation until a reviewer found it.
+// different infrastructure, and on a per-vCPU plan raises the bill,
+// so it must not run unattended without confirmation.
 func TestDatabaseResizeRefusesWithoutForce(t *testing.T) {
 	rt, out, _ := testsupport.NewRuntime(t, "", "text")
 	srv := testsupport.NewAuthedServer(t,
@@ -913,11 +913,10 @@ func TestDatabaseCreateOpenSendsOpenRuleAndWarns(t *testing.T) {
 	}
 }
 
-// TestDatabaseCreateOpenWarnsUnderJSON pins the fix for the bug the
-// reviewer found: the open warning was nested inside the text-output
-// branch, so `-o json` created a wide-open database and printed
-// nothing. Stdout must stay pure JSON while stderr still carries the
-// warning.
+// TestDatabaseCreateOpenWarnsUnderJSON: an open warning nested inside
+// the text-output branch lets `-o json` create a wide-open database
+// and print nothing. Stdout must stay pure JSON while stderr still
+// carries the warning.
 func TestDatabaseCreateOpenWarnsUnderJSON(t *testing.T) {
 	url := testsupport.NewAuthedServer(t, withCatalog(func(
 		w http.ResponseWriter, r *http.Request,

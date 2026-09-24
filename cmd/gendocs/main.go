@@ -14,26 +14,20 @@
 //	internal/starfleet/llms/client.txt             pgedge starfleet client ...
 //	internal/starfleet/byoc/llms/database/mcp.txt  pgedge starfleet byoc database mcp ...
 //
-// The same scopes also project onto the human reference pages in
-// docs/reference/, one page per scope, each a single generated
-// region rewritten wholesale — internal/docgen/page.go has the
-// contract and the reasoning.
+// The human reference pages in docs/reference/ each hold one
+// generated region rewritten wholesale (internal/docgen/page.go).
 //
-// It rewrites only the text between the generated markers; every other
-// line is hand-written and is left alone. See internal/docgen for the
-// contract and for what is deliberately NOT generated.
+// Only text between the generated markers is rewritten; see
+// internal/docgen for what is deliberately NOT generated.
 //
-// A command with no block yet is reported, not placed. The generator
-// will not guess where a section belongs in a document whose ordering
-// carries meaning — it prints the block to paste, and stops.
-// TestReferenceDocsConform fails until it is done, so a forgotten
-// placement cannot ship.
+// A command with no block yet is reported, not placed: ordering in
+// these documents carries meaning, so the generator prints the block
+// to paste and TestReferenceDocsConform fails until it is placed.
 //
-// The command tree is built through internal/clitest.FullTree, which is
-// also what the build gates walk. Importing a package named "clitest"
-// from a production tool reads oddly, but the alternative is a third
-// copy of "root plus every registered module" that can drift from the
-// two that already have to agree.
+// The tree comes from internal/clitest.FullTree, which the build gates
+// also walk. Importing "clitest" from a tool reads oddly, but the
+// alternative is a third copy of "root plus every registered module"
+// that can drift from the two that already have to agree.
 package main
 
 import (
@@ -55,11 +49,9 @@ type target struct {
 	module string
 }
 
-// targets is the index plus every page each module ships, read from
-// the modules themselves (internal/reference derives the set from the
-// embedded files), so the generator cannot disagree with `pgedge llms`
-// about which pages exist. TestReferenceDocsConform derives the same
-// list the same way.
+// targets is the index plus every page each module embeds, so the
+// generator cannot disagree with `pgedge llms` or
+// TestReferenceDocsConform about which pages exist.
 func targets() []target {
 	out := []target{{path: "llms.txt"}}
 	for _, d := range clitest.ReferenceDocuments() {
@@ -68,11 +60,10 @@ func targets() []target {
 	return out
 }
 
-// pageTargets are the human reference pages under docs/. Same scopes
-// and the same ownership rule as targets, but each page carries ONE
-// generated region holding every owned command, so a new command
+// pageTargets are the human reference pages under docs/. Each carries
+// ONE generated region holding every owned command, so a new command
 // lands on its page with no placement step. Mirrored by
-// TestDocsReferencePagesConform in internal/clitest.
+// TestDocsReferencePagesConform.
 var pageTargets = []target{
 	{path: "docs/reference/pgedge.md"},
 	{path: "docs/reference/starfleet.md", module: "starfleet"},
@@ -95,11 +86,8 @@ func main() {
 	}
 }
 
-// ownedBy returns the commands the given scope owns. A scope is a
-// space-joined command-path prefix under root ("starfleet",
-// "starfleet byoc", "controlplane"); "" is the index (root-level commands). A
-// command belongs to the LONGEST scope that prefixes its path, so
-// "starfleet byoc cluster list" is owned by "starfleet byoc", not "starfleet".
+// ownedBy returns the commands scope owns under the longest-prefix
+// rule; "" is the index.
 func ownedBy(all []*cobra.Command, scopes []string,
 	scope string) []*cobra.Command {
 	var out []*cobra.Command
@@ -200,10 +188,9 @@ func run(check, adopt bool) error {
 			continue
 		}
 		if res.Doc != string(raw) {
-			// 0o600 rather than 0o644 to satisfy gosec G306. The mode
-			// only applies when the file does not already exist, and
-			// these files are tracked in git — which records only the
-			// executable bit — so the narrower mode costs nothing.
+			// 0o600 satisfies gosec G306 and costs nothing: git records
+			// only the executable bit, and the mode applies only to a
+			// new file.
 			if err := os.WriteFile(
 				tgt.path, []byte(res.Doc), 0o600); err != nil {
 				return err
@@ -213,10 +200,9 @@ func run(check, adopt bool) error {
 		}
 	}
 
-	// The human pages keep their own five scopes: ownership among
-	// them is decided among them, not among the finer llms pages, or
-	// the byoc page would lose every database command to a scope that
-	// has no page here.
+	// Ownership among the human pages is decided among their own
+	// scopes, or the byoc page would lose every database command to an
+	// llms scope that has no page here.
 	pageScopes := make([]string, 0, len(pageTargets))
 	for _, tgt := range pageTargets {
 		pageScopes = append(pageScopes, tgt.module)
@@ -251,8 +237,8 @@ func run(check, adopt bool) error {
 				"out of date: %s — run `make docs`",
 				strings.Join(drifted, ", "))
 		}
-		// Rewriting fixes Changed but never Missing or Foreign, so a
-		// second pass is the honest way to report what is left.
+		// A rewrite fixes Changed but never Missing or Foreign; a
+		// re-run reports what is left.
 		return nil
 	}
 

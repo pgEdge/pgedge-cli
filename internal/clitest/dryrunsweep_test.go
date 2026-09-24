@@ -21,11 +21,10 @@ import (
 // under --dry-run against a stub that records what it was asked to do,
 // and fails if the stub was asked to change anything.
 //
-// This is the gate the first version of this feature did not have, and
-// its absence let a real bug ship: interception was by HTTP method, so
-// `controlplane task cancel --dry-run` sent `GET .../cancel`, really cancelled the
-// task, and reported success. A per-error-family sample could not catch
-// that, because the fault was per-operation.
+// The failure it guards: interception by HTTP method lets
+// `controlplane task cancel --dry-run` send `GET .../cancel`, really
+// cancel the task, and report success. A per-error-family sample
+// cannot catch that, because the fault is per-operation.
 //
 // The assertion is deliberately about the SERVER, not about the report.
 // "No state-changing request arrived" is the promise --dry-run makes, and
@@ -113,9 +112,9 @@ func TestNoMutatingRequestEscapesADryRun(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// Two passes: a bare base URL and one carrying a path prefix. The
-	// prefixed pass is not hypothetical — a Control Plane behind a
-	// reverse proxy at /api/ defeated the first version of the
-	// interception patterns, and nothing in the CLI rejects such a URL.
+	// prefixed pass is not hypothetical: a Control Plane behind a
+	// reverse proxy at /api/ defeats interception patterns anchored at
+	// the root, and nothing in the CLI rejects such a URL.
 	home := t.TempDir()
 	writeSweepConfig(t, home, srv.URL)
 	t.Setenv("HOME", home)
@@ -521,10 +520,8 @@ func annotatedCommandPaths(t *testing.T) []string {
 // It builds its own tree rather than calling FullTree() because it needs
 // the Runtime afterwards. That is the whole point: an INTERCEPTED write
 // never reaches the stub, so counting requests that arrive at the server
-// scores exactly the verbs this gate cares about as having done nothing.
-// The first version of this sweep made that mistake and reported
-// `controlplane cluster init` — one of the two verbs it exists to cover — as
-// silent.
+// scores exactly the verbs this gate cares about as having done nothing,
+// `controlplane cluster init` among them.
 //
 // Errors are expected and ignored: a verb that rejects the synthesized
 // values never reaches a request, which the caller accounts for.

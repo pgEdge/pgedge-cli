@@ -10,19 +10,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The allowlist in paging_sweep_test.go used to certify itself. Its
-// comment claimed that "adding a row here without a matching maximum:
-// in the spec is the mistake this catches", and nothing in that file
-// read a spec — so a reviewer added `controlplane task list` to the allowlist
-// AND a ceiling of 100 to the code, and every gate stayed green while
-// the binary shipped:
+// Without this file the allowlist in paging_sweep_test.go certifies
+// itself: nothing there reads a spec, so a `controlplane task list`
+// row plus a ceiling of 100 in the code keeps every gate green while
+// the binary ships:
 //
 //	--limit must be at most 100 (got 500): that is the maximum this
 //	endpoint's contract declares
 //
 // control-plane.json declares no maximum on any of its five limit
-// parameters, so that sentence was false. This file is what makes the
-// comment true.
+// parameters, so that sentence would be false.
 
 // declaredMaximum is one spec-declared paging bound.
 type declaredMaximum struct {
@@ -153,11 +150,11 @@ func TestPagingCeilingsAreSpecDerived(t *testing.T) {
 	}
 
 	// Compared as (spec path, maximum) PAIRS, never as a bag of
-	// numbers. Matching on the value alone let a reviewer point a
-	// `controlplane task list` row at a maximum of 100 that byoc had published
-	// on /byoc/v1/ingresses: the multiset matched, so cp shipped a
+	// numbers. Matching on the value alone lets a `controlplane task
+	// list` row borrow the maximum of 100 byoc publishes on
+	// /byoc/v1/ingresses: the multiset matches, so cp ships a
 	// fabricated ceiling behind the "the contract declares it"
-	// message while byoc's real bound went unenforced, with all five
+	// message while byoc's real bound goes unenforced, with all five
 	// gates green.
 	declaredSet := map[string]bool{}
 	for _, d := range declared {

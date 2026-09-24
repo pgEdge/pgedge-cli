@@ -9,16 +9,13 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/reference"
 )
 
-// files holds the byoc reference: llms.txt is the index and every
-// llms/**/*.txt is one page, scoped by its path (see
-// internal/reference). The pattern is `llms*` so that the directory is
-// optional: a sub-tree with a single page embeds only its index.
+// files holds the byoc reference pages. The pattern is `llms*` so the
+// llms/ directory is optional.
 //
 //go:embed llms*
 var files embed.FS
 
-// Dir is this package's path under the repository root, which every
-// page records so a served page can be traced to its file.
+// Dir is this package's path under the repository root.
 const Dir = "internal/starfleet/byoc"
 
 // Documents returns the byoc pages, index first, or nil on an

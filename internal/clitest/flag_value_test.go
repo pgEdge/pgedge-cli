@@ -124,18 +124,16 @@ var flagValueCases = []struct {
 // whole set: it fails when a row regresses.
 //
 // What it cannot do is find a site nobody enumerated, and it cannot
-// hold a PROPERTY either. A reviewer proved the second half: substitute
-// every row's empty-value case for another malformed string and both
-// the row count and the case count below still pass while the
+// hold a PROPERTY either: substitute every row's empty-value case for
+// another malformed string and both counts below still pass while the
 // empty-is-absent mutation survives. TestApplyCreatedRange in
-// internal/starfleet/conn is where that property actually lives, and it
-// killed the mutation with this table thinned.
+// internal/starfleet/conn is where that property lives, and it kills
+// the mutation with this table thinned.
 func TestAMalformedFlagValueIsAUsageError(t *testing.T) {
 	// Both counts, because a row count alone does not pin coverage:
 	// dropping "" from a row's bad slice leaves the row count
-	// untouched and lets the empty-value mutation live. A reviewer
-	// found that hole by mutating ApplyCreatedRange, which only the
-	// "" cases kill.
+	// untouched and lets the empty-value mutation of
+	// ApplyCreatedRange live, which only the "" cases kill.
 	if len(flagValueCases) < 9 {
 		t.Fatalf("flagValueCases has %d rows; a shrinking list is how "+
 			"this gate stops covering the sweep it pins",

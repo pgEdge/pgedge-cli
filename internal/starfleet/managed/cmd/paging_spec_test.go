@@ -112,13 +112,11 @@ func TestPagingBoundsMatchTheSpec(t *testing.T) {
 	// (/managed/v1/tasks) declares the parameter with no bounds and is
 	// covered by TestTaskPagingDeclaresNoBounds.
 	//
-	// The maximum half is the one that was missing, and a reviewer
-	// found the hole by exploiting it: giving backups' --offset a
-	// ceiling of 100 passed every paging test with the same === RUN
-	// count, while making rows 101 onward unreachable — offset is the
-	// only way past a limit capped at 100 — behind a message asserting
-	// a clamp no spec declares. Nothing said offset was unbounded, so
-	// nothing objected.
+	// The maximum half matters: without it, giving backups' --offset a
+	// ceiling of 100 passes every other paging test with the same
+	// === RUN count, while making rows 101 onward unreachable (offset
+	// is the only way past a limit capped at 100) behind a message
+	// asserting a clamp no spec declares.
 	//
 	// Zero must stay ACCEPTED on the minimum side: it is the first
 	// page, not an empty value, which is why OffsetLowest is 0 and not

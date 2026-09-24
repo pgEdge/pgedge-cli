@@ -128,10 +128,9 @@ func TestForgedTaskErrorCannotAddALine(t *testing.T) {
 // value carrying a newline and a tab and got two fabricated metric
 // rows on stdout and two fabricated lines on stderr.
 //
-// This is the stderr half, and it is the site the first draft of the
-// stderr work MISSED: tieNote builds its line with fmt.Sprintf and
-// reaches stderr through fmt.Fprint, so neither the mechanical
-// Fprintf pass nor TestStderrInterpolationsAreSanitized saw it. The
+// This is the stderr half: tieNote builds its line with fmt.Sprintf
+// and reaches stderr through fmt.Fprint, so neither a mechanical
+// Fprintf pass nor TestStderrInterpolationsAreSanitized sees it. The
 // note is a composed message whose own trailing newline is
 // deliberate, which is exactly why the printer cannot be the
 // checkpoint and the builder has to be.

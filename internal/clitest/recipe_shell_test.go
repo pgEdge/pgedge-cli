@@ -431,16 +431,15 @@ func TestShippedRecipesDoNotDiscardAPgedgeStatus(t *testing.T) {
 var captureRe = regexp.MustCompile(
 	`\$\(\s*pgedge\s` + "|^[A-Za-z_][A-Za-z0-9_]*=\\s*`\\s*pgedge\\s")
 
-// Both clears scan the block's LOGICAL lines, so a comment cannot
-// grant them — `# return here later` used to clear every `if pgedge`
-// finding in its block.
+// Both clears scan the block's LOGICAL lines, so a comment such as
+// `# return here later` cannot clear every `if pgedge` finding in its
+// block.
 //
 // `test -z` counts alongside `[ -z`, and `&& exit` alongside
 // `|| exit`, with commands allowed to intervene, because
 // `test -z "$ID" && exit 1` and `[ "$ID" ] || { echo …; exit 1; }`
-// are both ordinary guards that an earlier draft reported as defects.
-// A first attempt excluded `&` between the connective and the exit,
-// which the `>&2` in the second one trips.
+// are both ordinary guards. `&` is allowed between the connective and
+// the exit, because the `>&2` in the second one contains it.
 //
 // The two connective alternatives narrow the hole rather than closing
 // it, and it is worth being exact about which. The first cannot cross
@@ -638,9 +637,9 @@ func TestShippedProceduresDoNotWriteOffAnUncheckedRead(t *testing.T) {
 			window := lines[i+1 : end]
 			// A procedure does not run past a section break. Without
 			// this the window welds the tail of one command's example
-			// onto the head of the next command's GENERATED block,
-			// which is how the first draft reported a `client get`
-			// example as writing off `client create`.
+			// onto the head of the next command's GENERATED block, and
+			// a `client get` example reads as writing off
+			// `client create`.
 			for k, w := range window {
 				if sectionBreakRe.MatchString(w) {
 					window = window[:k]

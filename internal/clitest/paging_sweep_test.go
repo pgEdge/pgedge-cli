@@ -14,12 +14,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// This file exists because per-module fixtures could not see the
-// modules they were not in. The paging sweep landed with tests
-// in internal/starfleet/managed/cmd only, and a reviewer showed that
-// deleting the whole validation block from `byoc ingress list`, or
-// inventing a ceiling in `controlplane task list`, left the entire suite green.
-// Fifteen of the twenty-one call sites were unprotected.
+// Per-module fixtures cannot see the modules they are not in. With
+// tests in internal/starfleet/managed/cmd only, deleting the whole
+// validation block from `byoc ingress list`, or inventing a ceiling
+// in `controlplane task list`, left the entire suite green: fifteen of
+// the twenty-one call sites were unprotected.
 //
 // The gate walks the LIVE command tree, so a list verb added tomorrow
 // is covered the day it lands rather than the day someone remembers to
@@ -34,19 +33,16 @@ import (
 // exactly two operations; byoc.yaml, account.yaml and
 // control-plane.json declare none anywhere.
 //
-// This map does not certify itself, and an earlier version of this
-// comment wrongly implied it did. TestPagingCeilingsAreSpecDerived
+// This map does not certify itself. TestPagingCeilingsAreSpecDerived
 // (paging_ceiling_spec_test.go) walks all four specs and fails if the
 // allowlist and the contracts describe different sets of bounds — a
 // row added here for an endpoint whose spec is silent is exactly how
 // an invented ceiling reached the binary behind a message claiming
 // the contract declared it.
 //
-// Keyed on the SPEC PATH as well as the number. Keying on the value
-// alone let a reviewer wire a real declaration to the wrong verb: a
-// maximum of 100 published on /byoc/v1/ingresses satisfied a
-// `controlplane task list` row of 100, so cp shipped a fabricated ceiling while
-// byoc's genuine bound went unenforced, with every gate green.
+// Keyed on the SPEC PATH as well as the number, so a real declaration
+// cannot be wired to the wrong verb (see the pair comparison in
+// TestPagingCeilingsAreSpecDerived).
 type pagingCeiling struct {
 	specPath string
 	max      int
@@ -311,8 +307,8 @@ func TestOnlySpecBoundedVerbsEnforceACeiling(t *testing.T) {
 	}
 }
 
-// TestNoPagingVerbEnforcesAnOffsetCeiling closes the hole a reviewer
-// found: nothing asserted that --offset is unbounded.
+// TestNoPagingVerbEnforcesAnOffsetCeiling asserts that --offset is
+// unbounded.
 //
 // No spec declares a maximum for offset anywhere, so a ceiling on it
 // is always invented. On `managed backup list`, where --limit maxes at

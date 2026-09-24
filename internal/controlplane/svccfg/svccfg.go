@@ -9,7 +9,7 @@
 // module's `internal`, which Go will not let this module import. So
 // this package GATES the `database init` template against CP's key sets
 // rather than generating the template from them (decided 2026-08-08).
-// Each struct cites its CP file:line so a reviewer can diff it by eye;
+// Each struct cites its CP file:line so it can be diffed by eye;
 // each KeyMeta states what CP requires or rejects around that key.
 //
 // KEEPING THIS IN SYNC IS MANUAL: bumping CP_TAG in openapi/SOURCE does

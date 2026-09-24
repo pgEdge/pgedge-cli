@@ -764,14 +764,13 @@ func TestKeepProse(t *testing.T) {
 			want:  nil,
 		},
 		{
-			// THE BUG THIS PINS. The first version of Adopt deleted
-			// this whole range on the assumption it only ever held a
-			// one-line description. `pgedge byoc database rag deploy`
-			// carried three paragraphs and a fenced JSON example here;
-			// deleting the range silently dropped all of it, caught
-			// only by a ```json fence count (3 -> 2) in a 4,700-line
-			// diff. A single plain paragraph line is the ONLY thing
-			// this function may drop.
+			// THE BUG THIS PINS: deleting this whole range on the
+			// assumption it only ever holds a one-line description.
+			// `pgedge byoc database rag deploy` carried three
+			// paragraphs and a fenced JSON example here, silently
+			// dropped and visible only as a ```json fence count
+			// (3 -> 2) in a 4,700-line diff. A single plain paragraph
+			// line is the ONLY thing this function may drop.
 			name:  "single plain line is dropped: Short replaces it",
 			block: []string{"List all clusters in the current tenant."},
 			want:  nil,
@@ -1061,8 +1060,7 @@ Prose that belongs to GET, not to list.
 
 	// A SIBLING VERB, which a HasSuffix match let through: both
 	// headings end in "list", so `database list` with its own prose
-	// deleted borrowed `backup list`'s. Review found this against the
-	// second version of the guard, after the first.
+	// deleted borrowed `backup list`'s.
 	const sibling = `
 <!-- BEGIN GENERATED: pgedge starfleet managed database list -->
 ##### pgedge starfleet managed database list
@@ -1179,7 +1177,6 @@ func TestCheckPagingClaims(t *testing.T) {
 			wantContains: "[100 200]",
 		},
 		{
-			// The case that caught the first version of this check out.
 			// A stale claim opening a sentence is capitalised, and a
 			// case-sensitive scan reads that as one claim rather than
 			// two — which is the Contains-only failure over again.

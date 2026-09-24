@@ -268,10 +268,10 @@ func tokenize(line string) ([]string, bool) {
 // to defaultBaseURL -- http://localhost:3000 -- and a developer
 // machine may well have a real Control Plane there. This gate walks
 // EVERY example, including `controlplane database delete storefront --force`
-// and `cp host remove host-3 --force`, so a bare Execute turned
+// and `cp host remove host-3 --force`, so a bare Execute turns
 // `make test` into an unauthenticated destructive client against
-// whatever was listening. A reviewer caught live 409/500/400 bodies
-// coming back and outbound DNS from `cluster join`. CLAUDE.md puts
+// whatever is listening, with live 409/500/400 bodies coming back and
+// outbound DNS from `cluster join`. CLAUDE.md puts
 // live-API work behind `make test-integration` for exactly this
 // reason, and every other command-executing harness in this package
 // points at a stub.
@@ -281,9 +281,9 @@ func tokenize(line string) ([]string, bool) {
 // unknown command -- as a plain error, and main.go promotes it to
 // ExitUsage when no run hook was entered. Without that, every one of
 // those arrives here as exit 1 and the gate's whole premise ("exit 2
-// means malformed") is false for the majority of malformed shapes. A
-// reviewer measured it: 6 of 8 malformed families read 1 in the
-// harness and 2 in the real binary.
+// means malformed") is false for the majority of malformed shapes:
+// measured, 6 of 8 malformed families read 1 in the harness and 2 in
+// the real binary.
 func runForError(t *testing.T, args ...string) error {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
@@ -408,10 +408,9 @@ const placeholderValue = "b0c1d2e3-f4a5-6789-bcde-890123456789"
 // This is the difference between a template and a defect.
 // `backup-store delete <backup_store_id>` is how documentation says
 // "put your id here"; nobody copies the angle brackets. Refusing it
-// would be a false positive on 29 examples, and SKIPPING it -- which
-// an earlier version did, lumping all 105 placeholder lines in with
-// shell syntax -- hid 70 examples that run perfectly well, including
-// a malformed `rag deploy` a reviewer found by ignoring the skip.
+// would be a false positive on 29 examples, and SKIPPING all 105
+// placeholder lines as shell syntax would hide 70 examples that run
+// perfectly well, a malformed `rag deploy` among them.
 //
 // It substitutes ONLY the bracket form. A bare truncated id like
 // 3fa85f64 is left alone, so the truncated-id defect is still detected --
@@ -435,10 +434,9 @@ func substitutePlaceholders(args []string) []string {
 //
 // substitutePlaceholders is one broadened regex away from normalising
 // every id in every example, at which point the gate above passes
-// whatever the tree says and truncated ids come back unnoticed. A reviewer
-// demonstrated exactly that: with ids normalised, the planted defect
-// went green and the example count did not move, so the population
-// floor could not see it.
+// whatever the tree says and truncated ids come back unnoticed. With
+// ids normalised, a planted defect goes green and the example count
+// does not move, so the population floor cannot see it.
 func TestTheExampleGateStillCatchesATruncatedID(t *testing.T) {
 	// The truncated-id shape, on a direct-parse command.
 	args := substitutePlaceholders(

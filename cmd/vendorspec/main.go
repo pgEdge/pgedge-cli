@@ -1,32 +1,27 @@
 // Command vendorspec captures the published per-product OpenAPI
-// contracts into openapi/.
+// contracts into openapi/. It is the engine behind `make vendor-spec`.
 //
-// It is the engine behind `make vendor-spec`. Each contract is served
-// unauthenticated at {base}/{product}/v1/openapi.json, already
-// filtered to the public, enterprise-maximal surface by the API
-// itself — so what this tool fetches
-// IS the public contract, and nothing here derives or filters.
+// Each contract is served unauthenticated at
+// {base}/{product}/v1/openapi.json, already filtered to the public,
+// enterprise-maximal surface by the API itself, so what this tool
+// fetches IS the public contract and nothing here derives or filters.
 //
 //	go run ./cmd/vendorspec -out openapi
 //	go run ./cmd/vendorspec -out openapi -check
 //
 // -base defaults to production because the vendored contract must be
 // the one customers are served (TestVendoredSpecsAreCanonical pins the
-// vendored servers URL there). -check fetches and reports drift
-// without writing, and compares the contract rather than the host: a
-// servers block that differs is printed as a note, not counted as
-// drift, so a check against another environment answers for its paths
-// and schemas. Both modes hit the network, so neither runs in CI.
+// vendored servers URL there). -check reports drift without writing;
+// a servers block that differs is a note, not drift, so a check
+// against another environment still answers for paths and schemas.
+// Both modes hit the network, so neither runs in CI.
 //
-// The tool is still fail-closed, in three ways, and every product is
-// validated before any file is written: an `x-pgedge-*` key anywhere
-// in a published contract aborts the run (the upstream filter should
-// have removed it, so one appearing means that filter regressed); so
-// does `x-go-type-import`, which names a package internal to the API
-// server's Go module, which this module cannot import (a bare
-// `x-go-type` is expected — it names UUID, which each module's
-// api/types.go supplies); and so does a path
-// outside the product's own namespace.
+// Every product is validated before any file is written, and three
+// things abort the run: an `x-pgedge-*` key anywhere (the upstream
+// filter regressed); `x-go-type-import`, which names a package inside
+// the API server's module that this module cannot import (a bare
+// `x-go-type` naming UUID is expected, and each module's api/types.go
+// supplies it); and a path outside the product's own namespace.
 package main
 
 import (
@@ -45,10 +40,10 @@ import (
 )
 
 // product names one published contract and the path prefix every
-// operation in it must sit under. The API asserts the same namespace
-// invariant upstream, and TestVendoredSpecsAreCanonical asserts it over the committed
-// artefacts; this list is deliberately fixed rather than discovered,
-// so a new product is vendored on purpose or not at all.
+// operation in it must sit under. TestVendoredSpecsAreCanonical
+// asserts the same prefix over the committed files. The list is fixed
+// rather than discovered, so a new product is vendored on purpose or
+// not at all.
 type product struct{ name, prefix string }
 
 var products = []product{
@@ -99,10 +94,9 @@ func run(base, outDir string, check bool, stdout io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", p.name, err)
 		}
-		// yaml.v3 parses JSON too, and decodes numbers as int rather
-		// than float64 — so a maxLength survives as 25 and not 25.0.
-		// Routing the body through encoding/json into `any` would
-		// mangle every large integer in the document.
+		// yaml.v3 parses JSON and decodes integers as int, so a
+		// maxLength survives as 25 and not 25.0; encoding/json into
+		// `any` would turn every integer into a float64.
 		var doc map[string]any
 		if err := yaml.Unmarshal(raw, &doc); err != nil {
 			return fmt.Errorf("parse %s: %w", url, err)
@@ -137,10 +131,9 @@ func run(base, outDir string, check bool, stdout io.Writer) error {
 			}
 			continue
 		}
-		// 0o600 rather than 0o644 to satisfy gosec G306, matching
-		// cmd/gendocs. The mode only applies when the file does not
-		// already exist, and these are tracked in git — which records
-		// only the executable bit — so the narrower mode costs nothing.
+		// 0o600 satisfies gosec G306 and costs nothing: git records
+		// only the executable bit, and the mode applies only to a new
+		// file.
 		if err := os.WriteFile(f.path, f.body, 0o600); err != nil {
 			return err
 		}
@@ -188,12 +181,10 @@ func validate(doc map[string]any, p product) error {
 }
 
 // findForbiddenExtension walks the whole document, not only the
-// path-item level where the API has placed its markers — a
-// marker anywhere means the upstream public filter regressed, and
-// vendoring the document would copy the regression. A mapping with a
-// non-string key would decode as map[interface{}]interface{} and be
-// skipped, but JSON object keys are always strings, so no served
-// contract can produce one.
+// path-item level where the API places its markers, since a marker
+// anywhere means the upstream filter regressed. A non-string mapping
+// key would decode as map[interface{}]interface{} and be skipped, but
+// JSON object keys are always strings.
 func findForbiddenExtension(v any, at string) error {
 	switch t := v.(type) {
 	case map[string]any:
@@ -243,12 +234,9 @@ func encode(doc map[string]any) ([]byte, error) {
 }
 
 // matches reports whether path already holds the contract in doc. The
-// servers block is compared on its own and returned as a note rather
-// than counted as drift: it names the host that served the document,
-// so a check against another environment would otherwise fail on that
-// line alone and say nothing about the paths and schemas it was run
-// for. A missing file is drift, not an error — that is the state a
-// fresh checkout of a new product would be in.
+// servers block names the serving host, so it is returned as a note
+// rather than drift. A missing file is drift, not an error: a new
+// product starts that way.
 func matches(path string, doc map[string]any) (same bool, note string, err error) {
 	//nolint:gosec // G304: path is built from -out and a fixed
 	// product name, both under the operator's control.

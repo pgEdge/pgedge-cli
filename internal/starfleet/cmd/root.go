@@ -15,13 +15,11 @@ import (
 
 // NewStarfleetCmd builds the `pgedge starfleet` command tree.
 //
-// The four connection flags are declared here and nowhere else. One
-// product means one connection, so byoc and managed no longer declare
-// their own copies: every leaf reads them off its inherited flag set
-// (connFlags in each sub-tree's client.go), which resolves against the
-// nearest ancestor that declared them — this command. --timeout bounds
-// one HTTP exchange, exactly as controlplane's flag of the same name does;
-// the wait bound is the per-leaf --wait-timeout.
+// The four connection flags are declared here and nowhere else: one
+// product means one connection, and every byoc and managed leaf reads
+// them off its inherited flag set (connFlags in each sub-tree's
+// client.go). --timeout bounds one HTTP exchange, as controlplane's
+// does; the wait bound is the per-leaf --wait-timeout.
 func NewStarfleetCmd(rt *module.Runtime) *cobra.Command {
 	f := &conn.Flags{}
 
@@ -43,28 +41,18 @@ Example:
   pgedge starfleet byoc cluster list
   pgedge starfleet managed database list`,
 
-		// These two lines are PERMANENT and essential. Do not remove
-		// them; they are the same idiom the `pgedge` root uses
-		// (internal/cli/root.go:42-44), and the pure-router gates hold
-		// them as the standard for every group command in the CLI.
+		// Do not remove these two lines; the pure-router gates hold
+		// them as the standard for every group command. In cobra
+		// v1.10.2:
 		//
-		// RunE earns its place twice over, both verified in the pinned
-		// cobra v1.10.2:
-		//
-		//  1. IsAvailableCommand (command.go:1607-1621) is true only for
-		//     a command that is runnable or has available subcommands,
-		//     and defaultHelpTemplate gates the whole usage/flags block
-		//     on the same predicate. Without RunE, a childless group is
-		//     absent from `pgedge --help` and prints no flags.
-		//  2. RunE is what makes Args reachable at all. execute()
-		//     returns flag.ErrHelp for a non-runnable command at
-		//     command.go:954-956, *before* it calls ValidateArgs at
-		//     969-971. Drop RunE and cobra.NoArgs is dead code:
-		//     `pgedge starfleet <stray>` stops being a usage error (exit
-		//     2) and becomes a silent help dump that exits 0.
-		//
-		// So the pair holds even with children present — a parent with a
-		// bad argument must fail, not print help and claim success.
+		//  1. IsAvailableCommand, and the help template's usage/flags
+		//     block, require a runnable command or available children,
+		//     so a childless group without RunE vanishes from
+		//     `pgedge --help` and prints no flags.
+		//  2. execute() returns flag.ErrHelp for a non-runnable command
+		//     before ValidateArgs, so without RunE cobra.NoArgs is dead:
+		//     `pgedge starfleet <stray>` prints help and exits 0 instead
+		//     of failing with exit 2.
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
@@ -89,14 +77,11 @@ Example:
 	cmd.AddCommand(accountcmd.NewTenantCmd(rt))
 	cmd.AddCommand(newAPICmd(rt, f))
 
-	// No `cloud user` verbs, deliberately. GetCurrentUser returns
-	// 401 when EITHER the tenant or the user is missing from the
-	// request — not only when both are absent. A
-	// client-credentials token carries a tenant but never a user,
-	// so it is rejected by design, not by accident. The generated
-	// client does carry GetCurrentUser/UpdateCurrentUser, so this
-	// absence looks like an oversight without this note. Revisit
-	// only when a user-token auth flow exists.
+	// No `starfleet user` verbs, deliberately, although the generated
+	// client carries GetCurrentUser/UpdateCurrentUser. The API answers
+	// 401 when EITHER the tenant or the user is missing, and a
+	// client-credentials token carries a tenant but never a user.
+	// Revisit when a user-token auth flow exists.
 
 	cmd.AddCommand(byoccmd.NewByocCmd(rt))
 	cmd.AddCommand(managedcmd.NewManagedCmd(rt))

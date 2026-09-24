@@ -73,12 +73,10 @@ Example:
   pgedge starfleet byoc backup-store list --limit 20 -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad --limit exits 2 rather than 5.
+			// NoUpperBound: byoc.yaml declares no paging bounds, and the
+			// server's clamp at 100 is measured, not published, so the
+			// CLI must not refuse a value the API would accept.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -224,11 +222,9 @@ Example:
     --cloud-account-id <account_id> --region us-east-1 --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// The parsed value is kept and sent. uuid.Parse accepts
-			// `{uuid}` and `urn:uuid:uuid`, so discarding it and
-			// forwarding the raw flag put a braced id on the wire
-			// verbatim -- passing the check and then sending something
-			// else, the unchecked-ID defect in another spelling.
+			// The parsed value is sent, not the raw flag: uuid.Parse
+			// accepts `{uuid}` and `urn:uuid:uuid`, which would
+			// otherwise reach the wire verbatim.
 			parsedAccount, err := parseUUIDArg(
 				cloudAccountID, "cloud account ID")
 			if err != nil {
@@ -236,13 +232,10 @@ Example:
 			}
 			cloudAccountID = parsedAccount.String()
 
-			// Before the client, because nothing is sent: a store's
-			// region is settable exactly once. /byoc/v1/backup-stores
-			// exposes no put or patch, the generated client emits no
-			// update operation, and the BackupStore response schema
-			// does not even carry region -- so `--region "$UNSET"`
-			// silently created the store wherever the API chose, for
-			// good.
+			// A store's region is settable exactly once: the API has no
+			// update operation for backup stores and BackupStore does
+			// not carry region, so a blank `--region "$UNSET"` would
+			// create the store wherever the API chose, for good.
 			region, sendRegion, err := cli.OptionalStringFlag(
 				cmd.Flags(), "region",
 				"name a region, or omit the flag to let the API choose")

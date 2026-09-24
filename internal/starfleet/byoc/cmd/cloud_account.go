@@ -199,12 +199,9 @@ Example:
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			providerType := strings.ToLower(accountType)
 
-			// Every refusal in this switch is ExitUsage, and it runs
-			// BEFORE clientFromCmd for the reason managed's create
-			// records at its own call site: clientFromCmd resolves
-			// credentials, so a check placed after it answers exit 5
-			// "no credentials found" for a mistake the caller made in
-			// the command line.
+			// Before clientFromCmd, which resolves credentials: a
+			// check after it would exit 5 "no credentials found" for a
+			// command-line mistake.
 			var creds api.CreateCloudAccountInput_Credentials
 
 			switch providerType {
@@ -237,10 +234,8 @@ Example:
 						"%s required for --type azure",
 						strings.Join(missing, ", ")), ExitUsage)
 				}
-				// ClientSecret is a pointer because the field is
-				// writeOnly upstream, not because it is optional — the
-				// schema still requires it, and the missing-flag check
-				// above guarantees a non-empty value here.
+				// A pointer because the field is writeOnly in byoc.yaml,
+				// not optional: the schema still requires it.
 				azCreds := api.AzureCredentials{
 					TenantId:       tenantID,
 					SubscriptionId: subscriptionID,
@@ -267,9 +262,7 @@ Example:
 						"%s required for --type gcp",
 						strings.Join(missing, ", ")), ExitUsage)
 				}
-				// ServiceAccount is a pointer for the same reason as
-				// Azure's ClientSecret: writeOnly upstream, still
-				// required, and checked non-empty above.
+				// A pointer for the same reason as Azure's ClientSecret.
 				if err := creds.FromGoogleCredentials(
 					api.GoogleCredentials{
 						ProjectId:      projectID,
@@ -431,10 +424,9 @@ Example:
 				return err
 			}
 
-			// The untyped call: the generated parser decodes 200 into
-			// the array the spec declares, and the API sends a bare
-			// object (measured 2026-08-30), so the typed call fails on
-			// every response the API has ever returned.
+			// Untyped call: the generated parser decodes 200 into the
+			// array the spec declares, and the API sends a bare object
+			// (measured 2026-08-30), so the typed call fails.
 			resp, err := client.GetCloudFormationTemplate(
 				context.Background())
 			if err != nil {
@@ -463,7 +455,7 @@ Example:
 				if tmpl.Url == "" {
 					continue
 				}
-				// One URL per line, same shape as the zone list above.
+				// One URL per line, same shape as availability-zones.
 				fmt.Fprintln(rt.Stdout, output.Sanitize(tmpl.Url))
 				printed++
 			}
@@ -526,12 +518,9 @@ Example:
 			if err != nil {
 				return err
 			}
-			// A blank region would not merely send an empty value:
-			// URL resolution collapses the empty segment, so the
-			// request addresses /regions/availability-zones — a
-			// different path shape — at exit 0. MarkFlagRequired
-			// tests Changed and nothing else, so the emptiness check
-			// is this helper's whole job.
+			// A blank region collapses the path segment, addressing
+			// /regions/availability-zones at exit 0. MarkFlagRequired
+			// tests only Changed, so this refuses the blank.
 			region, err := cli.RequiredStringFlag(cmd.Flags(),
 				"region", "name a provider region such as us-east-2")
 			if err != nil {
@@ -566,10 +555,9 @@ Example:
 				return nil
 			}
 			for _, zone := range *body.AvailabilityZones {
-				// One zone per line IS the structure here, so a zone
-				// carrying a newline forges an extra zone. This does
-				// not go through the renderer, so it does not get the
-				// renderer's escaping.
+				// One zone per line is the structure, so a newline in a
+				// zone would forge another. The renderer is bypassed,
+				// so escape here.
 				fmt.Fprintln(rt.Stdout, output.Sanitize(zone))
 			}
 			return nil

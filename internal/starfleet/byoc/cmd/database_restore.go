@@ -82,40 +82,22 @@ Example:
 				body.RestoreCommand = rc
 			}
 
-			// Before the prompt. A parse costs nothing, so confirming
-			// an operation whose ID cannot name anything wastes the
-			// operator's answer -- and, on a scripted run without
-			// --force, buries the real fault under a prompt refusal.
-			// It also makes the shipped example reachable by
+			// Before the prompt, so a scripted run without --force
+			// reports the bad ID rather than a prompt refusal, and so
 			// TestShippedExamplesAreNotMalformed, which waives the
-			// destructive-verb refusal and so cannot see a bad ID
-			// sitting behind it.
+			// prompt refusal, can see a bad ID.
 			id, err := parseUUIDArg(args[0], "database ID")
 			if err != nil {
 				return err
 			}
 
-			// --repository is checked and sent canonically, like every
-			// other input naming a pgEdge resource.
-			//
-			// The earlier argument for leaving it alone -- that
-			// PgBackrestRestoreConfig declares `repositories` as a
-			// plain string array with no format -- is the argument
-			// this repo explicitly REJECTS for cloud_account_id twenty
-			// lines into buildClusterCreateBody: byoc.yaml types that
-			// create field as a bare string too, while the path
-			// parameter that reads the same resource types it as a
-			// UUID, so the UUID is the spec's own shape for the field.
-			// The same holds here -- `backup-repository get
-			// <repository_id>` parses this identifier as a UUID, and
-			// BackupRepository carries an `id` and no name field, so
-			// the API publishes no non-UUID spelling for a repository
-			// and a check cannot refuse anything it would accept.
-			//
-			// It is also the only UUID-carrying input in the tree whose
-			// name does not end `-id`, so the suffix-derived sweep
-			// population cannot see it and this is the only thing
-			// standing behind it.
+			// --repository is checked and sent canonically although
+			// byoc.yaml types `repositories` as plain strings, as
+			// buildClusterCreateBody does for cloud_account_id: the
+			// path parameter reading a repository is a UUID and
+			// BackupRepository has no name field, so a check refuses
+			// nothing the API would accept. Its name does not end
+			// `-id`, so TestEveryIDFlagRefusesANonUUID does not see it.
 			canonicalRepos := make([]string, 0, len(repositories))
 			for _, raw := range repositories {
 				repoID, err := parseUUIDArg(raw, "repository ID")
@@ -150,9 +132,8 @@ Example:
 				}
 			}
 
-			// Untyped call: the handler answers RespondOK(ctx, nil)
-			// against a spec declaring no content, so success is 200
-			// carrying the JSON literal `null`. See
+			// Untyped call: the spec declares no content and the API
+			// answers 200 with the JSON literal `null`. See
 			// checkEmptyBodyResponse.
 			resp, err := client.RestoreDatabase(
 				context.Background(), id, body)

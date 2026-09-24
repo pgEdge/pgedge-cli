@@ -12,16 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// canonicalRoles are the CLI's user-facing role vocabulary, in
-// display order. admin, app and app_read_only are the documented,
-// canonical spellings; roleAliases below also accepts their long-form
-// equivalents, which is the vocabulary managed's --user-type uses on
-// the wire, so a value copied from there still works here.
+// canonicalRoles are the documented role spellings, in display order.
+// roleAliases also accepts the long forms managed's --user-type uses,
+// so a value copied from there still works here.
 var canonicalRoles = []string{"admin", "app", "app_read_only"}
 
-// roleAliases maps every spelling the CLI accepts for a built-in role
-// to the API's wire value, which for rotate-password is the short
-// form itself.
+// roleAliases maps every accepted spelling to the API's wire value,
+// which for rotate-password is the short form.
 var roleAliases = map[string]api.RotateDatabaseRolePasswordParamsRoleName{
 	"admin":                 api.Admin,
 	"app":                   api.App,
@@ -80,14 +77,10 @@ Example:
 				return err
 			}
 
-			// Before the prompt. A parse costs nothing, so confirming
-			// an operation whose ID cannot name anything wastes the
-			// operator's answer -- and, on a scripted run without
-			// --force, buries the real fault under a prompt refusal.
-			// It also makes the shipped example reachable by
+			// Before the prompt, so a scripted run without --force
+			// reports the bad ID rather than a prompt refusal, and so
 			// TestShippedExamplesAreNotMalformed, which waives the
-			// destructive-verb refusal and so cannot see a bad ID
-			// sitting behind it.
+			// prompt refusal, can see a bad ID.
 			id, err := parseUUIDArg(args[0], "database ID")
 			if err != nil {
 				return err
@@ -115,9 +108,11 @@ Example:
 				}
 			}
 
-			// Untyped call: rotate has no typed 2xx case, and byoc
-			// answers 200 with the JSON literal `null` where managed
-			// answers 204. See checkEmptyBodyResponse.
+			// Untyped, like the other bodiless verbs: the spec declares
+			// a 204, managed answers 204, and byoc answers 200 with the
+			// JSON literal `null`.
+			// This operation's parser alone has no catch-all, so the
+			// typed call would also have survived.
 			resp, err := client.RotateDatabaseRolePassword(
 				context.Background(), id, roleName)
 			if err != nil {

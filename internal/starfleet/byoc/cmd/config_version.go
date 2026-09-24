@@ -157,9 +157,8 @@ func (r configVersionRow) Columns() []string {
 }
 
 // configVersionRowFrom adapts an api.ConfigVersion into a table row.
-// Both list fields are optional AND explicitly null on dev's current
-// 15.x line, so each is dereferenced through derefStrings rather than
-// indexed directly.
+// Both list fields are optional and arrive explicitly null on the 15.x
+// line, so each goes through derefStrings.
 func configVersionRowFrom(v api.ConfigVersion) configVersionRow {
 	return configVersionRow{
 		name:       v.Name,

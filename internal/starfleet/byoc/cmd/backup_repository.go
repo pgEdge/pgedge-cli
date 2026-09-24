@@ -20,10 +20,9 @@ var backupRepositoryColumns = []string{
 	"ID", "DATABASE ID", "TYPE", "LOCATION", "RETENTION", "CREATED",
 }
 
-// backupColumns are the table headers for the backups that
-// backup-repository get reports. get does not share list's columns:
-// the two endpoints return different resources — a repository record
-// against the pgBackRest inventory held inside it.
+// backupColumns are the table headers for backup-repository get. They
+// differ from list's because get reads the pgBackRest inventory held
+// inside a repository, not the repository record.
 var backupColumns = []string{
 	"LABEL", "TYPE", "SIZE", "DATABASE SIZE", "STARTED", "FINISHED",
 }
@@ -31,10 +30,6 @@ var backupColumns = []string{
 // NewBackupRepositoryCmd builds the `pgedge starfleet byoc backup-repository`
 // command group. The plural "backup-repositories" is kept as a plural
 // alias (unlisted in help) so existing scripts keep working.
-//
-// A backup repository is not a backup store: a store is the cloud
-// bucket you register, a repository is the per-database pgBackRest
-// stanza written into one. backup-store manages the former.
 func NewBackupRepositoryCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "backup-repository",
@@ -88,12 +83,10 @@ Example:
   pgedge starfleet byoc backup-repository list --database-id <database_id>`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad --limit exits 2 rather than 5.
+			// NoUpperBound: byoc.yaml declares no paging bounds, and the
+			// server's clamp at 100 is measured, not published, so the
+			// CLI must not refuse a value the API would accept.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -104,13 +97,9 @@ Example:
 			if err != nil {
 				return err
 			}
-			// Changed, not != "": an `if databaseID != ""` guard makes
-			// an EXPLICITLY empty filter indistinguishable from an
-			// omitted one, so `--database-id "$D"` with the variable
-			// unset silently widened the read to every database. byoc's
-			// reference states, unqualified, that an explicitly empty
-			// ID filter is exit 2 rather than silently widened; this
-			// flag was one of two places where that was false.
+			// Changed, not != "": `--database-id "$D"` with D unset
+			// must exit 2, not silently widen the read to every
+			// database, as byoc's reference promises.
 			databaseID, sendDatabase, err := cli.OptionalStringFlag(
 				cmd.Flags(), "database-id",
 				"name a database, or omit the flag to list across all "+
@@ -222,16 +211,10 @@ Example:
   pgedge starfleet byoc backup-repository get <repository_id> n1 -o json`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			//
-			// This verb is NOT a list endpoint and its parameters are
-			// backup_limit/backup_offset (byoc.yaml), which declare no
-			// bounds -- hence NoUpperBound. Do not repeat the list
-			// verbs' "the server clamps at 100" here: pagination.go
-			// records that this handler defaults BackupLimit to 100 and
-			// never clamps a caller's value, which is why
-			// backupInfoDefaults carries cap 0.
+			// Before the client, as in list. backup_limit and
+			// backup_offset declare no bounds, and unlike the list
+			// endpoints the API never clamps this one (pagination.go),
+			// so backupInfoDefaults carries cap 0.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -274,15 +257,11 @@ Example:
 				return err
 			}
 
-			// Untyped call, because this operation declares a 204:
-			// "Empty response indicating the repository contains no
-			// data for the specified node" -- a normal outcome for a
-			// node with no backups yet, not an error. The *WithResponse
-			// wrapper cannot survive it: with no typed 2xx case to
-			// match, an empty 2xx carrying a JSON content type lands on
-			// the generated catch-all and json.Unmarshal of 0 bytes
-			// turns the success into "unexpected end of JSON input".
-			// Measured: exit 1 on the shape the spec promises.
+			// Untyped call: this operation declares a 204 for a node
+			// with no backups yet, and the generated parser has no case
+			// for it, so an empty 204 with a JSON content type reaches
+			// the catch-all and fails as "unexpected end of JSON input"
+			// (measured: exit 1). See checkEmptyBodyResponse.
 			resp, err := client.GetBackupRepositoryInfo(
 				context.Background(), id, nodeName, params)
 			if err != nil {
@@ -299,22 +278,11 @@ Example:
 				return err
 			}
 
-			// Decoded here rather than by the wrapper so an empty body
-			// stays nil instead of failing. A body that is present and
-			// malformed is still an error.
-			//
-			// `null` counts as empty, and that is not defensive
-			// tidiness: json.Unmarshal of `null` into a struct SUCCEEDS
-			// and leaves it zero, so without this the verb printed
-			// `{"backup_repository_id":"","database_id":"",
-			// "node_name":""}` at exit 0 with nothing on stderr — three
-			// blank fields a script parses as a real repository, which
-			// is a worse answer than the `null` this branch exists to
-			// avoid. The text path said "Repository , node ." for the
-			// same reason. `null` is also byoc's own idiom for nothing:
-			// its handlers answer RespondOK(ctx, nil) where a spec
-			// declares no content, and this operation declares both a
-			// 200 with content and a 204.
+			// `null` counts as empty: json.Unmarshal of `null` into a
+			// struct succeeds and leaves it zero, which would print
+			// three blank fields at exit 0 that a script parses as a
+			// real repository. The API sends `null` as a no-content
+			// body elsewhere (restore, rotate-password).
 			var info *api.PgBackrestRepositoryInfo
 			trimmed := bytes.TrimSpace(body)
 			if len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null")) {
@@ -328,10 +296,8 @@ Example:
 			}
 
 			if rt.Output.Structured() {
-				// Nothing came back, so nothing is printed: a success
-				// carrying no body leaves stdout empty in every format
-				// and says so on stderr. Printing `null` here
-				// would hand a script a value the API never sent.
+				// Printing `null` would hand a script a value the API
+				// never sent.
 				if info == nil {
 					fmt.Fprintln(rt.Stderr,
 						"No backup repository data returned.")
@@ -346,15 +312,10 @@ Example:
 				return nil
 			}
 
-			// The repository's own fields are context for the table,
-			// not a row of it, so they go to stderr like every other
-			// narration in the tree.
-			// Every field here is a plain string in the generated
-			// client -- BackupRepositoryId included, which is NOT a
-			// UUID type on this struct -- so each is escaped. The
-			// composed summary reaches stderr through Fprintln, where
-			// the printer cannot escape for us: its own punctuation is
-			// deliberate, so the builder is the checkpoint.
+			// Context for the table, not a row of it, so stderr. Every
+			// field is a plain string in the generated client,
+			// BackupRepositoryId included, and Fprintln escapes nothing,
+			// so each is sanitized here.
 			summary := fmt.Sprintf("Repository %s, node %s",
 				output.Sanitize(info.BackupRepositoryId),
 				output.Sanitize(info.NodeName))

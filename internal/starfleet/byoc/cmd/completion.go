@@ -36,9 +36,3 @@ func completeFirewallRuleName(
 		cobra.ShellCompDirectiveNoSpace |
 			cobra.ShellCompDirectiveNoFileComp
 }
-
-// Tier B: dynamic resource-name completion goes here. Each
-// get/delete/update command will set ValidArgsFunction to a
-// completeXxxNames helper that reuses clientFromCmd (helpers.go) and
-// the list/prefix-match logic in resolve.go. Deferred — see
-// ROADMAP.md.

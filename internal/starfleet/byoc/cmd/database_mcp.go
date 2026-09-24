@@ -155,10 +155,8 @@ func applyMCPService(
 	rt *module.Runtime, cmd *cobra.Command, dbID string,
 	opts *mcpServiceOpts, intent serviceIntent,
 ) error {
-	// Before the client, deliberately: clientFromCmd resolves
-	// credentials, so a malformed ID checked after it reports exit 5
-	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2.
+	// Before the client, which resolves credentials: a malformed ID
+	// checked after it would exit 5 "no credentials found".
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err
@@ -179,8 +177,7 @@ func applyMCPService(
 		return err
 	}
 
-	// Start from the deployed configuration, same as the other two
-	// services.
+	// Start from the deployed configuration, as PostgREST and RAG do.
 	cfg := existingMCPConfig(db)
 	if err := applyMCPFlags(cmd, opts, &cfg); err != nil {
 		return err
@@ -240,19 +237,12 @@ func applyMCPService(
 // deployed on the database, or a zero config when no MCP service is
 // present.
 //
-// MCP's secrets DO survive this round trip, unlike RAG's api_key and
-// PostgREST's jwt_secret. The spec records embedding_api_key,
-// init_tokens and init_users as "stored encrypted server-side; returned
-// in GET /databases/{id}", and that is accurate — verified live.
-//
-// It is only true of GET /databases/{id}, though, and that is the trap.
-// The API converts the two read paths differently, so the same service
-// reports its secrets on a get and omits them on a list.
-//
-// This merge is safe because fetchDatabaseWith calls GetDatabase. Any
-// future code that populates a config from a LIST response would
-// silently blank all three fields — the list result looks like a
-// service that simply has no secrets set.
+// MCP's secrets survive this round trip, unlike RAG's api_key and
+// PostgREST's jwt_secret: embedding_api_key, init_tokens and init_users
+// are returned by GET /databases/{id} (spec, and verified live), but
+// omitted from a list. This merge is safe only because fetchDatabaseWith
+// calls GetDatabase; a config built from a list response would silently
+// blank all three.
 func existingMCPConfig(db *api.Database) api.MCPServiceConfig {
 	svc := findService(db, api.ServiceServiceTypeMcp)
 	if svc == nil || svc.McpConfig == nil {
@@ -263,20 +253,15 @@ func existingMCPConfig(db *api.Database) api.MCPServiceConfig {
 
 // applyMCPFlags overlays the flags the caller actually set onto cfg.
 //
-// --allow-writes is the one that most needed this. It was assigned
-// unconditionally from a bool flag defaulting to false, so ANY other
-// change — `mcp update <db> --embedding-model x` — silently sent
-// allow_writes:false and revoked the service's write access. A bool
-// flag cannot express "leave it alone" through its value, so
-// Flags().Changed is the only thing that can tell the two apart. That
-// makes this a quiet privilege change, not merely a dropped setting,
-// and it is why every field here is gated the same way.
+// Every field is gated on Flags().Changed because a bool cannot say
+// "leave it alone": assigning --allow-writes by value would make any
+// other update send allow_writes:false and silently revoke write
+// access.
 //
-// After the overlay it refuses openai or voyage with no key reachable
-// from either this call or the stored config: that write used to
-// succeed and fail only at the deployed server's first call needing
-// the key, as managed's once did. ollama takes --ollama-url
-// instead of a key, so it is exempt.
+// When --embedding-provider openai or voyage is passed, it refuses the
+// call if no key is reachable from this call or the stored config;
+// otherwise the write succeeds and the deployed server fails at its
+// first call needing the key. ollama takes --ollama-url instead.
 func applyMCPFlags(
 	cmd *cobra.Command, opts *mcpServiceOpts, cfg *api.MCPServiceConfig,
 ) error {

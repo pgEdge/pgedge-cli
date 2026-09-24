@@ -10,13 +10,11 @@ import (
 )
 
 // nodePorts is the neutral shape the systemd-port warning reads, so
-// create's and update's distinct generated spec types (DatabaseSpec2,
-// DatabaseSpec5) can share one check. It mirrors the nodeHosts/
-// serviceConfig adapter pattern above: missingPort/missingPatroni
-// replicate the Control Plane's own rule exactly (a node is missing a
-// port iff spec.Port == nil && node.Port == nil, same for patroni_port)
-// so a spec that already satisfies systemd never triggers a network
-// call at all.
+// create's DatabaseSpec2 and update's DatabaseSpec5 share one check,
+// like nodeHosts and serviceConfig in database_spec.go. The missing
+// flags copy the Control Plane's rule exactly (spec.Port == nil &&
+// node.Port == nil, likewise patroni_port), so a spec that satisfies
+// systemd never triggers a network call.
 type nodePorts struct {
 	name           string
 	hostIDs        []string
@@ -54,11 +52,7 @@ func updateSpecNodePorts(spec *api.DatabaseSpec5) []nodePorts {
 	return out
 }
 
-// anyPortMissing reports whether any node in nodes is missing a port
-// or a patroni_port. warnSystemdPortsMissing uses this to skip the
-// ListHosts round trip entirely for an already-correct spec (including
-// every systemd-detected 'database init' template) or a spec that sets
-// both at the top level.
+// anyPortMissing reports whether any node lacks a port or patroni_port.
 func anyPortMissing(nodes []nodePorts) bool {
 	for _, n := range nodes {
 		if n.missingPort || n.missingPatroni {
@@ -68,30 +62,21 @@ func anyPortMissing(nodes []nodePorts) bool {
 	return false
 }
 
-// warnSystemdPortsMissing is the create/update-side twin of
-// detectOrchestrator: it shares
-// classifyOrchestrator's EqualFold matching against the same ListHosts
-// data, but keeps its own policy, since the two call sites differ on
-// purpose --
+// warnSystemdPortsMissing is the create/update counterpart of
+// detectOrchestrator. It reads the same ListHosts data and matches
+// "systemd" case-insensitively as classifyOrchestrator does, with its
+// own policy:
 //
-//   - timeout: this uses the command's real, already-resolved timeout
-//     (via the client clientFromCmd already built), never the 2s
-//     detection cap, because a warning that fires here is diagnosing a
-//     spec the user is about to submit for real, not shaping a
-//     generator's output;
-//   - failure posture: any error from ListHosts -- transport, 4xx, 5xx
-//     -- skips the warning silently. A diagnostic must never turn a
-//     working create/update into a failure, so this never returns an
-//     error and the caller does not check one;
-//   - cost: it calls ListHosts at all only when at least one node is
-//     missing a port or patroni_port (anyPortMissing), so every
-//     already-correct spec -- including every systemd-detected
-//     'database init' template -- pays nothing.
+//   - the command's resolved timeout, not the 2s detection cap, since
+//     it diagnoses a spec about to be submitted for real;
+//   - any ListHosts failure (transport, 4xx, 5xx) skips the warning
+//     silently, so a diagnostic never fails a working create or update;
+//   - ListHosts runs only when anyPortMissing, so a correct spec,
+//     including every systemd 'database init' template, costs nothing.
 //
-// It warns, never refuses: the port/patroni_port rule is server-side
-// and version-dependent, so a client-side hard refusal would be wrong
-// the day Control Plane relaxes it, and the server's own rejection is
-// already legible and per-field.
+// It warns rather than refuses: the rule is server-side and
+// version-dependent, so a refusal would be wrong the day Control Plane
+// relaxes it, and the server's rejection is already legible per field.
 func warnSystemdPortsMissing(
 	rt *module.Runtime, client *api.ClientWithResponses,
 	c connConfig, nodes []nodePorts,

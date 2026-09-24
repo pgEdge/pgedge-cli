@@ -168,12 +168,10 @@ Example:
     --public-key "$(cat ~/.ssh/id_ed25519.pub)"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client, because nothing is sent. A key that
-			// is not a key was stored and reported as created; the
-			// mistake then surfaced when someone could not reach a
-			// node, which is the furthest point from the cause, and
-			// the value is copied into node configuration so it
-			// outlives the moment it could have been corrected.
+			// Before the client. The API stores a key that is not a
+			// key and reports it created; the mistake surfaces only
+			// when someone cannot reach a node, and the value is
+			// copied into node configuration.
 			if err := validatePublicKey(publicKey); err != nil {
 				return err
 			}
@@ -301,40 +299,25 @@ func sshKeyRowFrom(k api.SshKey) sshKeyRow {
 // validatePublicKey refuses a --public-key that is not exactly one SSH
 // public key in authorized_keys form.
 //
-// ParseAuthorizedKey is the parser sshd uses, so what it accepts a node
-// will accept, and it tolerates the trailing comment a caller pasting
-// out of a .pub file has. Four of its tolerances are wrong for a field
-// that stores ONE key, and each is refused here:
+// ParseAuthorizedKey tolerates the trailing comment of a pasted .pub
+// file. These are wrong for a field that stores ONE key:
 //
-//   - MORE THAN ONE LINE. A second line parses as nothing at all: the
-//     first key is registered, the rest is discarded, and the command
-//     reports success. `$(cat a.pub b.pub)` is how that arrives.
-//     Rejecting on the line count also disposes of a bare CR, which
-//     otherwise truncates the line and hides whatever follows it.
-//   - A SECOND KEY ON THE SAME LINE. ParseAuthorizedKey splits at the
-//     first whitespace after the base64 field and hands everything
-//     beyond it back as the COMMENT, so `key1 key2` parses cleanly
-//     with an empty rest. The discriminator is that a real comment
-//     ("me@example") does not itself parse as a key.
-//   - A TYPE TOKEN THAT DISAGREES WITH THE BLOB. x/crypto decodes the
-//     base64 and never compares the two -- its own source says the
-//     duplicated type "is ignored here" (keys.go). So
-//     `ssh-rsa <ed25519 blob>` parses, and OpenSSH does not:
-//     `ssh-keygen -l` on that line exits 255 with "is not a public key
-//     file". Storing it is the bad-key failure mode exactly -- discovered
-//     when someone cannot reach a node, long after the cause.
-//   - authorized_keys OPTIONS (`no-pty,command="..." ssh-ed25519 ...`).
-//     They are a server-side access rule, not part of a key.
+//   - MORE THAN ONE LINE (`$(cat a.pub b.pub)`): the first key is
+//     registered and the rest silently discarded. The line check also
+//     catches a bare CR, which would truncate the line.
+//   - A SECOND KEY ON THE SAME LINE: everything after the base64 field
+//     comes back as the comment, so `key1 key2` parses cleanly. A real
+//     comment does not itself parse as a key.
+//   - A TYPE TOKEN THAT DISAGREES WITH THE BLOB: `ssh-keygen -l`
+//     refuses `ssh-rsa <ed25519 blob>`. x/crypto v0.57.0 refuses it
+//     too ("key type mismatch"), so the explicit check below does not
+//     fire on that version (measured 2026-09-24).
+//   - authorized_keys OPTIONS (`no-pty,command="..." ssh-ed25519 ...`),
+//     a server-side access rule, not part of a key.
 //
-// It is NOT aligned with the Starfleet UI's validator for the same field
-// (product-ui, src/http/schemas/createSshKeySchema.ts, a hand-written
-// structural walk because the browser has no SSH parser). Measured
-// over 44 inputs, this side is stricter on every difference but ONE:
-// the CLI accepts an SSH CERTIFICATE, which x/crypto parses natively
-// and the UI's length-prefixed walk cannot traverse. The UI accepts a
-// two-key value in any spelling, a trailing comment line, an ssh-dss
-// key, and embedded CR/VT/FF junk. ssh-dss is refused by x/crypto
-// itself, not by anything here.
+// SSH certificates are accepted, and so is a 1024-bit ssh-dss key:
+// x/crypto v0.57.0 parses it (measured 2026-09-24) and nothing here
+// refuses it.
 func validatePublicKey(v string) error {
 	reject := func(why string) error {
 		return &cli.UsageError{Msg: fmt.Sprintf(
@@ -360,10 +343,8 @@ func validatePublicKey(v string) error {
 			return reject("it carries more than one key")
 		}
 	}
-	// key.Type() is the algorithm read out of the DECODED blob, so
-	// comparing it with the token the caller typed is what x/crypto
-	// declines to do. It matches for every legitimate key, SSH
-	// certificates included.
+	// key.Type() comes from the decoded blob. It matches the typed
+	// token for every legitimate key, SSH certificates included.
 	if token := strings.Fields(trimmed)[0]; token != key.Type() {
 		return reject(fmt.Sprintf(
 			"it is labeled %q but the key material is %q, which "+

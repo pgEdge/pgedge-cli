@@ -13,7 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PostgREST configuration bounds, mirrored from the API schema so a bad
+// PostgREST configuration bounds, mirrored from the field descriptions
+// in byoc.yaml (the schema declares no minimum or maximum) so a bad
 // value is rejected before the round trip.
 const (
 	postgrestMinDBPool     = 1
@@ -174,10 +175,8 @@ func applyPostgRESTService(
 	rt *module.Runtime, cmd *cobra.Command, dbID string,
 	opts *postgrestServiceOpts, intent serviceIntent,
 ) error {
-	// Before the client, deliberately: clientFromCmd resolves
-	// credentials, so a malformed ID checked after it reports exit 5
-	// "no credentials found" for a mistake the caller can see -- and
-	// managed's identical verbs already answer 2.
+	// Before the client, which resolves credentials: a malformed ID
+	// checked after it would exit 5 "no credentials found".
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
 		return err
@@ -203,9 +202,8 @@ func applyPostgRESTService(
 	}
 
 	// Start from the deployed configuration so an update touches only
-	// the flags the caller passed. db_schemas and db_anon_role are
-	// required by the API, so an update that dropped them would be
-	// rejected server-side.
+	// the flags the caller passed; the API rejects an update missing
+	// the required db_schemas or db_anon_role.
 	cfg := existingPostgRESTConfig(db)
 	if err := applyPostgRESTFlags(cmd, opts, &cfg); err != nil {
 		return err
@@ -275,14 +273,8 @@ func existingPostgRESTConfig(db *api.Database) api.PostgRESTServiceConfig {
 }
 
 // validatePostgRESTFlags refuses every PostgREST flag value a caller
-// can get wrong on their own, with ExitUsage.
-//
-// Call this BEFORE clientFromCmd. Credential resolution happens there,
-// and these checks used to sit two reads further on, inside
-// applyPostgRESTFlags -- so `postgrest deploy --db-pool 0` with no
-// credentials configured answered exit 5 "no credentials found" for a
-// number the caller could see was out of range. Same ordering, and the
-// same reason, as managed's validatePgVersion.
+// can get wrong on their own, with ExitUsage. Call it BEFORE
+// clientFromCmd, or `--db-pool 0` with no credentials exits 5.
 func validatePostgRESTFlags(
 	cmd *cobra.Command, opts *postgrestServiceOpts, intent serviceIntent,
 ) error {
@@ -311,14 +303,10 @@ func validatePostgRESTFlags(
 			postgrestMinJWTSecrLen), ExitUsage)
 	}
 
-	// deploy alone: it starts from an empty configuration, so the two
-	// required fields can only come from these flags and a missing one
-	// is the caller's. An update inherits them from the deployed
-	// service, which is not readable this early -- applyPostgRESTFlags
-	// still answers for that case.
-	//
-	// MarkFlagRequired tests Changed and nothing else, so it does not
-	// cover this: `--db-schemas ""` satisfies cobra and arrives here.
+	// deploy alone: an update inherits both fields from the deployed
+	// service, which is not readable yet, so applyPostgRESTFlags
+	// answers for it. MarkFlagRequired tests only Changed, so
+	// `--db-schemas ""` satisfies cobra and arrives here.
 	if intent == intentDeploy {
 		var missing []string
 		if opts.dbSchemas == "" {
@@ -370,12 +358,9 @@ func applyPostgRESTFlags(
 		cfg.JwtRoleClaimKey = &opts.jwtRoleClaimKey
 	}
 
-	// Both fields are required by the API. deploy is refused earlier,
-	// by validatePostgRESTFlags, before a credential is resolved; what
-	// reaches here is `update --db-schemas ""`. Changed is true and
-	// the value is empty, so the overlay above just blanked a field
-	// the deployed service had filled -- a value the caller typed,
-	// which is why ExitUsage is right here and not merely inherited.
+	// What reaches here is `update --db-schemas ""`: the overlay just
+	// blanked a field the deployed service had filled with a value the
+	// caller typed, so ExitUsage.
 	var missing []string
 	if cfg.DbSchemas == "" {
 		missing = append(missing, "--db-schemas")

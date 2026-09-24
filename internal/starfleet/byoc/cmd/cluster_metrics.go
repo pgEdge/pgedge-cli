@@ -102,14 +102,9 @@ Example:
 // clusterMetricRows flattens a Metrics map into table rows, one per node
 // per resource.
 //
-// The map is walked in sorted key order because Go randomises map
-// iteration: without the sort the table's row order would change between
-// runs of the same command.
-//
-// A resource with no items still gets a row. On a healthy cluster
-// "status" arrives with an empty items list and no unit, and a renderer
-// that only walked items would drop it — leaving a table that reads as
-// though the cluster reports no status at all.
+// Keys are sorted so row order is stable across runs. A resource with
+// no items still gets a row: on a healthy cluster "status" arrives with
+// an empty items list, and dropping it would read as no status at all.
 func clusterMetricRows(metrics api.Metrics) []output.Row {
 	keys := make([]string, 0, len(metrics))
 	for k := range metrics {

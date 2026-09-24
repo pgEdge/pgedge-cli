@@ -17,7 +17,6 @@ var ingressServiceColumns = []string{"SERVICE ID", "DATABASE ID", "URL"}
 
 // NewIngressServiceCmd builds the `pgedge starfleet byoc ingress service`
 // command group, which manages the services registered on an ingress.
-// It stays a singular child of ingress.
 func NewIngressServiceCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "service",

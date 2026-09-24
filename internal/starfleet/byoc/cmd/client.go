@@ -15,29 +15,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Exit codes and the error type are owned by the starfleet module's own
-// conn package: byoc is a sub-tree of the starfleet module and shares
-// that one connection, so it reports the starfleet module's exit-code
-// vocabulary. Aliased here so the byoc tree reads naturally and so
-// main.go's exit-code extraction is unchanged.
+// Exit codes and the error type belong to the starfleet conn package:
+// byoc shares the starfleet connection, so it reports that exit-code
+// set. The aliases are permanent, not migration residue:
 //
-// This aliasing layer is permanent package-local vocabulary, not
-// migration residue — deleting it was considered deliberately, and it
-// stays:
-//
-//   - Each command tree keeps its own exit-code vocabulary as a
-//     package-local name. These lines are the single place recording
-//     that byoc reports account's set and not its own, and deleting them
-//     would scatter that one fact across every site that currently just
-//     says ExitGeneral.
-//   - newExitError is not decoration. conn.ExitError's fields are
-//     unexported, so byoc cannot write &ExitError{...} at all; some
-//     constructor has to exist, and having it named the same as controlplane's
-//     keeps the two trees' error construction reading alike.
-//   - Repointing every reference at conn. is a ~170-reference diff with
-//     no behaviour change that also leaves cp as the only tree with
-//     local exit vocabulary — a worse asymmetry than the one it
-//     removes.
+//   - They are the one place recording that byoc reports conn's set
+//     rather than its own; without them that fact is scattered across
+//     every site that says ExitGeneral.
+//   - managed and controlplane keep package-local names too, and
+//     repointing byoc's 216 non-test references (2026-09-24) at conn.
+//     changes no behaviour while making byoc the odd one out.
 const (
 	ExitOK       = conn.ExitOK
 	ExitGeneral  = conn.ExitGeneral
@@ -51,7 +38,8 @@ const (
 type ExitError = conn.ExitError
 
 // newExitError is the constructor for ExitError, whose fields are
-// unexported in conn.
+// unexported in conn. It shares controlplane's name so the two trees
+// build errors alike.
 func newExitError(msg string, code int) *ExitError {
 	return conn.NewExitError(msg, code)
 }
@@ -66,24 +54,14 @@ func checkResponse(status int, body string) error {
 // response — the *http.Response returned by `client.DeleteFoo(...)`
 // rather than by `client.DeleteFooWithResponse(...)`.
 //
-// Operations whose success carries no body must call it this way. Every
-// generated Parse*Response ends in a
+// Operations whose success carries no body must call it this way. 49
+// of the 50 generated Parse*Response functions end in a
 // `strings.Contains(Content-Type, "json") && true` catch-all that
-// unmarshals the body into the spec's Error model for ANY status, 2xx
-// included; where the operation also has no typed 2xx case, an
-// empty-bodied success has nothing else to match, so json.Unmarshal of
-// 0 bytes fails and the *WithResponse wrapper reports a call that
-// SUCCEEDED as "unexpected end of JSON input".
-//
-// Bypassing only the response parser keeps the generated request
-// builder, URL construction and parameter handling in play. This is the
-// same bypass, for the same catch-all, that conn.Exchange applies to
-// the token endpoint and that internal/starfleet/account/cmd's `client
-// delete` applies to DeleteClient.
-//
-// checkResponse accepts any 2xx, so this is correct whether or not the
-// server sends a JSON Content-Type alongside the empty response.
-// TestEmptyBodySuccessIsNotReportedAsFailure holds the contract.
+// unmarshals the body into Error for ANY status, 2xx included; with no
+// typed 2xx case to match, an empty success fails as "unexpected end of
+// JSON input". Bypassing only the parser keeps the generated request
+// builder in play. TestEmptyBodySuccessIsNotReportedAsFailure holds the
+// contract.
 func checkEmptyBodyResponse(resp *http.Response, what string) error {
 	defer func() { _ = resp.Body.Close() }()
 
@@ -133,9 +111,8 @@ func connFlags(cmd *cobra.Command) (
 	id, _ = cmd.Flags().GetString("client-id")
 	secret, _ = cmd.Flags().GetString("client-secret")
 	apiURL, _ = cmd.Flags().GetString("api-url")
-	// Fail safe, the way controlplane's reader does: a failed read must keep
-	// the 30-second default, because the error value would be zero —
-	// an UNBOUNDED client, the most dangerous misread available.
+	// A failed read keeps the default: its zero value would mean an
+	// unbounded client.
 	timeout = conn.RequestTimeout
 	if v, err := cmd.Flags().GetDuration("timeout"); err == nil {
 		timeout = v
@@ -144,20 +121,15 @@ func connFlags(cmd *cobra.Command) (
 	return id, secret, apiURL, timeout
 }
 
-// requestTimeoutFlag is the resolved --timeout for this invocation,
-// recorded by connFlags so the wait machinery's request floors honour
-// a raised bound instead of capping it at the default. Package-level
-// for the same reason the wait flags are: one command runs per
-// process invocation.
+// requestTimeoutFlag is the resolved --timeout, recorded by connFlags
+// so the wait machinery honours a raised bound. Package-level because
+// one command runs per process.
 var requestTimeoutFlag time.Duration
 
 // requestBound is the per-request allowance the wait machinery uses
-// where an unbounded request could defeat --wait-timeout: the
-// --timeout value when one is in force, and the 30-second default
-// when --timeout is 0. Review measured both failure modes this
-// two-sided rule closes: a plain conn.RequestTimeout floor cut a
-// raised --timeout 300s to 30s and refused the write, and no floor
-// at all let a hung read outlive --wait-timeout forever.
+// where an unbounded request could defeat --wait-timeout. Both sides
+// matter: a fixed conn.RequestTimeout would cut --timeout 300s to 30s,
+// and no bound at all lets a hung read outlive --wait-timeout.
 func requestBound() time.Duration {
 	if requestTimeoutFlag > 0 {
 		return requestTimeoutFlag

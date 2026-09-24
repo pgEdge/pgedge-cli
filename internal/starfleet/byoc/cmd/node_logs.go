@@ -137,15 +137,10 @@ Example:
 				if e.RawText == "" {
 					continue
 				}
-				// Verbatim, by the same decision byoc's database logs
-				// record: a journald line is CONTENT, and a log reader
-				// wants the bytes the node emitted. Nothing is
-				// interpolated around it -- one entry, one Fprintln,
-				// no header and no columns -- so an embedded newline
-				// splits a line the server already controlled rather
-				// than forging a field the CLI supplies. managed's
-				// renderer IS escaped because it puts a time and a
-				// level on the same line.
+				// Verbatim, as in database logs: nothing the CLI
+				// supplies shares the line, so an embedded newline
+				// cannot forge a field. managed's renderer escapes
+				// because it prints a time and level on the same line.
 				fmt.Fprintln(rt.Stdout, e.RawText)
 				printed++
 			}

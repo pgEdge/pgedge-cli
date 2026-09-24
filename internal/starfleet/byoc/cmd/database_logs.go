@@ -13,13 +13,10 @@ import (
 // databaseLogBlock is one node's slice of the log response, named for
 // the text renderer's benefit.
 //
-// The spec declares each block as a bare `type: object` with no
-// properties, so api.DatabaseLogsResponse.Logs is
-// []map[string]interface{}. That parses a real body, but every line
-// needs a cast to reach a string and "node" is not declared at all, so
-// the renderer would be asserting types inline. Structured output prints
-// the generated body as-is; this type exists only so `-o text` can read
-// fields.
+// The spec declares each block as a bare `type: object`, so the
+// generated Logs is []map[string]interface{} and "node" is undeclared.
+// Structured output prints the generated body as-is; this type exists
+// only so `-o text` can read fields without inline type assertions.
 type databaseLogBlock struct {
 	Logs []string
 	Node string
@@ -29,8 +26,8 @@ type databaseLogBlock struct {
 // of the generated bare-object blocks.
 //
 // A block missing either key yields an empty section rather than an
-// error: the API owns this shape, the spec constrains none of it, and a
-// partial answer is still worth printing.
+// error: the spec constrains none of this shape, and a partial answer
+// is still worth printing.
 func databaseLogBlocksFrom(
 	raw []map[string]interface{},
 ) []databaseLogBlock {
@@ -127,10 +124,8 @@ Example:
 				return nil
 			}
 			for _, block := range databaseLogBlocksFrom(resp.JSON200.Logs) {
-				// The node NAME is a label this command formats into a
-				// block header, so it is sanitized; the log lines below
-				// are content and pass through verbatim, which is what
-				// a log reader wants.
+				// The node name is a label in a header, so sanitized;
+				// log lines are content and pass through verbatim.
 				fmt.Fprintf(rt.Stdout, "==> %s <==\n",
 					output.Sanitize(block.Node))
 				for _, line := range block.Logs {

@@ -144,7 +144,7 @@ func writeArchive(t *testing.T, body []byte) (archive []byte, sha256hex string) 
 }
 
 // buildFixture assembles a self-consistent, signed release fixture:
-// the release list, a fixtureSource serving all four assets under
+// the release list, a fixtureSource serving all three assets under
 // archiveBody's own checksum, and the hermetic trust material that
 // verifies its signature. archiveOverride, when non-nil, replaces the
 // bytes the source actually serves for the archive asset — used to

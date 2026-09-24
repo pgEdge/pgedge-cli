@@ -234,8 +234,13 @@ func TestVerifyBundleRejectsTamperedChecksumsUnderARealBundle(t *testing.T) {
 	_, sig, trusted := sigprobe(t)
 	tampered := []byte("cafef00d  pgedge_0.0.0_linux_amd64.tar.gz\n")
 
-	if err := verifyBundle(tampered, sig, trusted, sigprobeIdentity); err == nil {
+	err := verifyBundle(tampered, sig, trusted, sigprobeIdentity)
+	if err == nil {
 		t.Fatal("verifyBundle accepted tampered checksums")
+	}
+
+	if !strings.Contains(err.Error(), "could not verify message") {
+		t.Errorf("error is not the artifact-binding check: %v", err)
 	}
 }
 
@@ -274,8 +279,13 @@ func TestVerifySignatureTamperedChecksumsFails(t *testing.T) {
 
 	tampered := []byte("cafef00d  pgedge_0.5.0_linux_amd64.tar.gz\n")
 
-	if err := VerifySignature(tampered, sig, trusted); err == nil {
+	err := VerifySignature(tampered, sig, trusted)
+	if err == nil {
 		t.Fatal("VerifySignature accepted tampered checksums")
+	}
+
+	if !strings.Contains(err.Error(), "could not verify message") {
+		t.Errorf("error is not the artifact-binding check: %v", err)
 	}
 }
 
@@ -327,6 +337,11 @@ func TestReleaseIdentityRegexpMatchesInstallRecipes(t *testing.T) {
 		if !strings.Contains(string(raw), tc.quoted) {
 			t.Errorf("%s does not carry the identity regexp %s",
 				tc.path, tc.quoted)
+		}
+		for _, want := range []string{releaseOIDCIssuer, "--bundle "} {
+			if !strings.Contains(string(raw), want) {
+				t.Errorf("%s does not carry %s", tc.path, want)
+			}
 		}
 		// One recipe per file: a second, laxer regexp beside the
 		// right one would otherwise pass this test.

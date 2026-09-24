@@ -72,6 +72,13 @@ func sha256File(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// The release assets VerifySignature and VerifyChecksum read, as
+// .goreleaser.yaml publishes them.
+const (
+	ChecksumsAsset = "checksums.txt"
+	BundleAsset    = ChecksumsAsset + ".sigstore.json"
+)
+
 // The install.sh recipe, character for character: `self update` must
 // accept exactly the signatures the install script accepts, so any
 // drift between the two is a supply-chain difference, not a detail.

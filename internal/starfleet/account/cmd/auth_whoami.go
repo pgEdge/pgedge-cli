@@ -11,27 +11,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// whoamiReport is the identity `auth whoami` renders. ClientID keeps
-// the name and meaning it has in authStatusReport — the credential's
-// own ID, the value --client-id takes — so a script reading
-// `.client_id` gets the same fact from either command. The API client
-// RECORD has a second, different identifier, the UUID `client get`
-// takes, which is why it needs a key of its own.
+// whoamiReport is the identity `auth whoami` renders. ClientID means
+// what it means in authStatusReport, the value --client-id takes;
+// the API client record's UUID, which `client get` takes, is
+// ClientRecordID.
 type whoamiReport struct {
 	ClientID       string `json:"client_id"`
 	ClientName     string `json:"client_name,omitempty"`
 	ClientRecordID string `json:"client_record_id,omitempty"`
-	// client_description, not description: this object flattens two
-	// resources into one, so a bare `description` beside tenant_name
-	// does not say whose.
+	// Not bare `description`: this object flattens two resources.
 	ClientDescription string `json:"client_description,omitempty"`
 	TenantName        string `json:"tenant_name,omitempty"`
 	TenantID          string `json:"tenant_id,omitempty"`
 	Plan              string `json:"plan,omitempty"`
 	PlanTrial         bool   `json:"plan_trial,omitempty"`
-	// TenantCount mirrors tenantInfo.Count in doctor.go: a credential
-	// that somehow spans more than one tenant is visible rather than
-	// silently reported as its first.
+	// TenantCount is doctor.go's tenantInfo.Count.
 	TenantCount int    `json:"tenant_count,omitempty"`
 	APIURL      string `json:"api_url"`
 }
@@ -65,12 +59,9 @@ Example:
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var report whoamiReport
 
-			// Resolved BEFORE the client is built, so this branch is
-			// reachable and its exit code has to be right. The two
-			// codes are the distinction `auth status` draws on the
-			// identical input, and every resource command draws through
-			// conn.Resolve: a half-supplied flag pair is the command
-			// being malformed, anything else is an absent credential.
+			// Resolved before the client is built, so these codes are
+			// the ones returned; they match `auth status` and
+			// conn.Resolve.
 			res, err := conn.ResolveCredentials(
 				rt, f.ClientID, f.ClientSecret, f.APIURL)
 			if err != nil {
@@ -129,17 +120,14 @@ Example:
 // the credential now in use, or nil when the tenant's client list
 // carries no such record.
 //
-// Matching is on auth0_id, not id: the credential's own ID is the
-// Auth0 client ID, which the list reports in its AUTH0 ID column,
-// while `id` is the record's UUID. Verified on all four profiles
-// against dev and prod on 2026-09-01 — the caller's own record was
-// present and matched in every case.
+// Matching is on auth0_id, not id: the credential's ID is the Auth0
+// client ID, while `id` is the record's UUID. On four live credentials
+// on 2026-09-01 the caller's own record was present and matched every
+// time.
 //
-// A nil result is not an error. The API only lets the request
-// through when a live client exists for the tenant, so the record is
-// there in practice;
-// this read is a separate call that could still answer without it, and
-// the tenant half of the report is worth printing either way.
+// A nil result is not an error: the record is there in practice, but
+// this separate read could answer without it, and the tenant half of
+// the report is worth printing either way.
 func whoamiClientRecord(
 	ctx context.Context, client *api.ClientWithResponses, clientID string,
 ) (*api.ApiClient, error) {
@@ -162,11 +150,9 @@ func whoamiClientRecord(
 	return nil, nil
 }
 
-// whoamiTenants reads the tenants the credential can reach. For a
-// client credential the API answers with exactly one — the tenant the
-// token is scoped to (measured live as one on four credentials on
-// 2026-09-01) — but the length is reported rather than
-// assumed.
+// whoamiTenants reads the tenants the credential can reach: one, the
+// token's own, on four live credentials on 2026-09-01, but the length
+// is reported rather than assumed.
 func whoamiTenants(
 	ctx context.Context, client *api.ClientWithResponses,
 ) ([]api.Tenant, error) {
@@ -185,12 +171,8 @@ func whoamiTenants(
 }
 
 // printWhoami renders report through rt.Output for json/yaml and as a
-// label block for text, mirroring printAuthStatus so `-o` behaves the
-// same on both verbs.
-//
-// Every interpolated value but APIURL arrives from the API, so each
-// goes through output.Sanitize: a name carrying a newline would
-// otherwise forge a line of this very block.
+// label block for text. Values go through output.Sanitize: a name
+// carrying a newline would otherwise forge a line of the block.
 func printWhoami(
 	rt *module.Runtime, report whoamiReport, noClient, noTenant bool,
 ) error {
@@ -228,9 +210,8 @@ func printWhoami(
 		fmt.Fprintf(rt.Stdout, "Tenant ID:     %s\n",
 			output.Sanitize(report.TenantID))
 	}
-	// Two calls rather than one over a composed string: appending the
-	// trial suffix after the Sanitize wrap hides the wrap behind a
-	// local, which is a shape the stderr-sanitize gate cannot see.
+	// Two calls, not one composed string: a Sanitize wrap hidden
+	// behind a local is invisible to the stderr-sanitize gate.
 	if report.Plan != "" {
 		if report.PlanTrial {
 			fmt.Fprintf(rt.Stdout, "Plan:          %s (trial)\n",

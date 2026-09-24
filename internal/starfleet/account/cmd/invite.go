@@ -17,27 +17,16 @@ var inviteColumns = []string{
 }
 
 // errUserSessionRequired is what `invite create` and `invite accept`
-// return instead of a request. Both operations need to know which
-// *user* is acting, and the CLI cannot tell the API that.
+// return instead of a request. Both need to know which *user* is
+// acting, and the CLI's client-credentials token names a tenant and a
+// client, never a user. Measured live: CreateInvite answers `400 cannot
+// create invites from an api client`, and AcceptInvite answers 401 on
+// the empty user ID. The same reason is why `pgedge starfleet user`
+// does not exist.
 //
-// The API derives identity from the token's claims: a user token
-// identifies a user, a client token a client, never both. The CLI's
-// only credential is a client ID and secret, so its token is always a
-// machine token. CreateInvite answers `400 cannot create invites from
-// an api client`, and AcceptInvite answers 401 on the empty user ID.
-// Both were measured live.
-//
-// This is the same reason `pgedge starfleet user` does not exist: a
-// client-credentials token carries a tenant but never a user, so the API
-// rejects it by design rather than by accident. These two verbs
-// predate that understanding, so rather than 404-ing a command that
-// looks like it should work, they explain the constraint and point at
-// the UI.
-//
-// Revival condition: if the CLI ever gains an interactive user login,
-// its token would carry a user and both verbs would start working —
-// delete this guard then. TestInviteGuardPremiseStillHolds fails if
-// the auth surface grows in a way that suggests that has happened.
+// If the CLI gains an interactive user login, delete this guard.
+// TestInviteGuardPremiseStillHolds fails if the auth surface grows in
+// a way that suggests it has.
 func errUserSessionRequired(verb, alternative string) error {
 	return newExitError(fmt.Sprintf(
 		"%s needs a signed-in user. The CLI authenticates with a "+
@@ -48,8 +37,7 @@ func errUserSessionRequired(verb, alternative string) error {
 }
 
 // NewInviteCmd builds the `pgedge starfleet invite` command group. The
-// plural "invites" is kept as a plural alias (unlisted in help) so
-// existing scripts keep working.
+// plural "invites" is an unlisted alias.
 func NewInviteCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "invite",
@@ -182,10 +170,8 @@ Example:
 // --- create ---
 
 // newInviteCreateCmd builds `invite create`, which cannot succeed with
-// the credentials the CLI supports — see errUserSessionRequired. The
-// flags are still declared so the help text stays honest about what
-// the operation takes, and so a future user-login flow only has to
-// restore the body (git history has it, from commit fc8cf11's parent).
+// the credentials the CLI supports; see errUserSessionRequired. The
+// flags stay declared so the help shows what the operation takes.
 func newInviteCreateCmd(_ *module.Runtime) *cobra.Command {
 	var (
 		email      string
@@ -278,9 +264,7 @@ Example:
 // --- accept ---
 
 // newInviteAcceptCmd builds `invite accept`, which cannot succeed with
-// the credentials the CLI supports — see errUserSessionRequired. Of the
-// two guarded verbs this is the more clear-cut: accepting an invite has
-// to record *which user* joined, and a machine credential names no user.
+// the credentials the CLI supports; see errUserSessionRequired.
 func newInviteAcceptCmd(_ *module.Runtime) *cobra.Command {
 	var token string
 	cmd := &cobra.Command{

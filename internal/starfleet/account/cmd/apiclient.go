@@ -13,27 +13,18 @@ import (
 )
 
 // apiClientColumns are the table headers shared by client list, get
-// and update. auth0_secret is deliberately absent: create is the only
-// command that renders a secret, and it is the only verb whose response
-// type can carry one.
+// and update. There is no secret column: only create's response type,
+// CreateApiClientResponse, carries auth0_secret. Every other verb
+// decodes into ApiClient, which has no such field, so a body carrying
+// the key has it discarded at unmarshal.
+// TestReadResponseTypeCannotCarryASecret fails if a re-vendor adds the
+// field to ApiClient.
 var apiClientColumns = []string{
 	"ID", "NAME", "DESCRIPTION", "AUTH0 ID", "CREATED", "UPDATED",
 }
 
-// "Only create renders a secret" is enforced structurally by the API's
-// split response types: POST /clients answers CreateApiClientResponse,
-// which carries auth0_secret, and every read answers ApiClient, which
-// has no such field at all — a read cannot render a secret because its
-// type cannot hold one, and a body that carries the key anyway has it
-// discarded at unmarshal.
-//
-// TestReadResponseTypeCannotCarryASecret is what keeps that true: if a
-// re-vendor ever puts the field back on ApiClient, it fails rather
-// than quietly restoring the leak.
-
 // NewAPIClientCmd builds the `pgedge starfleet client` command group.
-// The plural "clients" is kept as a plural alias (unlisted in help)
-// so existing scripts keep working.
+// The plural "clients" is an unlisted alias.
 func NewAPIClientCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "client",
@@ -167,16 +158,12 @@ Example:
 
 // --- create ---
 
-// newAPIClientCreateCmd builds `client create`, the one command in
-// this CLI that renders a credential.
-//
-// POST /account/v1/clients mints the client secret and returns it once; there
-// is no endpoint that can fetch it again. Every branch below therefore
-// treats a missing secret as a failure to report loudly rather than a
-// success to render quietly, and the secret itself goes to STDOUT
-// while all surrounding prose goes to stderr, so
-// `secret=$(pgedge starfleet client create ...)` captures exactly the
-// secret and nothing else.
+// newAPIClientCreateCmd builds `client create`, the one command that
+// renders a credential. POST /account/v1/clients returns the secret
+// once and no endpoint fetches it again, so a missing secret is
+// reported loudly, never rendered as success. Under -o text the secret
+// alone goes to stdout, so `secret=$(pgedge starfleet client create
+// ...)` captures exactly it.
 func newAPIClientCreateCmd(rt *module.Runtime) *cobra.Command {
 	var name, description string
 	cmd := &cobra.Command{
@@ -218,11 +205,10 @@ Example:
 			}
 
 			ac := resp.JSON200
-			// Checked before the format branch, not after: a 2xx with
-			// no parseable body means the secret was minted and is
-			// already unreachable, which is just as fatal under -o
-			// json as under -o text. Rendering `null` and exiting 0
-			// would tell a script it had captured a credential.
+			// Before the format branch: a 2xx with no parseable body
+			// means the secret was minted and is already lost. Under
+			// -o json, rendering `null` and exiting 0 would tell a
+			// script it had captured a credential.
 			if ac == nil {
 				return newExitError(
 					"client created but the API returned no body — the "+
@@ -235,9 +221,7 @@ Example:
 				if noSecret {
 					warnNoClientSecret(rt)
 				}
-				// The whole body, secret included: this is the only
-				// moment the secret exists anywhere, so a scripted
-				// caller must be able to capture it.
+				// Secret included: this is the only moment it exists.
 				return rt.Output.Print(ac, nil)
 			}
 
@@ -247,9 +231,6 @@ Example:
 				warnNoClientSecret(rt)
 				return nil
 			}
-			// Secret to STDOUT so it can be redirected or piped; the
-			// surrounding prose goes to stderr. Shown once by the API
-			// and never again.
 			fmt.Fprintf(rt.Stderr, "Client ID:     %s\n", output.Sanitize(ac.Auth0Id))
 			fmt.Fprint(rt.Stderr, "Client secret: ")
 			fmt.Fprintln(rt.Stdout, *ac.Auth0Secret)
@@ -270,9 +251,8 @@ Example:
 	return cmd
 }
 
-// warnNoClientSecret reports a created-but-secretless client. The
-// client exists and counts against the account, but nothing can
-// authenticate as it, so the only remedy is to delete and recreate.
+// warnNoClientSecret reports a created-but-secretless client: it
+// exists, but nothing can authenticate as it.
 func warnNoClientSecret(rt *module.Runtime) {
 	fmt.Fprintln(rt.Stderr,
 		"Warning: the API returned no client secret. It cannot be "+
@@ -306,11 +286,8 @@ Example:
 				return err
 			}
 
-			// UpdateApiClientInput's fields are pointers precisely so
-			// an omitted flag is omitted from the request rather than
-			// sent as "". Overlay only what cobra reports as Changed —
-			// reading the variables unconditionally would blank the
-			// other field on every update.
+			// Only Changed flags: reading both variables would send ""
+			// and blank the field the caller left out.
 			body := api.UpdateClientJSONRequestBody{}
 			changed := false
 			if cmd.Flags().Changed("name") {
@@ -342,8 +319,6 @@ Example:
 				return err
 			}
 
-			// PATCH answers with the same ApiClient schema POST does,
-			// so the strip is not optional here.
 			if rt.Output.Structured() {
 				return rt.Output.Print(resp.JSON200, nil)
 			}
@@ -404,35 +379,13 @@ Example:
 				return err
 			}
 
-			// This calls the untyped generated operation, DeleteClient,
-			// and NOT its DeleteClientWithResponse wrapper. Do not
-			// "restore" the WithResponse call — it reports a successful
-			// delete as a failure.
-			//
-			// The API answers a delete with a 204 that still carries
-			// the json Content-Type: net/http suppresses only
-			// Content-Length and Transfer-Encoding on a 204 — not
-			// Content-Type. The wire shape is therefore 204 +
-			// `Content-Type: application/json` + a 0-byte body.
-			//
-			// ParseDeleteClientResponse ends in a
-			// `Content-Type contains "json" && true` catch-all that
-			// unmarshals the body into the spec's Error model for ANY
-			// status, 2xx included. json.Unmarshal of 0 bytes fails, so
-			// the wrapper returns "unexpected end of JSON input" and
-			// discards the 204 entirely.
-			//
-			// Bypassing that one response parser keeps the generated
-			// request builder and the generated URL/param handling in
-			// play; only the parse step is replaced. This is the same
-			// bypass, for the same catch-all, that conn.Exchange applies
-			// to the token endpoint (internal/starfleet/conn/conn.go).
-			//
-			// DeleteClient is the only ctx.JSON(204, …) in starfleet —
-			// every other no-content handler uses RespondNoContent ->
-			// ctx.NoContent, which sets no Content-Type — which is why
-			// invite delete, membership delete and the byoc deletes do
-			// not need this.
+			// The untyped DeleteClient, not DeleteClientWithResponse:
+			// the API answers 204 with `Content-Type: application/json`
+			// and a 0-byte body, and ParseDeleteClientResponse's json
+			// catch-all unmarshals that into Error for any status, so
+			// the wrapper reports a successful delete as "unexpected
+			// end of JSON input". This is the checkEmptyBodyResponse
+			// bypass, written inline.
 			resp, err := client.DeleteClient(context.Background(), id)
 			if err != nil {
 				return fmt.Errorf("delete client: %w", err)
@@ -443,16 +396,11 @@ Example:
 			if err != nil {
 				return fmt.Errorf("read delete client response: %w", err)
 			}
-			// checkResponse accepts any 2xx, so this is correct whether
-			// the server sends that Content-Type header or not.
 			if err := checkResponse(resp.StatusCode,
 				string(body)); err != nil {
 				return err
 			}
 
-			// A 204 carries no body, and the operation has no success
-			// schema at all, so there is nothing to render in any
-			// format.
 			fmt.Fprintf(rt.Stderr, "API client %s deleted.\n", id)
 			return nil
 		},
@@ -476,11 +424,7 @@ func (r apiClientRow) Columns() []string {
 	}
 }
 
-// apiClientRowFrom adapts an api.ApiClient into a table row. That type
-// carries no secret field, so a column added later could not tabulate
-// one even by mistake. create is the only command that renders a
-// secret, it reads CreateApiClientResponse rather than ApiClient, and
-// it does not build a row.
+// apiClientRowFrom adapts an api.ApiClient into a table row.
 func apiClientRowFrom(c api.ApiClient) apiClientRow {
 	return apiClientRow{
 		id:          c.Id,

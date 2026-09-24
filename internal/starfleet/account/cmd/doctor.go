@@ -22,32 +22,18 @@ import (
 type authInfo struct {
 	Authenticated bool   `json:"authenticated"`
 	Source        string `json:"source,omitempty"`
-	// Problem names a credential-resolution failure the operator can act
-	// on, and is emitted only for the failures this command can describe
-	// more precisely than "not authenticated": a half-supplied flag or
-	// env pair, --profile against the env pair, an unreadable keychain.
-	// Absent for the ordinary
-	// no-credentials-anywhere case, whose remedy is already the Auth
-	// row's own text, so the JSON shape is unchanged for every input
-	// that produced no problem before.
+	// Problem names a credential-resolution failure more precise than
+	// "not authenticated": a half-supplied flag or env pair, --profile
+	// against the env pair, an unreadable keychain. Absent when there
+	// are simply no credentials, whose remedy is the Auth row's text.
 	Problem    string `json:"problem,omitempty"`
 	TokenValid bool   `json:"token_valid"`
 	// TokenBound reports whether the cached token was minted for the
-	// connection that is currently configured — the credential AND the
-	// resolved API base URL; see auth.CachedToken.MintedBy. It is
-	// meaningful only alongside TokenValid: an absent or expired token
-	// leaves it false with nothing more to say, since the "token
-	// expired or missing" wording already covers that case. It is
-	// never a lie about something unchecked: a legacy cache with no
-	// binding fingerprint reports false here too, the same as an
-	// explicit mismatch.
-	//
-	// It stays ONE boolean, and the field name does not change, even
-	// though the digest behind it grew an input. Which input
-	// diverged is not recoverable from a single digest, and that is the
-	// accepted cost of having one binding rather than two mechanisms
-	// that must agree; the reported wording names both possibilities
-	// instead of guessing.
+	// credential AND resolved API URL now configured; see
+	// auth.CachedToken.MintedBy. Meaningful only alongside TokenValid.
+	// A cache with no fingerprint reports false, as a mismatch does.
+	// It is one boolean over one digest, so it cannot say which input
+	// diverged; the text wording names both.
 	TokenBound bool   `json:"token_bound"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
 }
@@ -71,25 +57,22 @@ type environmentInfo struct {
 // tenantInfo names the tenant the active credential authenticates as,
 // and its plan.
 //
-// The plan is the reason this row exists. A profile carries one Starfleet
-// credential — byoc and managed both borrow it — so a profile IS a
-// tenant, and the API gates capabilities per plan. A byoc list against a
-// managed-plan tenant answers 200 with an empty array: routing works,
-// the module does not. Nothing in the credential says which product it
-// is for, so without this row the only symptom is an empty list or a
-// "plan does not allow ..." error far from its cause.
+// The plan is why this row exists. A profile carries one Starfleet
+// credential, which byoc and managed share, so a profile IS a tenant,
+// and the API gates capabilities per plan. A byoc list against a
+// managed-plan tenant answers 200 with an empty array, so without this
+// row the only symptom is an empty list or a "plan does not allow ..."
+// error far from its cause.
 type tenantInfo struct {
-	// Resolved is false when the tenant could not be read at all, which
-	// is the ordinary case when auth is broken. It is kept distinct from
-	// "read a tenant with no plan" so the text row can say which.
+	// Resolved is false when the tenant could not be read at all, as
+	// when auth is broken, distinct from a tenant with no plan.
 	Resolved  bool   `json:"resolved"`
 	Name      string `json:"name,omitempty"`
 	ID        string `json:"id,omitempty"`
 	Plan      string `json:"plan,omitempty"`
 	PlanTrial bool   `json:"plan_trial,omitempty"`
-	// Count is the number of tenants returned, so a credential that
-	// somehow spans more than one is visible rather than silently
-	// reported as its first.
+	// Count makes a credential spanning more than one tenant visible
+	// rather than silently reported as its first.
 	Count int `json:"count,omitempty"`
 }
 
@@ -105,9 +88,9 @@ type accountDoctorReport struct {
 
 // --- command wiring -----------------------------------------------------------
 
-// NewDoctorCmd builds the `pgedge starfleet doctor` command. The cloud
-// root owns f, so the checks below read the one set of connection
-// flags bound there.
+// NewDoctorCmd builds the `pgedge starfleet doctor` command. The
+// starfleet root owns f, so the checks below read the one set of
+// connection flags bound there.
 func NewDoctorCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
@@ -146,10 +129,9 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	res, err := conn.ResolveCredentials(
 		rt, f.ClientID, f.ClientSecret, f.APIURL)
 	if err != nil {
-		// A usage error is not "not authenticated" — the profile may
-		// hold a good pair that incomplete flags are overriding. Naming
-		// it is the whole job of this command. An unreadable keychain
-		// is named too, since the remedy differs from a missing login.
+		// A usage error is not "not authenticated": the profile may
+		// hold a good pair that incomplete flags override. An
+		// unreadable keychain is named too; its remedy differs.
 		if conn.IsUsageError(err) || !errors.Is(err, auth.ErrNoCredentials) {
 			return authInfo{Problem: err.Error()}
 		}
@@ -181,10 +163,9 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 		apiURL = res.APIURL
 	}
 	info := apiInfo{URL: apiURL}
-	// A bare client, deliberately: this is an unauthenticated reachability
-	// probe and `doctor` takes no --dry-run. Any write added here would
-	// bypass dry-run entirely, so it must move to conn.HTTPClientFor
-	// first.
+	// A bare client for an unauthenticated reachability probe; `doctor`
+	// takes no --dry-run. A write added here must move to
+	// conn.HTTPClientFor first, or it bypasses dry-run.
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	start := time.Now()
@@ -202,38 +183,25 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 	return info
 }
 
-// enterprisePlan is the only plan whose entitlements admit the byoc
-// module. The API denies the byoc capabilities — clusters, cloud accounts,
-// backup stores, ssh keys — on every other plan.
+// enterprisePlan is the only plan whose entitlements admit byoc. The
+// API denies its capabilities (clusters, cloud accounts, backup stores,
+// ssh keys) on every other plan.
 const enterprisePlan = "enterprise"
 
 // checkTenant reads the tenant the active credential authenticates as.
 //
-// Every failure is reported as "unresolved" rather than returned:
-// `cloud doctor` is the command you run precisely when auth is broken,
-// so it must not fail on a broken connection. Unresolvable credentials
-// mean no request is made at all, which is what keeps the no-credentials
-// case from dialling anything.
+// Every failure is reported as unresolved rather than returned:
+// `starfleet doctor` is run precisely when auth is broken. With
+// unresolvable credentials no request is made at all.
 //
-// It resolves EPHEMERALLY. This probe needs a token, but doctor
-// is a diagnostic and must not change the state it reports: resolving
-// through conn.Resolve meant a cold cache made doctor mint AND cache a
-// token, so it printed "token expired or missing" — checkAuth runs
-// first — and then exited having left a valid one behind. Worse, a
-// cached token is bound to the API URL, so `doctor --api-url
-// <elsewhere>` evicted the working token for the profile's own host.
-//
-// The probe itself is kept rather than dropped because the row earns
-// it. A profile carries one Starfleet credential, so a profile IS a tenant,
-// and the API gates capabilities per plan — without this row the
-// only symptom of a plan mismatch is an empty byoc list that looks like
-// "no clusters yet". Reporting less would trade one confusing output
-// for another.
+// It resolves EPHEMERALLY, because doctor must not change the state it
+// reports. Through conn.Resolve a cold cache would be filled after
+// checkAuth had printed "token expired or missing", and since a cached
+// token is bound to the API URL, `doctor --api-url <elsewhere>` would
+// evict the working token for the profile's own host.
 func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
-	// Floor, not passthrough: --timeout 0 unbounds ordinary commands
-	// by request, but doctor is a diagnostic whose one job is to
-	// answer, so a hung token mint must not hang it. A raised
-	// --timeout is honoured; only the unbounded case is floored.
+	// --timeout 0 unbounds ordinary commands, but a hung token mint
+	// must not hang a diagnostic. A raised --timeout is honoured.
 	timeout := f.Timeout
 	if timeout <= 0 {
 		timeout = conn.RequestTimeout
@@ -273,12 +241,9 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	return info
 }
 
-// tenantRow renders the Tenant check.
-//
-// A plan that is not enterprise is a warning, not an error: the
-// credential is working perfectly, it simply cannot drive byoc. Saying
-// so here is the whole point — the alternative symptom is an empty list
-// that looks like "no clusters yet".
+// tenantCheckRow renders the Tenant check. A plan that is not
+// enterprise is a warning, not an error: the credential works, it just
+// cannot drive byoc.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if !info.Resolved {
 		return output.CheckRow{
@@ -334,10 +299,8 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 
 	env := report.Environment
 
-	// Auth status. Order matters: TokenValid && TokenBound must be
-	// checked before TokenValid alone, since a mismatched cache is
-	// still "valid" by expiry and would otherwise fall into the plain
-	// ok branch.
+	// TokenValid && TokenBound before TokenValid alone: a mismatched
+	// cache is still valid by expiry.
 	authStatus := "error"
 	authDetail := "not authenticated"
 	if report.Auth.Problem != "" {
@@ -355,18 +318,10 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 		authDetail = fmt.Sprintf("authenticated via %s (expires %s)",
 			report.Auth.Source, report.Auth.ExpiresAt)
 	case report.Auth.Authenticated && report.Auth.TokenValid:
-		// TokenValid but not TokenBound: the credential resolves fine
-		// and authenticates fine, but the cached token was minted for a
-		// connection this command is not about to make — a rekey, a
-		// one-off flag override landing on a profile-minted cache, or
-		// an --api-url naming a different endpoint. The next
-		// command re-authenticates on its own — see conn.token — so
-		// this is a warning, not an error.
-		//
-		// The wording names both possibilities because one digest
-		// cannot say which of them moved, and naming only the
-		// credential would send an operator who typed --api-url
-		// looking for a rekey that never happened.
+		// Minted for another connection (a rekey, a flag override, or
+		// another --api-url); conn.token re-authenticates on the next
+		// call, so a warning. Naming only the credential would send an
+		// operator who typed --api-url looking for a rekey.
 		authStatus = "warning"
 		authDetail = fmt.Sprintf(
 			"the cached token was minted with a different credential "+
@@ -379,7 +334,6 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 			report.Auth.Source)
 	}
 
-	// API status
 	apiStatus := "error"
 	apiDetail := fmt.Sprintf("%s (unreachable)", report.API.URL)
 	if report.API.Reachable {
@@ -388,7 +342,6 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 			report.API.URL, report.API.Status, report.API.LatencyMs)
 	}
 
-	// Env details
 	envParts := []string{env.OS + "/" + env.Arch}
 	if env.NoColorSet {
 		envParts = append(envParts, "NO_COLOR: set")

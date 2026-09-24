@@ -64,7 +64,7 @@ type Module interface {
 
 	// Reference returns the module's AI-agent index page, which
 	// `pgedge llms <name>` prints; per-resource pages come from
-	// Documented. It is on the interface rather than in a central map
+	// Documents(). It is on the interface rather than in a central map
 	// so a module's command tree and its documentation arrive together,
 	// and each module's file is its own scope for the doc gates.
 	//

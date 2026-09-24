@@ -32,10 +32,7 @@ func ResolveTarget() (string, error) {
 
 	resolved, err := filepath.EvalSymlinks(exe)
 	if err != nil {
-		// A symlink that cannot be resolved is not fatal to the
-		// refusal checks: fall back to the unresolved path so they
-		// still have something to inspect, rather than failing the
-		// whole resolve on a problem they do not care about.
+		// Not fatal: the refusal checks inspect the unresolved path.
 		resolved = exe
 	}
 
@@ -80,18 +77,13 @@ func gitWorkingTreeRoot(path string) (string, bool) {
 	}
 }
 
-// StageBeside copies src to "<target>.new" and returns that path,
-// with target's own permission bits.
+// StageBeside copies src to "<target>.new", with target's permission
+// bits, and returns that path. Same directory, so the rename that
+// follows is atomic, and on Linux possible at all: renaming from
+// $TMPDIR fails with EXDEV when /tmp is another filesystem, and a tmpfs
+// /tmp with the binary in ~/.local/bin is the common non-root install.
 //
-// Same directory, deliberately: that is what makes the following
-// rename atomic, and on Linux it is what makes it POSSIBLE. Staging
-// under $TMPDIR and renaming from there fails with EXDEV whenever
-// /tmp is a different filesystem from the install directory — a tmpfs
-// /tmp with the binary in ~/.local/bin is the modal non-root install,
-// so this is the common case rather than an exotic one.
-//
-// A failure leaves nothing behind: whatever was written is removed
-// before the error returns, so a caller that got an error has no path
+// A failure removes whatever was written, so an error leaves no path
 // to clean up.
 func StageBeside(target, src string) (string, error) {
 	info, err := os.Stat(target)
@@ -141,11 +133,10 @@ func swapError(target string, err error) error {
 			"if that directory is not yours to write", filepath.Dir(target), err)
 }
 
-// The binary name inside a release archive: "pgedge" in the tar.gz
-// archives every non-Windows GOOS ships, "pgedge.exe" in the zip
-// Windows ships. ExtractBinary picks between them by the archive's
-// own extension rather than the host GOOS, so both extraction paths
-// are exercised on any platform's test suite.
+// The binary name inside a release archive: the tar.gz every
+// non-Windows GOOS ships, and Windows' zip. ExtractBinary picks by the
+// archive's extension, not the host GOOS, so every platform's test
+// suite exercises both paths.
 const (
 	unixBinaryName    = "pgedge"
 	windowsBinaryName = "pgedge.exe"
@@ -158,14 +149,11 @@ var errBinaryNotFound = errors.New("archive does not contain the pgedge binary")
 // ExtractBinary pulls the pgedge binary out of the archive at
 // archivePath into dstDir and returns the extracted file's path.
 //
-// Only the EXACT top-level member name ("pgedge", or "pgedge.exe" in
-// a zip) is ever extracted; every other entry is skipped. That is the
-// path-traversal guard: a nested path ("foo/pgedge") and a name
-// containing ".." ("../evil") both fail the exact-match test. A
-// symlink member, even one literally named "pgedge", is rejected
-// separately in each format — tar by its Typeflag, zip by the mode
-// bit its entries carry instead. No entry's Linkname is ever followed
-// or written.
+// Only the EXACT top-level member name is extracted. That is the
+// path-traversal guard: "foo/pgedge" and "../evil" both fail it. A
+// symlink member, even one named "pgedge", is skipped (tar by its
+// Typeflag, zip by its mode bit), and no Linkname is ever followed or
+// written.
 func ExtractBinary(archivePath, dstDir string) (string, error) {
 	if strings.EqualFold(filepath.Ext(archivePath), ".zip") {
 		return extractZip(archivePath, dstDir)
@@ -217,9 +205,8 @@ func extractZip(archivePath, dstDir string) (string, error) {
 		if entry.Name != windowsBinaryName {
 			continue
 		}
-		// zip has no first-class symlink typeflag the way tar does;
-		// a symlink member instead sets this bit in the stored mode.
-		// Guard the same as the tar path: skip rather than follow it.
+		// zip has no symlink typeflag; a symlink member sets this mode
+		// bit instead. Skip rather than follow it.
 		if entry.Mode()&os.ModeSymlink != 0 || entry.FileInfo().IsDir() {
 			continue
 		}

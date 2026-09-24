@@ -75,11 +75,8 @@ type TrustedMaterial struct {
 }
 
 // SigstoreCacheDir is where the refreshed TUF trust root is cached.
-//
-// sigstore-go's own default is ~/.sigstore/root, which this CLI has
-// no business writing: ~/.pgedge/cli is the only directory it owns,
-// and a directory a user has never heard of appearing in
-// their home is a surprise a verification step should not spring.
+// sigstore-go's default, ~/.sigstore/root, is outside ~/.pgedge/cli,
+// the only directory this CLI owns.
 func SigstoreCacheDir() (string, error) {
 	dir, err := config.DefaultCacheDir()
 	if err != nil {
@@ -99,11 +96,9 @@ func sigstoreTUFOptions() (*tuf.Options, error) {
 }
 
 // fetchTrustedRoot is root.FetchTrustedRootWithOptions, indirected so
-// a test can prove the options actually reach sigstore-go. The
-// options ARE the fix here: a call site that dropped them and went
-// back to root.FetchTrustedRoot() would silently cache under
-// ~/.sigstore again while every test of the path helpers still
-// passed.
+// a test can prove the options reach sigstore-go: a call site using
+// root.FetchTrustedRoot() would cache under ~/.sigstore again with
+// every path-helper test still passing.
 var fetchTrustedRoot = root.FetchTrustedRootWithOptions
 
 // ProductionTrustedMaterial loads the public-good Sigstore trust root
@@ -131,14 +126,9 @@ func ProductionTrustedMaterial() (*TrustedMaterial, error) {
 
 // NewTestTrustedMaterial builds a TrustedMaterial from a caller-minted
 // Sigstore root (e.g. sigstore-go's ca.NewVirtualSigstore) and a fixed
-// transparency-log answer, for command-level tests outside this
-// package that need to drive VerifySignature end to end without
-// dialing public Sigstore infrastructure — every in-package fixture
-// does the same thing with the unexported literal directly; this is
-// that literal's only door for a caller that cannot reach it.
-//
-// SCT verification is skipped, matching every such fixture: an
-// ephemeral CA embeds no SCT.
+// transparency-log answer, for tests outside this package that drive
+// VerifySignature end to end without dialing public Sigstore. SCT
+// verification is skipped: an ephemeral CA embeds no SCT.
 func NewTestTrustedMaterial(
 	roots root.TrustedMaterial, entries []*tlog.Entry,
 ) *TrustedMaterial {

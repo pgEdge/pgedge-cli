@@ -47,13 +47,12 @@ func (e *ghAuthError) unclassified() error {
 }
 
 // Runner constructs the *exec.Cmd for one invocation of an external
-// command. Production code passes exec.CommandContext; tests inject a
-// stub that re-execs the test binary instead of the real gh, so no
-// test ever shells out to a real gh.
+// command. Production passes exec.CommandContext; tests inject a stub
+// that re-execs the test binary, so no test runs a real gh.
 //
 // The context is the deadline seam: a child process has no timeout of
-// its own, so without it an unauthenticated `gh` sitting on a prompt
-// hangs the command with nothing to stop it.
+// its own, so an unauthenticated `gh` sitting on a prompt would hang
+// the command.
 type Runner func(ctx context.Context, name string, args ...string) *exec.Cmd
 
 // GHSource fetches releases and downloads assets by shelling out to
@@ -70,20 +69,17 @@ func NewGHSource(run Runner) *GHSource {
 	return &GHSource{run: run}
 }
 
-// Logging renders each gh invocation to out at Verbose or above — the
-// command line, then its exit status and elapsed time — so --verbose
-// and --debug show which rung a failure came from. gh's own
-// stderr is already carried in the returned error, so it is not
-// repeated here. It returns s for chaining.
+// Logging renders each gh invocation to out at Verbose or above, so
+// --verbose and --debug show which rung a failure came from. gh's
+// stderr is already in the returned error, so it is not repeated.
 func (s *GHSource) Logging(out io.Writer, lvl httplog.Level) *GHSource {
 	s.diag = out
 	s.lvl = lvl
 	return s
 }
 
-// exec runs cmd, rendering it to the diagnostic stream when one is
-// set as `gh <args>` — the invocation as a user would type it, not
-// cmd.Args, which a test's Runner points at a stub binary.
+// exec runs cmd, rendering it to the diagnostic stream as `gh <args>`,
+// not cmd.Args, which a test's Runner points at a stub binary.
 func (s *GHSource) exec(cmd *exec.Cmd, args ...string) error {
 	if s.diag == nil || s.lvl < httplog.Verbose {
 		return cmd.Run()
@@ -120,9 +116,7 @@ func (s *GHSource) Releases(ctx context.Context) ([]Release, error) {
 }
 
 // Download execs `gh release download <tag> --repo pgEdge/pgedge-cli
-// --pattern <assetName> --dir <dstDir>`; gh itself writes the file
-// named assetName into dstDir, so success returns that path without
-// this package touching the filesystem.
+// --pattern <assetName> --dir <dstDir>`; gh writes the file itself.
 func (s *GHSource) Download(
 	ctx context.Context, tag, assetName, dstDir string,
 ) (string, error) {
@@ -140,17 +134,14 @@ func (s *GHSource) Download(
 }
 
 // classify turns a failed gh invocation into an actionable error. A
-// missing gh binary is diagnosed straight from the exec error — no
-// point running gh auth status when gh itself cannot be found — and
-// names the install docs. Otherwise it runs `gh auth status` (never
-// as a preflight; only after a fetch has already failed) to tell an
-// unauthenticated session, wrapped as ErrGHUnauthenticated, from any
-// other failure (network, rate limit, ...), which is reported as-is
-// with gh's own stderr.
+// missing gh binary is diagnosed from the exec error. Otherwise it runs
+// `gh auth status`, only after a fetch has failed and never as a
+// preflight, to tell an unauthenticated session (ErrGHUnauthenticated)
+// from any other failure, which is reported with gh's own stderr.
 //
-// An expired deadline short-circuits that: `gh auth status` would be
-// killed by the same expired context and its failure would be read as
-// an unauthenticated session, turning our own timeout into exit 5.
+// An expired deadline short-circuits that: `gh auth status` would die
+// on the same context and read as unauthenticated, turning our own
+// timeout into exit 5.
 func (s *GHSource) classify(
 	ctx context.Context, err error, stderr *bytes.Buffer,
 ) error {

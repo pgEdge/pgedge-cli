@@ -16,9 +16,8 @@ var membershipColumns = []string{
 	"ID", "USER NAME", "USER EMAIL", "OWNER", "CREATED",
 }
 
-// NewMembershipCmd builds the `pgedge starfleet membership` command group.
-// The plural "memberships" is kept as a plural alias (unlisted in
-// help) so existing scripts keep working.
+// NewMembershipCmd builds the `pgedge starfleet membership` command
+// group. The plural "memberships" is an unlisted alias.
 func NewMembershipCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "membership",

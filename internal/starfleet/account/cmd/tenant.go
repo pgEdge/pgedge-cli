@@ -17,10 +17,9 @@ var tenantColumns = []string{
 }
 
 // NewTenantCmd builds the `pgedge starfleet tenant` command group. The
-// plural "tenants" is kept as a plural alias (unlisted in help) so
-// existing scripts keep working. There is no create or delete verb:
-// the spec exposes only GET /account/v1/tenants, GET /account/v1/tenants/{id} and
-// PATCH /account/v1/tenants/{id}.
+// plural "tenants" is an unlisted alias. There is no create or delete
+// verb: the spec exposes only GET /account/v1/tenants, GET
+// /account/v1/tenants/{id} and PATCH /account/v1/tenants/{id}.
 func NewTenantCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tenant",
@@ -171,11 +170,8 @@ Example:
 				return err
 			}
 
-			// UpdateTenantInput has exactly one field, so this overlay
-			// has exactly one branch — but it is still an overlay, not
-			// an unconditional assignment: reading name unconditionally
-			// would send an empty string when --name is omitted instead
-			// of failing with "nothing to update".
+			// Changed, not an unconditional read: an omitted --name
+			// must fail with "nothing to update", not send "".
 			body := api.UpdateTenantJSONRequestBody{}
 			changed := false
 			if cmd.Flags().Changed("name") {
@@ -233,11 +229,7 @@ func (r tenantRow) Columns() []string {
 	}
 }
 
-// tenantRowFrom adapts an api.Tenant into a table row. Domain, Plan
-// and ExternalId are all *string and PlanTrial is *bool — Tenant is
-// pointer-heavy in a way ApiClient and Invite are not, so every
-// optional field goes through output.DerefString or an explicit nil
-// check rather than being read directly.
+// tenantRowFrom adapts an api.Tenant into a table row.
 func tenantRowFrom(t api.Tenant) tenantRow {
 	trial := ""
 	if t.PlanTrial != nil {

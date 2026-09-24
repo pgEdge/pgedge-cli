@@ -35,27 +35,18 @@ func checkResponse(status int, body string) error {
 }
 
 // checkEmptyBodyResponse applies checkResponse to an UNTYPED generated
-// response — the *http.Response from `client.DeleteFoo(...)` rather
-// than from `client.DeleteFooWithResponse(...)`.
+// response — from `client.DeleteFoo(...)`, not DeleteFooWithResponse.
 //
-// Operations whose success carries no body must call it this way. Every
-// generated Parse*Response ends in a
+// Operations whose success carries no body must call it this way.
+// Every generated Parse*Response ends in a
 // `strings.Contains(Content-Type, "json") && true` catch-all that
-// unmarshals the body into the spec's Error model for ANY status, 2xx
-// included; where the operation also has no typed 2xx case, an
-// empty-bodied success has nothing else to match, so json.Unmarshal of
-// 0 bytes fails and the *WithResponse wrapper reports a call that
-// SUCCEEDED as "unexpected end of JSON input".
+// unmarshals the body into Error for ANY status; with no typed 2xx
+// case, an empty-bodied success reaches it and the wrapper reports
+// "unexpected end of JSON input". The API answers DeleteClient with a
+// 204 carrying the JSON Content-Type, which net/http keeps on a 204.
 //
-// This is not hypothetical here: the API answers DeleteClient with a
-// 204 that carries the JSON Content-Type, which net/http keeps on a
-// 204 — so `client delete` reported a successful delete as a failure
-// until it was bypassed this way.
-//
-// Bypassing only the response parser keeps the generated request
-// builder, URL construction and parameter handling in play.
-// checkResponse accepts any 2xx, so this is correct whether or not the
-// server sends that Content-Type.
+// Only the parser is bypassed; the generated request builder stays.
+// checkResponse accepts any 2xx, with or without that Content-Type.
 // TestAccountEmptyBodySuccessIsNotReportedAsFailure holds the contract.
 func checkEmptyBodyResponse(resp *http.Response, what string) error {
 	defer func() { _ = resp.Body.Close() }()
@@ -87,11 +78,6 @@ func clientFromCmd(
 
 // newAccountClient builds an authenticated Accounts API client from
 // explicit override values.
-//
-// It exists because not every caller has a *cobra.Command to read flags
-// from: `doctor`'s checks take the resolved conn.Flags struct, matching
-// checkAuth and checkAPI, so they stay callable from tests that never
-// build a command tree.
 func newAccountClient(
 	rt *module.Runtime, id, secret, apiURL string,
 	timeout time.Duration,
@@ -107,10 +93,8 @@ func newAccountClient(
 // not write the token cache: it resolves through conn.ResolveEphemeral,
 // so a cache miss mints a token for this process only.
 //
-// `doctor` is the only caller and must stay the only one. Every
-// other command WANTS the token cached — that is what keeps a session
-// to one token exchange — so this is a carve-out for a command whose
-// job is to observe, not a better default.
+// `doctor` must stay the only caller: every other command wants the
+// token cached, which keeps a session to one token exchange.
 // TestOnlyDoctorResolvesEphemerally pins the caller list.
 func newEphemeralAccountClient(
 	rt *module.Runtime, id, secret, apiURL string,
@@ -124,8 +108,8 @@ func newEphemeralAccountClient(
 }
 
 // accountClientFor builds the generated client over an already-resolved
-// connection. Shared so the two constructors above differ in exactly
-// one thing — whether the token may reach disk — and in nothing else.
+// connection, so the two constructors above differ only in whether the
+// token may reach disk.
 func accountClientFor(
 	c *conn.Conn,
 ) (*accountapi.ClientWithResponses, error) {

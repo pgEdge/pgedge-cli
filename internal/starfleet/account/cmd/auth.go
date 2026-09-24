@@ -20,9 +20,9 @@ import (
 	"golang.org/x/term"
 )
 
-// NewAuthCmd builds the `pgedge starfleet auth` command group. The cloud
-// root owns f, so every verb below reads the one set of connection
-// flags bound there.
+// NewAuthCmd builds the `pgedge starfleet auth` command group. The
+// starfleet root owns f, so every verb below reads the one set of
+// connection flags bound there.
 func NewAuthCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -88,17 +88,11 @@ Example:
 		},
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// Flags first, and flags only. login deliberately does NOT
-			// use conn/auth's full resolution chain: it is the command
-			// that writes the config, so falling through to env or the
-			// stored profile would skip the prompt for anyone already
-			// signed in and re-save the very credentials they are here
-			// to replace. See auth.FlagCredentials.
+			// Flags only, not the full resolution chain; see
+			// auth.FlagCredentials for why.
 			creds, err := auth.FlagCredentials(f.ClientID, f.ClientSecret)
 			if err != nil {
-				// Half a pair is a typo, not an auth failure — the same
-				// call the resource commands make (conn.Resolve) and the
-				// same code they return for it.
+				// Half a pair is a typo, the code conn.Resolve returns.
 				return newExitError(err.Error(), ExitUsage)
 			}
 
@@ -123,12 +117,8 @@ Example:
 			tok, err := conn.Login(context.Background(), rt, apiURL, clientID, clientSecret,
 				f.Timeout)
 			if err != nil {
-				// ExitAuth, not a plain error. `login` used to wrap this
-				// with fmt.Errorf, so nothing implementing coder reached
-				// cli.ExitCode and a rejected credential exited 1 here
-				// while the identical rejection from any resource command
-				// exited ExitAuth. conn.Resolve deliberately tags the same
-				// token() failure, so this was the one path that did not.
+				// ExitAuth, as conn.Resolve tags the same failure: a
+				// plain error would exit 1.
 				return newExitError(
 					fmt.Sprintf("authentication failed: %v", err),
 					ExitAuth)
@@ -214,37 +204,24 @@ func keychainSet(store *auth.Auth, secret string) error {
 	return store.Keychain.Set(store.KeychainAccount(), secret)
 }
 
-// authStatusReport is `auth status`'s -o json/-o yaml payload. Field
-// names mirror `cloud doctor`'s authInfo (doctor.go) wherever the
-// concepts match — authenticated, source, problem, token_valid,
-// expires_at — so the two commands never describe the same fact under
-// two different keys. It is a distinct type rather than a reuse of
-// authInfo because status also reports the client ID and the
-// resolved API URL, which doctor does not carry; this is its own
-// output surface, not another reason to churn authInfo's shape.
+// authStatusReport is `auth status`'s -o json/-o yaml payload. Keys
+// match `starfleet doctor`'s authInfo (doctor.go) wherever the concepts
+// match, so the two never name one fact two ways. It is a separate type
+// because status also reports the client ID and the resolved API URL.
 //
-// ClientSecret never appears here, in any field, under any name: the
-// client ID is an identifier and is printed by design (the same
-// ruling `profile show` follows), but the secret is a credential and
-// must never round-trip through any output format.
+// No field carries the client secret: the client ID is an identifier
+// and printed by design, as `profile show` does, but the secret must
+// never round-trip through any output format.
 type authStatusReport struct {
 	Authenticated bool   `json:"authenticated"`
 	Source        string `json:"source,omitempty"`
-	// Problem carries a credential-resolution failure this command can
-	// name more precisely than "not authenticated": a usage error or an
-	// unreadable keychain. Absent for the
-	// ordinary no-credentials-anywhere case, matching authInfo's own
-	// convention.
+	// Problem is as in authInfo: a usage error or an unreadable
+	// keychain, absent when there are simply no credentials.
 	Problem    string `json:"problem,omitempty"`
 	ClientID   string `json:"client_id,omitempty"`
 	APIURL     string `json:"api_url,omitempty"`
 	TokenValid bool   `json:"token_valid"`
-	// TokenBound mirrors authInfo.TokenBound (doctor.go): whether the
-	// cached token was minted for the connection now resolved — the
-	// credential and the API URL reported above, together. See that
-	// field's comment for the "meaningful only alongside TokenValid"
-	// caveat and for why one boolean cannot say which of the two
-	// diverged; both apply identically here.
+	// TokenBound means what authInfo.TokenBound (doctor.go) means.
 	TokenBound bool   `json:"token_bound"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
 }
@@ -273,11 +250,9 @@ Example:
 			res, err := conn.ResolveCredentials(
 				rt, f.ClientID, f.ClientSecret, f.APIURL)
 			if err != nil {
-				// Same misdiagnosis `cloud doctor` had: a usage error is
-				// not an absence of credentials, and saying "Not
-				// authenticated." sends the operator looking for a login
-				// they may already have. status is a diagnostic, so it
-				// names the cause instead.
+				// A usage error is not an absence of credentials; a bare
+				// "Not authenticated." would send the operator looking
+				// for a login they may already have.
 				report := authStatusReport{APIURL: conn.ResolveAPIURL(
 					rt.Config.StarfleetProfile(rt.Profile), f.APIURL)}
 				text := "Not authenticated.\n"
@@ -289,12 +264,8 @@ Example:
 				if pErr := printAuthStatus(rt, report, text); pErr != nil {
 					return pErr
 				}
-				// A usage error is the operator mistyping the command,
-				// matching conn.Resolve; anything else is "no usable
-				// credentials", ExitAuth. doctor's own exit code is
-				// deliberately unaffected: it never fails on missing
-				// credentials. err carries the remedy, so main.go's
-				// "Error: ..." line is never a bare duplicate.
+				// Codes match conn.Resolve. err carries the remedy, so
+				// main.go's "Error: ..." line is not a bare duplicate.
 				code := conn.ExitAuth
 				if usage {
 					code = conn.ExitUsage
@@ -315,9 +286,8 @@ Example:
 				fmt.Sprintf("API URL:      %s", apiURL),
 			}
 
-			// A missing or expired token is not a failure: it just means
-			// the next command that needs one will fetch it. Credentials
-			// resolving is the bar for exit 0, not a warm token cache.
+			// A missing or expired token is not a failure: the next
+			// command that needs one fetches it.
 			if res.Env {
 				lines = append(lines,
 					"Token:        never cached (env credentials)")
@@ -332,21 +302,12 @@ Example:
 				report.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
 				lines = append(lines, "Token:        expired")
 			case !tok.MintedBy(apiURL, creds.ClientID, creds.ClientSecret):
-				// Unexpired but minted for a different connection — a
-				// rekey, a one-off flag override landing on a
-				// profile-minted cache, or an --api-url naming
-				// an endpoint other than the one that minted the token.
-				// Not a failure: the next command that actually
-				// needs a token re-authenticates on its own
-				// (conn.token). TokenValid stays true here — it means
-				// exactly what it has always meant, unexpired — and
-				// TokenBound (left false) is what carries the mismatch;
-				// this must agree with doctor's authInfo, which
-				// computes TokenValid from expiry alone.
-				//
-				// apiURL is the value resolved and printed above, so
-				// the line below can never describe a different
-				// endpoint from the one this report names.
+				// Unexpired but minted for a different connection: a
+				// rekey, a flag override on a profile-minted cache, or
+				// another --api-url. conn.token re-authenticates on the
+				// next call. TokenValid stays true, meaning unexpired as
+				// in doctor's authInfo; TokenBound, left false, carries
+				// the mismatch.
 				report.TokenValid = true
 				report.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
 				lines = append(lines,
@@ -365,10 +326,8 @@ Example:
 	}
 }
 
-// printAuthStatus renders report through rt.Output for json/yaml, so
-// -o works the same way it does for every other command in the tree,
-// or writes text verbatim for the text/table format, preserving the
-// exact prose auth status has always printed.
+// printAuthStatus renders report through rt.Output for json/yaml, or
+// writes text verbatim otherwise.
 func printAuthStatus(
 	rt *module.Runtime, report authStatusReport, text string,
 ) error {
@@ -409,9 +368,6 @@ Example:
 						output.Sanitize(err.Error()))
 				}
 			}
-			// Drop the persisted client_id/client_secret so a
-			// long-lived secret never outlives the session, keeping
-			// the profile's api_url for the next login.
 			rt.Config.SetStarfleetProfile(rt.Profile,
 				&config.StarfleetProfile{APIURL: cp.APIURL})
 			if err := rt.Config.Save(); err != nil {
@@ -424,11 +380,9 @@ Example:
 	}
 }
 
-// promptCredentials asks for a client ID and secret on stdin. It is
-// reached only when neither credential flag was supplied — reading
-// stdin unconditionally is what made `login` unusable from a script,
-// since a closed stdin fails at the first read no matter what the
-// caller passed on the command line.
+// promptCredentials asks for a client ID and secret on stdin. Call it
+// only when neither credential flag was supplied: a closed stdin fails
+// at the first read, which would break `login` in a script.
 func promptCredentials(rt *module.Runtime) (id, secret string, err error) {
 	reader := bufio.NewReader(rt.Stdin)
 
@@ -445,9 +399,8 @@ func promptCredentials(rt *module.Runtime) (id, secret string, err error) {
 	return strings.TrimSpace(id), secret, nil
 }
 
-// readSecret reads the client secret. When stdin is an interactive
-// terminal the input is not echoed; otherwise (tests, pipes) a plain
-// line is read from the buffered reader so the flow stays scriptable.
+// readSecret reads the client secret, unechoed on a terminal and as a
+// plain line otherwise.
 func readSecret(rt *module.Runtime, reader *bufio.Reader) (string, error) {
 	if file, ok := rt.Stdin.(*os.File); ok &&
 		term.IsTerminal(int(file.Fd())) {

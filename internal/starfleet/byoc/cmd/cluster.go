@@ -17,9 +17,9 @@ import (
 // clusterColumns are the table headers shared by cluster list and get.
 var clusterColumns = []string{"ID", "NAME", "STATUS", "REGIONS", "CREATED"}
 
-// NewClusterCmd builds the `pgedge starfleet byoc cluster` command group. The
-// plural "clusters" is kept as a plural alias (unlisted in help) so
-// existing scripts keep working.
+// NewClusterCmd builds the `pgedge starfleet byoc cluster` command group.
+// The plural "clusters" stays as an alias so existing scripts keep
+// working.
 func NewClusterCmd(rt *module.Runtime) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "cluster",
@@ -68,12 +68,10 @@ Example:
   pgedge starfleet byoc cluster list --limit 20 -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Before the client: a bad --limit is knowable locally, so
-			// it answers 2 rather than 5 for credentials it never needed.
-			// byoc.yaml declares no paging bounds on any list endpoint,
-			// hence NoUpperBound: the server clamps at 100 today, but a
-			// measured clamp is not a published contract and the CLI must
-			// not refuse a value the API would accept.
+			// Before the client, so a bad --limit answers 2 rather than
+			// a credential failure. NoUpperBound because byoc.yaml
+			// declares no paging bounds: the server clamps at 100 today,
+			// but a measured clamp is not a published contract.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
 				cmd.Flags(), "limit", cli.LimitLowest, cli.NoUpperBound)
 			if err != nil {
@@ -252,15 +250,9 @@ Example:
 			opts.volumeSizeSet = cmd.Flags().Changed("volume-size")
 			body, err := buildClusterCreateBody(rt, opts)
 			if err != nil {
-				// Passed through unchanged, never rebuilt. cli.ExitCode
-				// maps *cli.UsageError to 2 and consults the coder
-				// interface for *ExitError, so an error arriving here
-				// already carries the code it should exit with --
-				// re-wrapping it could only lose one. The old form
-				// special-cased *ExitError and flattened everything
-				// else to ExitGeneral, which would have silently
-				// returned a *cli.UsageError to exit 1 the moment a
-				// parse moved inside this builder.
+				// Returned unchanged: the error already carries its exit
+				// code (*cli.UsageError or *ExitError), and re-wrapping
+				// could only lose it.
 				return err
 			}
 
@@ -269,37 +261,25 @@ Example:
 				return err
 			}
 
-			// One read, on the verb where it is worth the most: a dry
-			// run that passes a nonexistent --cloud-account-id gives
-			// the strongest possible false confidence right before the
-			// CLI provisions real cloud infrastructure.
+			// A dry run that passed a nonexistent --cloud-account-id
+			// would give false confidence right before real
+			// infrastructure is provisioned. A missing account is exit
+			// 4, not 2: the value is well-formed and names nothing.
 			//
-			// A missing account answers exit 4 rather than 2 -- the
-			// value is well-formed and names nothing, which is what
-			// the unknown-resource code is for.
-			//
-			// --regions gets no such check, and the reason is worth
-			// recording so nobody looks for the missing half: byoc
-			// publishes no region list. The only region-shaped
-			// endpoint takes a region as INPUT
+			// --regions gets no such check because byoc publishes no
+			// region list. The only region-shaped endpoint
 			// (/cloud-accounts/{id}/regions/{region}/availability-
-			// zones) and answers an empty list for a region that does
-			// not exist, so it cannot tell a bad region from a real
-			// one with no zones. Measured against a live BYOC tenant:
-			// `mars-1` returns an empty list at exit 0.
+			// zones) takes a region as input and answers an empty list
+			// for one that does not exist; measured on a live BYOC
+			// tenant, `mars-1` returns an empty list at exit 0.
 			if err := checkCloudAccountExists(
 				context.Background(), rt, client,
 				opts.cloudAccountID); err != nil {
 				return err
 			}
 
-			// Printed only once the request is actually going out, so a
-			// rejection above doesn't also spam a warning about a
-			// request that was never sent. That is why it sits below
-			// the cloud-account check and not above it: the check
-			// answers exit 4 and sends nothing, and a warning about
-			// the backup store of a cluster that was never created
-			// reads as though it had been.
+			// Below every check, so a refused create prints no warning
+			// about a cluster that was never sent.
 			if w := backupStoreWarning(opts.backupStoreIDs); w != "" {
 				fmt.Fprintln(rt.Stderr, w)
 			}
@@ -365,11 +345,9 @@ Example:
 	f.StringVar(&opts.instanceType, "instance-type", "",
 		"Instance type for all nodes (shorthand for --node; "+
 			"creates one node per region)")
-	// The floor is interpolated, never spelled out: the generated
-	// reference and llms.txt both quote this string, so a hardcoded "1"
-	// would go on claiming 1 after the constant moved and docs-check
-	// would still pass. Deriving it makes `make docs` a second gate on
-	// volumeSizeMin.
+	// The floor is interpolated, not spelled out: the generated
+	// reference quotes this string, so a hardcoded "1" would outlive a
+	// change to volumeSizeMin with docs-check still passing.
 	f.IntVar(&opts.volumeSize, "volume-size", 0,
 		fmt.Sprintf("Volume size in GB for all nodes, %d or more "+
 			"(shorthand for --node; creates one node per region)",
@@ -379,9 +357,8 @@ Example:
 	_ = cmd.MarkFlagRequired("regions")
 	_ = cmd.MarkFlagRequired("node-location")
 	addWaitFlags(cmd)
-	// Fed from nodeLocations, in its order, so the help text and the
-	// completion cannot list the two values differently -- and so a
-	// third location added to the contract reaches both at once.
+	// Fed from nodeLocations, so the help text and the completion
+	// cannot disagree.
 	_ = cmd.RegisterFlagCompletionFunc(
 		"node-location", completeFixed(nodeLocations...))
 	_ = cmd.RegisterFlagCompletionFunc(
@@ -403,32 +380,20 @@ func buildClusterCreateBody(
 	}
 
 	// First, and before the client is built: node_location is a closed
-	// enum in the contract and nothing was enforcing it.
+	// enum in the contract.
 	if err := validateNodeLocation(rt, o.nodeLocation); err != nil {
 		return body, err
 	}
 
-	// The same UUID contract backup-store create applies to this
-	// field. byoc.yaml types the create body's cloud_account_id as a
-	// bare string, but /byoc/v1/cloud-accounts/{id} types the path
-	// parameter as a UUID and the generated client will not accept
-	// anything else -- so this is the spec's own shape for the field,
-	// not one the CLI invented. Whether the account EXISTS is a
-	// separate question, answered after the client is built.
+	// byoc.yaml types the body's cloud_account_id as a bare string, but
+	// /byoc/v1/cloud-accounts/{id} types the path parameter as a UUID,
+	// so this is the spec's own shape for the field. Parsed here for
+	// exit 2 before anything is sent; checkCloudAccountExists parses
+	// again because it needs the uuid.UUID for its GET.
 	//
-	// checkCloudAccountExists parses it again rather than being handed
-	// the result: it needs the uuid.UUID for the GET, and it is called
-	// from a point that cannot reach this one's local. Parsing is
-	// idempotent, and the duplication buys the exit-2-before-anything
-	// ordering this call site exists for.
-	// The parsed value is KEPT and sent, not discarded. uuid.Parse
-	// accepts `{uuid}` and `urn:uuid:uuid` as well as the canonical
-	// spelling, so discarding it and forwarding the raw local put a
-	// braced id on the wire verbatim -- measured, and the API answers
-	// that the same way it answered a prefix. Passing the check and
-	// then sending something else is the unchecked-ID defect in a
-	// different spelling. uuid.UUID.String() is canonical by
-	// construction, so every one of these sites sends one shape.
+	// The canonical String() is sent, not the raw flag: uuid.Parse also
+	// accepts `{uuid}` and `urn:uuid:uuid`, and a braced id sent
+	// verbatim was measured to be refused by the API as a prefix is.
 	cloudAccountID, err := parseUUIDArg(
 		o.cloudAccountID, "cloud account ID")
 	if err != nil {
@@ -436,24 +401,10 @@ func buildClusterCreateBody(
 	}
 	canonicalAccount := cloudAccountID.String()
 	body.CloudAccountId = &canonicalAccount
-	// Recorded, like every other check in this function.
-	//
-	// The premise first given for adding this was wrong and is worth
-	// correcting rather than repeating: `cluster create --dry-run` did
-	// NOT report "none — this command has no client-side checks".
-	// validateNodeLocation and the private-subnet check already
-	// recorded unconditionally, so the report was INCOMPLETE, not
-	// false -- two lines missing out of four. Measured by deleting
-	// this line and reading the ledger.
 	rt.DryRun.Pass("cloud account ID is a UUID")
 
-	// A backup store is a pgEdge resource addressed by UUID —
-	// `backup-store get <backup_store_id>` demands one — and this slice
-	// reached the request body verbatim, so a prefix came back as a
-	// server-side failure naming the store rather than the id. Exactly
-	// the unchecked-ID shape, found by the ID-flag sweep in
-	// internal/clitest after byoc's reference had already claimed the
-	// flag was checked.
+	// A backup store is addressed by UUID. Sent unchecked, a prefix came
+	// back as a server-side failure naming the store rather than the id.
 	if len(o.backupStoreIDs) > 0 {
 		canonical := make([]string, 0, len(o.backupStoreIDs))
 		for _, raw := range o.backupStoreIDs {
@@ -477,11 +428,7 @@ func buildClusterCreateBody(
 		}
 		*body.FirewallRules = append(*body.FirewallRules, r)
 	}
-	// Reported for the same reason cluster update reports it: this loop
-	// is a client-side check that runs before anything is sent, and a
-	// dry run that does not mention it invites the reader to conclude
-	// the rules were not checked. Guarded on presence, since
-	// "0 firewall rule(s) valid" would be noise.
+	// Guarded on presence: "0 firewall rule(s) valid" would be noise.
 	if body.FirewallRules != nil {
 		rt.DryRun.Pass("%d firewall rule(s) valid", len(*body.FirewallRules))
 	}
@@ -535,14 +482,10 @@ Example:
     --cascade --force`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Before the prompt. A parse costs nothing, so confirming
-			// an operation whose ID cannot name anything wastes the
-			// operator's answer -- and, on a scripted run without
-			// --force, buries the real fault under a prompt refusal.
-			// It also makes the shipped example reachable by
-			// TestShippedExamplesAreNotMalformed, which waives the
-			// destructive-verb refusal and so cannot see a bad ID
-			// sitting behind it.
+			// Before the prompt, so a scripted run without --force
+			// reports the bad ID rather than a prompt refusal. It also
+			// lets TestShippedExamplesAreNotMalformed, which waives the
+			// destructive-verb refusal, see a bad ID in the example.
 			id, err := parseUUIDArg(args[0], "cluster ID")
 			if err != nil {
 				return err
@@ -636,17 +579,11 @@ Example:
     --backup-store-id f2a3b4c5-d6e7-8901-fabc-012345678901`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// An explicitly empty --backup-store-id is a usage error,
-			// checked BEFORE the at-least-one rule below. pflag parses
-			// a StringSlice through CSV, so `--backup-store-id ""`
-			// yields an EMPTY slice rather than one blank element --
-			// indistinguishable from omitting the flag, so it fell
-			// through to "specify at least one of ..." at exit 1. That
-			// is the wrong code and the wrong diagnosis for
-			// `--backup-store-id "$S"` with the variable unset, and
-			// byoc's reference states unqualified that an explicitly
-			// empty ID filter is exit 2. Changed is the only thing
-			// that can tell the two apart.
+			// Before the at-least-one rule: pflag parses a StringSlice
+			// through CSV, so `--backup-store-id "$S"` with S unset
+			// yields an empty slice, and only Changed tells that from
+			// an omitted flag. The at-least-one message would be the
+			// wrong diagnosis.
 			if cmd.Flags().Changed("backup-store-id") &&
 				len(backupStoreIDs) == 0 {
 				return &cli.UsageError{Msg: "--backup-store-id given " +
@@ -659,23 +596,12 @@ Example:
 				return newExitError("cluster update: specify at least one of "+
 					"--firewall-rule, --backup-store-id, --regions", ExitUsage)
 			}
-			// Unconditional, unlike the rules check below: this one runs
-			// on every invocation that gets here, so leaving it
-			// unreported let `cluster update --dry-run --backup-store-id
-			// X` still print "none — this command has no client-side
-			// checks" while a client-side check had just passed.
 			rt.DryRun.Pass(
 				"at least one of --firewall-rule, --backup-store-id, " +
 					"--regions given")
 
-			// Parsed BEFORE the client is built, so a mistyped rule
-			// costs no token exchange. This loop used to sit after the
-			// cluster argument was resolved, which meant a typo still
-			// spent a POST to the token endpoint and, back when a
-			// cluster could be named by ID prefix, a GET /clusters as
-			// well. --backup-store-id joins it for the same reason: a
-			// backup store is addressed by UUID and the slice used to
-			// reach the body verbatim.
+			// Store IDs and firewall rules are parsed before the client
+			// is built, so a typo costs no token exchange.
 			canonicalStores := make([]string, 0, len(backupStoreIDs))
 			for _, raw := range backupStoreIDs {
 				id, err := parseUUIDArg(raw, "backup store ID")
@@ -688,12 +614,8 @@ Example:
 				rt.DryRun.Pass("%d backup store ID(s) are UUIDs",
 					len(backupStoreIDs))
 			}
-			//
-			// The error is returned UNCHANGED. It already carries
-			// ExitUsage from parseFirewallRule; re-wrapping it as
-			// ExitGeneral here is what made `cluster update` report a
-			// mistyped rule as an API failure while `cluster create`
-			// reported the identical value as a usage error.
+			// parseFirewallRule's error is returned unchanged: it
+			// carries ExitUsage, as it does on cluster create.
 			rules := make([]api.ClusterFirewallRuleSettings, 0,
 				len(firewallRules))
 			for _, raw := range firewallRules {
@@ -703,15 +625,7 @@ Example:
 				}
 				rules = append(rules, r)
 			}
-			// Recorded so --dry-run stops reporting "none — this verb
-			// has no client-side checks", which stopped being true the
-			// moment this loop became a pre-flight check that runs
-			// before anything is sent. `cluster create` reports the
-			// identical parse the identical way, so the same VALID rule
-			// set produces the same dry-run line on both verbs. A
-			// mistyped rule produces no line on either — the loop above
-			// returns first, which is the point: a report must not list
-			// a check as passed on the run where it fired.
+			// The same line cluster create records for the same rules.
 			if len(rules) > 0 {
 				rt.DryRun.Pass("%d firewall rule(s) valid", len(rules))
 			}
@@ -720,10 +634,6 @@ Example:
 			if err != nil {
 				return err
 			}
-			// Recorded for the same reason as the loop above, and it
-			// was missed for the same reason: a check that runs and
-			// records nothing leaves the report incomplete, and this
-			// one sits three lines from the one round 5 did record.
 			rt.DryRun.Pass("cluster ID is a UUID")
 
 			client, err := clientFromCmd(rt, cmd)
@@ -941,23 +851,12 @@ func buildClusterUpdate(c *api.Cluster,
 
 // --- structured-flag parsing ---
 //
-// Every rejection from parseFirewallRule, parseClusterNetwork and
-// parseClusterNode carries ExitUsage (2), not the ExitGeneral (1) a
-// bare fmt.Errorf would produce.
-//
-// A malformed structured-flag value is precisely what llms.txt's exit
-// table calls "the command was malformed": the user typed the flag
-// wrong and nothing was sent, so a script must be able to tell it from
-// an API or network failure by the code alone. The three parsers had
-// drifted to ExitGeneral while validatePrivateSubnets — a sibling
-// check on the same flag — already returned ExitUsage,
-// so `--network garbage` and `--network region=x,public-subnets=y`
-// under `--node-location private` reported the same class of mistake
-// with two different codes.
-//
-// The alignment covers all three parsers rather than only --network:
-// fixing one leaves the same inconsistency between
-// siblings on the same command, one flag further along.
+// Every rejection from parseFirewallRule, parseClusterNetwork,
+// parseClusterNode, validatePrivateSubnets and buildCreateNodes
+// carries ExitUsage (2),
+// not the ExitGeneral (1) a bare fmt.Errorf would produce: nothing was
+// sent, and a script must tell a mistyped flag from an API failure by
+// the code alone.
 
 // parseFirewallRule parses a repeatable structured flag value of the
 // form "name=https,port=443,sources=0.0.0.0/0" into a
@@ -1025,11 +924,10 @@ func parseFirewallRule(s string) (api.ClusterFirewallRuleSettings, error) {
 	return rule, nil
 }
 
-// validFirewallRuleNames is the set of rule names the BYOC API accepts for a
-// firewall rule. The
-// OpenAPI spec types this field as a free-form string with no enum, so the CLI
-// hardcodes the set to give a clear client-side error instead of an opaque API
-// 400. Keep in sync with the server; tracked by CLOUD spec bug.
+// validFirewallRuleNames is the enum byoc.yaml declares for a firewall
+// rule's name, checked client-side for a clear error instead of an API
+// 400. Spelled out because the generated type's Valid() cannot list
+// its members for the message.
 const validFirewallRuleNames = "http, https, postgres, ssh"
 
 func validFirewallRuleName(name string) bool {
@@ -1057,23 +955,16 @@ func defaultRegionFor(regions []string) string {
 // private-subnets, subnets) are repeated to add elements. region may be
 // omitted only on single-region clusters.
 //
-// Every key ClusterNetworkSettings declares is accepted, and that
-// completeness is the point rather than a convenience. The flag
-// used to parse region, cidr, public-subnets and private-subnets only,
-// which left a GCP network spec inexpressible: the API rejects BOTH
-// public_subnets and private_subnets on Google outright ("use
-// subnets instead"), so the only GCP path
-// through this CLI was to omit --network entirely and accept whatever
-// defaults the server filled in. subnets is what closes that.
+// Every key ClusterNetworkSettings declares is accepted. subnets is
+// the only way to express a GCP network: the API rejects both
+// public_subnets and private_subnets on Google ("use subnets
+// instead").
 //
 // external / external-id / name describe a pre-existing customer VPC
-// the cluster attaches to rather than one pgEdge creates. They are
-// passed through without interpretation: which combinations are
-// meaningful is per-cloud server-side knowledge (an external network
-// needs its external_id, a fresh one must not carry one), and the CLI
-// duplicating that judgement would go stale against the API the first time
-// a starfleet's rules moved. The keys existing at all is what this flag
-// owes the user; validating them is the API's job.
+// and are passed through uninterpreted: which combinations are valid
+// is per-cloud server-side knowledge (an external network needs its
+// external_id, a fresh one must not carry one) that a CLI copy would
+// let go stale.
 func parseClusterNetwork(s, defaultRegion string) (
 	api.ClusterNetworkSettings, error) {
 	var n api.ClusterNetworkSettings
@@ -1101,12 +992,8 @@ func parseClusterNetwork(s, defaultRegion string) (
 		case "subnets":
 			n.Subnets = appendStrPtr(n.Subnets, v)
 		case "external":
-			// strconv.ParseBool, not a v == "true" test: it is what the
-			// rest of this CLI parses booleans with, so "1"/"t"/"TRUE"
-			// behave here exactly as they do for a --flag=value bool.
-			// A bare "external" with no value never reaches this arm —
-			// strings.Cut above rejects it as "not key=value" — so the
-			// key always carries an explicit choice.
+			// strconv.ParseBool, so "1"/"t"/"TRUE" behave as they do
+			// for a --flag=value bool.
 			b, err := strconv.ParseBool(v)
 			if err != nil {
 				return n, newExitError(fmt.Sprintf(
@@ -1173,9 +1060,8 @@ func parseClusterNode(s, defaultRegion string) (
 					"node: volume-size %q is not an integer", v),
 					ExitUsage)
 			}
-			// The same floor --volume-size carries. One spelling of a
-			// field must not accept what the other refuses, and this is
-			// the spelling every worked example in llms.txt uses.
+			// The same floor --volume-size carries: one spelling of a
+			// field must not accept what the other refuses.
 			if size < volumeSizeMin {
 				return n, newExitError(fmt.Sprintf(
 					"node: volume-size %d: expected %d or more GB "+
@@ -1218,31 +1104,14 @@ func parseClusterNode(s, defaultRegion string) (
 // validatePrivateSubnets rejects a --node-location private cluster
 // whose parsed --network settings are unambiguously AWS/Azure-shaped
 // (they carry public-subnets) but omit private-subnets, with exit
-// code ExitUsage, before any API call.
+// code ExitUsage, before any API call. Without it the server 400s with
+// "no private subnet for availability zone".
 //
-// skills/pgedge-byoc/SKILL.md documents the dependency directly:
-// "Private clusters on AWS/Azure: add private-subnets=... to
-// --network." The cloud qualifier in that sentence is part of the
-// quote, not a gloss — GCP is governed by the next line of the same
-// block, and an unqualified version of this rule is wrong for GCP.
-// Without this check the CLI sends the request anyway
-// and the server 400s with "no private subnet for availability zone"
-// — a round trip for a rule the CLI already knows, for AWS and Azure.
-//
-// This deliberately does NOT reject a private cluster with zero
-// --network entries, or a --network entry that carries neither
-// public-subnets nor private-subnets: that is a valid GCP shape. GCP
-// clusters use --network's subnets key instead — the server rejects
-// private_subnets there outright, "use subnets instead" — so a GCP
-// private cluster must be able to pass through this check untouched.
-//
-// The subnets key makes a GCP private cluster
-// expressible rather than merely tolerated here. That does NOT make
-// this check able to demand subnets on a private cluster: --network is
-// optional, the server fills defaults when it is omitted, and nothing
-// in the flag values says which cloud the cloud-account-id belongs to.
-// Rejecting a private cluster for missing subnets would therefore
-// break the valid omit-and-default path for every cloud.
+// It does NOT reject a private cluster with no --network, or an entry
+// carrying neither public-subnets nor private-subnets: that is the GCP
+// shape, which uses subnets. Nor can it demand subnets: --network is
+// optional, the server fills defaults, and nothing in the flags says
+// which cloud the cloud-account-id belongs to.
 func validatePrivateSubnets(
 	nodeLocation string, networks []api.ClusterNetworkSettings,
 ) error {
@@ -1253,25 +1122,15 @@ func validatePrivateSubnets(
 		hasPublic := n.PublicSubnets != nil && len(*n.PublicSubnets) > 0
 		hasPrivate := n.PrivateSubnets != nil && len(*n.PrivateSubnets) > 0
 		if !hasPublic || hasPrivate {
-			// Not AWS/Azure-shaped (no public-subnets — could be a GCP
-			// entry using subnets instead), or already carries
-			// private-subnets. Either way, nothing to reject.
 			continue
 		}
 		region := n.Region
 		if region == "" {
 			region = "(unspecified)"
 		}
-		// The GCP clause is not a nicety. This branch fires on an entry
-		// carrying public-subnets, which a GCP user can reach — the API
-		// rejects public_subnets on a Google cluster too — and the
-		// AWS/Azure remedy is one the API would refuse a second time. The
-		// CLI cannot tell which cloud is meant (nothing in the flag
-		// values names it, and the cloud-account-id is opaque here), so
-		// it names both remedies rather than guessing.
-		// "the subnet keys", not "both": this branch only fires when
-		// public-subnets is set and private-subnets is not, so exactly
-		// one key is present at the point the message prints.
+		// Both remedies are named: a GCP user can reach this branch, the
+		// API refuses public_subnets on Google too, and the CLI cannot
+		// tell which cloud is meant.
 		return newExitError(fmt.Sprintf(
 			"--node-location private requires private-subnets in "+
 				"--network, but the network for region %q sets "+
@@ -1305,16 +1164,9 @@ func buildCreateNetworks(raw, regions []string) (
 // nodeLocations are the values byoc.yaml declares for node_location,
 // sorted so the "expected one of" message reads the same every run.
 //
-// The enum was declared and not enforced: `--node-location sideways`
-// reached the request body unparsed, so a dry run passed it and only
-// the API refused it -- on the most expensive verb in the CLI, right
-// before it provisions real infrastructure. The flag's own help
-// text and its shell completion both already named the two values.
-//
-// TestNodeLocationsMatchTheSpecEnum reads byoc.yaml and is what fails
-// if the contract grows a third: the generated enum type carries no
-// way to enumerate its members, so a Valid()-only check could not
-// notice, and the CLI would go on refusing a value the API accepts.
+// TestNodeLocationsMatchTheSpecEnum reads byoc.yaml and fails if the
+// contract grows a third: the generated enum type cannot enumerate its
+// members, so nothing else would notice.
 var nodeLocations = []string{"private", "public"}
 
 // validateNodeLocation refuses a --node-location outside the contract
@@ -1370,48 +1222,29 @@ func checkCloudAccountExists(
 
 // volumeSizeMin is the smallest --volume-size the CLI will send.
 //
-// The bound is needed because nothing else applies one. byoc.yaml
-// declares volume_size as a plain optional integer with no minimum and
-// no default, and the API accepts a negative: it substitutes its own
-// undocumented default of 100 GB and answers 200, so `--volume-size -5`
-// provisioned a 100 GB volume at exit 0.
-//
-// Zero is refused along with the negatives rather than read as "let the
-// API choose". Omitting the flag already says that unambiguously, and a
-// second spelling for it would put the CLI back to answering a request
-// for 0 GB with 100 GB — the substitution this bound exists to stop.
-//
-// There is no upper bound to mirror: the spec declares none, and one
-// here would leave the CLI refusing sizes the API accepts.
+// byoc.yaml declares volume_size with no minimum and no default, and
+// the API substitutes an undocumented 100 GB for a negative and answers
+// 200, so `--volume-size -5` provisioned a 100 GB volume at exit 0.
+// Zero is refused too: omitting the flag already means "let the API
+// choose". No upper bound, because the spec declares none.
 const volumeSizeMin = 1
 
 // buildCreateNodes turns --node values (or the --instance-type /
 // --volume-size shorthand) into node settings. The shorthand creates
 // one node per region, named n1, n2, ... in region order — the naming
 // convention the platform uses for node targeting (e.g.
-// `databases mcp deploy --target-nodes n1`).
+// `database mcp deploy --target-nodes n1`).
 func buildCreateNodes(raw []string, instanceType string, volumeSize int,
 	volumeSizeSet bool, regions []string,
 ) ([]api.ClusterNodeSettings, error) {
 	if volumeSizeSet && volumeSize < volumeSizeMin {
-		// ExitUsage, not ExitGeneral: a bad flag value, with nothing
-		// sent — the same contract the structured-flag rejections above
-		// carry.
 		return nil, newExitError(fmt.Sprintf(
 			"invalid --volume-size value %d: expected %d or more GB "+
 				"(omit the flag to let the API choose)",
 			volumeSize, volumeSizeMin), ExitUsage)
 	}
-	// volumeSizeSet, never volumeSize > 0, is the test from here on: the
-	// comparison cannot distinguish "not given" from "given as 0".
 	shorthand := instanceType != "" || volumeSizeSet
 	if len(raw) > 0 && shorthand {
-		// ExitUsage for the same reason parseClusterNode's rejections
-		// carry it (see the structured-flag parsing section): two
-		// mutually exclusive ways to describe the same nodes were both
-		// given, nothing was sent, and a script must not read that as an
-		// API failure. Leaving this one at ExitGeneral would put the
-		// --node flag's own two rejection paths on different codes.
 		return nil, newExitError(
 			"use either --node or --instance-type/--volume-size, not both",
 			ExitUsage)

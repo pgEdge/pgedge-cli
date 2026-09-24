@@ -52,9 +52,7 @@ Example:
 // resource kind in the message (e.g. "cluster ID").
 //
 // It delegates to cli.ParseUUIDArg so every module reaches exit 2 for
-// a malformed argument through one function. It used to return
-// ExitGeneral, which made byoc exit 1 where cp exited 2 for the same
-// mistake.
+// a malformed argument through one function.
 func parseUUIDArg(arg, kind string) (uuid.UUID, error) {
 	return cli.ParseUUIDArg(arg, kind)
 }
@@ -196,13 +194,9 @@ Example:
 				return err
 			}
 
-			// --capacity refuses a negative as every numeric flag in
-			// this module does: --volume-size refuses at exit 2, the
-			// structured --node volume-size= refuses with it, and
-			// --limit and --offset go through the same helper at all
-			// 21 sites. shareCapacityMin stays its
-			// own constant because a share's capacity is not a page
-			// size and shares no bound with one.
+			// shareCapacityMin is its own constant: a share's
+			// capacity is not a page size and shares no bound with
+			// one.
 			capacity, sendCapacity, err := cli.OptionalIntFlag(
 				cmd.Flags(), "capacity", shareCapacityMin)
 			if err != nil {
@@ -357,9 +351,7 @@ func shareRowFrom(s api.ClusterShare) clusterShareRow {
 
 // shareCapacityMin is the smallest --capacity the CLI will send.
 //
-// The byoc spec declares capacity as a bare integer with no minimum,
-// so this is the CLI's floor rather than a mirrored one: a share of
-// zero capacity allocates nothing and a negative is meaningless. It
-// matches volumeSizeMin's reasoning and, like it, sets no upper bound
-// — one here would refuse capacities the API accepts.
+// The byoc spec declares no minimum, so this is the CLI's own floor: a
+// share of zero capacity allocates nothing. No upper bound, because one
+// would refuse capacities the API accepts.
 const shareCapacityMin = 1

@@ -21,84 +21,43 @@ var databaseMetricColumns = []string{"METRIC", "VALUE"}
 // newestNonEmptySample returns the newest sample carrying any values,
 // skipping rows that are empty or a JSON null.
 //
-// The spec does not permit a null row — `values`' outer items declare
-// `type: array`, and only the cells inside are unconstrained. The API
-// sends JSON null where its own spec declares an array anyway: this
-// same endpoint answers `"series": null` for an unknown --node-name,
-// against a `series` that is required and non-nullable — recorded in
-// the comment below and pinned by the null-series test. A null row is
-// the same deviation one level down, so it is worth surviving rather
-// than trusting the schema about. It has not itself been observed.
+// The spec forbids a null row, but this endpoint already answers
+// `"series": null` against a required, non-nullable `series` (pinned
+// by the null-series test), so a null row is worth surviving though
+// never observed. Taking the last row blindly let one null row blank
+// the table: "No metrics found." at exit 0.
 //
-// Taking the last row blindly made one blank the whole table:
-// a null decodes to a zero-length row, the column loop broke on its
-// first iteration, and every real sample beside it was discarded —
-// "No metrics found." at exit 0, indistinguishable from a database
-// that reported nothing.
+// Not managed's newestUsableSample, which skips back to the newest
+// complete row for a trailing scrape bucket that arrives with nulls
+// about half the time. byoc's collector differs (79 columns against
+// managed's 36, almost no overlap) and carried no null cell in any
+// response measured: 13 on production, including a 59-row window, and
+// a 30-row window re-measured. Skipping a partial row here would
+// report an older sample for no reason.
 //
-// This is deliberately NOT managed's newestUsableSample, which skips
-// back to the newest COMPLETE row. That exists for managed's trailing
-// scrape bucket, which is still being written when the request lands
-// and so arrives with nulls about half the time. byoc's collector is a
-// different one — 79 columns against managed's 36, with almost no
-// overlap — and carried no nulls in any response measured: 13 on
-// production, including a 59-row window, had zero null cells, and a
-// 30-row window re-measured had zero as well. Skipping a
-// merely-partial row here would report an older sample for no reason.
-// Identical generated types are what made the two look alike; the data
-// behind them is not.
+// What it does share is the ordering: "newest" is the largest `time`,
+// not the last row, because openapi/byoc.yaml publishes no row order.
+// 30 consecutive production samples were ascending by position with no
+// two sharing a timestamp, so today this changes nothing.
 //
-// WHAT IT DOES SHARE WITH managed IS THE ORDERING. "Newest"
-// means the largest `time`, not the last row, because the ORDERING IS
-// NOT PUBLISHED: openapi/byoc.yaml declares `values` byte-identically
-// to openapi/managed.yaml — an array of arrays of `{}`, no row order,
-// no column vocabulary, not even cell types. The completeness argument
-// above genuinely does not transfer between the two collectors, and
-// none of its reasons is about position-versus-time, so for byoc that
-// question was never rebutted; it was only never asked.
-//
-// Reading the column is free and removes the dependency. Today it
-// changes nothing: 30 consecutive samples on production were ascending
-// by position, the maximum was the last row, and no two shared a
-// timestamp. That is exactly why this is worth doing now rather than
-// after a collector change makes it a defect.
-//
-// The `time` match is EXACT, not a substring, and that is not
-// incidental: byoc's series carries six other columns whose names
-// contain "time" — pg_container_cpu_throttled_time,
+// The `time` match is exact because six other byoc columns contain
+// "time": pg_container_cpu_throttled_time,
 // pg_stat_database_blk_read_time and blk_write_time, and three
-// pg_stat_replication_reply_time_nN — any of which a loose match would
-// pick up in preference. See columnIndex.
+// pg_stat_replication_reply_time_nN.
 //
-// There is no tie note here, unlike managed's. managed's exists for a
-// specific mechanism, an instance replacement reporting two samples at
-// one timestamp, and byoc's series carries `node_name` rather than
-// `instance_name`. Whether two byoc nodes can report at one timestamp
-// is UNMEASURED, so inventing a note for it would be asserting a
-// mechanism rather than reporting one. On a tie this keeps the last
-// matching row, which is what the position walk it replaced would have
-// chosen.
+// No tie note, unlike managed's, which exists for an instance
+// replacement reporting two samples at one timestamp. Whether two byoc
+// nodes can do that is unmeasured. On a tie this keeps the last
+// matching row.
 func newestNonEmptySample(s api.MetricSeries) []interface{} {
 	timeIdx := columnIndex(s.Columns, "time")
 	// Full-length rows first, short ones only if none is full length.
-	//
-	// THIS TIER EXISTS BECAUSE READING `time` CREATED THE NEED FOR IT.
-	// The column loop stops at the last cell a row has, so a row with
-	// fewer cells than there are columns renders fewer metrics --
-	// silently. Under the position walk this replaced, such a row
-	// could only win by being LAST; ranking by time lets it win from
-	// anywhere, so a partial sample can now beat a complete one
-	// sitting beside it in the same series. Review reproduced that end
-	// to end: a 3-cell row with the largest time hid
-	// pg_container_cpu_ratio and pg_database_table_count while a
-	// 5-cell row was available.
-	//
-	// It is NOT managed's completeness rule. That skips a row with a
-	// null CELL, for a collector whose trailing bucket arrives half
-	// scraped. This skips a row that is the wrong LENGTH, which is the
-	// API changing shape rather than a bucket in progress -- byoc has
-	// carried no null cell in any response measured, and that argument
-	// is untouched.
+	// The column loop stops at a row's last cell, so a short row renders
+	// fewer metrics silently, and ranking by time lets it win from
+	// anywhere: a 3-cell row with the largest time hid
+	// pg_container_cpu_ratio and pg_database_table_count while a 5-cell
+	// row was available. This tests length, not null cells, so it is not
+	// managed's completeness rule.
 	if i := newestMatching(s, timeIdx, sampleIsFullLength); i >= 0 {
 		return s.Values[i]
 	}
@@ -108,26 +67,17 @@ func newestNonEmptySample(s api.MetricSeries) []interface{} {
 	return nil
 }
 
-// sampleIsFullLength reports whether row has a cell for every column.
-// It says nothing about the cells' contents: a null is fine here, which
-// is what keeps this from becoming managed's completeness rule.
-//
-// >= rather than ==, so the rule matches its own reason. The whole
-// argument is about rows that render FEWER metrics, and an over-long
-// row renders every column perfectly -- the loop iterates s.Columns and
-// breaks at i >= len(latest), so extra cells are simply never read.
-// Demoting such a row would buy nothing and show an older sample.
-// Review measured that: with an over-long newest row, == chose the
-// older one. managed's equivalent uses != and inherits the same
-// asymmetry; byoc is where it is cheap to fix, because byoc's rule is
-// about length and nothing else.
+// sampleIsFullLength reports whether row has a cell for every column;
+// a null cell is fine. >= rather than == because an over-long row
+// renders every column (extra cells are never read), so demoting it
+// would only show an older sample. managed's equivalent uses != and
+// carries the same asymmetry.
 func sampleIsFullLength(row []interface{}, columns int) bool {
 	return len(row) >= columns
 }
 
 // sampleIsNonEmpty is the fallback predicate: any row with a cell in
-// it. The column count is unused and named _ rather than dropped so
-// both predicates share one signature.
+// it.
 func sampleIsNonEmpty(row []interface{}, _ int) bool {
 	return len(row) > 0
 }
@@ -146,10 +96,7 @@ func newestMatching(
 			continue
 		}
 		if timeIdx < 0 {
-			// No `time` column: the first match walking backwards IS
-			// the last row, so position is all there is. A missing
-			// column is the API changing shape, not the caller doing
-			// anything wrong.
+			// No `time` column: position is all there is.
 			return i
 		}
 		if best < 0 || sampleTimeOutranks(s, timeIdx, i, best) {
@@ -160,8 +107,7 @@ func newestMatching(
 }
 
 // columnIndex returns the position of name in columns, or -1. The
-// comparison is exact; see newestNonEmptySample for why that matters
-// here specifically.
+// comparison is exact; see newestNonEmptySample.
 func columnIndex(columns []string, name string) int {
 	for i, c := range columns {
 		if c == name {
@@ -174,14 +120,10 @@ func columnIndex(columns []string, name string) int {
 // sampleTimeOutranks reports whether row i should displace row j as the
 // newest.
 //
-// A READABLE time outranks an unreadable one wherever it sits, and the
-// asymmetry is deliberate — it is the fix managed's equivalent needed.
-// Comparing both cells and answering "not later" whenever EITHER was
-// unreadable vetoed time comparison for the whole series on one bad
-// cell: walking backwards, the last row becomes `best` first, and if
-// its time were unreadable nothing could displace it, silently
-// restoring the position walk for every row behind it. So the
-// degradation is scoped to the rows that earn it.
+// A readable time outranks an unreadable one wherever it sits. Were
+// either unreadable cell a veto, the backward walk's first `best` (the
+// last row) could never be displaced if its time were unreadable,
+// silently restoring the position walk for the whole series.
 func sampleTimeOutranks(s api.MetricSeries, timeIdx, i, j int) bool {
 	a, aok := sampleTime(s, timeIdx, i)
 	b, bok := sampleTime(s, timeIdx, j)
@@ -194,14 +136,11 @@ func sampleTimeOutranks(s api.MetricSeries, timeIdx, i, j int) bool {
 	return a > b
 }
 
-// sampleTime reads a row's time cell as a float64.
-//
-// float64 is what encoding/json gives for a JSON number, and the values
-// observed are epoch MILLISECONDS around 1.787e12 — well inside
-// float64's exact-integer range, so the comparison is exact. Unlike
-// managed's, byoc's are not bucket-aligned: 1787369521502 and
-// 1787368651493 carry real sub-second parts, which is another reason
-// not to reason about them as a sequence.
+// sampleTime reads a row's time cell as the float64 encoding/json
+// gives a JSON number. Observed values are epoch milliseconds around
+// 1.787e12, inside float64's exact-integer range, so the comparison is
+// exact. Unlike managed's they are not bucket-aligned: 1787369521502
+// and 1787368651493 carry sub-second parts.
 func sampleTime(s api.MetricSeries, timeIdx, i int) (float64, bool) {
 	row := s.Values[i]
 	if timeIdx >= len(row) {
@@ -308,8 +247,7 @@ Example:
 			}
 
 			// An unknown --node-name answers 200 with series set to JSON
-			// null rather than to an empty array, so the nil slice is a
-			// real case and not just an absent field.
+			// null, so the nil slice is a real case.
 			var rows []output.Row
 			if resp.JSON200 != nil {
 				for _, s := range resp.JSON200.Series {
@@ -355,22 +293,20 @@ func (r metricRow) Columns() []string {
 	return []string{r.name, r.value}
 }
 
-// metricsIntervalWirePattern is the check the API runs on byoc's metrics
-// interval, after the server has replaced every comma with a space.
-// The vendored spec declares no pattern, so this is mirrored from the
-// server rather than the contract, and TestMetricsIntervalMirrorsTheAPI
-// records when it was read. A miss on the server is a plain error, which
-// reaches the client as a 500.
+// metricsIntervalWirePattern is the check the API runs on byoc's
+// metrics interval after replacing every comma with a space. The spec
+// declares no pattern, so this mirrors the server;
+// TestMetricsIntervalMirrorsTheAPI records when it was read. A miss on
+// the server reaches the client as a 500.
 const metricsIntervalWirePattern = `^[0-9]+\s+(second|minute|hour|day|week|month|year)s?$`
 
 //nolint:gocritic // regexpSimplify: a verbatim copy of the API's pattern, compared as a string by TestMetricsIntervalMirrorsTheAPI
 var metricsIntervalWireRE = regexp.MustCompile(metricsIntervalWirePattern)
 
 // validateMetricsInterval refuses what the server would, at exit 2
-// before the request, plus a zero: the interval is a lookback window
-// (`time >= now() - interval`), so a zero-length one holds no sample
-// and answers 200 with an empty series, indistinguishable from a
-// database with no metrics at all.
+// before the request, plus a zero: the interval is a lookback window,
+// so a zero-length one answers 200 with an empty series,
+// indistinguishable from a database with no metrics.
 func validateMetricsInterval(v string) error {
 	wire := strings.ReplaceAll(v, ",", " ")
 	if !metricsIntervalWireRE.MatchString(wire) {
@@ -379,9 +315,8 @@ func validateMetricsInterval(v string) error {
 				"then second, minute, hour, day, week, month or year "+
 				"(e.g. 15,minutes)", v), ExitUsage)
 	}
-	// The pattern matched, so the value opens with digits; the one Atoi
-	// error left is a number too large for an int, which Postgres would
-	// refuse as an interval too.
+	// After the pattern matched, the only Atoi error left is a number
+	// too large for an int.
 	n, err := strconv.Atoi(strings.Fields(wire)[0])
 	if err != nil {
 		return newExitError(fmt.Sprintf(

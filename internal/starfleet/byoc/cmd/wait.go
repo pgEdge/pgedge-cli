@@ -13,16 +13,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// taskListLookback bounds how many recent tasks
-// newestSubjectTaskID requests. The API returns tasks newest-first,
-// so the newest task for a subject is always within the first page;
-// an explicit limit guards against the server's default page size
-// silently truncating it.
+// taskListLookback is newestSubjectTaskID's page size. The API returns
+// tasks newest-first, so the newest is on the first page; an explicit
+// limit keeps the server's default page size from truncating it.
 const taskListLookback = 100
 
-// Wait flags. Shared across every asynchronous command (create/delete
-// of task-backed resources); only one such command runs per process
-// invocation, so a single set of package-level vars is safe.
+// Wait flags. Package-level is safe because only one asynchronous
+// command runs per process invocation.
 var (
 	waitFlag         bool
 	followFlag       bool
@@ -30,12 +27,9 @@ var (
 	waitIntervalFlag int
 )
 
-// addWaitFlags registers --wait, --follow, --wait-timeout and
-// --wait-interval on an asynchronous command. These operations have the API accept the
-// request and spawn a task, so without --wait the command exits as
-// soon as the request is accepted, not when the work completes.
-// --follow is --wait plus the task's step messages streamed to stderr
-// in place of the bare status polls.
+// addWaitFlags registers the wait flags on an asynchronous command.
+// The API accepts the request and spawns a task, so without --wait the
+// command exits on acceptance, not when the work completes.
 func addWaitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&waitFlag, "wait", false,
 		"Wait for the operation's task to reach a terminal state")
@@ -48,23 +42,18 @@ func addWaitFlags(cmd *cobra.Command) {
 }
 
 // tracking reports whether this invocation follows its task to a
-// terminal state — via --wait or --follow. Prior-task capture at the
-// mutation call sites keys off it.
+// terminal state. Prior-task capture at the mutation call sites keys
+// off it.
 func tracking() bool { return waitFlag || followFlag }
 
 // newestSubjectTaskID returns the id of the most recent task for
 // subjectID, or "" if the subject has no tasks.
 //
-// A caller with no deadline of its own gets one here, at
-// requestBound() — the --timeout in force, or the 30-second default
-// when --timeout is 0, so a raised bound is honoured and only the
-// unbounded case is floored. The pre-mutation baseline captures call
-// this on context.Background() with the HTTP client as their only
-// bound, so an unbounded client made a hung baseline read outlive
-// the --wait-timeout the user also passed. cp met the same hazard on
-// its follow poll and answered it the same way (followPollTimeout).
-// The wait loop's own calls arrive deadline-bearing and pass through
-// untouched.
+// A caller with no deadline gets requestBound() here. The pre-mutation
+// baseline captures call this on context.Background(), and with
+// --timeout 0 a hung baseline read would otherwise outlive
+// --wait-timeout. controlplane's followPollTimeout answers the same
+// hazard. The wait loop's calls already carry a deadline.
 func newestSubjectTaskID(
 	ctx context.Context, client *api.ClientWithResponses, subjectID string,
 ) (string, error) {
@@ -85,24 +74,19 @@ func newestSubjectTaskID(
 		return "", err
 	}
 
-	// A 2xx THE CLIENT COULD NOT READ is not an empty list. Collapsing
-	// the two is what let a stale task through: "" here means "the
-	// subject has no tasks", and discovery then accepts the first task
-	// it sees, which on a database with history is an old one. byoc's
-	// design is to PROPAGATE a failed pre-mutation read and refuse the
-	// write, and that design never covered this state because it
-	// produced no error to propagate. Returning one puts it back under
-	// the design rather than giving byoc a second rule.
+	// A 2xx the client could not read is not an empty list. "" means
+	// "the subject has no tasks", and discovery would then accept the
+	// first task it saw, which on a database with history is an old
+	// one. Returning an error puts this under the rule that a failed
+	// pre-mutation read refuses the write.
 	//
-	// The reachable shape is narrower than "any non-200 2xx", which
-	// matters to anyone writing a fixture for it.
-	// ParseListTasksResponse sets JSON200 only on a json
-	// Content-Type AND status exactly 200, but its catch-all arm is
-	// `Contains(Content-Type, "json") && true`, which unmarshals into
-	// an Error -- so a 204 or 202 sent AS json fails at unmarshal and
-	// returns an ordinary error, handled above. What lands here is a
-	// 2xx whose Content-Type does not contain "json": a gateway's 204
-	// with no Content-Type header, or a 200 carrying text/plain.
+	// ParseListTasksResponse sets JSON200 only for a json Content-Type
+	// and status exactly 200. Its catch-all arm unmarshals any other
+	// json response into an Error, so a non-200 json 2xx returns an
+	// error above unless its body decodes as one (any JSON object, or
+	// null). That case lands here, as does a 2xx whose Content-Type
+	// lacks "json": a gateway's 204 with no Content-Type header, or a
+	// 200 carrying text/plain.
 	if resp.JSON200 == nil {
 		return "", newExitError(fmt.Sprintf(
 			"list tasks: HTTP %d carried no readable task list",
@@ -119,25 +103,20 @@ func newestSubjectTaskID(
 // newestOf returns the newest of tasks, ranking by parsed INSTANT when
 // EVERY created_at parses and lexicographically otherwise.
 //
-// What this replaced ranked created_at as a STRING, justified as
-// "RFC3339 and therefore lexicographically sortable" -- which RFC3339
-// does not promise. A non-UTC offset breaks it (14:00:00+02:00 is
-// 12:00Z and sorts AFTER 13:00:00Z) and so does a fractional second,
-// since `.` sorts before `Z`. Only the newest task is returned, so
-// ranking the wrong one newest means the real task is never considered.
-// The API sends whole-second UTC today, so this closes a hazard rather
-// than fixing an observed bug.
+// RFC3339 strings do not sort lexicographically: a non-UTC offset
+// breaks it (14:00:00+02:00 is 12:00Z and sorts after 13:00:00Z), and
+// so does a fractional second, since `.` sorts before `Z`. The API
+// sends whole-second UTC today, so this closes a hazard rather than
+// an observed bug.
 //
-// The mode is decided ONCE for the slice, and that is the point: a
-// per-pair fallback is not a total order and can cycle --
-// A=12:30:00-01:00 (13:30Z), B=13:00:00Z, C=12:45:00 with no zone. A
-// beats B by instant, B beats C by string, C beats A by string, so a
-// linear max-scan returns whichever answer the array order favours.
-// The string comparison was wrong about offsets but transitive, so it
-// at least answered the same thing every time.
+// The mode is decided once for the slice because a per-pair fallback
+// is not a total order and can cycle: A=12:30:00-01:00 (13:30Z),
+// B=13:00:00Z, C=12:45:00 with no zone. A beats B by instant, B beats
+// C by string, C beats A by string, so a max-scan's answer would
+// depend on array order.
 //
-// managed carries the same function over its own generated api.Task.
-// Neither package can see the other's type.
+// managed carries a copy over its own generated api.Task, which this
+// package cannot see.
 func newestOf(tasks []api.Task) *api.Task {
 	if len(tasks) == 0 {
 		return nil
@@ -192,25 +171,16 @@ func getTaskByID(
 	return &t, nil
 }
 
-// waitForSubjectTask discovers the task spawned by a resource
-// mutation on subjectID and polls it until it reaches a terminal
-// state. Progress lines go to rt.Stderr so stdout stays parseable in
-// machine output modes.
+// waitForSubjectTask discovers the task a mutation spawned on
+// subjectID and polls it to a terminal state, writing progress to
+// stderr.
 //
-// priorTaskID is the newest task for the subject captured *before*
-// the mutation; the newly-created task is the first task whose id
-// differs from it. The mutation request returns no task id and the
-// task takes a moment to appear, so discovery and polling share a
-// single deadline. Each poll request is bounded by the shorter of
-// that deadline and the per-request bound (--timeout; the ctx
-// deadline still holds when that is 0), so a hung request cannot
-// outlive --wait-timeout and does not spend all of it either — it
-// ends the wait at exit 1, naming the request rather than
-// --wait-timeout.
-//
-// Returns nil when the task succeeds, an *ExitError with ExitGeneral
-// when it fails, and an *ExitError with ExitTimeout if the deadline
-// passes (whether or not a task was ever discovered).
+// priorTaskID is the newest task captured before the mutation; the new
+// task is the first whose id differs. The mutation returns no task id
+// and the task takes a moment to appear, so discovery and polling
+// share one deadline. Each request is bounded by the shorter of that
+// deadline and --timeout, so a hung request ends the wait at exit 1,
+// naming the request, rather than spending all of --wait-timeout.
 func waitForSubjectTask(
 	rt *module.Runtime,
 	client *api.ClientWithResponses,
@@ -270,30 +240,24 @@ func waitForSubjectTask(
 				}
 			}
 		}
-		// Read before cancel(): afterwards ctx.Err() is Canceled
-		// for every outcome and cannot say whether the deadline is
-		// what ran out. controlplane's followTask reads it the same way.
+		// Read before cancel(): afterwards ctx.Err() is Canceled for
+		// every outcome and cannot say whether the deadline ran out.
 		waitExpired := ctx.Err() != nil
 		cancel()
 
 		if stepErr != nil {
-			// Only a wait that really expired may report --wait-timeout.
-			// the per-request bound caps each poll, so one slow
-			// poll fails with exactly the error a whole-wait expiry
-			// raises -- measured 2026-08-22: both are a *url.Error
-			// satisfying errors.Is(err, context.DeadlineExceeded)
-			// with Timeout() true, so the error cannot tell them
-			// apart. Without waitExpired a 600-second wait would
-			// report itself expired 30 seconds in, with 570 unspent.
+			// Only a wait that really expired may report
+			// --wait-timeout. One slow poll fails with the same error
+			// a whole-wait expiry raises (measured 2026-08-22: both a
+			// *url.Error satisfying errors.Is(err,
+			// context.DeadlineExceeded) with Timeout() true), so
+			// without waitExpired a 600-second wait would report
+			// itself expired 30 seconds in, with 570 unspent.
 			//
-			// The errors.Is half is deliberately untested: this ctx
-			// carries the SAME deadline, so a request still running
-			// when it passes is cancelled and yields a deadline
-			// error, while one that finishes earlier leaves
-			// waitExpired false. They come apart only in a
-			// sub-millisecond race no test can produce. It stays
-			// because dropping it would report any error landing on
-			// the deadline as --wait-timeout.
+			// The errors.Is half is untested: the two conditions come
+			// apart only in a sub-millisecond race at the deadline. It
+			// stays so an unrelated error landing on the deadline is
+			// not reported as --wait-timeout.
 			if errors.Is(stepErr, context.DeadlineExceeded) &&
 				waitExpired {
 				return timeoutError(timeout, subjectID, taskID)
@@ -321,16 +285,13 @@ func printNewMessages(
 	return seen
 }
 
-// formatTaskMessage renders one task message on one line: time, the
-// step's human title, its status and progress, with a level tag only
-// when the level says more than "info".
+// formatTaskMessage renders one task message on one line.
 func formatTaskMessage(m api.Message) string {
 	return m.Time + "  " + formatTaskStep(m)
 }
 
-// formatTaskStep is formatTaskMessage without the leading timestamp,
-// for `task get`'s detail block, which prints the task's times once of
-// its own accord rather than once per step.
+// formatTaskStep omits the timestamp for `task get`'s detail block,
+// which prints the task's times once rather than per step.
 func formatTaskStep(m api.Message) string {
 	var b strings.Builder
 	if m.Level != "" && m.Level != "info" {
@@ -347,8 +308,7 @@ func formatTaskStep(m api.Message) string {
 }
 
 // timeoutError builds the ExitTimeout returned when waiting exceeds
-// --wait-timeout. The message names the task if one was discovered,
-// otherwise the subject.
+// --wait-timeout.
 func timeoutError(timeout int, subjectID, taskID string) error {
 	if taskID == "" {
 		return newExitError(fmt.Sprintf(
@@ -359,17 +319,13 @@ func timeoutError(timeout int, subjectID, taskID string) error {
 		"timed out after %ds waiting for task %s", timeout, taskID), ExitTimeout)
 }
 
-// trackMutation handles the asynchronous tail of a resource command.
-// When --wait is set it blocks until the spawned task reaches a
-// terminal state; --follow does the same while streaming the task's
-// step messages instead of bare status polls. Otherwise, in
-// table/text output, it prints how to monitor the task; in machine
-// output (json or yaml) it stays silent so stdout remains parseable.
+// trackMutation handles the asynchronous tail of a resource command:
+// it waits when tracking, otherwise prints a monitor hint in text
+// output.
 //
-// priorTaskID must be the newest task for the subject captured
-// before the mutation (only meaningful when waiting). For a freshly
-// created resource it is "", since the new resource has no prior
-// tasks.
+// priorTaskID must be the newest task for the subject captured before
+// the mutation. For a freshly created resource it is "", since the new
+// resource has no prior tasks.
 func trackMutation(
 	rt *module.Runtime,
 	client *api.ClientWithResponses,

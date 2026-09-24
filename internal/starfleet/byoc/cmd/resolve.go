@@ -12,23 +12,16 @@ import (
 // resolveNodeID returns a node's UUID within clusterID for a full
 // UUID or a node NAME.
 //
-// Names are the reason this exists, and they are why this is the one
-// resolver left after prefixes were withdrawn. The node-logs
-// path takes a node UUID and rejects a name outright ("invalid UUID
-// length: 2"), while `cluster get`'s node objects carry no id field at
-// all — the UUID is only reachable through ListClusterNodes, which
-// returns id alongside name. Without this step the only way to name a
-// node would be to run `node list` first and paste a UUID.
+// The node-logs path rejects a name ("invalid UUID length: 2"), and
+// `cluster get`'s node objects carry no id, so without this a node
+// could be named only by pasting a UUID from `node list`.
 //
-// So a failed parse here is CONTROL FLOW, not a bad argument: it means
-// the caller typed a name, and the answer for a name that matches
-// nothing is exit 4 rather than exit 2. That is why this one keeps a
-// discarded parse where the other ID inputs now route through
-// parseUUIDArg.
+// A failed parse is control flow, not a bad argument: the caller typed
+// a name, and a name matching nothing is exit 4, not 2. That is why
+// this does not route through parseUUIDArg.
 //
-// Name matching is exact and reads Name, the same field `node list`
-// prints in its NAME column and the same one resolveHostIDs matches,
-// so what the user sees is what they can type.
+// Matching is exact on Name, the field `node list` prints in its NAME
+// column and resolveHostIDs matches.
 func resolveNodeID(ctx context.Context, client *api.ClientWithResponses,
 	clusterID uuid.UUID, input string) (uuid.UUID, error) {
 	if id, err := uuid.Parse(input); err == nil {
@@ -53,9 +46,8 @@ func resolveNodeID(ctx context.Context, client *api.ClientWithResponses,
 		}
 	}
 
-	// Report the names rather than the ids: a mistyped name is the
-	// only mistake that can reach here now that an ID prefix is not a
-	// thing, so listing ids would answer a question nobody asked.
+	// Report names, not ids: a mistyped name is the only mistake that
+	// can reach here.
 	if len(names) == 0 {
 		return uuid.UUID{}, newExitError(fmt.Sprintf(
 			"cluster %s has no nodes", clusterID), ExitNotFound)

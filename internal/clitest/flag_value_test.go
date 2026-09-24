@@ -245,11 +245,7 @@ func TestSSHKeyCreateRejectsAValueThatIsNotAPublicKey(t *testing.T) {
 		// CR form truncates the line and hides the remainder. Both
 		// registered key one and discarded the rest at exit 0, which
 		// is the silent drop this test is about.
-		// x/crypto decodes the blob and never checks it against the
-		// token the caller typed -- its own source says the
-		// duplicated type "is ignored here". OpenSSH does check:
-		// ssh-keygen -l on this line exits 255. Storing it is this test's
-		// failure mode, discovered when someone cannot reach a node.
+		// ssh-keygen -l on this line exits 255.
 		"type token disagrees with the blob": "ssh-rsa " +
 			strings.Fields(good)[1],
 		"type token is nonsense":    "zzz-nope " + strings.Fields(good)[1],
@@ -258,6 +254,8 @@ func TestSSHKeyCreateRejectsAValueThatIsNotAPublicKey(t *testing.T) {
 		"two keys, carriage return": good + "\r" + good,
 		"trailing comment line":     good + "\n# note",
 		"leading comment line":      "# note\n" + good,
+		// Parses cleanly through x/crypto; OpenSSH refuses it.
+		"DSA key": dsaAuthorizedKey,
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := runForExit(t, "starfleet", "byoc", "ssh-key", "create",
@@ -268,6 +266,20 @@ func TestSSHKeyCreateRejectsAValueThatIsNotAPublicKey(t *testing.T) {
 		})
 	}
 }
+
+// dsaAuthorizedKey is a fixed 1024-bit `ssh-keygen -t dsa` public key.
+// Fixed rather than generated because DSA parameter generation is slow.
+const dsaAuthorizedKey = "ssh-dss " +
+	"AAAAB3NzaC1kc3MAAACBALusrjN1fTJXRank448dW4RTZ0MhbMlw" +
+	"9Q+ipTrg5/9QHpfZ5LJovs0ZFN1pqvS2Eqe2/PAARGqOxmAZuJM34UPKPxZt" +
+	"eICIkgLTsS2IrH48i8GaVC+fCOjeJjpsbIhvhbZJZhsyIelmuQheJu+SKCAU" +
+	"EOfgC3ovXCMSqOzGGdrdAAAAFQDafbmfWw1/O3EMKvsft5PFH0gFlwAAAIA2" +
+	"va0fNctiQYcATJlmqO6pT7uVhZitNWfZb9rqw4VwphXX9nTaHYwPXdIr9gFg" +
+	"sPa5v56/zFKCq5/SCerfccFynVCSQFtxxIoH1vA74ut+adDUTjmW4WX0uqok" +
+	"Y3x814JtSq9PGUWouopNKIruYipypTGKVtsMCJl1Q/SSxuTMcwAAAIAw2PkG" +
+	"L/KzrwbvKrC0mP2CTtJNU6hKRsxFz3kSkPPzTLpaxWjEkJEiD09sQcwfvU/n" +
+	"vs1C2I3uMKMugin4c4PPqS0m6ByqPq2NWzsxgARFjVRChZTxq9w8sV1q+R5F" +
+	"Tg0PeC8Z38V93OSdxpIsFn34HF69LEnEm0SJVNUpgsBX3g=="
 
 // authorizedKey returns a freshly generated ed25519 public key in
 // authorized_keys form.

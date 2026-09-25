@@ -14,6 +14,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/controlplane/api"
 	"github.com/pgEdge/pgedge-cli/internal/module"
+	"github.com/pgEdge/pgedge-cli/internal/output"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -530,12 +531,17 @@ Example:
 
 func newDatabaseUpdateCmd(rt *module.Runtime) *cobra.Command {
 	var specPath string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "update <database_id>",
 		Short: "Update a database from a spec file",
 		Long: `update applies a new spec to an existing database
 (-f spec.yaml, spec.json, or - for stdin). Round-trips with
 'database get -o yaml'. Asynchronous; use --wait/--follow to track.
+
+A spec that leaves out a node the database has now removes that node
+and its data, so update names those nodes and asks for confirmation
+first. Pass --force to skip the prompt.
 
 Example:
   pgedge controlplane database get storefront -o yaml > spec.yaml
@@ -545,6 +551,8 @@ Example:
 	wf := addWaitFollowFlags(cmd)
 	cmd.Flags().StringVarP(&specPath, "file", "f", "",
 		"Spec file path, or - for stdin (required)")
+	cmd.Flags().BoolVar(&force, "force", false,
+		"Skip the confirmation when the spec removes nodes")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if specPath == "" {
 			return &ExitError{
@@ -585,6 +593,10 @@ Example:
 		conn, _ := resolveConnection(rt, cmd)
 		warnSystemdPortsMissing(rt, client, conn,
 			updateSpecNodePorts(&spec))
+		if err := confirmNodeRemoval(
+			rt, client, args[0], spec, force); err != nil {
+			return err
+		}
 		body := api.UpdateDatabaseJSONRequestBody{Spec: spec}
 		resp, err := client.UpdateDatabaseWithResponse(
 			context.Background(), args[0],
@@ -606,4 +618,57 @@ Example:
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// confirmNodeRemoval prompts when spec leaves out a node the database
+// has now: the API applies a spec declaratively, so each missing node
+// is removed with its data.
+func confirmNodeRemoval(rt *module.Runtime, client *api.ClientWithResponses,
+	id string, spec api.DatabaseSpec5, force bool,
+) error {
+	resp, err := client.GetDatabaseWithResponse(
+		context.Background(), id, &api.GetDatabaseParams{})
+	if err != nil {
+		return networkError("get database", err)
+	}
+	if err := checkResponse(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return err
+	}
+	removed := removedNodes(resp.JSON200, spec)
+	if len(removed) == 0 {
+		return nil
+	}
+	// Printed before Confirm, which shows its prompt only on a terminal,
+	// so a script's log names the nodes too.
+	fmt.Fprintf(rt.Stderr, "The spec removes %s from database %s, "+
+		"with its data.\n", output.Sanitize(nodeList(removed)),
+		output.Sanitize(id))
+	return cli.Confirm(rt, fmt.Sprintf("Update database %s?", id), force)
+}
+
+// removedNodes returns the names of current's nodes that spec omits,
+// in current's order.
+func removedNodes(current *api.Database3, spec api.DatabaseSpec5) []string {
+	if current == nil || current.Spec == nil {
+		return nil
+	}
+	kept := make(map[string]bool, len(spec.Nodes))
+	for _, n := range spec.Nodes {
+		kept[n.Name] = true
+	}
+	var removed []string
+	for _, n := range current.Spec.Nodes {
+		if !kept[n.Name] {
+			removed = append(removed, n.Name)
+		}
+	}
+	return removed
+}
+
+func nodeList(names []string) string {
+	if len(names) == 1 {
+		return "node " + names[0]
+	}
+	return "nodes " + strings.Join(names, ", ")
 }

@@ -358,6 +358,7 @@ Update a database from a spec file
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `-f, --file string` | No |  | Spec file path, or - for stdin (required) |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation when the spec removes nodes |
 | `--wait` | No |  | Wait for the task to reach a terminal state |
 | `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |
@@ -369,6 +370,12 @@ for stdin). Round-trips with 'database get -o yaml'. Asynchronous;
 use --wait/--follow to track the update task. As with create, any
 `postgres_version` must be in major.minor form (e.g. "16.14") or the
 command exits with a usage error before calling the API.
+
+A spec that omits a node the database has now removes that node and
+its data. `update` prints each such node to stderr and asks for
+confirmation first. Off a terminal, it exits with status 2 unless
+`--force` is passed. Pass `--force` only when removing those nodes is
+intended.
 
 **Example:**
 

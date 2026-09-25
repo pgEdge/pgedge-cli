@@ -558,6 +558,7 @@ Update a database from a spec file
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `-f, --file string` | No |  | Spec file path, or - for stdin (required) |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
+| `--force` | No |  | Skip the confirmation when the spec removes nodes |
 | `--wait` | No |  | Wait for the task to reach a terminal state |
 | `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set (--follow is unbounded) |

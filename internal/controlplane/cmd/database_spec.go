@@ -635,30 +635,35 @@ func confirmNodeRemoval(rt *module.Runtime, client *api.ClientWithResponses,
 		string(resp.Body)); err != nil {
 		return err
 	}
-	removed := removedNodes(resp.JSON200, spec)
-	if len(removed) == 0 {
-		return nil
-	}
 	// Printed before Confirm, which shows its prompt only on a terminal,
-	// so a script's log names the nodes too.
-	fmt.Fprintf(rt.Stderr, "The spec removes %s from database %s, "+
-		"with its data.\n", output.Sanitize(nodeList(removed)),
-		output.Sanitize(id))
+	// so a script's log carries the reason too.
+	if resp.JSON200 == nil || resp.JSON200.Spec == nil {
+		// spec is optional in the contract; unread nodes are treated as
+		// possibly removed rather than as none.
+		fmt.Fprintf(rt.Stderr, "Could not read the current nodes of "+
+			"database %s, so the spec may remove some with their data.\n",
+			output.Sanitize(id))
+	} else {
+		removed := removedNodes(resp.JSON200.Spec.Nodes, spec)
+		if len(removed) == 0 {
+			return nil
+		}
+		fmt.Fprintf(rt.Stderr, "The spec removes %s from database %s, "+
+			"with its data.\n", output.Sanitize(nodeList(removed)),
+			output.Sanitize(id))
+	}
 	return cli.Confirm(rt, fmt.Sprintf("Update database %s?", id), force)
 }
 
-// removedNodes returns the names of current's nodes that spec omits,
-// in current's order.
-func removedNodes(current *api.Database3, spec api.DatabaseSpec5) []string {
-	if current == nil || current.Spec == nil {
-		return nil
-	}
+// removedNodes returns the names of current that spec omits, in
+// current's order.
+func removedNodes(current []api.DatabaseNodeSpec4, spec api.DatabaseSpec5) []string {
 	kept := make(map[string]bool, len(spec.Nodes))
 	for _, n := range spec.Nodes {
 		kept[n.Name] = true
 	}
 	var removed []string
-	for _, n := range current.Spec.Nodes {
+	for _, n := range current {
 		if !kept[n.Name] {
 			removed = append(removed, n.Name)
 		}

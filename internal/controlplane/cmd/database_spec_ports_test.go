@@ -299,7 +299,7 @@ func TestWarnSystemdPortsMissingUpdateAlsoWarns(t *testing.T) {
 		_, _ = io.WriteString(w, updateResp)
 	})
 	if err := runControlplane(t, rt, out, url,
-		"database", "update", "storefront", "-f", specPath); err != nil {
+		"database", "update", "storefront", "-f", specPath, "--force"); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	if !strings.Contains(errb.String(), "systemd requires both") {

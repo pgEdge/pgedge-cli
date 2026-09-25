@@ -64,6 +64,8 @@ func TestDatabaseUpdateConfirmsNodeRemoval(t *testing.T) {
 		wantCode  int // 0 is success
 		wantPosts int32
 		wantNote  bool
+		// wantUnread: the read carried no spec, so update cannot tell.
+		wantUnread bool
 	}{
 		{name: "keeps every node", spec: specKeepsBoth,
 			getStatus: 200, getBody: twoNodeDatabase, wantPosts: 1},
@@ -73,6 +75,12 @@ func TestDatabaseUpdateConfirmsNodeRemoval(t *testing.T) {
 		{name: "drops a node with --force", spec: specDropsN2,
 			getStatus: 200, getBody: twoNodeDatabase, force: true,
 			wantPosts: 1, wantNote: true},
+		{name: "unreadable nodes off a terminal", spec: specKeepsBoth,
+			getStatus: 200, getBody: `{"id":"storefront"}`,
+			wantCode: ExitUsage, wantUnread: true},
+		{name: "unreadable nodes with --force", spec: specKeepsBoth,
+			getStatus: 200, getBody: `{"id":"storefront"}`, force: true,
+			wantPosts: 1, wantUnread: true},
 		{name: "database not found", spec: specDropsN2,
 			getStatus: 404, getBody: `{"name":"not_found","message":"no such database"}`,
 			wantCode: ExitNotFound},
@@ -100,6 +108,12 @@ func TestDatabaseUpdateConfirmsNodeRemoval(t *testing.T) {
 			if note != tc.wantNote {
 				t.Errorf("removal note printed = %v, want %v; stderr:\n%s",
 					note, tc.wantNote, errb.String())
+			}
+			unread := strings.Contains(errb.String(),
+				"Could not read the current nodes of database storefront")
+			if unread != tc.wantUnread {
+				t.Errorf("unread note printed = %v, want %v; stderr:\n%s",
+					unread, tc.wantUnread, errb.String())
 			}
 		})
 	}

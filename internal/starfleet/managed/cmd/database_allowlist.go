@@ -167,7 +167,7 @@ Example:
 			if err != nil {
 				return err
 			}
-			typ, svc, rules, err := resolveEndpoint(db, svcType, args[0])
+			typ, svc, rules, err := resolveEndpoint(db, svcType, id.String())
 			if err != nil {
 				return err
 			}
@@ -244,16 +244,18 @@ Example:
       203.0.113.7 --service mcp --wait`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// The ID first, so `allowlist add 203.0.113.7` names the
+			// missing ID rather than asking for an address it was given.
+			id, err := parseUUIDArg(args[0], "database ID")
+			if err != nil {
+				return err
+			}
 			inputs := args[1:]
 			if len(inputs) == 0 && !myIP {
 				return newExitError(
 					"give at least one address, or --my-ip", ExitUsage)
 			}
 			if err := checkAllowlistBounds(nil, label); err != nil {
-				return err
-			}
-			id, err := parseUUIDArg(args[0], "database ID")
-			if err != nil {
 				return err
 			}
 			if svcType != "" {

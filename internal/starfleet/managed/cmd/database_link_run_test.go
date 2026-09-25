@@ -391,27 +391,35 @@ func TestEnvPullWarnsWhenGitDoesNotIgnoreTheFile(t *testing.T) {
 	}
 }
 
+// TestReadVerbsTakeTheLinkedDatabase drives every read verb with its
+// ID left out. Each must reach the API for the linked database; the
+// stub answers only the database GET, so a verb needing more fails
+// after that, which is fine. A verb that still reads args[0] panics.
 func TestReadVerbsTakeTheLinkedDatabase(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		wantPath string
-	}{
-		{"get", []string{"database", "get"}, "/managed/v1/databases/" + testDatabaseID},
-		{"connection-string", []string{"database", "connection-string"}, "/managed/v1/databases/" + testDatabaseID},
+	verbs := [][]string{
+		{"database", "get"},
+		{"database", "connection-string"},
+		{"database", "inspect", "table-sizes"},
+		{"database", "logs"},
+		{"database", "metrics"},
+		{"database", "allowlist", "get"},
+		{"database", "allowlist", "get", "--service", "mcp"},
+		{"database", "branch", "list"},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, args := range verbs {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			dir := inProject(t)
 			writeLink(t, dir, "")
 			rt, out, errb := testsupport.NewRuntime(t, "", "text")
 			stub := &linkStub{}
 			url := testsupport.NewAuthedServer(t, stub.handler)
-			if err := runAuthed(t, rt, out, url, tt.args...); err != nil {
-				t.Fatalf("%v: %v", tt.args, err)
+			err := runAuthed(t, rt, out, url, args...)
+			var ue *cli.UsageError
+			if asUsageError(err, &ue) {
+				t.Fatalf("usage error despite the link: %v", err)
 			}
-			if len(stub.paths) == 0 || stub.paths[0] != tt.wantPath {
-				t.Errorf("requests = %v, want %s first", stub.paths, tt.wantPath)
+			if len(stub.paths) == 0 || !strings.Contains(stub.paths[0], testDatabaseID) {
+				t.Errorf("requests = %v, want the linked database first", stub.paths)
 			}
 			if !strings.Contains(errb.String(), "Using database "+testDatabaseID) {
 				t.Errorf("stderr = %q", errb.String())

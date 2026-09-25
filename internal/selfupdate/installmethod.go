@@ -8,6 +8,10 @@ import "strings"
 func InstallMethodFrom(path string) string {
 	lower := strings.ToLower(path)
 	switch {
+	// Checked first: an npm global under Homebrew's Node lives in
+	// /opt/homebrew/lib/node_modules and must not read as Homebrew.
+	case strings.Contains(lower, "node_modules"):
+		return "npm"
 	case strings.Contains(lower, "cellar") ||
 		strings.Contains(lower, "homebrew"):
 		return "homebrew"

@@ -43,9 +43,15 @@ func ResolveTarget() (string, error) {
 // drive it with a fabricated path, without depending on where the
 // test binary itself happens to live.
 func checkRefusals(path string) (string, error) {
-	if InstallMethodFrom(path) == "homebrew" {
+	switch InstallMethodFrom(path) {
+	case "homebrew":
 		return "", &RefusalError{Msg: fmt.Sprintf(
 			"%s was installed via Homebrew; run `brew upgrade pgedge` "+
+				"instead of `pgedge self update`", path)}
+	case "npm":
+		return "", &RefusalError{Msg: fmt.Sprintf(
+			"%s was installed via npm; run `npm install -g "+
+				"@pgedge/cli@latest` (or `@beta` for a pre-release) "+
 				"instead of `pgedge self update`", path)}
 	}
 

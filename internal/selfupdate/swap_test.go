@@ -42,6 +42,20 @@ func TestCheckRefusalsHomebrew(t *testing.T) {
 	}
 }
 
+func TestCheckRefusalsNPM(t *testing.T) {
+	path := "/opt/homebrew/lib/node_modules/@pgedge/cli-darwin-arm64/bin/pgedge"
+
+	_, err := checkRefusals(path)
+
+	var refusal *RefusalError
+	if !errors.As(err, &refusal) {
+		t.Fatalf("checkRefusals(%q) = %v (%T), want *RefusalError", path, err, err)
+	}
+	if !strings.Contains(refusal.Msg, "npm install -g @pgedge/cli@latest") {
+		t.Errorf("refusal message %q does not name `npm install`", refusal.Msg)
+	}
+}
+
 func TestCheckRefusalsGitWorktreeDir(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {

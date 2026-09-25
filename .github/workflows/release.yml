@@ -46,3 +46,33 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
+      # Dormant until the NPM_PUBLISH repository variable is "true".
+      # Trusted publishing needs no token; NPM_TOKEN covers the first
+      # publish, before a package exists to attach a trusted publisher to.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: vars.NPM_PUBLISH == 'true'
+        # No registry-url: its _authToken line, even empty, stops npm
+        # trying trusted publishing.
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Publish to npm
+        if: vars.NPM_PUBLISH == 'true'
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Platform packages go first so @pgedge/cli never names a
+        # version that is not there yet. A re-run skips what landed.
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          go run ./cmd/npmpack -dist dist -out dist/npm
+          tag=$(cat dist/npm/dist-tag)
+          for dir in dist/npm/cli-* dist/npm/cli; do
+            spec=$(jq -r '.name + "@" + .version' "$dir/package.json")
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "$spec is already published"
+              continue
+            fi
+            npm publish "$dir" --access public --tag "$tag" --provenance
+          done

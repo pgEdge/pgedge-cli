@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The CLI installs from npm as `@pgedge/cli`, and `pgedge self update`
+  refuses an npm install, naming the npm command to run instead.
+
 ## 0.5.0-beta.1
 
 The first public release.

@@ -7,8 +7,9 @@ and exit codes that were designed to be scripted against.
 ## Supply credentials
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your secret
-store. The CLI treats the pair as a separate profile that is never
-saved, so it writes no config file and caches no token on the runner:
+store. The CLI treats the pair as a profile that lasts one
+invocation, so each run authenticates from the secrets alone and
+leaves the runner's disk as it found it:
 
 - CI: map the two secrets into the environment of each step that runs
   `pgedge`.
@@ -140,14 +141,17 @@ explains why the record is the signal.
         env:
           DB_ID: ${{ vars.PGEDGE_DATABASE_ID }}
         steps:
-          - uses: actions/setup-go@v5
-            with:
-              go-version: "1.26"
+          - uses: sigstore/cosign-installer@v4.1.2
 
           - name: Install the CLI
+            env:
+              PGEDGE_VERSION: v0.5.0-beta.2
             run: |
               set -euo pipefail
-              go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
+              curl -fsSL -o install.sh \
+                  "https://raw.githubusercontent.com/pgEdge/pgedge-cli/${PGEDGE_VERSION}/install.sh"
+              sh install.sh
+              echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
           - name: Take the backup
             env:
@@ -194,9 +198,12 @@ explains why the record is the signal.
               echo "::error::backup $BACKUP_ID never settled" >&2
               exit 1
 
-The install step builds the CLI from the main branch. The
-[getting started guide](getting-started.md) covers the other install
-routes and what each of them needs.
+The install step pins one release in `PGEDGE_VERSION`, so every run
+installs the same binary until you change it. The script comes from
+the same release tag. With cosign installed first, the script
+verifies the release signature as well as the checksum. The
+`GITHUB_PATH` line covers the script's fallback to `~/.local/bin`
+when `/usr/local/bin` is not writable.
 
 The two secrets are step-scoped, so only the steps that call `pgedge`
 can read them.
@@ -215,22 +222,24 @@ deploy unless the database both exists and reports `available`.
 
 Set `PGEDGE_CLIENT_ID`, `PGEDGE_CLIENT_SECRET` and
 `PGEDGE_DATABASE_ID` in the project's CI/CD settings, masked, and
-nothing below needs editing. GitLab exports each one into the job's
+the pipeline below runs as written. GitLab exports each one into the job's
 environment under its own name, which is where the CLI reads the
 credential pair. The `variables:` block maps the database ID into the
-name the job uses:
+name the job uses, and pins the release the install script fetches:
 
     stages:
       - preflight
 
     preflight:
       stage: preflight
-      image: golang:1.26
+      image: ubuntu:24.04
       variables:
         DB_ID: $PGEDGE_DATABASE_ID
+        PGEDGE_VERSION: v0.5.0-beta.2
       before_script:
-        - apt-get update && apt-get install -y jq
-        - go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
+        - apt-get update && apt-get install -y ca-certificates curl jq
+        - curl -fsSL -o install.sh "https://raw.githubusercontent.com/pgEdge/pgedge-cli/${PGEDGE_VERSION}/install.sh"
+        - sh install.sh
       script:
         - |
           set +e
@@ -271,8 +280,11 @@ look at it, the second means no retry will ever help, because
 entitlement refusals land there alongside bad credentials.
 
 The two runners differ in mechanics rather than in approach. GitLab
-masks its CI/CD variables the same way GitHub masks secrets, and
-neither leaves a credential on the runner.
+masks its CI/CD variables the same way GitHub masks secrets, and in
+both the credential reaches the runner only as job environment
+variables. To have the script verify
+the release signature on GitLab too, install cosign in the image
+before `sh install.sh` runs.
 
 If a run fails, the [troubleshooting guide](troubleshooting.md) is
 organized by exit code.

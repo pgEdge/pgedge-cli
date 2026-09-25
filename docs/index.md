@@ -93,12 +93,11 @@ up one of two ways:
 - **File install (default).** Writes a completion script into the
   directory your shell loads completions from, and prints any
   remaining step (a zsh `fpath` line, a PowerShell profile line).
-  Nothing runs at shell start, and `pgedge self update` regenerates
-  the script.
+  Your shell loads the script like any other completion file, and
+  `pgedge self update` regenerates it.
 - **rc line (`--rc-only`).** Appends one line to your shell's startup
-  file and writes no script, so completion can never be out of step
-  with the installed binary. That costs roughly 10-20 ms on a warm
-  cache.
+  file in place of the script, so completion always matches the
+  installed binary.
 
 The second route, and the lines it adds:
 

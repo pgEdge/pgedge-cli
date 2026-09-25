@@ -18,6 +18,14 @@ verifies the archive's checksum, and the release signature when
 shell completion. If the install directory is not on your PATH, the
 script prints the `export PATH=...` line to add.
 
+To install one release rather than the newest, set `PGEDGE_VERSION`
+to its tag from the releases page:
+
+    curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
+
+The [CI and automation guide](ci.md) pins a release this way in each
+pipeline.
+
 On Windows, download the zip for your architecture (amd64 or arm64)
 from the [releases page](https://github.com/pgEdge/pgedge-cli/releases).
 The README's "Manual download" section covers verifying an archive.
@@ -70,10 +78,10 @@ Completion is optional and covers bash, zsh, fish and PowerShell:
     pgedge completion install
 
 That writes a completion script into the directory your shell loads
-completions from. `--rc-only` is the other route: it writes no script
-and appends one line to your shell's startup file instead, so
-completion can never be out of step with the installed binary, at
-roughly 10 to 20 ms on a warm cache.
+completions from. `--rc-only` is the other route: it appends one
+line to your shell's startup file in place of the script. Your shell
+then asks the installed binary for completions each time it starts,
+so they always match that binary.
 
     pgedge completion install --rc-only
 

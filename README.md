@@ -81,6 +81,11 @@ and installs to `/usr/local/bin` (falling back to
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
+To install one release instead of the newest, set `PGEDGE_VERSION`
+to its tag:
+
+    curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
+
 ### Homebrew (macOS, Linux)
 
 One command:
@@ -171,12 +176,12 @@ published.
 - **File install (default).** Writes a completion script into the
   directory your shell loads completions from, and prints any
   remaining step (a zsh `fpath` line, a PowerShell profile line).
-  Nothing runs at shell start. `pgedge self update` regenerates the
-  script, so it keeps up with the binary.
+  Your shell loads the script like any other completion file.
+  `pgedge self update` regenerates the script, so it keeps up with
+  the binary.
 - **rc line (`--rc-only`).** Appends one line to your shell's startup
-  file and writes no script. The installed binary generates the
-  completions at every shell start, so they can never be out of step
-  with it, at roughly 10-20 ms on a warm cache.
+  file in place of the script. The installed binary generates the
+  completions at every shell start, so they always match it.
 
 The second route:
 

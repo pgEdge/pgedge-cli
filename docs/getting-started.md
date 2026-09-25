@@ -7,7 +7,7 @@ published on
 ## Install the binary
 
 On Linux or macOS, the install script is the quickest route and needs
-no Go toolchain:
+only `curl`:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
@@ -17,6 +17,14 @@ verifies the archive's checksum, and the release signature when
 `~/.local/bin` when `/usr/local/bin` is not writable, then sets up
 shell completion. If the install directory is not on your PATH, the
 script prints the `export PATH=...` line to add.
+
+To install one release rather than the newest, set `PGEDGE_VERSION`
+to its tag from the releases page:
+
+    curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
+
+The [CI and automation guide](ci.md) pins a release this way in each
+pipeline.
 
 On Windows, download the zip for your architecture (amd64 or arm64)
 from the [releases page](https://github.com/pgEdge/pgedge-cli/releases).
@@ -70,10 +78,10 @@ Completion is optional and covers bash, zsh, fish and PowerShell:
     pgedge completion install
 
 That writes a completion script into the directory your shell loads
-completions from. `--rc-only` is the other route: it writes no script
-and appends one line to your shell's startup file instead, so
-completion can never be out of step with the installed binary, at
-roughly 10 to 20 ms on a warm cache.
+completions from. `--rc-only` is the other route: it appends one
+line to your shell's startup file in place of the script. Your shell
+then asks the installed binary for completions each time it starts,
+so they always match that binary.
 
     pgedge completion install --rc-only
 
@@ -87,8 +95,8 @@ Code, Cursor, Copilot, Amp, and a dozen others read the same location:
     npx skills add pgEdge/pgedge-cli
 
 This clones the repository itself, so it also works for a developer
-who installed the binary via `go install` or a release archive and has
-no checkout. Project scope
+who installed the binary via `go install` or a release archive.
+Project scope
 is the default, which puts the skills in the repository you run it
 from so teammates and cloud agents share the setup. Add `--global` to
 install for your user instead. The README's "AI-agent skills" section
@@ -110,20 +118,21 @@ skills.
 
 ## Other ways to install
 
-Four routes in all, each buying something different. Two of them need
-no Go toolchain, so do not install one just to get a binary. What each
-route needs:
+Six routes in all, each buying something different. Only
+`go install` and a clone-and-build need Go. What each route needs:
 
 | Install path | Also needs |
 |---|---|
 | Hand it to your AI agent | Node.js, for the agent-skills step |
-| Download a release archive | nothing further |
+| Homebrew | Homebrew, on macOS or Linux |
+| GitHub Actions | A Linux or macOS runner |
+| Download a release archive | `tar` and `sha256sum` or `shasum` |
 | `go install` from main | Go 1.26 or newer |
 | Clone and build | Go 1.26 or newer |
 
-On macOS, `brew install node` and `brew install go` cover those. Node
-is for `npx skills add`, not for the CLI, which never needs it, and
-the README's manual-copy path installs the skills without it.
+On macOS, `brew install node` and `brew install go` cover those. Only
+`npx skills add` uses Node, and the README's manual-copy path installs
+the skills by hand.
 
 To download a release archive, follow the README's "Manual download"
 section. To ask a question or report a problem, open a
@@ -135,8 +144,9 @@ Paste the prompt below into your coding agent (Claude Code, Cursor,
 and the like) and it runs the install script, wires up shell
 completion, and adds the agent skills for the products you use, asking
 you which those are along the way. The only prerequisites are `curl`
-and Node.js for the skills step. It stops on any failure rather than
-improvising.
+and Node.js for the skills step. It stops if the CLI install fails,
+and carries on past a completion or skills step that fails or that
+you decline.
 
 <!-- install-prompt: begin -->
 <!-- This block is duplicated between README.md and
@@ -145,12 +155,14 @@ improvising.
      holds the two byte-for-byte, so edit both, or neither. -->
 
     Install the pgEdge CLI on this machine and set up its agent skills.
-    Follow these steps exactly, in order. If a step fails, stop and show
-    me the error. Do not improvise an alternative.
+    Follow these steps exactly, in order, and do not improvise an
+    alternative to any of them. Step 2 installs the CLI: if it fails,
+    stop and show me the error. Steps 3 and 4 are optional: if one
+    fails, or I decline it, tell me why and carry on with the next step.
 
     1. Preflight: check `curl` and `npx` exist. If `curl` is missing,
        stop and tell me it is needed for step 2. If `npx` is missing,
-       stop and tell me Node.js is needed for step 4.
+       tell me Node.js is needed for step 4, and skip step 4.
     2. Install the CLI (no sudo, ever): run
        `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh`.
        The script verifies the release before installing it. Its
@@ -160,23 +172,43 @@ improvising.
        `export PATH=...` line it prints to the rc file of my login shell
        (`~/.zshrc` for zsh, `~/.bashrc` for bash, creating it if missing,
        and skipping if the line is already there), and tell me you did.
-    3. Shell completion: the script runs `pgedge completion install`.
-       If its output says a line still needs adding to my rc file, add
-       that line once.
+    3. Shell completion: the script runs `pgedge completion install`,
+       unless `CI` is set. If its output says a line still needs adding
+       to my rc file, add that line once.
     4. Ask me this question and wait for my answer. Do not guess it:
-       "Which pgEdge products do you use: Starfleet, Control Plane, or
-       both?" Then install the matching agent skills into the current
-       project:
+       "Which pgEdge products do you use: Starfleet, Control Plane,
+       both, or neither?" For neither, skip this step. Otherwise install
+       the matching agent skills into the current project:
        - starfleet: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
        - control plane: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-controlplane -y`
        - both: `npx -y skills add pgEdge/pgedge-cli -y`
-    5. Verify, and show me the output of each: `pgedge version`,
+    5. Verify, and show me the output of each: `pgedge version` and
        `pgedge doctor` (both at the full path from step 2), and
-       `npx -y skills list`. A doctor warning about missing credentials
-       is expected on a fresh install. The next step after this setup
-       is `pgedge starfleet auth login` (starfleet) or reading `pgedge llms controlplane`
-       (control plane).
+       `npx -y skills list` if step 4 ran. A doctor warning about
+       missing credentials is expected on a fresh install. List each
+       step you skipped, with the command that completes it later. The
+       next step after this setup is `pgedge starfleet auth login`
+       (starfleet) or reading `pgedge llms controlplane` (control
+       plane).
 <!-- install-prompt: end -->
+
+### Homebrew
+
+Install from the pgEdge tap on macOS or Linux:
+
+    brew install pgEdge/tap/pgedge
+
+Update with `brew upgrade pgedge`.
+
+### GitHub Actions
+
+Add the action as a step, and it installs the release its tag names:
+
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+
+The action verifies the release signature and checksum before
+installing. To install another release, set its `version` input to
+that release's tag.
 
 ### `go install` from main
 
@@ -211,9 +243,10 @@ A binary you downloaded from a release updates itself:
 It looks up the newest release on GitHub, verifies the release's
 Sigstore signature and the archive's checksum before it touches the
 installed binary, and swaps the new one into place. `pgedge self
-update --check` reports whether an update exists without downloading
-anything, and `pgedge doctor` reports the same answer in its "Latest
-version" row.
+update --check` reports whether an update exists and leaves the
+installed binary in place, and `pgedge doctor` reports the same
+answer in its "Latest version" row. A Homebrew install updates with
+`brew upgrade pgedge`, and `self update` refuses it.
 
 The [updating guide](updating.md) covers the rest: the two-rung GitHub
 lookup, the exit codes and deadlines, where the CLI caches the Sigstore trust
@@ -223,8 +256,8 @@ completion scripts after a swap.
 ## CI and containers
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your
-pipeline's secret store, and every invocation uses them with nothing
-written to disk. The [CI and automation guide](ci.md) covers the
+pipeline's secret store, and every invocation authenticates from
+them and leaves the disk as it found it. The [CI and automation guide](ci.md) covers the
 pair in CI, Docker and Kubernetes, skipping prompts with `--force`,
 scripting against the exit-code contract, and two complete pipelines
 you can copy.

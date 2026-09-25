@@ -169,6 +169,46 @@ jobs:
   # One leg per release target, because the four were serial in one
   # job. Each leg needs the full history: the version in LDFLAGS comes
   # from `git describe`.
+  action:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # v0.5.0-beta.1 predates signature bundles, so the action must
+      # refuse it rather than install it unverified.
+      - id: unsigned
+        uses: ./
+        continue-on-error: true
+        with:
+          version: v0.5.0-beta.1
+      - name: Refuses a release it cannot verify
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.unsigned.outcome }}
+        run: |
+          test "$OUTCOME" = failure
+          if command -v pgedge
+          then
+              echo "::error::pgedge was installed without a signature" >&2
+              exit 1
+          fi
+      # The step above fails for any reason; this pins the reason.
+      - name: Names the missing signature bundle
+        shell: bash
+        env:
+          PGEDGE_VERSION: v0.5.0-beta.1
+        run: |
+          if sh ./install.sh > install.log 2>&1
+          then
+              echo "::error::install.sh installed an unsigned release" >&2
+              exit 1
+          fi
+          cat install.log
+          grep -F "has no signature bundle to verify" install.log
+
   build:
     runs-on: ubuntu-latest
     strategy:

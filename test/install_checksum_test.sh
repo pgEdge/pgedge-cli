@@ -1,5 +1,6 @@
 #!/bin/sh
-# Tests for install.sh's checksum verification and PATH warning.
+# Tests for install.sh's checksum verification, PATH warning and
+# version resolution.
 # Sources install.sh as a library (PGEDGE_INSTALL_SH_LIB=1) so the
 # functions run without the installer body. Checksum focus: the
 # fail-closed contract — no sha256 tool must ABORT,
@@ -125,6 +126,63 @@ case "$OUT" in
     *) has_export=0 ;;
 esac
 check "warn_if_not_on_path prints the exact export line" "$has_export" 1
+
+# T10: a pinned PGEDGE_VERSION is returned as given, with no API
+# call. curl is shadowed to fail, so any call would surface.
+# shellcheck disable=SC2317,SC2329 # called by the sourced resolve_version
+curl() { echo "curl called" >&2; return 22; }
+set +e
+OUT=$(PGEDGE_VERSION=v0.5.0-beta.2 resolve_version 2>&1); rc=$?
+set -e
+check "resolve_version returns a pinned tag" "$rc" 0
+check "resolve_version prints the pinned tag unchanged" \
+    "$( [ "$OUT" = "v0.5.0-beta.2" ] && echo 1 || echo 0 )" 1
+
+# T10b: a GA tag, with no pre-release suffix, is a valid pin.
+set +e
+OUT=$(PGEDGE_VERSION=v1.2.3 resolve_version 2>&1); rc=$?
+set -e
+check "resolve_version accepts a GA tag" "$rc" 0
+check "resolve_version prints the GA tag unchanged" \
+    "$( [ "$OUT" = "v1.2.3" ] && echo 1 || echo 0 )" 1
+
+# T11: a pin that is not a release tag is refused before any
+# download, so a typo cannot fall through to the newest release.
+for bad in 0.5.0 v0.5 latest "v0.5.0 beta"; do
+    set +e
+    OUT=$(PGEDGE_VERSION="$bad" resolve_version 2>&1); rc=$?
+    set -e
+    check "resolve_version refuses PGEDGE_VERSION='${bad}'" \
+        "$( [ $rc -ne 0 ] && echo 1 || echo 0 )" 1
+    case "$OUT" in
+        *"curl called"*) called=1 ;;
+        *) called=0 ;;
+    esac
+    check "resolve_version makes no API call for '${bad}'" "$called" 0
+done
+
+# T12: unset, the newest release's tag comes from the API, which
+# pretty-prints one field per line (measured 2026-09-25).
+# shellcheck disable=SC2317,SC2329 # called by the sourced resolve_version
+curl() {
+    printf '[\n  {\n    "url": "x",\n    "tag_name": "v9.8.7-rc.1",\n    "name": "n"\n  }\n]\n'
+}
+set +e
+OUT=$(unset PGEDGE_VERSION; resolve_version 2>/dev/null); rc=$?
+set -e
+check "resolve_version falls back to the API" "$rc" 0
+check "resolve_version reads the newest tag" \
+    "$( [ "$OUT" = "v9.8.7-rc.1" ] && echo 1 || echo 0 )" 1
+
+# T13: an unreachable API is an error, not an empty version.
+# shellcheck disable=SC2317,SC2329 # called by the sourced resolve_version
+curl() { return 22; }
+set +e
+OUT=$(unset PGEDGE_VERSION; resolve_version 2>/dev/null); rc=$?
+set -e
+check "resolve_version fails when the API is unreachable" \
+    "$( [ $rc -ne 0 ] && echo 1 || echo 0 )" 1
+unset -f curl
 
 if [ "$fails" -ne 0 ]; then
     echo "${fails} test(s) failed" >&2

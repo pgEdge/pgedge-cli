@@ -7,8 +7,9 @@ and exit codes that were designed to be scripted against.
 ## Supply credentials
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your secret
-store. The CLI treats the pair as a separate profile that is never
-saved, so it writes no config file and caches no token on the runner:
+store. The CLI treats the pair as a profile that lasts one
+invocation, so each run authenticates from the secrets alone and
+leaves the runner's disk as it found it:
 
 - CI: map the two secrets into the environment of each step that runs
   `pgedge`.
@@ -39,8 +40,8 @@ and running against a different tenant.
 ## Skip prompts deliberately
 
 Destructive commands prompt for confirmation. Pass `--force` to skip
-the prompt in automation. This is a per-command decision, not a
-global flag, so a script names its own irreversible steps. Without a
+the prompt in automation. The flag goes on each command, so a script
+names its own irreversible steps. Without a
 terminal to prompt on, a destructive command run without `--force`
 exits 2 rather than hanging.
 
@@ -60,13 +61,13 @@ and the deliberate exceptions. The ones that matter for scripts:
   The rule follows the response rather than the command name, so
   `controlplane database delete`, `controlplane host remove` and both
   modules' `database service remove` do print an object. Branch on
-  the exit status, not on output appearing, and see the
+  the exit status, and see the
   [output guide](output-and-paging.md) for the full picture.
 - `pgedge starfleet doctor` and `pgedge controlplane doctor` exit 0
   even when the thing they diagnose is broken. Their job is to
-  report, so a script reads their `-o json` fields, never `$?`.
+  report, so a script reads their `-o json` fields to find a fault.
 - A plan-entitlement rejection is exit 5, the same class as a bad
-  credential, so an auth-retry loop should not spin on it.
+  credential, so an auth-retry loop should stop on it.
 
 Diagnostics stay out of your pipes: `--verbose` and `--debug` write
 to stderr, so `-o json | jq` stays clean with either enabled.
@@ -101,18 +102,18 @@ token exchange is exit 5, because authentication is the call that
 failed even when a deadline is what failed it. Read stderr for which
 bound fired.
 
-Exit 3 does not mean the command is safe to repeat. A read is safe. A
-create or delete may already have reached the server before the
-bound fired, so repeating it can apply the change twice.
+Check what happened before repeating a command after exit status 3. A read
+is safe to repeat. A create or delete may already have reached the
+server before the bound fired, so repeating it can apply the change
+twice.
 
-## A dry run is not a gate
+## Treat a dry run as a preflight
 
 Every command that writes to an API takes `--dry-run`, which runs the
 CLI's client-side checks and reports the request it would have sent.
-A clean dry run means those checks passed, not that the API has
-accepted anything, so `cmd --dry-run && cmd` is not a gate on the
-real run's exit code. Treat the report as a preflight and read the
-list of checks it actually ran. The [dry run guide](dry-run.md)
+A clean dry run means those checks passed. The API sees the request
+only on the real run, so gate the pipeline on the real run's exit
+code. Read the report's list of checks to see what it covered. The [dry run guide](dry-run.md)
 covers what each command checks, which commands do not take the
 flag, and why the report goes to stdout even on commands that
 otherwise print nothing.
@@ -140,14 +141,7 @@ explains why the record is the signal.
         env:
           DB_ID: ${{ vars.PGEDGE_DATABASE_ID }}
         steps:
-          - uses: actions/setup-go@v5
-            with:
-              go-version: "1.26"
-
-          - name: Install the CLI
-            run: |
-              set -euo pipefail
-              go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
+          - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
 
           - name: Take the backup
             env:
@@ -194,9 +188,12 @@ explains why the record is the signal.
               echo "::error::backup $BACKUP_ID never settled" >&2
               exit 1
 
-The install step builds the CLI from the main branch. The
-[getting started guide](getting-started.md) covers the other install
-routes and what each of them needs.
+The `pgEdge/pgedge-cli` action installs the release its tag names,
+so every run installs the same binary until you change the tag. It
+verifies the release signature and checksum before installing, and
+fails the job if either check fails. It runs on Linux and macOS
+runners. To install a release other than the tag's, set the action's
+`version` input to that release's tag.
 
 The two secrets are step-scoped, so only the steps that call `pgedge`
 can read them.
@@ -215,22 +212,24 @@ deploy unless the database both exists and reports `available`.
 
 Set `PGEDGE_CLIENT_ID`, `PGEDGE_CLIENT_SECRET` and
 `PGEDGE_DATABASE_ID` in the project's CI/CD settings, masked, and
-nothing below needs editing. GitLab exports each one into the job's
+the pipeline below runs as written. GitLab exports each one into the job's
 environment under its own name, which is where the CLI reads the
 credential pair. The `variables:` block maps the database ID into the
-name the job uses:
+name the job uses, and pins the release the install script fetches:
 
     stages:
       - preflight
 
     preflight:
       stage: preflight
-      image: golang:1.26
+      image: ubuntu:24.04
       variables:
         DB_ID: $PGEDGE_DATABASE_ID
+        PGEDGE_VERSION: v0.5.0-beta.2
       before_script:
-        - apt-get update && apt-get install -y jq
-        - go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
+        - apt-get update && apt-get install -y ca-certificates curl jq
+        - curl -fsSL -o install.sh "https://raw.githubusercontent.com/pgEdge/pgedge-cli/${PGEDGE_VERSION}/install.sh"
+        - sh install.sh
       script:
         - |
           set +e
@@ -264,15 +263,20 @@ name the job uses:
 
 `set +e` around the call and `set -e` after it is what lets the script
 read `rc` at all. Under `set -e` alone the job would already have
-ended, with the runner reporting a generic failure and none of the
-distinctions the CLI makes. Branching on 4 against 5 separates two
+ended, with the runner reporting a generic failure in place of the
+CLI's exit code. Branching on 4 against 5 separates two
 outcomes: the first means the identifier is wrong and a human should
-look at it, the second means no retry will ever help, because
-entitlement refusals land there alongside bad credentials.
+look at it, the second usually means the credentials or the plan need
+fixing, because entitlement refusals land there alongside bad
+credentials. A hung token exchange also ends with exit status 5, and
+stderr says which of the two happened.
 
 The two runners differ in mechanics rather than in approach. GitLab
-masks its CI/CD variables the same way GitHub masks secrets, and
-neither leaves a credential on the runner.
+masks its CI/CD variables the same way GitHub masks secrets, and in
+both the credential reaches the runner only as job environment
+variables. To have the script verify
+the release signature on GitLab too, install cosign in the image
+before `sh install.sh` runs.
 
 If a run fails, the [troubleshooting guide](troubleshooting.md) is
 organized by exit code.
@@ -299,7 +303,7 @@ file only. The token cache still resolves from `HOME`, so the job
 keeps that line either way.
 
 A config file at the default path is picked up by every invocation, so
-a scheduled job authenticates with no flag once the file is in place,
+a scheduled job authenticates from the file when it is in place,
 and `--profile` names which credential inside it to use. Both
 `--profile` and `--config` refuse an empty string at exit 2, so an
 unset variable fails the run instead of silently resolving
@@ -312,7 +316,7 @@ Bound the request as well as the schedule. `--timeout` caps a single
 request and defaults to 30 seconds, and setting it comfortably below
 the schedule interval keeps one hung poll from running into the next.
 The schedule interval and the metrics window are separate numbers, so
-shortening the schedule does not let you shorten the window with it.
+the window keeps its own length when you shorten the schedule.
 On managed the window has to clear the collector's publication lag
 whatever the interval is, and the
 [managed logs and metrics guide](managed/logs-and-metrics.md) covers

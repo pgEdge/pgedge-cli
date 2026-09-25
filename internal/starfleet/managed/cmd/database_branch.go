@@ -79,7 +79,7 @@ func newDatabaseBranchListCmd(rt *module.Runtime) *cobra.Command {
 		includeDeleted bool
 	)
 	cmd := &cobra.Command{
-		Use:   "list <database_id>",
+		Use:   "list [<database_id>]",
 		Short: "List a database's branches",
 		Long: `list shows the branches taken from a managed database,
 oldest first; --descending lists the newest first. Pass
@@ -88,15 +88,15 @@ audit view.
 
 The server returns 100 rows by default, which is also the maximum,
 so --limit can only narrow a page and a value above 100 is refused.
-The argument takes a full UUID.
+The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456
   pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456 \
     --include-deleted`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, _, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}

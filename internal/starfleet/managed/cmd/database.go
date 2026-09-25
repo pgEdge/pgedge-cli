@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
+	"github.com/pgEdge/pgedge-cli/internal/projectlink"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/managed/api"
 	"github.com/spf13/cobra"
@@ -148,6 +150,9 @@ Example:
 		newDatabaseRotatePasswordCmd(rt),
 		newDatabaseMetricsCmd(rt),
 		newDatabaseLogsCmd(rt),
+		newDatabaseLinkCmd(rt),
+		newDatabaseUnlinkCmd(rt),
+		newDatabaseEnvCmd(rt),
 		NewDatabaseBranchCmd(rt),
 		NewDatabaseAllowlistCmd(rt),
 		NewDatabaseServiceCmd(rt),
@@ -265,12 +270,12 @@ Example:
 func newDatabaseGetCmd(rt *module.Runtime) *cobra.Command {
 	var userType string
 	cmd := &cobra.Command{
-		Use:   "get <database_id>",
+		Use:   "get [<database_id>]",
 		Short: "Show managed database details",
 		Long: `get shows the details of a single managed database.
 
 Use it to check a database's status, size, region and connection
-details. The argument takes a full UUID.
+details. The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
 
 Deployed services are listed underneath, with the URL each one is
 reached at. Their configurations carry secrets and are shown only in
@@ -286,7 +291,7 @@ Example:
   pgedge starfleet managed database get e5f6a7b8-c9d0-1234-efab-567890123456
   pgedge starfleet managed database get e5f6a7b8-c9d0-1234-efab-567890123456 \
     --user-type admin -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var wireUserType api.GetManagedDatabaseParamsUserType
 			// Changed, not `!= ""`: an explicitly empty --user-type is
@@ -308,7 +313,7 @@ Example:
 				}
 			}
 
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, _, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}
@@ -364,6 +369,7 @@ func newDatabaseCreateCmd(rt *module.Runtime) *cobra.Command {
 		allow       []string
 		myIP        bool
 		open        bool
+		link        bool
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -401,17 +407,49 @@ the database is created closed and the CLI says so. --open admits
 every address and cannot be combined with the other two. Services
 get their own allowlists when they are deployed.
 
+--link links the current folder to the new database once it is
+available, as 'database link' does, so 'pgedge env pull' can write
+its DATABASE_URL next. It needs --wait or --follow, and a folder
+already linked to another database is refused before the create is
+sent.
+
 Example:
   pgedge starfleet managed database create --name mydb \
     --region us-east-1 --size small
   pgedge starfleet managed database create --name mydb \
     --region us-east-1 --size large --pg-version 16
   pgedge starfleet managed database create --name mydb \
-    --region us-east-1 --size small --my-ip`,
+    --region us-east-1 --size small --my-ip
+  pgedge starfleet managed database create --name myapp \
+    --size small --my-ip --wait --link`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateManagedDatabaseName(name); err != nil {
 				return err
+			}
+			var linkDir string
+			if link {
+				if !waitFlag && !followFlag {
+					return newExitError("--link needs --wait or --follow: "+
+						"a database still being created has no connection "+
+						"to write", ExitUsage)
+				}
+				wd, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				existing, err := projectlink.Read(wd)
+				if err != nil {
+					return newExitError(fmt.Sprintf("read project link: %v", err), ExitGeneral)
+				}
+				if existing != nil {
+					return newExitError(fmt.Sprintf(
+						"%s already links database %s; run 'database unlink' "+
+							"first, or create without --link",
+						existing.Path, existing.DatabaseID), ExitGeneral)
+				}
+				linkDir = wd
+				rt.DryRun.Pass("%s holds no link", wd)
 			}
 			rt.DryRun.Pass("database name %q accepted", name)
 
@@ -567,7 +605,23 @@ Example:
 			}
 			// A brand-new database has no prior tasks, so the first
 			// task seen for it is the one this create spawned.
-			return trackMutation(rt, client, d.Id, taskBaseline{})
+			if err := trackMutation(rt, client, d.Id, taskBaseline{}); err != nil {
+				return err
+			}
+			if linkDir == "" {
+				return nil
+			}
+			path, err := projectlink.Write(linkDir, projectlink.Link{
+				Module: projectlink.ModuleManaged, DatabaseID: d.Id,
+			})
+			if err != nil {
+				return newExitError(fmt.Sprintf("database %s was created, "+
+					"but the link was not written: %v; run 'database link %s'",
+					d.Id, err, d.Id), ExitGeneral)
+			}
+			fmt.Fprintf(rt.Stderr, "Linked %s to database %s. Wrote %s.\n",
+				output.Sanitize(linkDir), output.Sanitize(d.Id), output.Sanitize(path))
+			return nil
 		},
 	}
 	f := cmd.Flags()
@@ -598,6 +652,8 @@ Example:
 		"Also allow the address the API sees this command arriving from")
 	f.BoolVar(&open, "open", false,
 		"Admit every address (one 0.0.0.0/0 rule); never the default")
+	f.BoolVar(&link, "link", false,
+		"Link the current folder to the new database (needs --wait or --follow)")
 	cmd.MarkFlagsMutuallyExclusive("open", "allow")
 	cmd.MarkFlagsMutuallyExclusive("open", "my-ip")
 	_ = cmd.MarkFlagRequired("name")

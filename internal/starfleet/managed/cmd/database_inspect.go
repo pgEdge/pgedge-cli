@@ -20,7 +20,7 @@ var inspectDeps *cli.InspectDeps
 func newDatabaseInspectCmd(rt *module.Runtime) *cobra.Command {
 	var userType string
 	cmd := &cobra.Command{
-		Use:   "inspect <database_id> <analysis>",
+		Use:   "inspect [<database_id>] <analysis>",
 		Short: "Run a read-only diagnostic against a managed database",
 		Long: `inspect connects to a managed database with the credentials
 database get returns and runs one diagnostic query, printing the rows.
@@ -44,30 +44,34 @@ two would show "<insufficient privilege>" in place of every query, and
 replication-lag would return a row per replica with every column
 blank but application. A database that refuses the connection is exit
 1; one that accepts it and never answers is exit 3 after 30 seconds.
-The argument takes a full UUID.
+The database ID takes a full UUID. In a folder linked with 'database link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 table-sizes
   pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 \
     long-running-queries --user-type admin -o json`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.RangeArgs(1, 2),
 		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) (
 			[]string, cobra.ShellCompDirective,
 		) {
-			if len(args) == 1 {
+			if len(args) == 0 {
+				return inspect.Names(), cobra.ShellCompDirectiveNoFileComp
+			}
+			if _, isAnalysis := inspect.Lookup(args[0]); len(args) == 1 && !isAnalysis {
 				return inspect.Names(), cobra.ShellCompDirectiveNoFileComp
 			}
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseUUIDArg(args[0], "database ID")
+			analysis := args[len(args)-1]
+			id, _, err := databaseArg(rt, args[:len(args)-1], 0)
 			if err != nil {
 				return err
 			}
-			a, ok := inspect.Lookup(args[1])
+			a, ok := inspect.Lookup(analysis)
 			if !ok {
 				return newExitError(fmt.Sprintf(
-					"unknown analysis %q: one of %s", args[1],
+					"unknown analysis %q: one of %s", analysis,
 					strings.Join(inspect.Names(), ", ")), ExitUsage)
 			}
 			var wireUserType api.GetManagedDatabaseParamsUserType

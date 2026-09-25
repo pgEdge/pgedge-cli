@@ -63,7 +63,7 @@ pgedge starfleet managed database allowlist add e5f6a7b8-c9d0-1234-efab-56789012
 <!-- BEGIN GENERATED: pgedge starfleet managed database allowlist get -->
 ###### pgedge starfleet managed database allowlist get
 
-**Usage:** `pgedge starfleet managed database allowlist get <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database allowlist get [<database_id>] [flags]`
 
 Show an endpoint's allowlist and its state
 

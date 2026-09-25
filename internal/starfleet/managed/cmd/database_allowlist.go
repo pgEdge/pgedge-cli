@@ -134,7 +134,7 @@ func allowlistSummaryRows(d *api.ManagedDatabase) []output.Row {
 func newAllowlistGetCmd(rt *module.Runtime) *cobra.Command {
 	var svcType string
 	cmd := &cobra.Command{
-		Use:   "get <database_id>",
+		Use:   "get [<database_id>]",
 		Short: "Show an endpoint's allowlist and its state",
 		Long: `get prints one endpoint's rules and the posture they add up
 to: closed (no rules, nobody connects), restricted, or open (a rule
@@ -143,13 +143,14 @@ admits every address).
 Text output is an Endpoint line, a State line and a CIDR/LABEL table.
 -o json prints the endpoint's own {"rules", "state"} object, with
 state "closed" filled in for an endpoint the API has never written.
+In a folder linked with 'database link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database allowlist get <database_id>
   pgedge starfleet managed database allowlist get <database_id> --service mcp`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, _, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}

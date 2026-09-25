@@ -158,6 +158,39 @@ pgedge doctor -o json
 pgedge doctor --no-version-check
 ```
 
+### pgedge env
+
+**Usage:** `pgedge env <command>`
+
+Write a linked database's connection into .env
+
+**Example:**
+
+```
+pgedge env pull
+```
+
+#### pgedge env pull
+
+**Usage:** `pgedge env pull [flags]`
+
+Write DATABASE_URL for the linked database into .env
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--file string` | No |  | File to write (default .env beside .pgedge/, or in the current folder when an ID is given) |
+| `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
+| `--var string` | No | `DATABASE_URL` | Variable name to set |
+
+**Example:**
+
+```
+pgedge env pull
+pgedge env pull --file .env.local --user-type app_read_only
+```
+
 ### pgedge inspect
 
 **Usage:** `pgedge inspect <analysis> [flags]`

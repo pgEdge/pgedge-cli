@@ -66,7 +66,7 @@ pgedge starfleet managed database list --region us-east-1 --limit 20 -o json
 <!-- BEGIN GENERATED: pgedge starfleet managed database get -->
 ##### pgedge starfleet managed database get
 
-**Usage:** `pgedge starfleet managed database get <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database get [<database_id>] [flags]`
 
 Show managed database details
 
@@ -112,7 +112,7 @@ pgedge starfleet managed database get e5f6a7b8-c9d0-1234-efab-567890123456 \
 <!-- BEGIN GENERATED: pgedge starfleet managed database connection-string -->
 ##### pgedge starfleet managed database connection-string
 
-**Usage:** `pgedge starfleet managed database connection-string <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database connection-string [<database_id>] [flags]`
 
 Print a connection string for a managed database
 
@@ -156,7 +156,7 @@ pgedge starfleet managed database connection-string e5f6a7b8-c9d0-1234-efab-5678
 <!-- BEGIN GENERATED: pgedge starfleet managed database inspect -->
 ##### pgedge starfleet managed database inspect
 
-**Usage:** `pgedge starfleet managed database inspect <database_id> <analysis> [flags]`
+**Usage:** `pgedge starfleet managed database inspect [<database_id>] <analysis> [flags]`
 
 Run a read-only diagnostic against a managed database
 
@@ -213,6 +213,7 @@ Create a managed database
 | `--display-name string` | No |  | Display name for the database, at most 25 characters |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--link` | No |  | Link the current folder to the new database (needs --wait or --follow) |
 | `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
 | `--name string` | Yes |  | Database name |
 | `--open` | No |  | Admit every address (one 0.0.0.0/0 rule); never the default |
@@ -452,6 +453,66 @@ pgedge starfleet managed database rotate-password e5f6a7b8-c9d0-1234-efab-567890
     --role app --force --wait
 ```
 
+<!-- BEGIN GENERATED: pgedge starfleet managed database link -->
+##### pgedge starfleet managed database link
+
+**Usage:** `pgedge starfleet managed database link <database_id> [flags]`
+
+Link the current folder to a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--branch string` | No |  | Link a branch of the database instead of the database itself |
+| `--force` | No |  | Replace a link to another database |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database link
+
+Write `.pgedge/link.yaml` in the current folder, naming one database,
+or with `--branch` one of its branches. The file holds IDs only, so a
+project can commit it. The database, and the branch, are read first:
+an ID the profile cannot see is exit 4 and writes nothing. A folder
+already linked elsewhere is exit 1 unless `--force` is given.
+
+Below a linked folder, eight read verbs take the linked database when
+the ID is left out, and print `Using database <id> from <path>` on
+stderr when they do: `get`, `connection-string`, `inspect`, `logs`,
+`metrics`, `allowlist get`, `branch list` and `env pull`. Every verb
+that changes anything still requires its ID, so a script whose ID
+variable is unset fails rather than writing to the linked database.
+The folder search stops at the first folder holding `.git`, and never
+reads `~/.pgedge`.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456
+```
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database unlink -->
+##### pgedge starfleet managed database unlink
+
+**Usage:** `pgedge starfleet managed database unlink`
+
+Remove the current folder's database link
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database unlink
+
+Remove `.pgedge/link.yaml` from the current folder. Only the folder's
+own link is removed; a folder with none is exit 1. The database and
+`.env` are untouched.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database unlink
+```
+
 ## Pages
 
 Each resource below has its own page. Read only the one you need.
@@ -461,6 +522,7 @@ Each resource below has its own page. Read only the one you need.
 |------|------|--------|
 | `allowlist` | `pgedge llms starfleet managed database allowlist` | Manage which addresses may reach a database |
 | `branch` | `pgedge llms starfleet managed database branch` | Manage branches of a managed database |
+| `env` | `pgedge llms starfleet managed database env` | Write a database's connection into a .env file |
 | `logs` | `pgedge llms starfleet managed database logs` | Read a managed database's logs |
 | `mcp` | `pgedge llms starfleet managed database mcp` | Manage the MCP server on a database |
 | `metrics` | `pgedge llms starfleet managed database metrics` | Read a managed database's metrics |

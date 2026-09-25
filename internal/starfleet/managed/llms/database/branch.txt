@@ -43,7 +43,7 @@ pgedge starfleet managed database branch create e5f6a7b8-c9d0-1234-efab-56789012
 <!-- BEGIN GENERATED: pgedge starfleet managed database branch list -->
 ###### pgedge starfleet managed database branch list
 
-**Usage:** `pgedge starfleet managed database branch list <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database branch list [<database_id>] [flags]`
 
 List a database's branches
 

@@ -131,3 +131,28 @@ func ValidateFormat(format string) error {
 
 // FormatCompletion completes --format.
 func FormatCompletion() []string { return []string{"uri", "env"} }
+
+// EnvFileURI is cs's URI with every userinfo and database byte outside
+// RFC 3986's unreserved set percent-encoded. url.URL leaves `$` raw in
+// a password, and Next.js and Vite expand `$NAME` inside an unquoted
+// .env value, so the URI Build prints would reach them corrupted.
+func EnvFileURI(cs *String) string {
+	return "postgresql://" + encodeStrict(cs.Username) + ":" +
+		encodeStrict(cs.Password) + "@" +
+		net.JoinHostPort(cs.Host, strconv.Itoa(cs.Port)) + "/" +
+		encodeStrict(cs.Database) + "?sslmode=" + cs.SSLMode
+}
+
+func encodeStrict(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' ||
+			'0' <= c && c <= '9' || c == '-' || c == '.' || c == '_' || c == '~' {
+			b.WriteByte(c)
+			continue
+		}
+		fmt.Fprintf(&b, "%%%02X", c)
+	}
+	return b.String()
+}

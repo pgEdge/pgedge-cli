@@ -226,7 +226,7 @@ pgedge starfleet managed database allowlist clear <database_id> \
 
 ##### pgedge starfleet managed database allowlist get
 
-**Usage:** `pgedge starfleet managed database allowlist get <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database allowlist get [<database_id>] [flags]`
 
 Show an endpoint's allowlist and its state
 
@@ -408,7 +408,7 @@ pgedge starfleet managed database branch get <database_id> <branch_id> \
 
 ##### pgedge starfleet managed database branch list
 
-**Usage:** `pgedge starfleet managed database branch list <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database branch list [<database_id>] [flags]`
 
 List a database's branches
 
@@ -475,7 +475,7 @@ pgedge starfleet managed database branch metrics e5f6a7b8-c9d0-1234-efab-5678901
 
 #### pgedge starfleet managed database connection-string
 
-**Usage:** `pgedge starfleet managed database connection-string <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database connection-string [<database_id>] [flags]`
 
 Print a connection string for a managed database
 
@@ -511,6 +511,7 @@ Create a managed database
 | `--display-name string` | No |  | Display name for the database, at most 25 characters |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--link` | No |  | Link the current folder to the new database (needs --wait or --follow) |
 | `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
 | `--name string` | Yes |  | Database name |
 | `--open` | No |  | Admit every address (one 0.0.0.0/0 rule); never the default |
@@ -531,6 +532,8 @@ pgedge starfleet managed database create --name mydb \
   --region us-east-1 --size large --pg-version 16
 pgedge starfleet managed database create --name mydb \
   --region us-east-1 --size small --my-ip
+pgedge starfleet managed database create --name myapp \
+  --size small --my-ip --wait --link
 ```
 
 #### pgedge starfleet managed database delete
@@ -561,9 +564,43 @@ pgedge starfleet managed database delete e5f6a7b8-c9d0-1234-efab-567890123456 \
   --delete-branches --force
 ```
 
+#### pgedge starfleet managed database env
+
+**Usage:** `pgedge starfleet managed database env <command>`
+
+Write a database's connection into a .env file
+
+**Example:**
+
+```
+pgedge starfleet managed database env pull
+```
+
+##### pgedge starfleet managed database env pull
+
+**Usage:** `pgedge starfleet managed database env pull [<database_id>] [flags]`
+
+Write DATABASE_URL for a database into .env
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--file string` | No |  | File to write (default .env beside .pgedge/, or in the current folder when an ID is given) |
+| `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
+| `--var string` | No | `DATABASE_URL` | Variable name to set |
+
+**Example:**
+
+```
+pgedge starfleet managed database env pull
+pgedge starfleet managed database env pull e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --file .env.local --user-type app_read_only
+```
+
 #### pgedge starfleet managed database get
 
-**Usage:** `pgedge starfleet managed database get <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database get [<database_id>] [flags]`
 
 Show managed database details
 
@@ -583,7 +620,7 @@ pgedge starfleet managed database get e5f6a7b8-c9d0-1234-efab-567890123456 \
 
 #### pgedge starfleet managed database inspect
 
-**Usage:** `pgedge starfleet managed database inspect <database_id> <analysis> [flags]`
+**Usage:** `pgedge starfleet managed database inspect [<database_id>] <analysis> [flags]`
 
 Run a read-only diagnostic against a managed database
 
@@ -599,6 +636,27 @@ Run a read-only diagnostic against a managed database
 pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 table-sizes
 pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 \
   long-running-queries --user-type admin -o json
+```
+
+#### pgedge starfleet managed database link
+
+**Usage:** `pgedge starfleet managed database link <database_id> [flags]`
+
+Link the current folder to a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--branch string` | No |  | Link a branch of the database instead of the database itself |
+| `--force` | No |  | Replace a link to another database |
+
+**Example:**
+
+```
+pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --branch 0a1b2c3d-4e5f-6789-abcd-ef0123456789
 ```
 
 #### pgedge starfleet managed database list
@@ -625,7 +683,7 @@ pgedge starfleet managed database list --region us-east-1 -o json
 
 #### pgedge starfleet managed database logs
 
-**Usage:** `pgedge starfleet managed database logs <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database logs [<database_id>] [flags]`
 
 Read a managed database's logs
 
@@ -724,7 +782,7 @@ pgedge starfleet managed database mcp update <database_id> --allow-writes=false
 
 #### pgedge starfleet managed database metrics
 
-**Usage:** `pgedge starfleet managed database metrics <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database metrics [<database_id>] [flags]`
 
 Read a managed database's metrics
 
@@ -1029,6 +1087,18 @@ Remove a service type from a database
 ```
 pgedge starfleet managed database service remove <database_id> mcp
 pgedge starfleet managed database service remove <database_id> rag --force
+```
+
+#### pgedge starfleet managed database unlink
+
+**Usage:** `pgedge starfleet managed database unlink`
+
+Remove the current folder's database link
+
+**Example:**
+
+```
+pgedge starfleet managed database unlink
 ```
 
 #### pgedge starfleet managed database update

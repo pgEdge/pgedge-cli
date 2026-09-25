@@ -395,7 +395,7 @@ func validateMetricsWindow(rt *module.Runtime, v string) error {
 func newDatabaseMetricsCmd(rt *module.Runtime) *cobra.Command {
 	var window, startTime, endTime string
 	cmd := &cobra.Command{
-		Use:   "metrics <database_id>",
+		Use:   "metrics [<database_id>]",
 		Short: "Read a managed database's metrics",
 		Long: `metrics reads the Postgres and container metrics
 collected for a managed database.
@@ -461,7 +461,7 @@ API sent.
 
 An empty result means no samples in the window, not a broken endpoint.
 
-The argument takes a full UUID.
+The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database metrics e5f6a7b8-c9d0-1234-efab-567890123456
@@ -470,7 +470,7 @@ Example:
   pgedge starfleet managed database metrics e5f6a7b8-c9d0-1234-efab-567890123456 -o json
   pgedge starfleet managed database metrics e5f6a7b8-c9d0-1234-efab-567890123456 \
     --start-time 2026-08-17T00:00:00Z`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			params := &api.GetManagedDatabaseMetricsParams{}
@@ -497,7 +497,7 @@ Example:
 				params.EndTime = &at
 			}
 
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, _, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}

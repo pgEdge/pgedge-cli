@@ -120,3 +120,24 @@ func TestValidateFormat(t *testing.T) {
 		t.Errorf("want exit %d, got %v", conn.ExitUsage, err)
 	}
 }
+
+func TestEnvFileURIEncodesEveryReservedByte(t *testing.T) {
+	password := "p$ss#w@rd:/?&=+,;'\" \\x\u00a0"
+	cs := Build("db.example", 5432, "my$db", "app", password, true)
+	got := EnvFileURI(cs)
+
+	want := "postgresql://app:p%24ss%23w%40rd%3A%2F%3F%26%3D%2B%2C%3B%27%22%20%5Cx%C2%A0@db.example:5432/my%24db?sslmode=require"
+	if got != want {
+		t.Fatalf("EnvFileURI:\n got %s\nwant %s", got, want)
+	}
+	u, err := url.Parse(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := u.User.Password(); p != password {
+		t.Errorf("password parses back as %q, want %q", p, password)
+	}
+	if u.Path != "/my$db" {
+		t.Errorf("database parses back as %q", u.Path)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -19,13 +20,15 @@ func newDatabaseConnectionStringCmd(rt *module.Runtime) *cobra.Command {
 		noPassword bool
 	)
 	cmd := &cobra.Command{
-		Use:   "connection-string <database_id>",
+		Use:   "connection-string [<database_id>]",
 		Short: "Print a connection string for a managed database",
 		Long: `connection-string prints a libpq connection URI for a managed
 database, assembled from the connection block database get returns.
 
 Use it to connect an application or a client without extracting the
-parts from -o json by hand. The argument takes a full UUID.
+parts from -o json by hand. The argument takes a full UUID. In a
+folder linked with 'database link', the ID can be left out, and a
+link naming a branch prints the branch's string.
 
 The string carries the role's password. That is what makes it a
 connection string, and it is also a live credential on stdout: the
@@ -54,7 +57,7 @@ Example:
     --user-type admin --no-password
   pgedge starfleet managed database connection-string e5f6a7b8-c9d0-1234-efab-567890123456 \
     --format env > .env`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := connstr.ValidateFormat(format); err != nil {
 				return err
@@ -76,7 +79,7 @@ Example:
 				}
 			}
 
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, link, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}
@@ -84,25 +87,14 @@ Example:
 			if err != nil {
 				return err
 			}
-			params := &api.GetManagedDatabaseParams{}
-			if wireUserType != "" {
-				params.UserType = &wireUserType
+			var cs *connstr.String
+			if link != nil && link.BranchID != "" {
+				cs, err = branchConnectionString(client, id,
+					uuid.MustParse(link.BranchID), userType, !noPassword)
+			} else {
+				cs, err = databaseConnectionString(client, id,
+					wireUserType, !noPassword)
 			}
-			resp, err := client.GetManagedDatabaseWithResponse(
-				context.Background(), id, params)
-			if err != nil {
-				return fmt.Errorf("get database: %w", err)
-			}
-			if err := checkResponse(resp.StatusCode(),
-				string(resp.Body)); err != nil {
-				return err
-			}
-			if resp.JSON200 == nil {
-				return newExitError(
-					fmt.Sprintf("database %s not found", id), ExitNotFound)
-			}
-
-			cs, err := buildConnectionString(resp.JSON200, !noPassword)
 			if err != nil {
 				return err
 			}
@@ -151,6 +143,46 @@ func buildConnectionString(
 		return nil, newExitError(fmt.Sprintf(
 			"database %s has no connection host yet; it is still being "+
 				"created, or its status is not available", d.Id),
+			ExitGeneral)
+	}
+	return connstr.Build(*c.Host, c.Port, c.Database, c.Username,
+		c.Password, withPassword), nil
+}
+
+func databaseConnectionString(client *api.ClientWithResponses, id uuid.UUID,
+	userType api.GetManagedDatabaseParamsUserType, withPassword bool,
+) (*connstr.String, error) {
+	params := &api.GetManagedDatabaseParams{}
+	if userType != "" {
+		params.UserType = &userType
+	}
+	resp, err := client.GetManagedDatabaseWithResponse(
+		context.Background(), id, params)
+	if err != nil {
+		return nil, fmt.Errorf("get database: %w", err)
+	}
+	if err := checkResponse(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return nil, err
+	}
+	if resp.JSON200 == nil {
+		return nil, newExitError(
+			fmt.Sprintf("database %s not found", id), ExitNotFound)
+	}
+	return buildConnectionString(resp.JSON200, withPassword)
+}
+
+func branchConnectionString(client *api.ClientWithResponses, id,
+	branchID uuid.UUID, userType string, withPassword bool,
+) (*connstr.String, error) {
+	c, err := branchConnection(client, id, branchID, userType)
+	if err != nil {
+		return nil, err
+	}
+	if c == nil || c.Host == nil || *c.Host == "" {
+		return nil, newExitError(fmt.Sprintf(
+			"branch %s has no connection host yet; it is still being "+
+				"created, or its status is not available", branchID),
 			ExitGeneral)
 	}
 	return connstr.Build(*c.Host, c.Port, c.Database, c.Username,

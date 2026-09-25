@@ -47,7 +47,7 @@ Each check reports `ok`, `warning`, or `error`.
 | Latest version | Compares installed version against latest GitHub release. `warning` if a newer version exists or the check fails. `--no-version-check` skips the lookup, the one call `doctor` makes off the machine; the row is then `ok` with "not checked", and `-o json` carries `checked: false`. |
 | Config | Whether `config.yaml` exists in the config directory. |
 | Shell | Detects the current shell and checks whether `pgedge` is on `$PATH`. |
-| Install method | Infers installation method from executable path: npm, homebrew, install-script, go-install, or unknown. |
+| Install method | Infers installation method from executable path: homebrew, install-script, go-install, or unknown. |
 | Connection | One row per configured connection: module, profile, resolved base URL, and whether credentials are available. Presence only — no credential value is ever printed. `warning` when the connection could not even be attempted: a `starfleet` row with no client ID and secret. `controlplane` rows stay `ok` without credentials, because the Control Plane has no login and its mTLS keypair is optional. Every attemptable row says `not verified`, because nothing is dialled. |
 
 **Example:**

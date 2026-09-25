@@ -79,17 +79,14 @@ after the swap, described below.
 
 ## Installs it will not touch
 
-Three installs belong to another tool, so `self update` refuses them
+Two installs belong to another tool, so `self update` refuses them
 before any network call and names the tool to use instead:
 
 - A Homebrew install. Run `brew upgrade pgedge` instead.
-- An install by npm or another Node package manager. Run `npm
-  install -g @pgedge/cli@latest` instead, or `@beta` for a
-  pre-release.
 - A binary inside a git working tree, which is what `make build`
   produces. Run `git pull && make build` instead.
 
-No refusal takes an override, because forcing one would leave
+Neither refusal takes an override, because forcing either would leave
 the CLI managing a binary something else owns. `--check` is the one
 path a refusal does not stop: it swaps nothing, so it still reports
 the answer and exits 0, repeating the refusal on `stderr` as a note.

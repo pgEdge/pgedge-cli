@@ -64,9 +64,6 @@ owns, with no `--force` override (`<path>` is the running executable,
 
 - "`<path>` was installed via Homebrew; run `brew upgrade pgedge`
   instead of `pgedge self update`"
-- "`<path>` was installed via npm; run `npm install -g
-  @pgedge/cli@latest` (or `@beta` for a pre-release) instead of
-  `pgedge self update`"
 - "`<path>` is inside a git working tree (`<root>`); run `make build`
   instead of `pgedge self update`"
 

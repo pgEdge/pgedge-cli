@@ -15,8 +15,9 @@ The script detects your platform and downloads the newest release. It
 verifies the archive's checksum. When `cosign` is installed, it also
 verifies the release signature. The script installs to `/usr/local/bin`.
 When it cannot write there, it installs to `~/.local/bin` instead.
-Then it sets up shell completion. If the install directory is missing
-from your PATH, the script prints the `export PATH=...` line to add.
+Then it sets up shell completion, unless the `CI` environment variable
+is set. If the install directory is missing from your PATH, the script
+prints the `export PATH=...` line to add.
 
 To install one release rather than the newest, set `PGEDGE_VERSION`
 to its tag from the releases page:
@@ -28,15 +29,16 @@ pipeline.
 
 On Windows, download the zip for your architecture (amd64 or arm64)
 from the [releases page](https://github.com/pgEdge/pgedge-cli/releases).
-To verify an archive, follow the README's "Manual download" section.
+To verify an archive, follow the README's
+"Downloading a Release by Hand" section.
 
 Before you go further, confirm that the binary is on your PATH and
 runs:
 
     pgedge version
 
-Three other routes exist, and one of them hands the whole job to your
-AI agent. [Other Ways to Install](#other-ways-to-install) below
+Six other routes exist, and one of them hands the whole job to your AI
+agent. [Other Ways to Install](#other-ways-to-install) below
 describes each one and what it needs.
 
 ## Running Your First Commands
@@ -105,8 +107,9 @@ installed the binary with `go install` or from a release archive.
 Project scope is the default. It puts the skills in the repository you
 run the command from, so teammates and cloud agents share the setup.
 To install for your user instead, add `--global`. The README's
-"AI-agent skills" section covers updating and removing the skills. It
-also covers the manual-copy path for agents without Node.
+"Installing the AI-Agent Skills" section covers updating and removing
+the skills. It also covers the manual-copy path for agents without
+Node.
 
 ## Reading the AI-Agent Reference
 
@@ -142,9 +145,9 @@ On macOS, `brew install node` and `brew install go` cover those. Only
 `npx skills add` uses Node. The README's manual-copy path installs the
 skills by hand.
 
-To download a release archive, follow the README's "Manual download"
-section. To ask a question or report a problem, open a
-[GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
+To download a release archive, follow the README's
+"Downloading a Release by Hand" section. To ask a question or report a
+problem, open a [GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
 
 ### Handing the Install to Your AI Agent
 

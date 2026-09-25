@@ -3,6 +3,8 @@
 ## 0.5.0-beta.3
 
 - `brew install pgEdge/tap/pgedge` installs the CLI.
+- `controlplane database update` asks for confirmation before a spec
+  removes nodes, and `--force` skips it.
 
 ## 0.5.0-beta.2
 

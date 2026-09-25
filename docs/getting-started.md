@@ -204,7 +204,7 @@ Update with `brew upgrade pgedge`.
 
 Add the action as a step, and it installs the release its tag names:
 
-    - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
 
 The action verifies the release signature and checksum before
 installing. To install another release, set its `version` input to

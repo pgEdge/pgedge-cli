@@ -141,7 +141,7 @@ explains why the record is the signal.
         env:
           DB_ID: ${{ vars.PGEDGE_DATABASE_ID }}
         steps:
-          - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+          - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
 
           - name: Take the backup
             env:
@@ -225,7 +225,7 @@ name the job uses, and pins the release the install script fetches:
       image: ubuntu:24.04
       variables:
         DB_ID: $PGEDGE_DATABASE_ID
-        PGEDGE_VERSION: v0.5.0-beta.2
+        PGEDGE_VERSION: v0.5.0-beta.3
       before_script:
         - apt-get update && apt-get install -y ca-certificates curl jq
         - curl -fsSL -o install.sh "https://raw.githubusercontent.com/pgEdge/pgedge-cli/${PGEDGE_VERSION}/install.sh"

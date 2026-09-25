@@ -17,11 +17,6 @@ Four terms recur throughout:
 
 ## Before You Start
 
-To link a database from a script, you need its full UUID, written
-`<db-id>` below. Run this command to read it:
-
-    pgedge starfleet managed database list
-
 The database must have finished being created before `env pull` can
 write its connection. The address your application connects from also
 needs an allowlist rule, as the
@@ -43,17 +38,19 @@ branch's number. Only a branch with the status `available` can be
 chosen. The command then asks whether to write `DATABASE_URL` into
 `.env`, and Enter writes it.
 
-In a script, pass the ID from `database list`, because without a
-terminal and an ID the command exits with status 2:
+A script must pass the database's full UUID, written `<db-id>` below,
+because without a terminal and an ID the command exits with status 2.
+Run `database list` to read the ID, then link with it:
 
+    pgedge starfleet managed database list
     pgedge starfleet managed database link <db-id>
 
-The command reads the database first, so it writes no file for an ID
-your active profile cannot see. On success, it reports the folder, the
-database and the file it wrote on stderr.
+The command reads the database before it writes the link. An ID your
+active profile cannot see exits with status 4. On success, it reports
+the folder, the database and the file it wrote on stderr.
 
-The link holds the database ID and nothing secret, with no credential
-and no profile name. `env pull` and the read commands below also work
+The link holds only the database ID, and the branch ID for a branch,
+so you can commit it. `env pull` and the read commands below also work
 in any folder under the linked one.
 
 ## Creating a Database and Linking It in One Step
@@ -67,9 +64,8 @@ with a name of your choice:
 
 `--link` needs `--wait` or `--follow`, because a database still being
 created has no connection to write. Without either one, the command
-exits with status 2. The command checks for an existing link before it
-sends the create, so a folder that is already linked costs you no
-database.
+exits with status 2. In a folder that is already linked, the command
+exits with status 1 before it creates the database.
 
 The [Provision a managed database](provision.md) guide describes the
 other create flags.
@@ -213,8 +209,8 @@ Run `database unlink` from the folder that holds `.pgedge`:
     pgedge starfleet managed database unlink
 
 The command removes `.pgedge/link.yaml`, and the `.pgedge` folder when
-nothing else is left in it. It changes nothing in the database and
-leaves `.env` as it is. Run from a subfolder, the command exits with
+nothing else is left in it. The database and `.env` stay as they
+are. Run from a subfolder, the command exits with
 status 1, because it removes only a link in the current folder.
 
 ## Troubleshooting
@@ -261,6 +257,6 @@ database has finished being created.
 
 `database link` or `env pull` exits with status 4, and the message
 begins `resource not found`. Your active profile cannot see that
-database or branch, so no link file is written. Check the ID with
+database or branch. Check the ID with
 `pgedge starfleet managed database list` under the profile that owns
 the database.

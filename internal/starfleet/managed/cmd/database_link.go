@@ -158,18 +158,20 @@ Example:
 			if err != nil {
 				return err
 			}
-			var in *bufio.Reader
+			var (
+				in   *bufio.Reader
+				name string
+			)
 			if picking {
+				// The lists just read the target, so it needs no GET.
 				in = bufio.NewReader(rt.Stdin)
-				if id, branchID, err = promptLinkTarget(rt, client, in); err != nil {
+				if id, branchID, name, err = promptLinkTarget(rt, client, in); err != nil {
 					return err
 				}
 				if err := checkExistingLink(wd, linkFor(id, branchID), force); err != nil {
 					return err
 				}
-			}
-			name, err := linkTargetName(client, id, branchID)
-			if err != nil {
+			} else if name, err = linkTargetName(client, id, branchID); err != nil {
 				return err
 			}
 			path, err := projectlink.Write(wd, linkFor(id, branchID))
@@ -236,9 +238,8 @@ func linkTargetName(client *api.ClientWithResponses, id, branchID uuid.UUID) (st
 	if resp.JSON200 == nil {
 		return "", newExitError(fmt.Sprintf("database %s not found", id), ExitNotFound)
 	}
-	name := fmt.Sprintf("database %s (%s)", resp.JSON200.Name, id)
 	if branchID == uuid.Nil {
-		return name, nil
+		return targetName(resp.JSON200.Name, id, branchID), nil
 	}
 	b, err := client.GetBranchWithResponse(
 		context.Background(), id, branchID, &api.GetBranchParams{})
@@ -248,7 +249,16 @@ func linkTargetName(client *api.ClientWithResponses, id, branchID uuid.UUID) (st
 	if err := checkResponse(b.StatusCode(), string(b.Body)); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("branch %s of %s", branchID, name), nil
+	return targetName(resp.JSON200.Name, id, branchID), nil
+}
+
+// targetName names a link's target for the acknowledgement.
+func targetName(dbName string, id, branchID uuid.UUID) string {
+	name := fmt.Sprintf("database %s (%s)", dbName, id)
+	if branchID == uuid.Nil {
+		return name
+	}
+	return fmt.Sprintf("branch %s of %s", branchID, name)
 }
 
 // --- unlink ---

@@ -26,20 +26,21 @@ var stdinIsTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
 const branchReady = "available"
 
 // promptLinkTarget asks which database to link, then which of its
-// branches when it has any. A nil branch ID means the database itself.
+// branches when it has any, and names the choice. A nil branch ID means
+// the database itself.
 func promptLinkTarget(rt *module.Runtime, client *api.ClientWithResponses, in *bufio.Reader) (
-	id, branchID uuid.UUID, err error,
+	id, branchID uuid.UUID, name string, err error,
 ) {
 	resp, err := client.ListManagedDatabasesWithResponse(
 		context.Background(), &api.ListManagedDatabasesParams{})
 	if err != nil {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("list databases: %w", err)
+		return uuid.Nil, uuid.Nil, "", fmt.Errorf("list databases: %w", err)
 	}
 	if err := checkResponse(resp.StatusCode(), string(resp.Body)); err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, "", err
 	}
 	if resp.JSON200 == nil || len(*resp.JSON200) == 0 {
-		return uuid.Nil, uuid.Nil, newExitError("this account has no managed "+
+		return uuid.Nil, uuid.Nil, "", newExitError("this account has no managed "+
 			"databases; create one and link it with 'pgedge starfleet managed "+
 			"database create --name <db-name> --link'", ExitGeneral)
 	}
@@ -53,24 +54,24 @@ func promptLinkTarget(rt *module.Runtime, client *api.ClientWithResponses, in *b
 	}
 	n, err := choose(rt, in, len(dbs), false, func(int) string { return "" })
 	if err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, "", err
 	}
 	db := dbs[n-1]
 	id, err = parseUUIDArg(db.Id, "database ID")
 	if err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, "", err
 	}
 	// The branches are always listed: the database list omits
 	// branch_count, which only a single database's GET carries.
 	br, err := client.ListBranchesWithResponse(context.Background(), id, &api.ListBranchesParams{})
 	if err != nil {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("list branches: %w", err)
+		return uuid.Nil, uuid.Nil, "", fmt.Errorf("list branches: %w", err)
 	}
 	if err := checkResponse(br.StatusCode(), string(br.Body)); err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, "", err
 	}
 	if br.JSON200 == nil || len(*br.JSON200) == 0 {
-		return id, uuid.Nil, nil
+		return id, uuid.Nil, targetName(db.Name, id, uuid.Nil), nil
 	}
 	branches := *br.JSON200
 
@@ -91,11 +92,16 @@ func promptLinkTarget(rt *module.Runtime, client *api.ClientWithResponses, in *b
 		}
 		return ""
 	})
-	if err != nil || n == 0 {
-		return id, uuid.Nil, err
+	if err != nil {
+		return uuid.Nil, uuid.Nil, "", err
 	}
-	branchID, err = parseUUIDArg(branches[n-1].Id, "branch ID")
-	return id, branchID, err
+	if n == 0 {
+		return id, uuid.Nil, targetName(db.Name, id, uuid.Nil), nil
+	}
+	if branchID, err = parseUUIDArg(branches[n-1].Id, "branch ID"); err != nil {
+		return uuid.Nil, uuid.Nil, "", err
+	}
+	return id, branchID, targetName(db.Name, id, branchID), nil
 }
 
 // choose reads a number from 1 to limit, asking again after an answer

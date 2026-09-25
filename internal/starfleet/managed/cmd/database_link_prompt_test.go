@@ -103,6 +103,17 @@ func TestDatabaseLinkPrompts(t *testing.T) {
 			if stub.listed != 2 {
 				t.Errorf("list requests = %d, want the databases and the branches", stub.listed)
 			}
+			// The lists name the target; only writing .env reads one.
+			if wantGets := min(len(tt.wantEnv), 1); len(stub.paths) != wantGets {
+				t.Errorf("GETs = %v, want %d", stub.paths, wantGets)
+			}
+			wantName := "to database mydb (" + testDatabaseID + ")"
+			if tt.wantBranch != "" {
+				wantName = "to branch " + tt.wantBranch + " of database mydb (" + testDatabaseID + ")"
+			}
+			if !strings.Contains(errb.String(), wantName) {
+				t.Errorf("acknowledgement lacks %q:\n%s", wantName, errb.String())
+			}
 			for _, w := range tt.wantErr {
 				if !strings.Contains(errb.String(), w) {
 					t.Errorf("stderr lacks %q:\n%s", w, errb.String())

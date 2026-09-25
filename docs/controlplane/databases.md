@@ -268,7 +268,11 @@ in the same Postgres and Spock major bucket. The upgrade restarts the
 database, so it prompts:
 
     pgedge controlplane database upgrade storefront \
-        --image pgedge/pgedge:16.4-1 --force --wait
+        --image pgedge/pgedge:16.4-1 --wait
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Upgrade database storefront to pgedge/pgedge:16.4-1? This restarts the database. [y/N]: y
 
 `--image` is required. The CLI checks it at run time, so omitting it is
 a usage error rather than a cobra complaint.
@@ -279,7 +283,11 @@ a usage error rather than a cobra complaint.
 operation is destructive and irreversible, so it prompts unless
 `--force`:
 
-    pgedge controlplane database delete storefront --force --wait
+    pgedge controlplane database delete storefront --wait
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Delete database storefront? [y/N]: y
 
 Three flags in this module start with `force` and do different things.
 `--force` acts only inside the CLI. The other two set a parameter on
@@ -319,11 +327,11 @@ The task's own keys sit at the top level of the document, so a `jq`
 path here reads `.task_id`. Every other controlplane command reads
 `.task.task_id`.
 
-`--wait` checks the task at an interval until the task finishes or the
-wait times out. `--wait-interval` and `--wait-timeout` adjust both.
-`--follow` ignores both of those flags, and streams the task log at a
-fixed interval. It keeps streaming until the task reaches a terminal
-state or you stop it. Each log request has its own fixed limit,
+`--wait` checks the task every 3 seconds, and gives up after 600
+seconds. `--wait-interval` and `--wait-timeout` adjust both values.
+`--follow` ignores both of those flags, and streams the task log every
+2 seconds. It keeps streaming until the task reaches a terminal state
+or you stop it. Each log request has a fixed limit of 30 seconds,
 separate from `--timeout`, and a request that outlives it exits with
 status 3. [Tasks and async operations](../tasks-and-async.md) carries
 the full contract.
@@ -350,7 +358,6 @@ A self-hosted Control Plane database has three nodes by default, and
 Spock replicates it too. The DDL replication section of
 [Schema migrations on a BYOC database](../byoc/schema-migrations.md#ddl-replication)
 therefore applies to it, just as it does to a multi-node BYOC database.
-The CLI prints no connection string for a Control Plane database.
 
 ## Next Steps
 

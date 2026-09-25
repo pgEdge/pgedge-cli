@@ -52,7 +52,11 @@ The following command promotes a named replica and blocks until the
 task finishes:
 
     pgedge controlplane database node switchover storefront n1 \
-        --candidate storefront-n2-9ptayhma --force --wait
+        --candidate storefront-n2-9ptayhma --wait
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Switch over node n1 in database storefront? This drops the connections the current leader is holding. [y/N]: y
 
 `--candidate` chooses which replica the Control Plane promotes. The
 CLI sends the value exactly as you typed it. A wrong or misspelled
@@ -76,8 +80,11 @@ the current leader still answers.
 
 The following command fails a node over and streams the task log:
 
-    pgedge controlplane database node failover storefront n1 \
-        --force --follow
+    pgedge controlplane database node failover storefront n1 --follow
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Fail over node n1 in database storefront? This is an unplanned promotion. [y/N]: y
 
 The Control Plane runs health checks that block a failover on a
 healthy cluster, and `--skip-validation` bypasses them. Reach for that
@@ -104,7 +111,11 @@ The following command restarts one instance during a maintenance
 window:
 
     pgedge controlplane database instance restart storefront \
-        storefront-n1-689qacsi --force --scheduled-at 2026-09-01T22:00:00Z
+        storefront-n1-689qacsi --scheduled-at 2026-09-01T22:00:00Z
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Restart instance storefront-n1-689qacsi in database storefront? This drops its connections. [y/N]: y
 
 Only `restart` takes `--scheduled-at`, and the API sets that limit.
 Start and stop are query-parameter endpoints with no body to carry a
@@ -160,7 +171,11 @@ keep `--force-lost` for a host that will stay gone.
 The following command removes a lost host and waits for the removal
 task:
 
-    pgedge controlplane host remove host-3 --force --force-lost --wait
+    pgedge controlplane host remove host-3 --force-lost --wait
+
+The command asks you to confirm, and you type `y` to proceed:
+
+    Remove host host-3? [y/N]: y
 
 The removal runs as a task, like everything else here. It is a host
 task, so when you look for it afterward, read it by host with

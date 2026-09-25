@@ -155,14 +155,6 @@ Build the binary in a checkout and run it:
     make build
     ./pgedge --help
 
-### Updating an Install
-
-A downloaded release binary updates itself with `pgedge self update`.
-The next section and [Updating the CLI](docs/updating.md) give the
-details. For a Homebrew install or a binary inside a git checkout,
-update with the tool that owns it. To see which version you are
-running, use `pgedge version`.
-
 ## Updating the CLI
 
 A downloaded release binary updates itself:

@@ -74,13 +74,12 @@ func Find(start, home string) (*Found, error) {
 	if err != nil {
 		return nil, err
 	}
-	if home != "" {
-		if home, err = filepath.Abs(home); err != nil {
-			return nil, err
-		}
-	}
+	// By file identity, not path: a symlinked $HOME and a resolved
+	// working directory spell the same folder differently.
+	homeInfo, _ := os.Stat(home)
 	for {
-		if dir == home {
+		if info, err := os.Stat(dir); err == nil && homeInfo != nil &&
+			os.SameFile(info, homeInfo) {
 			return nil, nil
 		}
 		path := filepath.Join(dir, Dir, File)

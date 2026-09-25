@@ -50,7 +50,9 @@ func TestNoWriteReadsTheProjectLink(t *testing.T) {
 			if strings.Contains(c.Use, "[<database_id>]") {
 				t.Errorf("%s is a write but its database ID is optional", c.CommandPath())
 			}
-			if c.Args != nil && c.Args(c, nil) == nil {
+			// cobra accepts any arguments when Args is nil, so a write
+			// without a validator could be run with its ID left out.
+			if c.Args == nil || c.Args(c, nil) == nil {
 				t.Errorf("%s is a write but runs with no arguments", c.CommandPath())
 			}
 		}

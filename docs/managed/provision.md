@@ -76,8 +76,7 @@ with the message naming the database on stderr.
     `--allow 203.0.113.7`. A block needs an explicit prefix length,
     masked to its network address: `--allow 203.0.113.0/24`.
     `--open` admits every address and cannot be combined with the
-    other two. Add `--link` to also link the current folder to the
-    new database, so `pgedge env pull` can write its `DATABASE_URL`. With none of the three the database is created closed
+    other two. With none of the three the database is created closed
     and nothing can connect. The CLI prints as much on stderr and
     names
     `pgedge starfleet managed database allowlist add <db-id> --my-ip`
@@ -85,6 +84,9 @@ with the message naming the database on stderr.
     [Controlling Network Access to a pgEdge Starfleet Managed
     Database](network-access.md) guide
     describes every allowlist command.
+
+    Add `--link` to also link the current folder to the new database,
+    so `pgedge env pull` can write its `DATABASE_URL` next.
 
 2. Confirm what the create produced:
 

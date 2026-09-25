@@ -120,6 +120,10 @@ Add the file to `.gitignore` before your next commit. A password
 pushed to a shared repository stays in its history after you delete
 the file.
 
+When Git already tracks `.env`, the warning names
+`git rm --cached .env` as well. Git keeps committing a tracked file
+even after `.gitignore` lists it.
+
 ## Sharing the Link with Your Team
 
 Commit `.pgedge/link.yaml` with the project. A teammate who clones the

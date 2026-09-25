@@ -461,7 +461,8 @@ API sent.
 
 An empty result means no samples in the window, not a broken endpoint.
 
-The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
+The argument takes a full UUID. In a folder linked with 'database
+link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database metrics e5f6a7b8-c9d0-1234-efab-567890123456

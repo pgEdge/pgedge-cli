@@ -363,10 +363,12 @@ func TestEnvPullWarnsWhenGitDoesNotIgnoreTheFile(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, gitignore string
-		warn            bool
+		track           bool
+		want            string // "" for no warning
 	}{
-		{"not ignored", "", true},
-		{"ignored", ".env\n", false},
+		{"not ignored", "", false, "git does not ignore"},
+		{"ignored", ".env\n", false, ""},
+		{"tracked, even though ignored", ".env\n", true, "git rm --cached .env"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := inProject(t)
@@ -378,15 +380,26 @@ func TestEnvPullWarnsWhenGitDoesNotIgnoreTheFile(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if tc.track {
+				if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("A=1\n"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				if err := exec.Command("git", "-C", dir, "add", "-f", ".env").Run(); err != nil {
+					t.Fatalf("git add: %v", err)
+				}
+			}
 			writeLink(t, dir, "")
 			rt, out, errb := testsupport.NewRuntime(t, "", "text")
 			url := testsupport.NewAuthedServer(t, (&linkStub{}).handler)
 			if err := runAuthed(t, rt, out, url, "database", "env", "pull"); err != nil {
 				t.Fatalf("env pull: %v", err)
 			}
-			warned := strings.Contains(errb.String(), "git does not ignore")
-			if warned != tc.warn {
-				t.Errorf("warned = %v, want %v; stderr %q", warned, tc.warn, errb.String())
+			warned := strings.Contains(errb.String(), "Warning:")
+			switch {
+			case tc.want == "" && warned:
+				t.Errorf("unexpected warning: %q", errb.String())
+			case tc.want != "" && !strings.Contains(errb.String(), tc.want):
+				t.Errorf("stderr %q does not contain %q", errb.String(), tc.want)
 			}
 		})
 	}

@@ -274,7 +274,8 @@ func newDatabaseGetCmd(rt *module.Runtime) *cobra.Command {
 		Long: `get shows the details of a single managed database.
 
 Use it to check a database's status, size, region and connection
-details. The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
+details. The argument takes a full UUID. In a folder linked with
+'database link', the ID can be left out.
 
 Deployed services are listed underneath, with the URL each one is
 reached at. Their configurations carry secrets and are shown only in

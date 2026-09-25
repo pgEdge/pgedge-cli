@@ -292,7 +292,7 @@ var stderrComposedMessages = map[string]struct {
 // 159 -> 163: `auth login` names where the secret went, and `auth
 // logout` reports a keychain it could not reach.
 const (
-	stderrArgSites      = 178
+	stderrArgSites      = 180
 	stderrComposedSites = 22
 )
 

@@ -120,6 +120,11 @@ var externalToolFlags = map[string]struct {
 		map[string]bool{"../../README.md": true}},
 	"--env": {"docker run",
 		map[string]bool{"../../docs/ci.md": true}},
+	"--cached": {"git rm",
+		map[string]bool{
+			"../../docs/managed/link-a-project.md": true,
+			"../../internal/starfleet/managed":     true,
+		}},
 	"--jq": {"the gh CLI (gh api)",
 		map[string]bool{"../../llms.txt": true}},
 	"--global": {"the skills CLI (npx skills add)",

@@ -209,3 +209,24 @@ func TestIsHome(t *testing.T) {
 		t.Error("IsHome(another folder) = true")
 	}
 }
+
+func TestFindStopsAtASymlinkedHome(t *testing.T) {
+	root := t.TempDir()
+	realHome := filepath.Join(root, "real-home")
+	if err := os.MkdirAll(filepath.Join(realHome, "project"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteLink(t, root, Link{Module: ModuleManaged, DatabaseID: dbID})
+	homeLink := filepath.Join(root, "home-link")
+	if err := os.Symlink(realHome, homeLink); err != nil {
+		t.Fatal(err)
+	}
+	// The working directory arrives resolved, $HOME as the symlink.
+	got, err := Find(filepath.Join(realHome, "project"), homeLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Errorf("Find walked past home to %s", got.Path)
+	}
+}

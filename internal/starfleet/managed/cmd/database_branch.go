@@ -88,7 +88,8 @@ audit view.
 
 The server returns 100 rows by default, which is also the maximum,
 so --limit can only narrow a page and a value above 100 is refused.
-The argument takes a full UUID. In a folder linked with 'database link', the ID can be left out.
+The argument takes a full UUID. In a folder linked with 'database
+link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database branch list e5f6a7b8-c9d0-1234-efab-567890123456

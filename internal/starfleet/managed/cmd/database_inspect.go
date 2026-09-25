@@ -45,7 +45,8 @@ two would show "<insufficient privilege>" in place of every query, and
 replication-lag would return a row per replica with every column
 blank but application. A database that refuses the connection is exit
 1; one that accepts it and never answers is exit 3 after 30 seconds.
-The database ID takes a full UUID. In a folder linked with 'database link', the ID can be left out.
+The database ID takes a full UUID. In a folder linked with
+'database link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 table-sizes

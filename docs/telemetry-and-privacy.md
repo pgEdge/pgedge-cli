@@ -84,8 +84,8 @@ CLI only when that fails. On the second rung the request is made by
 ## What is written to local disk
 
 The CLI's own files live under `~/.pgedge/cli`, and it creates that
-directory at mode 0700. Two commands also write into a project folder
-you run them in. The paths, and what puts them there:
+directory at mode 0700. The link and `env pull` commands also write
+into a project folder. The paths, and what puts them there:
 
 | Path | Written by |
 |---|---|

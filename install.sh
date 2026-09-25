@@ -205,7 +205,7 @@ warn_if_not_on_path "$INSTALL_DIR"
 # install docs rather than installing anything here.
 echo "AI-agent skills are available separately (SKILL.md format)."
 echo "To install them for your agent, see:"
-echo "  https://github.com/pgEdge/pgedge-cli#ai-agent-skills"
+echo "  https://github.com/pgEdge/pgedge-cli#installing-the-ai-agent-skills"
 
 # Enable shell completion (bash, zsh, fish, PowerShell). Best-effort:
 # the binary is already installed, so a failure here must never fail

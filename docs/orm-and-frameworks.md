@@ -14,6 +14,12 @@ to handle the live password the string carries, one for
 
 ## Get the string
 
+On `managed`, `pgedge env pull` writes the URI into `.env` as
+`DATABASE_URL`, from a project folder linked to the database. The
+[Linking a Project Folder to a pgEdge Starfleet Managed Database](managed/link-a-project.md)
+guide covers linking a folder. The rest of this section gets the
+string by hand, which BYOC and scripts need.
+
 On `managed`, one command prints the URI for a database:
 
     pgedge starfleet managed database connection-string <db-id>

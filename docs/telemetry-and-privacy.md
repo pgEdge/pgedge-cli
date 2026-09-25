@@ -83,8 +83,9 @@ CLI only when that fails. On the second rung the request is made by
 
 ## What is written to local disk
 
-Everything the CLI owns lives under `~/.pgedge/cli`, and it creates
-that directory at mode 0700. The paths, and what puts them there:
+The CLI's own files live under `~/.pgedge/cli`, and it creates that
+directory at mode 0700. Two commands also write into a project folder
+you run them in. The paths, and what puts them there:
 
 | Path | Written by |
 |---|---|
@@ -93,6 +94,8 @@ that directory at mode 0700. The paths, and what puts them there:
 | `~/.pgedge/cli/cache/sigstore/` | `pgedge self update`, caching the Sigstore trust root. |
 | Your shell's completion directory, or one line in your shell startup file | `pgedge completion install`, and the regeneration that follows a successful `self update`. |
 | The directory the running binary sits in | `pgedge self update`, staging the new binary beside the old one before swapping. |
+| `.pgedge/link.yaml` in a project folder | `starfleet managed database link` and `database create --link`. It holds IDs, never a credential. |
+| `.env` in a project folder, or the file `--file` names | `pgedge env pull` and `starfleet managed database env pull`. It holds a live database password. |
 
 `starfleet auth login` also writes one OS keychain entry per profile
 and config file, under the service name `pgedge-cli`, unless it

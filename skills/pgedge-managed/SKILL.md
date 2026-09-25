@@ -58,6 +58,8 @@ Each page prints with `pgedge llms starfleet managed <page>`:
 |---|---|
 | Create, list, read, resize, update or delete a database | `database` |
 | Connect a client, or print a connection string | `database` |
+| Link a project folder to a database | `database` |
+| Write `DATABASE_URL` into a project's `.env` | `database env` |
 | Let an address reach Postgres or a service | `database allowlist` |
 | Take, list or delete a branch | `database branch` |
 | Deploy or update an MCP server | `database mcp` |
@@ -101,6 +103,9 @@ Each rule is stated in full on the page named beside it.
   `database connection-string` whenever the output is shown to a
   person. Otherwise write the output to a file or a variable, never to
   the conversation.
+- **A linked folder names the database for reads only.** Below a
+  `.pgedge/link.yaml`, read commands may omit the ID. Every write still
+  needs its ID. See `database`.
 - **Ask a service whether it is ready.** A service's `state` and a
   succeeded task do not mean the endpoint answers. See
   `connecting-a-client`.

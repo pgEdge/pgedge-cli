@@ -73,6 +73,10 @@ doctor` reports it.
   byoc, or `pgedge inspect table-sizes --db-url <uri>` for any Postgres,
   runs one read-only diagnostic; `pgedge llms inspect` lists every
   analysis.
+- **Project link:** a folder holding `.pgedge/link.yaml` is linked to
+  one managed database. `pgedge env pull` writes that database's
+  `DATABASE_URL` into the project's `.env`; `pgedge llms env` has the
+  rules. Read verbs may omit the ID there. Every write still needs it.
 - **Dry runs:** every verb that writes accepts `--dry-run`. It runs the
   client-side checks, stops before the write, and prints the request it
   would have sent. Reads still go out, so it needs credentials; nothing

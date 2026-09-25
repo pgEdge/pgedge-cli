@@ -1,125 +1,133 @@
-# Getting started
+# Getting Started
 
-Install the `pgedge` CLI and run a first command. Releases are
-published on
+This guide shows you how to install the `pgedge` CLI and run your first
+command. Each release is published on
 [GitHub Releases](https://github.com/pgEdge/pgedge-cli/releases).
 
-## Install the binary
+## Installing the Binary
 
-On Linux or macOS, the install script is the quickest route and needs
+On Linux or macOS, the install script is the quickest route. It needs
 only `curl`:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
 The script detects your platform and downloads the newest release. It
-verifies the archive's checksum, and the release signature when
-`cosign` is installed. It installs to `/usr/local/bin`, or to
-`~/.local/bin` when `/usr/local/bin` is not writable, then sets up
-shell completion. If the install directory is not on your PATH, the
-script prints the `export PATH=...` line to add.
+verifies the archive's checksum. When `cosign` is installed, it also
+verifies the release signature. The script installs to `/usr/local/bin`.
+When it cannot write there, it installs to `~/.local/bin` instead.
+Then it sets up shell completion. If the install directory is missing
+from your PATH, the script prints the `export PATH=...` line to add.
 
 To install one release rather than the newest, set `PGEDGE_VERSION`
 to its tag from the releases page:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
 
-The [CI and automation guide](ci.md) pins a release this way in each
+The [CI and automation](ci.md) guide pins a release this way in each
 pipeline.
 
 On Windows, download the zip for your architecture (amd64 or arm64)
 from the [releases page](https://github.com/pgEdge/pgedge-cli/releases).
-The README's "Manual download" section covers verifying an archive.
+To verify an archive, follow the README's "Manual download" section.
 
-Confirm the binary is on your PATH and runs before going further:
+Before you go further, confirm that the binary is on your PATH and
+runs:
 
     pgedge version
 
-Three other routes exist, one of which hands the whole job to your AI
-agent. They are under [other ways to install](#other-ways-to-install)
-below, along with what each of them needs.
+Three other routes exist, and one of them hands the whole job to your
+AI agent. [Other Ways to Install](#other-ways-to-install) below
+describes each one and what it needs.
 
-## Your first commands
+## Running Your First Commands
 
-Sign in once per profile. Login prompts for the client ID and secret,
-or takes `--client-id` and `--client-secret` for unattended use. It
-caches a token, then saves the secret in the OS keychain and the rest
-of the profile in `~/.pgedge/cli/config.yaml`:
+Sign in once per profile. Login prompts for the client ID and secret.
+For unattended use, pass `--client-id` and `--client-secret` instead.
+Login caches a token and saves the secret in the OS keychain. It saves
+the rest of the profile in `~/.pgedge/cli/config.yaml`:
 
     pgedge starfleet auth login --profile dev
 
-Login is what creates the `dev` profile. A new `--profile` name works
-here before it works on any other command, and every other command
-requires the name to be configured already, or to be the built-in
-`default`.
+This login creates the `dev` profile. Login is the one command that
+accepts a new `--profile` name. Every other command accepts only a
+configured profile name, or the built-in `default`.
 
-One credential pair serves the whole starfleet module, covering its
-account-level commands, byoc and managed, because all three share one
-connection and one token.
+One credential pair serves the whole `starfleet` module. That covers
+its account-level commands, byoc and managed, because all three share
+one connection and one token.
 
-Check the installation and the connection:
+To check the installation and the connection, run:
 
     pgedge doctor
     pgedge starfleet doctor --profile dev
 
-Then run a real command, and pick the output format you want with
+Then run a real command. To pick the output format, add
 `-o text|json|yaml`:
 
     pgedge starfleet tenant list --profile dev
     pgedge profile list
 
-That is the whole loop: install, log in, run a command. The [output
-guide](output-and-paging.md) covers the three formats and the [exit codes
-guide](exit-codes.md) covers what a non-zero status means.
+That is the whole loop: install, log in, run a command. The
+[Output formats and paging](output-and-paging.md) guide covers the
+three formats. The [Exit codes](exit-codes.md) guide explains what a
+non-zero status means.
 
-## Shell completion
+## Setting Up Shell Completion
 
-Completion is optional and covers bash, zsh, fish and PowerShell:
+Shell completion is optional. It covers bash, zsh, fish and
+PowerShell. To install it, run:
 
     pgedge completion install
 
-That writes a completion script into the directory your shell loads
-completions from. `--rc-only` is the other route: it appends one
-line to your shell's startup file in place of the script. Your shell
-then asks the installed binary for completions each time it starts,
-so they always match that binary.
+That command writes a completion script into the directory your shell
+loads completions from.
+
+The `--rc-only` flag is the other route. It appends one line to your
+shell's startup file in place of the script. Each time your shell
+starts, it asks the installed binary for completions, so they always
+match that binary:
 
     pgedge completion install --rc-only
 
-Either way, `pgedge completion uninstall` takes it back out.
+To remove completion after either route, run
+`pgedge completion uninstall`.
 
-## Set up your AI agent
+## Setting Up Your AI Agent
 
-Install the pgedge skills into whatever agent you use, since Claude
-Code, Cursor, Copilot, Amp, and a dozen others read the same location:
+Install the pgedge skills into the agent you use. Claude Code, Cursor,
+Copilot, Amp and a dozen others read the same location:
 
     npx skills add pgEdge/pgedge-cli
 
-This clones the repository itself, so it also works for a developer
-who installed the binary via `go install` or a release archive.
-Project scope
-is the default, which puts the skills in the repository you run it
-from so teammates and cloud agents share the setup. Add `--global` to
-install for your user instead. The README's "AI-agent skills" section
-covers updating, removing, and the manual-copy path for agents without
-Node.
+This command clones the repository itself, so it also works when you
+installed the binary with `go install` or from a release archive.
 
-## The AI-agent reference
+Project scope is the default. It puts the skills in the repository you
+run the command from, so teammates and cloud agents share the setup.
+To install for your user instead, add `--global`. The README's
+"AI-agent skills" section covers updating and removing the skills. It
+also covers the manual-copy path for agents without Node.
+
+## Reading the AI-Agent Reference
 
 `pgedge llms` prints the machine-readable reference that ships inside
-the binary: global flags, profiles, exit codes, and routing tables of
-modules and of top-level command pages (`pgedge llms inspect`). `pgedge llms <module>` prints one module's index, which
-routes on to one page per resource (`pgedge llms starfleet byoc
-cluster`). Point an AI agent at these before anything else, because
-they are generated from the live command tree.
+the binary. It covers global flags, profiles and exit codes. It also
+carries routing tables of the modules and of the top-level command
+pages, such as `pgedge llms inspect`.
 
-Working in a checkout, agents should also read
-`skills/pgedge/SKILL.md`, the entry point for the bundled Claude Code
-skills.
+`pgedge llms <module>` prints one module's index. That index routes
+on to one page per resource, such as `pgedge llms starfleet byoc
+cluster`. Point an AI agent at these pages first, because they are
+generated from the live command tree.
 
-## Other ways to install
+In a checkout, agents should also read `skills/pgedge/SKILL.md`. It is
+the entry point for the bundled Claude Code skills.
 
-Six routes in all, each buying something different. Only
-`go install` and a clone-and-build need Go. What each route needs:
+## Other Ways to Install
+
+There are six routes in all, and each one gives you something
+different. Only `go install` and a clone-and-build need Go. This table
+lists what each route needs:
 
 | Install path | Also needs |
 |---|---|
@@ -131,22 +139,23 @@ Six routes in all, each buying something different. Only
 | Clone and build | Go 1.26 or newer |
 
 On macOS, `brew install node` and `brew install go` cover those. Only
-`npx skills add` uses Node, and the README's manual-copy path installs
-the skills by hand.
+`npx skills add` uses Node. The README's manual-copy path installs the
+skills by hand.
 
 To download a release archive, follow the README's "Manual download"
 section. To ask a question or report a problem, open a
 [GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
 
-### Hand it to your AI agent
+### Handing the Install to Your AI Agent
 
-Paste the prompt below into your coding agent (Claude Code, Cursor,
-and the like) and it runs the install script, wires up shell
-completion, and adds the agent skills for the products you use, asking
-you which those are along the way. The only prerequisites are `curl`
-and Node.js for the skills step. It stops if the CLI install fails,
-and carries on past a completion or skills step that fails or that
-you decline.
+Paste the prompt below into your coding agent, such as Claude Code or
+Cursor. The agent runs the install script and sets up shell
+completion. It then asks which products you use, and adds the agent
+skills for them. The only prerequisites are `curl`, and Node.js for
+the skills step.
+
+If the CLI install fails, the agent stops. If a completion or skills
+step fails, or you decline it, the agent carries on:
 
 <!-- install-prompt: begin -->
 <!-- This block is duplicated between README.md and
@@ -192,91 +201,103 @@ you decline.
        plane).
 <!-- install-prompt: end -->
 
-### Homebrew
+### Installing with Homebrew
 
-Install from the pgEdge tap on macOS or Linux:
+On macOS or Linux, install from the pgEdge tap:
 
     brew install pgEdge/tap/pgedge
 
-Update with `brew upgrade pgedge`.
+To update, run `brew upgrade pgedge`.
 
-### GitHub Actions
+### Installing with GitHub Actions
 
-Add the action as a step, and it installs the release its tag names:
+Add the action as a step. It installs the release that its tag names:
 
     - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
 
-The action verifies the release signature and checksum before
-installing. To install another release, set its `version` input to
-that release's tag.
+The action verifies the release signature and checksum before it
+installs. To install another release, set the action's `version`
+input to that release's tag.
 
-### `go install` from main
+### Installing with `go install` from Main
 
-Install, and later update, with one command:
+One command installs the binary, and the same command updates it
+later:
 
     go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
 
-The binary lands in `$(go env GOPATH)/bin`, usually `~/go/bin`, which
-must be on your PATH. `pgedge version` reports `dev` on this path,
-because version stamping happens in the Makefile build below.
+The binary lands in `$(go env GOPATH)/bin`, usually `~/go/bin`. That
+directory must be on your PATH. On this route, `pgedge version`
+reports `dev`, because version stamping happens in the Makefile build
+below.
 
-### Clone and build
+### Cloning and Building
 
-This route needs the Go toolchain and make, and leaves you the
-checkout as well as the binary:
+This route needs the Go toolchain and make. It leaves you the checkout
+as well as the binary:
 
     git clone https://github.com/pgEdge/pgedge-cli
     cd pgedge-cli
     make build
     install pgedge /usr/local/bin/
 
-This stamps `pgedge version` with the real commit and per-module
-versions, and leaves you a checkout with the AI-agent skills in
-`skills/`. Update with `git pull && make build`.
+This build stamps `pgedge version` with the real commit and the
+per-module versions. The checkout carries the AI-agent skills in
+`skills/`. To update, run `git pull && make build`.
 
-## Keeping the CLI up to date
+## Keeping the CLI Up to Date
 
 A binary you downloaded from a release updates itself:
 
     pgedge self update
 
-It looks up the newest release on GitHub, verifies the release's
-Sigstore signature and the archive's checksum before it touches the
-installed binary, and swaps the new one into place. `pgedge self
-update --check` reports whether an update exists and leaves the
-installed binary in place, and `pgedge doctor` reports the same
-answer in its "Latest version" row. A Homebrew install updates with
-`brew upgrade pgedge`, and `self update` refuses it.
+The command looks up the newest release on GitHub. Before it touches
+the installed binary, it verifies the release's Sigstore signature and
+the archive's checksum. Then it swaps the new binary into place.
 
-The [updating guide](updating.md) covers the rest: the two-rung GitHub
-lookup, the exit codes and deadlines, where the CLI caches the Sigstore trust
-root, the two installs the command refuses, and what happens to your
-completion scripts after a swap.
+To see whether an update exists, run `pgedge self update --check`. It
+reports the answer and leaves the installed binary in place. The
+"Latest version" row of `pgedge doctor` reports the same answer.
 
-## CI and containers
+`self update` refuses a Homebrew install. For that install, run
+`brew upgrade pgedge`.
 
-Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your
-pipeline's secret store, and every invocation authenticates from
-them and leaves the disk as it found it. The [CI and automation guide](ci.md) covers the
-pair in CI, Docker and Kubernetes, skipping prompts with `--force`,
-scripting against the exit-code contract, and two complete pipelines
+The [Updating the CLI](updating.md) guide covers the rest. That
+includes the two-rung GitHub lookup, the exit codes and deadlines, and
+where the CLI caches the Sigstore trust root. It also names the two
+installs the command refuses, and says what happens to your completion
+scripts after a swap.
+
+## Running in CI and Containers
+
+Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your pipeline's
+secret store. Every invocation then authenticates from that pair and
+leaves the disk as it found it.
+
+The [CI and automation](ci.md) guide covers the pair in CI, Docker and
+Kubernetes. It covers skipping prompts with `--force`, and scripting
+against the exit-code contract. It also carries two complete pipelines
 you can copy.
 
-## Next steps
+## Next Steps
 
-- The [authentication guide](auth-and-profiles.md) covers how
-  credentials resolve, what a profile holds, and how the token cache
-  is bound to the connection that minted it.
-- The connect an application guides for
-  [Managed](managed/connect-an-application.md) and
-  [BYOC](byoc/connect-an-application.md) cover getting a database's
-  host, port and credentials out of the CLI and into an application.
+These guides pick up where this one ends:
+
+- The [Authentication and profiles](auth-and-profiles.md) guide covers
+  how credentials resolve and what a profile holds. It also covers how
+  the token cache is bound to the connection that minted it.
+- The
+  [Connecting an Application to a pgEdge Starfleet Managed Database](managed/connect-an-application.md)
+  and
+  [Connecting an Application to a pgEdge Starfleet BYOC Database](byoc/connect-an-application.md)
+  guides cover getting a database's host, port and credentials out of
+  the CLI and into an application.
 - The
   [Linking a Project Folder to a pgEdge Starfleet Managed Database](managed/link-a-project.md)
   guide covers writing a managed database's `DATABASE_URL` into your
   project's `.env`.
-- The [CI and automation guide](ci.md) covers unattended runs, and
+- The [CI and automation](ci.md) guide covers unattended runs. It
   carries worked GitHub Actions and GitLab CI pipelines.
-- The [telemetry and privacy guide](telemetry-and-privacy.md) covers
-  what the binary contacts over the network and what it writes to
-  local disk.
+- The [Telemetry and privacy](telemetry-and-privacy.md) guide covers
+  what the binary contacts over the network. It also covers what the
+  binary writes to local disk.

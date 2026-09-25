@@ -34,9 +34,9 @@ Each install method suits a different platform and update routine:
 | [AI agent](#handing-the-install-to-an-ai-agent) | Linux, macOS | `curl`, and Node.js for the skills step | `pgedge self update` |
 | [Install script](#installing-with-the-script-linux-macos) | Linux, macOS | `curl`, `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
 | [GitHub Actions](#installing-in-github-actions) | Linux and macOS runners | Nothing else | A new tag in `uses:` |
-| [Homebrew](#installing-with-homebrew-macos-linux) | macOS, Linux | Homebrew | `brew upgrade pgedge` |
-| [go install](#installing-with-go-install) | Linux, macOS, Windows | Go 1.26 or newer | `pgedge self update` |
-| [Release by hand](#downloading-a-release-by-hand) | Linux, macOS, Windows | `sha256sum` or `shasum` | `pgedge self update` |
+| [Homebrew](#installing-with-homebrew-macos) | macOS | Homebrew | `brew upgrade pgedge` |
+| [go install](#installing-with-go-install) | Linux, macOS, Windows | Go 1.26 or newer | Re-run `go install` |
+| [Release by hand](#downloading-a-release-by-hand) | Linux, macOS, Windows | `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
 | [Build from source](#building-from-source) | Linux, macOS | Go 1.26 or newer, `make` | `git pull && make build` |
 
 ### Handing the Install to an AI Agent
@@ -117,7 +117,7 @@ your workflow:
 
 [CI and automation](docs/ci.md) shows a full pipeline.
 
-### Installing with Homebrew (macOS, Linux)
+### Installing with Homebrew (macOS)
 
 Install from the pgEdge tap with one command:
 

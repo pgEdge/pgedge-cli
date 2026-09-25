@@ -19,6 +19,7 @@ const testOtherBranchID = "0a1b2c3d-4e5f-6789-abcd-ef0123456789"
 type pickStub struct {
 	linkStub
 	databases string // the database list body
+	branches  bool   // whether the database has branches
 	listed    int    // list requests seen
 }
 
@@ -31,6 +32,10 @@ func (s *pickStub) handler(w http.ResponseWriter, r *http.Request) {
 	case "/managed/v1/databases/" + testDatabaseID + "/branches":
 		s.listed++
 		w.Header().Set("Content-Type", "application/json")
+		if !s.branches {
+			_, _ = w.Write([]byte("[]"))
+			return
+		}
 		creating := strings.Replace(branchJSON(testDatabaseID, testOtherBranchID),
 			`"status":"available"`, `"status":"creating"`, 1)
 		_, _ = fmt.Fprintf(w, "[%s,%s]", creating, branchJSON(testDatabaseID, testBranchID))
@@ -39,11 +44,10 @@ func (s *pickStub) handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// listOf is a database list holding testDatabaseID with branches
-// branches.
-func listOf(branches int) string {
-	db := strings.TrimSuffix(databaseJSON(testDatabaseID, ""), "}")
-	return fmt.Sprintf(`[%s,"branch_count":%d}]`, db, branches)
+// listOf is a database list holding testDatabaseID. It carries no
+// branch_count, as the live list does not.
+func listOf() string {
+	return "[" + databaseJSON(testDatabaseID, "") + "]"
 }
 
 // asATerminal makes the command see a person at a terminal.
@@ -57,7 +61,7 @@ func asATerminal(t *testing.T, yes bool) {
 func TestDatabaseLinkPrompts(t *testing.T) {
 	tests := []struct {
 		name       string
-		branches   int
+		branches   bool
 		stdin      string
 		wantBranch string
 		wantEnv    string // host in .env, "" for no .env
@@ -65,11 +69,11 @@ func TestDatabaseLinkPrompts(t *testing.T) {
 	}{
 		{name: "database without branches, .env declined", stdin: "1\nn\n",
 			wantErr: []string{"Database [1-1]", "Run 'pgedge env pull'"}},
-		{name: "bad answers asked again, .env by default", stdin: "x\n5\n1\n\n",
-			wantEnv: testConnHost, wantErr: []string{"Enter a number from 1 to 1."}},
-		{name: "Enter keeps the database", branches: 2, stdin: "1\n\nn\n",
+		{name: "bad answers asked again, .env by default", stdin: "x\n5\n1\n1\n\n",
+			wantEnv: testConnHost, wantErr: []string{"Enter a number from 1 to 1.", "Answer y or n."}},
+		{name: "Enter keeps the database", branches: true, stdin: "1\n\nn\n",
 			wantErr: []string{"Enter) the database itself", "(not ready)"}},
-		{name: "a branch, after refusing one not ready", branches: 2, stdin: "1\n1\n2\ny\n",
+		{name: "a branch, after refusing one not ready", branches: true, stdin: "1\n1\n2\ny\n",
 			wantBranch: testBranchID, wantEnv: testBranchHost,
 			wantErr: []string{"That branch is creating, not available; choose another."}},
 	}
@@ -78,7 +82,7 @@ func TestDatabaseLinkPrompts(t *testing.T) {
 			asATerminal(t, true)
 			dir := inProject(t)
 			rt, out, errb := testsupport.NewRuntime(t, tt.stdin, "text")
-			stub := &pickStub{databases: listOf(tt.branches)}
+			stub := &pickStub{databases: listOf(), branches: tt.branches}
 			url := testsupport.NewAuthedServer(t, stub.handler)
 
 			if err := runAuthed(t, rt, out, url, "database", "link"); err != nil {
@@ -96,8 +100,8 @@ func TestDatabaseLinkPrompts(t *testing.T) {
 			} else if got := readFile(t, env); got != "DATABASE_URL="+wantEnvURI(tt.wantEnv)+"\n" {
 				t.Errorf(".env = %q", got)
 			}
-			if wantLists := 1 + min(tt.branches, 1); stub.listed != wantLists {
-				t.Errorf("list requests = %d, want %d", stub.listed, wantLists)
+			if stub.listed != 2 {
+				t.Errorf("list requests = %d, want the databases and the branches", stub.listed)
 			}
 			for _, w := range tt.wantErr {
 				if !strings.Contains(errb.String(), w) {
@@ -129,10 +133,10 @@ func TestDatabaseLinkPromptRefuses(t *testing.T) {
 			args: []string{"--branch", testBranchID}, code: ExitUsage, match: "--branch needs the database ID"},
 		{name: "no databases", terminal: true, databases: "[]", code: ExitGeneral,
 			match: "create --name <db-name> --link", wantLists: 1},
-		{name: "input ends", terminal: true, databases: listOf(0), stdin: "", code: ExitUsage,
+		{name: "input ends", terminal: true, databases: listOf(), stdin: "", code: ExitUsage,
 			match: "aborted: nothing chosen", wantLists: 1},
-		{name: "folder linked elsewhere", terminal: true, databases: listOf(0), stdin: "1\n",
-			existing: true, code: ExitGeneral, match: "pass --force", wantLists: 1},
+		{name: "folder linked elsewhere", terminal: true, databases: listOf(), stdin: "1\n",
+			existing: true, code: ExitGeneral, match: "pass --force", wantLists: 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

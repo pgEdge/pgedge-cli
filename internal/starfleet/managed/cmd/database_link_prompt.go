@@ -60,10 +60,8 @@ func promptLinkTarget(rt *module.Runtime, client *api.ClientWithResponses, in *b
 	if err != nil {
 		return uuid.Nil, uuid.Nil, err
 	}
-	if db.BranchCount == nil || *db.BranchCount == 0 {
-		return id, uuid.Nil, nil
-	}
-
+	// The branches are always listed: the database list omits
+	// branch_count, which only a single database's GET carries.
 	br, err := client.ListBranchesWithResponse(context.Background(), id, &api.ListBranchesParams{})
 	if err != nil {
 		return uuid.Nil, uuid.Nil, fmt.Errorf("list branches: %w", err)
@@ -134,13 +132,19 @@ func choose(rt *module.Runtime, in *bufio.Reader, limit int, optional bool,
 	}
 }
 
-// askWriteEnv asks whether to write .env now; the default is yes.
+// askWriteEnv asks whether to write .env now, until the answer is yes
+// or no. Enter is yes; ended input is no.
 func askWriteEnv(rt *module.Runtime, in *bufio.Reader) bool {
-	fmt.Fprint(rt.Stderr, "Write DATABASE_URL to .env now? [Y/n]: ")
-	line, err := in.ReadString('\n')
-	answer := strings.ToLower(strings.TrimSpace(line))
-	if err != nil && answer == "" {
-		return false
+	for {
+		fmt.Fprint(rt.Stderr, "Write DATABASE_URL to .env now? [Y/n]: ")
+		line, err := in.ReadString('\n')
+		answer := strings.ToLower(strings.TrimSpace(line))
+		switch {
+		case answer == "y" || answer == "yes" || (answer == "" && err == nil):
+			return true
+		case answer == "n" || answer == "no" || err != nil:
+			return false
+		}
+		fmt.Fprintln(rt.Stderr, "Answer y or n.")
 	}
-	return answer == "" || answer == "y" || answer == "yes"
 }

@@ -171,24 +171,22 @@ func markRan(c *cobra.Command, ran *bool) {
 
 // wrapProfileGuard wraps every run hook in c's tree so that entering
 // one first runs cli.GuardProfile. It must be called before markRan;
-// the call site says why. It wraps Run too, so a command written with
-// it cannot skip the guard.
+// the call site says why. A bare Run becomes a RunE, because Run has no
+// error to return and a rejected profile would otherwise exit 0.
 func wrapProfileGuard(c *cobra.Command, rt *module.Runtime) {
+	if orig := c.Run; orig != nil && c.RunE == nil {
+		c.RunE = func(cmd *cobra.Command, args []string) error {
+			orig(cmd, args)
+			return nil
+		}
+		c.Run = nil
+	}
 	if orig := c.RunE; orig != nil {
 		c.RunE = func(cmd *cobra.Command, args []string) error {
 			if err := cli.GuardProfile(cmd, rt); err != nil {
 				return err
 			}
 			return orig(cmd, args)
-		}
-	}
-	if orig := c.Run; orig != nil {
-		c.Run = func(cmd *cobra.Command, args []string) {
-			if err := cli.GuardProfile(cmd, rt); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				return
-			}
-			orig(cmd, args)
 		}
 	}
 	for _, child := range c.Commands() {

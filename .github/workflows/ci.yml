@@ -159,16 +159,6 @@ jobs:
         if: failure()
         run: docker compose -f test/inspectlive/compose.yaml logs --tail 100
 
-  # Cross-compilation depends on the commit and nothing else, so this
-  # no longer waits on the jobs above. Gating it behind them put the
-  # whole build after the slowest gate on every green run: four
-  # minutes of build after six of inspect-live, with nothing else
-  # running. A run that was going to fail now pays for a build it did
-  # not need, which is the cheaper of the two.
-  #
-  # One leg per release target, because the four were serial in one
-  # job. Each leg needs the full history: the version in LDFLAGS comes
-  # from `git describe`.
   action:
     strategy:
       fail-fast: false
@@ -208,7 +198,40 @@ jobs:
           fi
           cat install.log
           grep -F "has no signature bundle to verify" install.log
+      # v0.5.0-beta.2 is the first release signed with a bundle.
+      - id: signed
+        uses: ./
+        with:
+          version: v0.5.0-beta.2
+      - name: Installs a signed release
+        shell: bash
+        env:
+          INSTALLED: ${{ steps.signed.outputs.version }}
+        run: |
+          test "$INSTALLED" = v0.5.0-beta.2
+          pgedge version > version.txt
+          cat version.txt
+          head -n 1 version.txt | grep -Fx 0.5.0-beta.2
+      - name: Verifies the signature and skips completion on CI
+        shell: bash
+        env:
+          PGEDGE_VERSION: v0.5.0-beta.2
+        run: |
+          sh ./install.sh > signed.log 2>&1
+          cat signed.log
+          grep -F "Signature verified." signed.log
+          grep -F "Skipping shell completion on CI." signed.log
 
+  # Cross-compilation depends on the commit and nothing else, so this
+  # no longer waits on the jobs above. Gating it behind them put the
+  # whole build after the slowest gate on every green run: four
+  # minutes of build after six of inspect-live, with nothing else
+  # running. A run that was going to fail now pays for a build it did
+  # not need, which is the cheaper of the two.
+  #
+  # One leg per release target, because the four were serial in one
+  # job. Each leg needs the full history: the version in LDFLAGS comes
+  # from `git describe`.
   build:
     runs-on: ubuntu-latest
     strategy:

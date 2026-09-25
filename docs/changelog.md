@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0-beta.3
+
+- `brew install pgEdge/tap/pgedge` installs the CLI.
+- `controlplane database update` asks for confirmation before a spec
+  removes nodes, and `--force` skips it.
+
 ## 0.5.0-beta.2
 
 - `starfleet managed database link` ties a project folder to a
@@ -14,7 +20,6 @@
   Linux and macOS runners.
 - `install.sh` installs the release named in `PGEDGE_VERSION`, and
   skips shell completion when `CI` is set.
-- `brew install pgEdge/tap/pgedge` installs the CLI.
 - Releases are signed with a Sigstore bundle. To upgrade from
   0.5.0-beta.1, run `install.sh` again, because that release's
   `pgedge self update` checks the older signature format.

@@ -96,7 +96,7 @@ to its tag:
 The action installs the release its tag names and verifies its
 signature, on Linux and macOS runners:
 
-    - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
 
 The [CI and automation guide](docs/ci.md) carries a full pipeline.
 

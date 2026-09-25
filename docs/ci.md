@@ -1,15 +1,24 @@
-# CI and automation
+# Running the CLI in CI and Automation
 
-Running the CLI unattended takes three things: credentials supplied
-without a prompt, confirmations skipped, and scripts that read output
-and exit codes that were designed to be scripted against.
+You can run the CLI unattended, in a CI pipeline, a container or a
+scheduled job. An unattended run needs three things: credentials
+supplied without a prompt, confirmations skipped, and scripts that read
+the output and the exit status. The CLI designs both to be scripted
+against.
 
-## Supply credentials
+The page leans on these terms:
+
+- The credential pair is `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET`,
+  set as environment variables.
+- The exit status is the number a command returns to the shell.
+- A bound is a time limit the CLI puts on a request or a wait.
+
+## Supplying Credentials
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your secret
-store. The CLI treats the pair as a profile that lasts one
-invocation, so each run authenticates from the secrets alone and
-leaves the runner's disk as it found it:
+store. The CLI treats the pair as a profile that lasts one invocation.
+Each run authenticates from the secrets alone and leaves the runner's
+disk as it found it. Supply the pair as follows:
 
 - CI: map the two secrets into the environment of each step that runs
   `pgedge`.
@@ -17,116 +26,123 @@ leaves the runner's disk as it found it:
   a Kubernetes secret to the container as environment variables.
 
 The pair calls the production API unless a command passes
-`--api-url`. `--profile` alongside the pair is a usage error, exit
-status 2, so leave it off. The [authentication guide](auth-and-profiles.md)
-covers the rest of the pair's rules.
+`--api-url`. Leave `--profile` off: alongside the pair, it is a usage
+error with exit status 2.
+[Authentication and profiles](auth-and-profiles.md) covers the rest of
+the pair's rules.
 
 A config file suits a host that needs several profiles. Write it to
 `~/.pgedge/cli/config.yaml`, or mount it at
-`/root/.pgedge/cli/config.yaml` in a container.
-`examples/config.yaml` in the repository is the commented template.
+`/root/.pgedge/cli/config.yaml` in a container. The repository's
+`examples/config.yaml` is the commented template.
+
 Per-invocation flags (`--client-id`, `--client-secret`, `--api-url`)
-also work, but argument lists are visible in `ps` on shared hosts,
-so prefer the environment variables or the file. The
-[configuration guide](configuration.md) covers the file's layout and
-the two variables a container run cares about, `HOME` and
-`XDG_CONFIG_HOME`.
+also work. On a shared host, though, `ps` shows every argument list,
+so prefer the environment variables or the file.
+[Configuration and environment](configuration.md) covers the file's
+layout. It also covers `HOME` and `XDG_CONFIG_HOME`, the two variables
+a container run cares about.
 
-Pass `--profile` and `--config` a value or leave them off entirely.
-Both refuse an empty string at exit 2, so `--profile "$P"` with `$P`
-unset fails the step instead of silently resolving `current_profile`
-and running against a different tenant.
+Pass `--profile` and `--config` a value, or leave them off entirely.
+Both refuse an empty string with exit status 2. As a result,
+`--profile "$P"` with `$P` unset fails the step. It fails before the
+CLI can silently resolve `current_profile` and run against a different
+tenant.
 
-## Skip prompts deliberately
+## Skipping Prompts Deliberately
 
-Destructive commands prompt for confirmation. Pass `--force` to skip
-the prompt in automation. The flag goes on each command, so a script
-names its own irreversible steps. Without a
-terminal to prompt on, a destructive command run without `--force`
-exits 2 rather than hanging.
+Destructive commands prompt for confirmation. To skip the prompt in
+automation, pass `--force`. The flag goes on each command, so a script
+names its own irreversible steps. With no terminal to prompt on, a
+destructive command run without `--force` exits at once with exit
+status 2.
 
-## Read the exit code, never stdout
+## Reading the Exit Status Instead of Stdout
 
-The exit-code contract is one number, one meaning, across every
-module, and the [exit codes guide](exit-codes.md) carries the table
-and the deliberate exceptions. The ones that matter for scripts:
+The exit status contract is one number, one meaning, across every
+module. [Exit codes](exit-codes.md) carries the table and the
+deliberate exceptions. These are the ones that matter for scripts:
 
 - A success carrying no response body prints nothing to stdout, in
-  text, json and yaml alike. The acknowledgment is exit 0 and a
-  sentence on stderr. Eighteen commands behave this way: most are
-  deletes, and the rest are both modules' `rotate-password`,
+  text, json and yaml alike. The acknowledgment is exit status 0 and a
+  sentence on stderr. Eighteen commands behave this way. Most are
+  deletes. The rest are both modules' `rotate-password`,
   `managed database resize`, `byoc backup create`,
   `byoc database restore`, `byoc ingress service deregister` and
   `controlplane cluster join`.
-  The rule follows the response rather than the command name, so
+  The rule follows the response, whatever the command's name:
   `controlplane database delete`, `controlplane host remove` and both
   modules' `database service remove` do print an object. Branch on
-  the exit status, and see the
-  [output guide](output-and-paging.md) for the full picture.
-- `pgedge starfleet doctor` and `pgedge controlplane doctor` exit 0
-  even when the thing they diagnose is broken. Their job is to
-  report, so a script reads their `-o json` fields to find a fault.
-- A plan-entitlement rejection is exit 5, the same class as a bad
-  credential, so an auth-retry loop should stop on it.
+  the exit status. [Output formats and paging](output-and-paging.md)
+  gives the full picture.
+- `pgedge starfleet doctor` and `pgedge controlplane doctor` return
+  exit status 0 even when the thing they diagnose is broken. Their job
+  is to report, so a script reads their `-o json` fields to find a
+  fault.
+- A plan-entitlement rejection is exit status 5, the same class as a
+  bad credential. An auth-retry loop should stop on it.
 
-Diagnostics stay out of your pipes: `--verbose` and `--debug` write
-to stderr, so `-o json | jq` stays clean with either enabled.
+Diagnostics stay out of your pipes. `--verbose` and `--debug` write to
+stderr, so `-o json | jq` stays clean with either enabled.
 
-The straightforward pattern:
+The straightforward pattern looks like this:
 
     set -e
     pgedge starfleet managed database rotate-password "$DB_ID" \
         --role app --force --wait
 
-A failure still exits non-zero, so an empty stdout at exit 0 means
-the operation succeeded.
+A failure still exits non-zero, so an empty stdout at exit status 0
+means the operation succeeded.
 
-## Bound your waits, and know what timed out
+## Bounding Your Waits and Knowing What Timed Out
 
-`--timeout` bounds a single request in every module (a Go duration,
-default 30s, 0 disables). The bound on a wait is a different flag:
-commands that take `--wait` poll on `--wait-interval` and give up at
-`--wait-timeout`, both in seconds, and in byoc and managed the same
-bounds cover `--follow`. controlplane's `--follow` has no overall bound and
-ignores `--wait-timeout`: each of its log polls gets its own fixed
-30 seconds, independent of `--timeout`, so `--timeout 0` still stops
-a poll at 30 seconds and only a `--timeout` below 30 seconds
-shortens one.
+`--timeout` bounds a single request in every module. It takes a Go
+duration, defaults to 30s, and 0 disables it. The bound on a wait is a
+different flag. Commands that take `--wait` check again every
+`--wait-interval` and give up at `--wait-timeout`, both in seconds. In
+byoc and managed, the same bounds cover `--follow`.
 
-The [tasks and async operations guide](tasks-and-async.md) covers
-which commands take those flags, which signal to trust for each kind
+controlplane's `--follow` keeps running past `--wait-timeout`, with no
+overall bound. Instead, each of its log requests gets its own fixed 30
+seconds, independent of `--timeout`. As a result, `--timeout 0` still
+stops a log request at 30 seconds. Only a `--timeout` below 30
+seconds shortens one.
+
+[Tasks and async operations](tasks-and-async.md) covers which commands
+take those flags. It also covers which signal to trust for each kind
 of write, and how to read a task when a wait ends badly.
 
-A timeout is exit 3 whatever produced it, with one exception: a hung
-token exchange is exit 5, because authentication is the call that
-failed even when a deadline is what failed it. Read stderr for which
-bound fired.
+A timeout is exit status 3 whatever produced it, with one exception. A
+hung token exchange is exit status 5, because authentication is the
+call that failed. That holds even when a deadline is what failed it.
+Read stderr for which bound fired.
 
-Check what happened before repeating a command after exit status 3. A read
-is safe to repeat. A create or delete may already have reached the
-server before the bound fired, so repeating it can apply the change
-twice.
+After exit status 3, check what happened before repeating a command. A
+read is safe to repeat. A create or delete may already have reached
+the server before the bound fired. Repeating it can then apply the
+change twice.
 
-## Treat a dry run as a preflight
+## Treating a Dry Run as a Preflight
 
-Every command that writes to an API takes `--dry-run`, which runs the
+Every command that writes to an API takes `--dry-run`. It runs the
 CLI's client-side checks and reports the request it would have sent.
 A clean dry run means those checks passed. The API sees the request
 only on the real run, so gate the pipeline on the real run's exit
-code. Read the report's list of checks to see what it covered. The [dry run guide](dry-run.md)
-covers what each command checks, which commands do not take the
-flag, and why the report goes to stdout even on commands that
-otherwise print nothing.
+status. Read the report's list of checks to see what it covered.
+[Dry runs](dry-run.md) covers what each command checks and which
+commands lack the flag. It also explains why the report goes to
+stdout, even on commands that otherwise print nothing.
 
-## A complete GitHub Actions pipeline
+## Building a Complete GitHub Actions Pipeline
 
-A nightly backup of one managed database, start to finish. It
-installs the CLI, takes the backup, and polls the backup record to a
-terminal status, because `backup create` has no `--wait` and the
-task the create spawns reaches `succeeded` while the backup record is
-still `pending`. The
-[managed backup workflow](managed/backup-restore.md)
-explains why the record is the signal.
+The following workflow takes a nightly backup of one managed database,
+start to finish. It installs the CLI, takes the backup, and checks the
+backup record until it reaches a terminal status. It checks the record
+for two reasons. `backup create` has no `--wait`, and the task that
+the create spawns reaches `succeeded` while the backup record is still
+`pending`.
+[Backing up and Restoring a pgEdge Starfleet Managed Database](managed/backup-restore.md)
+explains why the record is the signal. The complete workflow:
 
     name: Nightly managed backup
 
@@ -188,34 +204,36 @@ explains why the record is the signal.
               echo "::error::backup $BACKUP_ID never settled" >&2
               exit 1
 
-The `pgEdge/pgedge-cli` action installs the release its tag names,
-so every run installs the same binary until you change the tag. It
-verifies the release signature and checksum before installing, and
-fails the job if either check fails. It runs on Linux and macOS
+The `pgEdge/pgedge-cli` action installs the release its tag names, so
+every run installs the same binary until you change the tag. The
+action verifies the release signature and checksum before installing,
+and fails the job if either check fails. It runs on Linux and macOS
 runners. To install a release other than the tag's, set the action's
 `version` input to that release's tag.
 
 The two secrets are step-scoped, so only the steps that call `pgedge`
 can read them.
 
-The poll loop captures the exit status into `rc` before reading any
-field, because a failed read leaves `record.json` holding whatever was
-there before, and `jq` would then branch on a stale status. The
-[exit codes guide](exit-codes.md) covers reading the status before the
+The loop captures the exit status into `rc` before reading any field.
+A failed read leaves `record.json` holding whatever was there before.
+`jq` would then branch on a stale status.
+[Exit codes](exit-codes.md) covers reading the status before the
 output.
 
-## A GitLab CI pipeline
+## Building a GitLab CI Pipeline
 
-A preflight gate rather than a backup, on a different runner, showing
-the exit-code branching that the loop above compresses. It refuses the
-deploy unless the database both exists and reports `available`.
+This pipeline is a preflight gate on a different runner, in place of
+a backup. It spells out the exit status branching that the loop above
+compresses. It refuses the deploy unless the database both exists and
+reports `available`.
 
 Set `PGEDGE_CLIENT_ID`, `PGEDGE_CLIENT_SECRET` and
-`PGEDGE_DATABASE_ID` in the project's CI/CD settings, masked, and
-the pipeline below runs as written. GitLab exports each one into the job's
-environment under its own name, which is where the CLI reads the
+`PGEDGE_DATABASE_ID` in the project's CI/CD settings, masked. The
+pipeline below then runs as written. GitLab exports each one into the
+job's environment under its own name. That is where the CLI reads the
 credential pair. The `variables:` block maps the database ID into the
-name the job uses, and pins the release the install script fetches:
+name the job uses. It also pins the release the install script
+fetches:
 
     stages:
       - preflight
@@ -261,74 +279,79 @@ name the job uses, and pins the release the install script fetches:
               exit 1
           fi
 
-`set +e` around the call and `set -e` after it is what lets the script
-read `rc` at all. Under `set -e` alone the job would already have
-ended, with the runner reporting a generic failure in place of the
-CLI's exit code. Branching on 4 against 5 separates two
-outcomes: the first means the identifier is wrong and a human should
-look at it, the second usually means the credentials or the plan need
-fixing, because entitlement refusals land there alongside bad
-credentials. A hung token exchange also ends with exit status 5, and
-stderr says which of the two happened.
+`set +e` around the call and `set -e` after it let the script read
+`rc` at all. Under `set -e` alone, the job would already have ended.
+The runner would report a generic failure in place of the CLI's exit
+status. Branching on 4 against 5 separates two outcomes. Exit status 4
+means the identifier is wrong and a human should look at it. Exit
+status 5 usually means the credentials or the plan need fixing. That
+is because entitlement refusals land there alongside bad credentials.
+A hung token exchange also ends with exit status 5, and stderr says
+which of the two happened.
 
-The two runners differ in mechanics rather than in approach. GitLab
-masks its CI/CD variables the same way GitHub masks secrets, and in
-both the credential reaches the runner only as job environment
-variables. To have the script verify
-the release signature on GitLab too, install cosign in the image
-before `sh install.sh` runs.
+Both runners take the same approach and differ only in mechanics.
+GitLab masks its CI/CD variables the same way GitHub masks secrets. In
+both, the credential reaches the runner only as job environment
+variables. To have the script verify the release signature on GitLab
+too, install cosign in the image before `sh install.sh` runs.
 
-If a run fails, the [troubleshooting guide](troubleshooting.md) is
-organized by exit code.
+If a run fails, [Troubleshooting](troubleshooting.md) is organized by
+exit status.
 
-## Scheduling a poll
+<a id="scheduling-a-poll"></a>
 
-A scheduled poll needs three things the interactive case gets for
-free: a resolvable config file, an absolute path to the binary, and a
-request bound short enough that one run cannot overlap the next.
+## Scheduling a Recurring Check
 
-Cron runs with a minimal environment, so set both in the crontab
-rather than relying on a login shell. The following crontab entry runs
-a check script every five minutes:
+A scheduled check needs three things the interactive case gets for
+free. It needs a resolvable config file and an absolute path to the
+binary. It also needs a request bound short enough that each run ends
+before the next one starts.
+
+Cron runs jobs with a minimal environment and skips the login shell,
+so set `HOME` and `PATH` in the crontab itself. The following crontab
+entry runs a check script every five minutes:
 
     HOME=/var/lib/pgedge-monitor
     PATH=/usr/local/bin:/usr/bin:/bin
 
     */5 * * * * /usr/local/bin/pgedge-metrics-check <database-id>
 
-`HOME` is what locates the config file and the token cache, so a job
-that runs as a service account needs it pointing at that account's
-own directory. Passing `--config` an absolute path covers the config
-file only. The token cache still resolves from `HOME`, so the job
-keeps that line either way.
+`HOME` locates the config file and the token cache. A job that runs as
+a service account needs `HOME` pointing at that account's own
+directory. Passing `--config` an absolute path covers the config file
+only. The token cache still resolves from `HOME`, so the job keeps
+that line either way.
 
-A config file at the default path is picked up by every invocation, so
-a scheduled job authenticates from the file when it is in place,
-and `--profile` names which credential inside it to use. Both
-`--profile` and `--config` refuse an empty string at exit 2, so an
-unset variable fails the run instead of silently resolving
-`current_profile` and polling a different tenant. The GitHub Actions
-and GitLab pipelines above supply the credential pair instead of a
-file, and a `schedule:` trigger turns either one into exactly this
-poll.
+Every invocation picks up a config file at the default path. A
+scheduled job authenticates from the file when it is in place, and
+`--profile` names which credential inside it to use. Both `--profile`
+and `--config` refuse an empty string with exit status 2. An unset
+variable fails the run there, before the CLI can silently resolve
+`current_profile` and check a different tenant. The GitHub Actions and
+GitLab pipelines above supply the credential pair in place of a file.
+A `schedule:` trigger turns either one into exactly this kind of
+check.
 
 Bound the request as well as the schedule. `--timeout` caps a single
-request and defaults to 30 seconds, and setting it comfortably below
-the schedule interval keeps one hung poll from running into the next.
-The schedule interval and the metrics window are separate numbers, so
-the window keeps its own length when you shorten the schedule.
-On managed the window has to clear the collector's publication lag
-whatever the interval is, and the
-[managed logs and metrics guide](managed/logs-and-metrics.md) covers
-that lag.
+request and defaults to 30 seconds. Set it comfortably below the
+schedule interval, so one hung request ends before the next run
+starts. The schedule interval and the metrics window are separate
+numbers. The window keeps its own length when you shorten the
+schedule. On managed, the window has to clear the collector's
+publication lag, whatever the interval is.
+[Reading Logs and Metrics from a pgEdge Starfleet Managed Database](managed/logs-and-metrics.md)
+covers that lag.
 
-## Next steps
+## Next Steps
 
-- The [exit codes guide](exit-codes.md) carries the full contract and
-  the commands that deliberately depart from it.
-- The [tasks and async operations guide](tasks-and-async.md) covers
-  which commands take `--wait` and which need polling instead.
-- The connect an application guides for
-  [Managed](managed/connect-an-application.md) and
-  [BYOC](byoc/connect-an-application.md) cover pulling database
-  credentials out of a pipeline safely.
+These guides go further:
+
+- [Exit codes](exit-codes.md) carries the full contract and the
+  commands that deliberately depart from it.
+- [Tasks and async operations](tasks-and-async.md) covers which
+  commands take `--wait`, and which you check repeatedly until they
+  finish.
+- [Connecting an Application to a pgEdge Starfleet Managed Database](managed/connect-an-application.md)
+  and
+  [Connecting an Application to a pgEdge Starfleet BYOC Database](byoc/connect-an-application.md)
+  cover pulling database credentials out of a pipeline safely.

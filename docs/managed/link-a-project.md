@@ -17,11 +17,6 @@ Four terms recur throughout:
 
 ## Before You Start
 
-To link a database from a script, you need its full UUID, written
-`<db-id>` below. Run this command to read it:
-
-    pgedge starfleet managed database list
-
 The database must have finished being created before `env pull` can
 write its connection. The address your application connects from also
 needs an allowlist rule, as the
@@ -43,9 +38,11 @@ branch's number. Only a branch with the status `available` can be
 chosen. The command then asks whether to write `DATABASE_URL` into
 `.env`, and Enter writes it.
 
-In a script, pass the ID from `database list`, because without a
-terminal and an ID the command exits with status 2:
+A script must pass the database's full UUID, written `<db-id>` below,
+because without a terminal and an ID the command exits with status 2.
+Run `database list` to read the ID, then link with it:
 
+    pgedge starfleet managed database list
     pgedge starfleet managed database link <db-id>
 
 The command reads the database first, so it writes no file for an ID

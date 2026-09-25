@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -90,7 +91,7 @@ func newDatabaseLinkCmd(rt *module.Runtime) *cobra.Command {
 		force  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "link <database_id>",
+		Use:   "link [<database_id>]",
 		Short: "Link the current folder to a managed database",
 		Long: `link writes .pgedge/link.yaml in the current folder, naming the
 database the folder's project uses. The file holds the database ID,
@@ -103,23 +104,38 @@ writes the database's DATABASE_URL into .env, and the read verbs
 branch list) take the linked database when the ID is left out. A
 verb that changes a database always needs its ID.
 
+With no ID, in a terminal, link lists the account's databases to
+choose from, then the chosen database's branches when it has any
+(Enter keeps the database itself; only an available branch can be
+chosen), and offers to write DATABASE_URL into .env straight away.
+With no ID and no terminal it is exit 2, so a script never waits on
+a question.
+
 The database, and the branch with --branch, are read first, so an ID
 the active profile cannot see is refused and no file is written. A
 folder already linked to something else is refused unless --force is
 given.
 
 Example:
+  pgedge starfleet managed database link
   pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456
   pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456 \
     --branch 0a1b2c3d-4e5f-6789-abcd-ef0123456789`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseUUIDArg(args[0], "database ID")
-			if err != nil {
-				return err
+			picking := len(args) == 0
+			var id, branchID uuid.UUID
+			var err error
+			if !picking {
+				if id, err = parseUUIDArg(args[0], "database ID"); err != nil {
+					return err
+				}
 			}
-			var branchID uuid.UUID
 			if cmd.Flags().Changed("branch") {
+				if picking {
+					return &cli.UsageError{Msg: "--branch needs the database ID: " +
+						"pass the database ID too, or leave both out to choose from a list"}
+				}
 				if branchID, err = parseUUIDArg(branch, "branch ID"); err != nil {
 					return err
 				}
@@ -128,41 +144,52 @@ Example:
 			if err != nil {
 				return err
 			}
-			l := projectlink.Link{
-				Module:     projectlink.ModuleManaged,
-				DatabaseID: id.String(),
+			if picking && !stdinIsTerminal() {
+				return &cli.UsageError{Msg: "no database ID given: pass one, " +
+					"or run this in a terminal to choose from a list"}
 			}
-			if branchID != uuid.Nil {
-				l.BranchID = branchID.String()
-			}
-
-			existing, err := projectlink.Read(wd)
-			if err != nil && !force {
-				return newExitError(fmt.Sprintf("read project link: %v; "+
-					"pass --force to replace it", err), ExitGeneral)
-			}
-			if existing != nil && existing.Link != l && !force {
-				return newExitError(fmt.Sprintf(
-					"%s already links database %s; pass --force to replace it",
-					existing.Path, existing.DatabaseID), ExitGeneral)
+			if !picking {
+				if err := checkExistingLink(wd, linkFor(id, branchID), force); err != nil {
+					return err
+				}
 			}
 
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
 			}
-			name, err := linkTargetName(client, id, branchID)
-			if err != nil {
+			var (
+				in   *bufio.Reader
+				name string
+			)
+			if picking {
+				// The lists just read the target, so it needs no GET.
+				in = bufio.NewReader(rt.Stdin)
+				if id, branchID, name, err = promptLinkTarget(rt, client, in); err != nil {
+					return err
+				}
+				if err := checkExistingLink(wd, linkFor(id, branchID), force); err != nil {
+					return err
+				}
+			} else if name, err = linkTargetName(client, id, branchID); err != nil {
 				return err
 			}
-			path, err := projectlink.Write(wd, l)
+			path, err := projectlink.Write(wd, linkFor(id, branchID))
 			if err != nil {
 				return newExitError(fmt.Sprintf("write %s: %v",
 					filepath.Join(wd, projectlink.Dir, projectlink.File), err), ExitGeneral)
 			}
 			fmt.Fprintf(rt.Stderr, "Linked %s to %s. Wrote %s.\n",
 				output.Sanitize(wd), output.Sanitize(name), output.Sanitize(path))
-			return nil
+			if !picking {
+				return nil
+			}
+			if !askWriteEnv(rt, in) {
+				fmt.Fprintln(rt.Stderr, "Run 'pgedge env pull' to write it later.")
+				return nil
+			}
+			return pullEnv(rt, client, id, branchID,
+				filepath.Join(wd, ".env"), "DATABASE_URL", "")
 		},
 	}
 	cmd.Flags().StringVar(&branch, "branch", "",
@@ -170,6 +197,31 @@ Example:
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Replace a link to another database")
 	return cmd
+}
+
+// linkFor is the managed link naming id, and branchID when it is set.
+func linkFor(id, branchID uuid.UUID) projectlink.Link {
+	l := projectlink.Link{Module: projectlink.ModuleManaged, DatabaseID: id.String()}
+	if branchID != uuid.Nil {
+		l.BranchID = branchID.String()
+	}
+	return l
+}
+
+// checkExistingLink refuses to replace a different link in wd unless
+// force is set.
+func checkExistingLink(wd string, l projectlink.Link, force bool) error {
+	existing, err := projectlink.Read(wd)
+	if err != nil && !force {
+		return newExitError(fmt.Sprintf("read project link: %v; "+
+			"pass --force to replace it", err), ExitGeneral)
+	}
+	if existing != nil && existing.Link != l && !force {
+		return newExitError(fmt.Sprintf(
+			"%s already links database %s; pass --force to replace it",
+			existing.Path, existing.DatabaseID), ExitGeneral)
+	}
+	return nil
 }
 
 // linkTargetName reads the database, and the branch when one is
@@ -186,9 +238,8 @@ func linkTargetName(client *api.ClientWithResponses, id, branchID uuid.UUID) (st
 	if resp.JSON200 == nil {
 		return "", newExitError(fmt.Sprintf("database %s not found", id), ExitNotFound)
 	}
-	name := fmt.Sprintf("database %s (%s)", resp.JSON200.Name, id)
 	if branchID == uuid.Nil {
-		return name, nil
+		return targetName(resp.JSON200.Name, id, branchID), nil
 	}
 	b, err := client.GetBranchWithResponse(
 		context.Background(), id, branchID, &api.GetBranchParams{})
@@ -198,7 +249,16 @@ func linkTargetName(client *api.ClientWithResponses, id, branchID uuid.UUID) (st
 	if err := checkResponse(b.StatusCode(), string(b.Body)); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("branch %s of %s", branchID, name), nil
+	return targetName(resp.JSON200.Name, id, branchID), nil
+}
+
+// targetName names a link's target for the acknowledgement.
+func targetName(dbName string, id, branchID uuid.UUID) string {
+	name := fmt.Sprintf("database %s (%s)", dbName, id)
+	if branchID == uuid.Nil {
+		return name
+	}
+	return fmt.Sprintf("branch %s of %s", branchID, name)
 }
 
 // --- unlink ---
@@ -269,7 +329,8 @@ appended, and a missing file is created readable by you alone.
 With no ID, the folder's link names the database, and the branch when
 the link names one, and .env is written beside the .pgedge folder.
 With an ID, .env is written in the current folder. --file names
-another file, and --var another variable.
+another file, and --var another variable. --branch pulls that branch
+of the database this once and leaves the link as it is.
 
 The value is the role's live password in a URI. Every character a
 .env loader could expand or cut, $ and # among them, is
@@ -281,7 +342,9 @@ ignore draws a warning on stderr naming the line to add to
 Example:
   pgedge starfleet managed database env pull
   pgedge starfleet managed database env pull e5f6a7b8-c9d0-1234-efab-567890123456 \
-    --file .env.local --user-type app_read_only`,
+    --file .env.local --user-type app_read_only
+  pgedge starfleet managed database env pull --branch 0a1b2c3d-4e5f-6789-abcd-ef0123456789 \
+    --file .env.preview`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvPull(rt, cmd, args)
@@ -314,6 +377,15 @@ func runEnvPull(rt *module.Runtime, cmd *cobra.Command, args []string) error {
 			"or omit the flag to use .env", ExitUsage)
 	}
 
+	var branchID uuid.UUID
+	if cmd.Flags().Changed("branch") {
+		branch, _ := cmd.Flags().GetString("branch")
+		var err error
+		if branchID, err = parseUUIDArg(branch, "branch ID"); err != nil {
+			return err
+		}
+	}
+
 	id, link, err := databaseArg(rt, args, 0)
 	if err != nil {
 		return err
@@ -324,16 +396,30 @@ func runEnvPull(rt *module.Runtime, cmd *cobra.Command, args []string) error {
 			file = filepath.Join(link.Root, ".env")
 		}
 	}
+	if branchID == uuid.Nil && link != nil && link.BranchID != "" {
+		branchID = uuid.MustParse(link.BranchID)
+	}
 
 	client, err := clientFromCmd(rt, cmd)
 	if err != nil {
 		return err
 	}
-	var c *api.ManagedConnection
+	return pullEnv(rt, client, id, branchID, file, varName, userType)
+}
+
+// pullEnv writes the connection of the database, or of branchID when it
+// is set, into file as varName.
+func pullEnv(rt *module.Runtime, client *api.ClientWithResponses,
+	id, branchID uuid.UUID, file, varName, userType string,
+) error {
+	var (
+		c   *api.ManagedConnection
+		err error
+	)
 	what := fmt.Sprintf("database %s", id)
-	if link != nil && link.BranchID != "" {
-		what = fmt.Sprintf("branch %s", link.BranchID)
-		c, err = branchConnection(client, id, uuid.MustParse(link.BranchID), userType)
+	if branchID != uuid.Nil {
+		what = fmt.Sprintf("branch %s", branchID)
+		c, err = branchConnection(client, id, branchID, userType)
 	} else {
 		c, err = databaseConnection(client, id, userType)
 	}

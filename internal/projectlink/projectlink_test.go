@@ -180,7 +180,7 @@ func TestRemove(t *testing.T) {
 func TestAddEnvPullFlags(t *testing.T) {
 	fs := pflag.NewFlagSet("x", pflag.ContinueOnError)
 	AddEnvPullFlags(fs)
-	for name, def := range map[string]string{"file": "", "var": "DATABASE_URL", "user-type": ""} {
+	for name, def := range map[string]string{"file": "", "var": "DATABASE_URL", "user-type": "", "branch": ""} {
 		f := fs.Lookup(name)
 		if f == nil || f.DefValue != def {
 			t.Errorf("flag --%s = %+v, want default %q", name, f, def)

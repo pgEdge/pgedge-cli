@@ -180,6 +180,7 @@ Write DATABASE_URL for the linked database into .env
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--branch string` | No |  | Pull this branch of the database instead of the linked target, leaving the link as it is |
 | `--file string` | No |  | File to write (default .env beside .pgedge/, or in the current folder when an ID is given) |
 | `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
 | `--var string` | No | `DATABASE_URL` | Variable name to set |
@@ -189,6 +190,7 @@ Write DATABASE_URL for the linked database into .env
 ```
 pgedge env pull
 pgedge env pull --file .env.local --user-type app_read_only
+pgedge env pull --branch 0a1b2c3d-4e5f-6789-abcd-ef0123456789 --file .env.preview
 ```
 
 ### pgedge inspect

@@ -17,7 +17,7 @@ Four terms recur throughout:
 
 ## Before You Start
 
-To link an existing database, you need its full UUID, written
+To link a database from a script, you need its full UUID, written
 `<db-id>` below. Run this command to read it:
 
     pgedge starfleet managed database list
@@ -30,10 +30,22 @@ Database](connect-an-application.md) guide describes.
 
 ## Linking a Folder to a Database
 
-Run `database link` from the project's top folder, with the ID from
-`database list`:
+In a terminal, run `database link` with no ID from the project's top
+folder:
 
     cd <project-folder>
+    pgedge starfleet managed database link
+
+The command lists your databases by number, and you enter the number
+of the one to link. When that database has branches, the command lists
+them next. Press Enter to link the database itself, or enter a
+branch's number. Only a branch with the status `available` can be
+chosen. The command then asks whether to write `DATABASE_URL` into
+`.env`, and Enter writes it.
+
+In a script, pass the ID from `database list`, because without a
+terminal and an ID the command exits with status 2:
+
     pgedge starfleet managed database link <db-id>
 
 The command reads the database first, so it writes no file for an ID
@@ -94,12 +106,14 @@ the database or branch, and the role, and ends like this:
 
     Set DATABASE_URL in <project-folder>/.env to database <db-id>'s connection, as app.
 
-Three flags change what is written:
+Four flags change what is written:
 
 - `--file <path>` writes another file, such as `.env.local`.
 - `--var <name>` sets another variable instead of `DATABASE_URL`.
 - `--user-type <role>` takes the credentials of `admin`, `app` or
   app_read_only. The default is `app`.
+- `--branch <branch-id>` writes a branch's connection this once, and
+  leaves the link as it is. Run `database branch list` to read the ID.
 
 To write a database's connection without a link, give its ID to the
 Managed command. This form writes `.env` in the current folder:
@@ -137,8 +151,9 @@ which stays out of the repository.
 
 ## Linking a Branch
 
-To point the project at a branch of the database, add `--branch` with
-the branch's ID. Run `database branch list <db-id>` to read it:
+To point the project at a branch, run `database link` with no ID in a
+terminal and choose the branch. From a script, add `--branch` with the
+branch's ID. Run `database branch list <db-id>` to read it:
 
     pgedge starfleet managed database branch list <db-id>
     pgedge starfleet managed database link <db-id> --branch <branch-id>

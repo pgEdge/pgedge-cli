@@ -95,7 +95,7 @@ into a project folder. The paths, and what puts them there:
 | Your shell's completion directory, or one line in your shell startup file | `pgedge completion install`, and the regeneration that follows a successful `self update`. |
 | The directory the running binary sits in | `pgedge self update`, staging the new binary beside the old one before swapping. |
 | `.pgedge/link.yaml` in a project folder | `starfleet managed database link` and `database create --link`. It holds IDs, never a credential. |
-| `.env` in a project folder, or the file `--file` names | `pgedge env pull` and `starfleet managed database env pull`. It holds a live database password. |
+| `.env` in a project folder, or the file `--file` names | `pgedge env pull`, `starfleet managed database env pull`, and `starfleet managed database link` run with no ID when you accept its offer to write `.env`. It holds a live database password. |
 
 `starfleet auth login` also writes one OS keychain entry per profile
 and config file, under the service name `pgedge-cli`, unless it

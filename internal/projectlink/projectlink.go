@@ -177,4 +177,6 @@ func AddEnvPullFlags(flags *pflag.FlagSet) {
 	flags.String("var", "DATABASE_URL", "Variable name to set")
 	flags.String("user-type", "",
 		"Role whose credentials to use: admin, app or app_read_only (default app)")
+	flags.String("branch", "",
+		"Pull this branch of the database instead of the linked target, leaving the link as it is")
 }

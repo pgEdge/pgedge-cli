@@ -179,6 +179,8 @@ func environmental(err error) string {
 	switch {
 	case strings.Contains(msg, "this operation is destructive"):
 		return "destructive verb, no terminal to prompt on"
+	case strings.Contains(msg, "run this in a terminal to choose from a list"):
+		return "prompting verb, no terminal to prompt on"
 	case strings.Contains(msg, "no such file or directory"):
 		return "the example names an input file the harness lacks"
 	case strings.Contains(msg, "no .pgedge/link.yaml found") ||

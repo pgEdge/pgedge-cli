@@ -46,7 +46,8 @@ command that creates one.
 
 Example:
   pgedge env pull
-  pgedge env pull --file .env.local --user-type app_read_only`,
+  pgedge env pull --file .env.local --user-type app_read_only
+  pgedge env pull --branch 0a1b2c3d-4e5f-6789-abcd-ef0123456789 --file .env.preview`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			wd, err := os.Getwd()

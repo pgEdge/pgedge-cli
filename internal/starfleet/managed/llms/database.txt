@@ -456,7 +456,7 @@ pgedge starfleet managed database rotate-password e5f6a7b8-c9d0-1234-efab-567890
 <!-- BEGIN GENERATED: pgedge starfleet managed database link -->
 ##### pgedge starfleet managed database link
 
-**Usage:** `pgedge starfleet managed database link <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database link [<database_id>] [flags]`
 
 Link the current folder to a managed database
 
@@ -479,6 +479,11 @@ already linked elsewhere, or holding an unreadable link, is exit 1
 unless `--force` is given. The home folder is refused at exit 2,
 because `~/.pgedge` is the shared config folder; `unlink` and
 `create --link` refuse it the same way.
+
+With no ID and no terminal, `link` is exit 2, so always pass the ID.
+With no ID in a terminal, it asks a person to choose the database,
+then a branch, and offers to write `.env`. `--branch` without the
+database ID is exit 2.
 
 Below a linked folder, eight read verbs take the linked database when
 the ID is left out, and print `Using database <id> from <path>` on

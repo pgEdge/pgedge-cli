@@ -23,6 +23,12 @@ var linkedReads = []string{
 	"pgedge starfleet managed database metrics",
 }
 
+// promptedWrites leave the database ID out only to ask a person for it
+// on a terminal. Off one they exit 2, and none of them reads the link.
+var promptedWrites = map[string]bool{
+	"pgedge starfleet managed database link": true,
+}
+
 // TestNoWriteReadsTheProjectLink holds the rule that a verb which
 // changes anything names its database: an unset variable in a script
 // run inside a linked folder must fail, not reach the linked database.
@@ -39,7 +45,7 @@ func TestNoWriteReadsTheProjectLink(t *testing.T) {
 		for _, k := range c.Commands() {
 			walk(k)
 		}
-		if !strings.Contains(c.Use, "<database_id>") {
+		if !strings.Contains(c.Use, "<database_id>") || promptedWrites[c.CommandPath()] {
 			return
 		}
 		if strings.Contains(c.Use, "[<database_id>]") {

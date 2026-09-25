@@ -261,6 +261,12 @@ func TestEnvPull(t *testing.T) {
 		{name: "explicit ID writes in the current folder", noLink: true, fromSub: true,
 			args: []string{testDatabaseID}, wantFile: "sub/.env",
 			wantHost: testConnHost, wantVar: "DATABASE_URL"},
+		{name: "--branch pulls a branch past a database link",
+			args: []string{"--branch", testBranchID}, wantFile: ".env",
+			wantHost: testBranchHost, wantVar: "DATABASE_URL"},
+		{name: "--branch with an explicit ID", noLink: true,
+			args: []string{testDatabaseID, "--branch", testBranchID}, wantFile: ".env",
+			wantHost: testBranchHost, wantVar: "DATABASE_URL"},
 		{name: "--file, --var and --user-type",
 			args:     []string{"--file", "custom.env", "--var", "PG_URL", "--user-type", "app_read_only"},
 			wantFile: "custom.env", wantHost: testConnHost, wantVar: "PG_URL",
@@ -304,6 +310,11 @@ func TestEnvPull(t *testing.T) {
 			if !tt.noLink && !strings.Contains(errb.String(), "Using database "+testDatabaseID) {
 				t.Errorf("no note naming the linked database: %q", errb.String())
 			}
+			if !tt.noLink {
+				if got, _ := projectlink.Read(dir); got == nil || got.BranchID != tt.branch {
+					t.Errorf("env pull changed the link: %+v", got)
+				}
+			}
 			last := stub.userTypes[len(stub.userTypes)-1]
 			if last != tt.wantUser {
 				t.Errorf("user_type = %q, want %q", last, tt.wantUser)
@@ -337,6 +348,7 @@ func TestEnvPullRefuses(t *testing.T) {
 		{"empty --file", &linkStub{}, []string{testDatabaseID, "--file", ""}, false, ExitUsage, "--file given an empty value"},
 		{"bad --var", &linkStub{}, []string{testDatabaseID, "--var", "1X"}, false, ExitUsage, "is not a variable name"},
 		{"empty --var", &linkStub{}, []string{testDatabaseID, "--var", ""}, false, ExitUsage, "is not a variable name"},
+		{"bad --branch", &linkStub{}, []string{testDatabaseID, "--branch", "nope"}, false, ExitUsage, "invalid branch ID"},
 		{"no host yet", &linkStub{noHost: true}, nil, true, ExitGeneral, "no connection host yet"},
 		{"database gone", &linkStub{dbMissing: true}, nil, true, ExitNotFound, "404"},
 	}
@@ -581,6 +593,18 @@ func TestRootEnvPullRunsTheModuleVerb(t *testing.T) {
 	if !strings.Contains(errb.String(), "Set APP_DB") {
 		t.Errorf("stderr = %q", errb.String())
 	}
+
+	t.Run("--branch", func(t *testing.T) {
+		root.SetArgs([]string{"env", "pull", "--branch", testBranchID})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("env pull --branch: %v", err)
+		}
+		// The root keeps --var APP_DB from the run above.
+		want := "APP_DB=" + wantEnvURI(testBranchHost) + "\n"
+		if got := readFile(t, filepath.Join(dir, ".env")); got != want {
+			t.Errorf(".env = %q, want %q", got, want)
+		}
+	})
 
 	t.Run("no link", func(t *testing.T) {
 		inProject(t)

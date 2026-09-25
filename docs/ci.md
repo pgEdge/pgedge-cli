@@ -266,8 +266,10 @@ read `rc` at all. Under `set -e` alone the job would already have
 ended, with the runner reporting a generic failure in place of the
 CLI's exit code. Branching on 4 against 5 separates two
 outcomes: the first means the identifier is wrong and a human should
-look at it, the second means every retry fails the same way, because
-entitlement refusals land there alongside bad credentials.
+look at it, the second usually means the credentials or the plan need
+fixing, because entitlement refusals land there alongside bad
+credentials. A hung token exchange also ends with exit status 5, and
+stderr says which of the two happened.
 
 The two runners differ in mechanics rather than in approach. GitLab
 masks its CI/CD variables the same way GitHub masks secrets, and in

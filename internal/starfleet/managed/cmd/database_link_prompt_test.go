@@ -73,7 +73,7 @@ func TestDatabaseLinkPrompts(t *testing.T) {
 			wantEnv: testConnHost, wantErr: []string{"Enter a number from 1 to 1.", "Answer y or n."}},
 		{name: "Enter keeps the database", branches: true, stdin: "1\n\nn\n",
 			wantErr: []string{"Enter) the database itself", "(not ready)"}},
-		{name: "a branch, after refusing one not ready", branches: true, stdin: "1\n1\n2\ny\n",
+		{name: "a branch, after refusing one not ready", branches: true, stdin: "1\n1\n2\nyes\n",
 			wantBranch: testBranchID, wantEnv: testBranchHost,
 			wantErr: []string{"That branch is creating, not available; choose another."}},
 	}

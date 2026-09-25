@@ -24,7 +24,8 @@ var linkedReads = []string{
 }
 
 // promptedWrites leave the database ID out only to ask a person for it
-// on a terminal. Off one they exit 2, and none of them reads the link.
+// on a terminal. Off one they exit 2, and none takes its target from
+// the link.
 var promptedWrites = map[string]bool{
 	"pgedge starfleet managed database link": true,
 }

@@ -291,6 +291,7 @@ var stderrComposedMessages = map[string]struct {
 // reusing database_metrics.go/database_logs.go's own sites.
 // 159 -> 163: `auth login` names where the secret went, and `auth
 // logout` reports a keychain it could not reach.
+// 180 -> 192: the `managed database link` prompt's lists.
 const (
 	stderrArgSites      = 192
 	stderrComposedSites = 22

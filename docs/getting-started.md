@@ -217,7 +217,7 @@ version" row.
 
 The [updating guide](updating.md) covers the rest: the two-rung GitHub
 lookup, the exit codes and deadlines, where the CLI caches the Sigstore trust
-root, the two installs the command refuses, and what happens to your
+root, the three installs the command refuses, and what happens to your
 completion scripts after a swap.
 
 ## CI and containers

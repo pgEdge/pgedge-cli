@@ -89,16 +89,6 @@ One command:
 
 > The tap's first cask is published with the next release.
 
-### npm (Linux, macOS, Windows)
-
-npm installs the native binary for your platform, and `npx` runs it
-without a global install:
-
-    npm install -g @pgedge/cli@beta
-    npx @pgedge/cli@beta --help
-
-> Available once the `@pgedge/cli` packages are published to npm.
-
 ### go install
 
 Go builds it from source at the main branch:
@@ -148,9 +138,9 @@ Build the binary in a checkout and run it:
 
 A downloaded release binary updates itself with `pgedge self update`.
 See the Updating section below and
-[docs/updating.md](docs/updating.md). A Homebrew or npm install, or a
-binary inside a git checkout, is updated by the tool that owns it.
-`pgedge version` prints what you are running.
+[docs/updating.md](docs/updating.md). A Homebrew install or a binary
+inside a git checkout is updated by the tool that owns it. `pgedge
+version` prints what you are running.
 
 ## Updating
 
@@ -162,11 +152,10 @@ A downloaded release binary updates itself:
 The command checks the download against the release's Sigstore
 signature and checksum before that download touches the installed
 binary, and it regenerates an installed completion script afterward.
-It leaves a Homebrew or npm install, or a binary inside a git
-checkout, alone and names the command to run instead (`brew upgrade
-pgedge`, `npm install -g @pgedge/cli@latest`, `make build`). `pgedge
-doctor` also reports the latest release. Details in
-[Updating the CLI](docs/updating.md).
+It leaves a Homebrew install or a binary inside a git checkout alone
+and names the command to run instead (`brew upgrade pgedge`,
+`make build`). `pgedge doctor` also reports the latest release.
+Details in [Updating the CLI](docs/updating.md).
 
 ## Shell completion
 

@@ -38,7 +38,7 @@ that repeats per connection, and what makes each one a warning:
 | Latest version | The newest release on GitHub, compared against the installed version. `--no-version-check` skips the lookup and the row reads "not checked". | A newer release exists, or the check could not run. |
 | Config | The config directory, the file name in use, and whether that file exists. | The file does not exist. |
 | Shell | The shell from `SHELL`, and whether `pgedge` is on the path. | `pgedge` is not on the path. |
-| Install method | npm, homebrew, install-script, go-install or unknown, inferred from the executable's resolved path. | Never. |
+| Install method | homebrew, install-script, go-install or unknown, inferred from the executable's resolved path. | Never. |
 | Connection | One row per configured connection: module, profile, resolved base URL, and whether credentials are present. | A `starfleet` row has no client ID and secret. |
 
 A `controlplane` connection row stays `ok` without credentials,

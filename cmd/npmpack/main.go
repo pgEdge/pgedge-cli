@@ -1,17 +1,24 @@
-// Command npmpack stages the npm packages for a release from
-// GoReleaser's dist/ output: one package per platform holding that
+// Command npmpack stages the npm packages for a release from that
+// release's published archives: one package per platform holding that
 // platform's binary, and @pgedge/cli, whose launcher finds and runs
 // it. npm installs only the platform package whose os and cpu match,
 // the layout esbuild, Biome and Supabase use.
 //
-//	go run ./cmd/npmpack -dist dist -out dist/npm
+//	go run ./cmd/npmpack -assets assets -version 0.5.0 -out npm
+//
+// -assets holds the release's archives and its checksums.txt, whose
+// signature the caller has already verified. Every archive is checked
+// against it before anything is read from it.
 //
 // It also writes out/dist-tag, the tag to publish under: beta for a
 // pre-release, so `npm install @pgedge/cli` never resolves to one.
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	_ "embed"
 	"encoding/json"
 	"flag"
@@ -19,8 +26,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
+
+	"github.com/pgEdge/pgedge-cli/internal/selfupdate"
 )
 
 const mainPackage = "@pgedge/cli"
@@ -34,30 +42,39 @@ var readme []byte
 // licenceFiles ship in every package, as they do in every archive.
 var licenceFiles = []string{"LICENSE.md", "NOTICE.txt", "THIRD_PARTY_LICENSES.txt"}
 
-var npmOS = map[string]string{"linux": "linux", "darwin": "darwin", "windows": "win32"}
-
-var npmCPU = map[string]string{"amd64": "x64", "arm64": "arm64"}
-
-type artifact struct {
-	Path   string `json:"path"`
-	GOOS   string `json:"goos"`
-	GOARCH string `json:"goarch"`
-	Type   string `json:"type"`
+// platform is one GoReleaser build target and its npm names.
+type platform struct {
+	goos, goarch, os, cpu string
 }
 
-type binary struct {
-	src, os, cpu string
+// platforms is .goreleaser.yaml's build matrix. A release missing one
+// is refused rather than published without it.
+var platforms = []platform{
+	{"darwin", "amd64", "darwin", "x64"},
+	{"darwin", "arm64", "darwin", "arm64"},
+	{"linux", "amd64", "linux", "x64"},
+	{"linux", "arm64", "linux", "arm64"},
+	{"windows", "amd64", "win32", "x64"},
+	{"windows", "arm64", "win32", "arm64"},
 }
 
-func (b binary) pkgName() string { return mainPackage + "-" + b.os + "-" + b.cpu }
+func (p platform) pkgName() string { return mainPackage + "-" + p.os + "-" + p.cpu }
 
-func (b binary) dirName() string { return "cli-" + b.os + "-" + b.cpu }
+func (p platform) dirName() string { return "cli-" + p.os + "-" + p.cpu }
 
-func (b binary) exe() string {
-	if b.os == "win32" {
+func (p platform) exe() string {
+	if p.goos == "windows" {
 		return "pgedge.exe"
 	}
 	return "pgedge"
+}
+
+func (p platform) archive(version string) string {
+	ext := ".tar.gz"
+	if p.goos == "windows" {
+		ext = ".zip"
+	}
+	return "pgedge_" + version + "_" + p.goos + "_" + p.goarch + ext
 }
 
 type manifest struct {
@@ -97,44 +114,48 @@ func base(name, version, description string) manifest {
 }
 
 func main() {
-	dist := flag.String("dist", "dist", "GoReleaser output directory")
-	out := flag.String("out", "dist/npm", "directory to stage the packages in")
-	root := flag.String("root", ".", "repository root holding the licence files")
+	assets := flag.String("assets", "assets", "directory holding the release archives and checksums.txt")
+	version := flag.String("version", "", "release version, without the leading v")
+	out := flag.String("out", "npm", "directory to stage the packages in")
 	flag.Parse()
 
-	if err := run(*dist, *out, *root); err != nil {
+	if err := run(*assets, *version, *out); err != nil {
 		fmt.Fprintln(os.Stderr, "npmpack:", err)
 		os.Exit(1)
 	}
 }
 
-func run(dist, out, root string) error {
-	version, err := readVersion(filepath.Join(dist, "metadata.json"))
-	if err != nil {
-		return err
+func run(assets, version, out string) error {
+	if version == "" || strings.HasPrefix(version, "v") {
+		return fmt.Errorf("-version %q must be a version without the leading v", version)
 	}
-	bins, err := readBinaries(filepath.Join(dist, "artifacts.json"), dist)
+	checksums, err := os.ReadFile(filepath.Join(assets, selfupdate.ChecksumsAsset)) //nolint:gosec // G304: path is under -assets
 	if err != nil {
 		return err
 	}
 
 	optional := map[string]string{}
-	for _, b := range bins {
-		m := base(b.pkgName(), version,
-			fmt.Sprintf("The pgedge binary for %s %s", b.os, b.cpu))
-		m.OS = []string{b.os}
-		m.CPU = []string{b.cpu}
+	for _, p := range platforms {
+		name := p.archive(version)
+		src := filepath.Join(assets, name)
+		if err := selfupdate.VerifyChecksum(src, name, checksums); err != nil {
+			return err
+		}
+		m := base(p.pkgName(), version,
+			fmt.Sprintf("The pgedge binary for %s %s", p.os, p.cpu))
+		m.OS = []string{p.os}
+		m.CPU = []string{p.cpu}
 		// Yarn Plug'n'Play otherwise keeps the package zipped, and a
 		// zipped binary cannot be executed.
 		m.PreferUnplugged = true
-		dir := filepath.Join(out, b.dirName())
-		if err := stage(dir, m, root); err != nil {
+		dir := filepath.Join(out, p.dirName())
+		if err := writeManifest(dir, m); err != nil {
 			return err
 		}
-		if err := copyFile(b.src, filepath.Join(dir, "bin", b.exe()), 0o755); err != nil {
-			return err
+		if err := extract(src, p.exe(), dir); err != nil {
+			return fmt.Errorf("%s: %w", name, err)
 		}
-		optional[b.pkgName()] = version
+		optional[p.pkgName()] = version
 	}
 
 	m := base(mainPackage, version, "Unified CLI for the pgEdge product suite")
@@ -142,8 +163,15 @@ func run(dist, out, root string) error {
 	m.Engines = map[string]string{"node": ">=18"}
 	m.OptionalDependencies = optional
 	dir := filepath.Join(out, "cli")
-	if err := stage(dir, m, root); err != nil {
+	if err := writeManifest(dir, m); err != nil {
 		return err
+	}
+	// Every archive carries the same licence files; take the first
+	// platform package's.
+	for _, name := range licenceFiles {
+		if err := copyFile(filepath.Join(out, platforms[0].dirName(), name), filepath.Join(dir, name)); err != nil {
+			return err
+		}
 	}
 	if err := writeFile(filepath.Join(dir, "bin", "pgedge.js"), launcher, 0o755); err != nil {
 		return err
@@ -167,64 +195,98 @@ func distTag(version string) string {
 	return "latest"
 }
 
-func readVersion(path string) (string, error) {
-	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is -dist's metadata.json
+// extract writes the archive's binary to dir/bin and its licence files
+// to dir, and fails unless it found all of them.
+func extract(archive, exe, dir string) error {
+	want := map[string]string{exe: filepath.Join(dir, "bin", exe)}
+	for _, name := range licenceFiles {
+		want[name] = filepath.Join(dir, name)
+	}
+	put := func(name string, r io.Reader) error {
+		dst, ok := want[name]
+		if !ok {
+			return nil
+		}
+		delete(want, name)
+		body, err := io.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		mode := os.FileMode(0o644)
+		if name == exe {
+			mode = 0o755
+		}
+		return writeFile(dst, body, mode)
+	}
+
+	var err error
+	if strings.HasSuffix(archive, ".zip") {
+		err = walkZip(archive, put)
+	} else {
+		err = walkTarGz(archive, put)
+	}
 	if err != nil {
-		return "", err
+		return err
 	}
-	var meta struct {
-		Version string `json:"version"`
+	for name := range want {
+		return fmt.Errorf("archive has no %s", name)
 	}
-	if err := json.Unmarshal(raw, &meta); err != nil {
-		return "", fmt.Errorf("parse %s: %w", path, err)
-	}
-	if meta.Version == "" {
-		return "", fmt.Errorf("%s has no version", path)
-	}
-	return meta.Version, nil
+	return nil
 }
 
-// readBinaries resolves artifact paths against dist's parent, because
-// GoReleaser records them relative to the directory it ran in.
-func readBinaries(path, dist string) ([]binary, error) {
-	raw, err := os.ReadFile(path) //nolint:gosec // G304: path is -dist's artifacts.json
+func walkTarGz(path string, put func(string, io.Reader) error) error {
+	f, err := os.Open(path) //nolint:gosec // G304: path is under -assets
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var arts []artifact
-	if err := json.Unmarshal(raw, &arts); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+	defer f.Close() //nolint:errcheck // read-only
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
 	}
-
-	seen := map[string]bool{}
-	var bins []binary
-	for _, a := range arts {
-		if a.Type != "Binary" {
+	tr := tar.NewReader(gz)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if h.Typeflag != tar.TypeReg {
 			continue
 		}
-		b := binary{
-			src: filepath.Join(filepath.Dir(dist), a.Path),
-			os:  npmOS[a.GOOS],
-			cpu: npmCPU[a.GOARCH],
+		if err := put(h.Name, tr); err != nil {
+			return err
 		}
-		if b.os == "" || b.cpu == "" {
-			return nil, fmt.Errorf("no npm platform for %s/%s", a.GOOS, a.GOARCH)
-		}
-		if seen[b.pkgName()] {
-			return nil, fmt.Errorf("two binaries for %s", b.pkgName())
-		}
-		seen[b.pkgName()] = true
-		bins = append(bins, b)
 	}
-	if len(bins) == 0 {
-		return nil, fmt.Errorf("%s lists no binaries", path)
-	}
-	sort.Slice(bins, func(i, j int) bool { return bins[i].pkgName() < bins[j].pkgName() })
-	return bins, nil
 }
 
-func stage(dir string, m manifest, root string) error {
-	// Without SetEscapeHTML(false), ">=18" is written as "\u003e=18".
+func walkZip(path string, put func(string, io.Reader) error) error {
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		return err
+	}
+	defer zr.Close() //nolint:errcheck // read-only
+	for _, zf := range zr.File {
+		if !zf.Mode().IsRegular() {
+			continue
+		}
+		r, err := zf.Open()
+		if err != nil {
+			return err
+		}
+		err = put(zf.Name, r)
+		_ = r.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeManifest(dir string, m manifest) error {
+	// Without SetEscapeHTML(false), ">=18" is written as ">=18".
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
@@ -232,40 +294,20 @@ func stage(dir string, m manifest, root string) error {
 	if err := enc.Encode(m); err != nil {
 		return err
 	}
-	if err := writeFile(filepath.Join(dir, "package.json"), buf.Bytes(), 0o644); err != nil {
-		return err
-	}
-	for _, name := range licenceFiles {
-		if err := copyFile(filepath.Join(root, name), filepath.Join(dir, name), 0o644); err != nil {
-			return err
-		}
-	}
-	return nil
+	return writeFile(filepath.Join(dir, "package.json"), buf.Bytes(), 0o644)
 }
 
 func writeFile(path string, data []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, mode)
+	return os.WriteFile(path, data, mode) //nolint:gosec // G703: every path is -out joined with a fixed name; archive entry names only select which
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src) //nolint:gosec // G304: sources come from GoReleaser's artifact list and -root
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src) //nolint:gosec // G304: src is under -out
 	if err != nil {
 		return err
 	}
-	defer in.Close() //nolint:errcheck // read-only
-	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
-		return err
-	}
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint:gosec // G304: dst is under -out
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		_ = out.Close()
-		return err
-	}
-	return out.Close()
+	return writeFile(dst, data, 0o644)
 }

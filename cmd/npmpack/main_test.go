@@ -1,6 +1,12 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -9,31 +15,79 @@ import (
 	"testing"
 )
 
-// fakeDist lays out a GoReleaser dist/ under a temp root: metadata,
-// an artifacts list, one fake binary per target, and licence files.
-func fakeDist(t *testing.T, version string, targets [][2]string) (root string) {
+// fakeAssets lays out a release's assets: one archive per platform in
+// GoReleaser's layout and a checksums.txt listing them. edit, when not
+// nil, may change a platform's archive entries before it is written.
+func fakeAssets(t *testing.T, version string, edit func(p platform, entries map[string]string)) string {
 	t.Helper()
-	root = t.TempDir()
-	dist := filepath.Join(root, "dist")
-	var arts []map[string]string
-	for _, tg := range targets {
-		name := "pgedge"
-		if tg[0] == "windows" {
-			name += ".exe"
+	dir := t.TempDir()
+	var sums strings.Builder
+	for _, p := range platforms {
+		entries := map[string]string{
+			p.exe():                   "binary " + p.goos + "/" + p.goarch,
+			"completions/pgedge.bash": "completion",
 		}
-		rel := filepath.Join("dist", "pgedge_"+tg[0]+"_"+tg[1], name)
-		mustWrite(t, filepath.Join(root, rel), "binary "+tg[0]+"/"+tg[1])
-		arts = append(arts, map[string]string{
-			"path": rel, "goos": tg[0], "goarch": tg[1], "type": "Binary",
-		})
+		for _, name := range licenceFiles {
+			entries[name] = name + " " + p.goos
+		}
+		if edit != nil {
+			edit(p, entries)
+		}
+		var body []byte
+		if p.goos == "windows" {
+			body = zipOf(t, entries)
+		} else {
+			body = tarGzOf(t, entries)
+		}
+		name := p.archive(version)
+		mustWrite(t, filepath.Join(dir, name), string(body))
+		sum := sha256.Sum256(body)
+		sums.WriteString(hex.EncodeToString(sum[:]) + "  " + name + "\n")
+		sums.WriteString(strings.Repeat("0", 64) + "  " + name + ".sbom.json\n")
 	}
-	arts = append(arts, map[string]string{"path": "dist/x.tar.gz", "type": "Archive"})
-	mustWriteJSON(t, filepath.Join(dist, "artifacts.json"), arts)
-	mustWriteJSON(t, filepath.Join(dist, "metadata.json"), map[string]string{"version": version})
-	for _, name := range licenceFiles {
-		mustWrite(t, filepath.Join(root, name), name)
+	mustWrite(t, filepath.Join(dir, "checksums.txt"), sums.String())
+	return dir
+}
+
+func tarGzOf(t *testing.T, entries map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for name, body := range entries {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
 	}
-	return root
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func zipOf(t *testing.T, entries map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range entries {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }
 
 func mustWrite(t *testing.T, path, body string) {
@@ -41,15 +95,6 @@ func mustWrite(t *testing.T, path, body string) {
 	if err := writeFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func mustWriteJSON(t *testing.T, path string, v any) {
-	t.Helper()
-	raw, err := json.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mustWrite(t, path, string(raw))
 }
 
 func readManifest(t *testing.T, path string) manifest {
@@ -65,16 +110,10 @@ func readManifest(t *testing.T, path string) manifest {
 	return m
 }
 
-var allTargets = [][2]string{
-	{"linux", "amd64"}, {"linux", "arm64"},
-	{"darwin", "amd64"}, {"darwin", "arm64"},
-	{"windows", "amd64"}, {"windows", "arm64"},
-}
-
 func TestRunStagesEveryPlatform(t *testing.T) {
-	root := fakeDist(t, "0.5.0", allTargets)
-	out := filepath.Join(root, "dist", "npm")
-	if err := run(filepath.Join(root, "dist"), out, root); err != nil {
+	assets := fakeAssets(t, "0.5.0", nil)
+	out := filepath.Join(t.TempDir(), "npm")
+	if err := run(assets, "0.5.0", out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,16 +152,22 @@ func TestRunStagesEveryPlatform(t *testing.T) {
 			if info, _ := os.Stat(bin); info.Mode().Perm()&0o111 == 0 {
 				t.Errorf("%s is not executable: %v", bin, info.Mode())
 			}
+			goos := strings.Split(tt.src, "/")[0]
 			for _, name := range licenceFiles {
-				if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
-					t.Errorf("missing %s: %v", name, err)
+				got, err := os.ReadFile(filepath.Join(dir, name))
+				if err != nil || string(got) != name+" "+goos {
+					t.Errorf("%s = %q, %v; want the %s archive's copy", name, got, err, goos)
 				}
+			}
+			if _, err := os.Stat(filepath.Join(dir, "completions")); err == nil {
+				t.Error("completions staged; only the binary and licence files belong")
 			}
 		})
 		wantOptional[tt.name] = "0.5.0"
 	}
 
-	m := readManifest(t, filepath.Join(out, "cli", "package.json"))
+	dir := filepath.Join(out, "cli")
+	m := readManifest(t, filepath.Join(dir, "package.json"))
 	if m.Name != "@pgedge/cli" || m.Bin["pgedge"] != "bin/pgedge.js" {
 		t.Errorf("main package = %s, bin %v", m.Name, m.Bin)
 	}
@@ -132,8 +177,13 @@ func TestRunStagesEveryPlatform(t *testing.T) {
 	if m.Repository.URL != "git+https://github.com/pgEdge/pgedge-cli.git" {
 		t.Errorf("repository.url = %q", m.Repository.URL)
 	}
-	if got, _ := os.ReadFile(filepath.Join(out, "cli", "bin", "pgedge.js")); string(got) != string(launcher) {
+	if got, _ := os.ReadFile(filepath.Join(dir, "bin", "pgedge.js")); string(got) != string(launcher) {
 		t.Error("launcher not staged verbatim")
+	}
+	for _, name := range licenceFiles {
+		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+			t.Errorf("main package missing %s: %v", name, err)
+		}
 	}
 }
 
@@ -146,9 +196,8 @@ func TestRunDistTag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
-			root := fakeDist(t, tt.version, allTargets[:1])
-			out := filepath.Join(root, "out")
-			if err := run(filepath.Join(root, "dist"), out, root); err != nil {
+			out := t.TempDir()
+			if err := run(fakeAssets(t, tt.version, nil), tt.version, out); err != nil {
 				t.Fatal(err)
 			}
 			tag, _ := os.ReadFile(filepath.Join(out, "dist-tag"))
@@ -164,22 +213,59 @@ func TestRunDistTag(t *testing.T) {
 }
 
 func TestRunRefuses(t *testing.T) {
+	linuxArm := platform{"linux", "arm64", "linux", "arm64"}
+	winX64 := platform{"windows", "amd64", "win32", "x64"}
 	tests := []struct {
 		name    string
-		targets [][2]string
 		version string
+		assets  func(t *testing.T) string
 		want    string
 	}{
-		{"unknown platform", [][2]string{{"freebsd", "amd64"}}, "1.0.0", "no npm platform for freebsd/amd64"},
-		{"unknown arch", [][2]string{{"linux", "386"}}, "1.0.0", "no npm platform for linux/386"},
-		{"duplicate", [][2]string{{"linux", "amd64"}, {"linux", "amd64"}}, "1.0.0", "two binaries for @pgedge/cli-linux-x64"},
-		{"no binaries", nil, "1.0.0", "lists no binaries"},
-		{"no version", allTargets, "", "has no version"},
+		{"leading v", "v1.0.0", func(t *testing.T) string { return fakeAssets(t, "1.0.0", nil) }, "without the leading v"},
+		{"no version", "", func(t *testing.T) string { return fakeAssets(t, "1.0.0", nil) }, "without the leading v"},
+		{"other version", "1.0.1", func(t *testing.T) string { return fakeAssets(t, "1.0.0", nil) }, "no checksum entry for pgedge_1.0.1_darwin_amd64.tar.gz"},
+		{"no checksums.txt", "1.0.0", func(t *testing.T) string {
+			dir := fakeAssets(t, "1.0.0", nil)
+			if err := os.Remove(filepath.Join(dir, "checksums.txt")); err != nil {
+				t.Fatal(err)
+			}
+			return dir
+		}, "checksums.txt"},
+		{"missing archive", "1.0.0", func(t *testing.T) string {
+			dir := fakeAssets(t, "1.0.0", nil)
+			if err := os.Remove(filepath.Join(dir, linuxArm.archive("1.0.0"))); err != nil {
+				t.Fatal(err)
+			}
+			return dir
+		}, "pgedge_1.0.0_linux_arm64.tar.gz"},
+		{"tampered archive", "1.0.0", func(t *testing.T) string {
+			dir := fakeAssets(t, "1.0.0", nil)
+			mustWrite(t, filepath.Join(dir, winX64.archive("1.0.0")), "not the archive")
+			return dir
+		}, "checksum mismatch for pgedge_1.0.0_windows_amd64.zip"},
+		{"unlisted archive", "1.0.0", func(t *testing.T) string {
+			dir := fakeAssets(t, "1.0.0", nil)
+			mustWrite(t, filepath.Join(dir, "checksums.txt"), "")
+			return dir
+		}, "no checksum entry"},
+		{"no binary", "1.0.0", func(t *testing.T) string {
+			return fakeAssets(t, "1.0.0", func(p platform, e map[string]string) {
+				if p == linuxArm {
+					delete(e, "pgedge")
+				}
+			})
+		}, "pgedge_1.0.0_linux_arm64.tar.gz: archive has no pgedge"},
+		{"no licence", "1.0.0", func(t *testing.T) string {
+			return fakeAssets(t, "1.0.0", func(p platform, e map[string]string) {
+				if p == winX64 {
+					delete(e, "NOTICE.txt")
+				}
+			})
+		}, "pgedge_1.0.0_windows_amd64.zip: archive has no NOTICE.txt"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root := fakeDist(t, tt.version, tt.targets)
-			err := run(filepath.Join(root, "dist"), filepath.Join(root, "out"), root)
+			err := run(tt.assets(t), tt.version, t.TempDir())
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("run() = %v, want an error containing %q", err, tt.want)
 			}
@@ -187,30 +273,25 @@ func TestRunRefuses(t *testing.T) {
 	}
 }
 
-func TestRunMissingInputs(t *testing.T) {
-	root := fakeDist(t, "1.0.0", allTargets)
-	dist := filepath.Join(root, "dist")
-	mustWrite(t, filepath.Join(dist, "metadata.json"), "{")
-	if err := run(dist, filepath.Join(root, "out"), root); err == nil || !strings.Contains(err.Error(), "parse") {
-		t.Errorf("bad metadata: run() = %v, want a parse error", err)
-	}
-
-	root = fakeDist(t, "1.0.0", allTargets)
-	dist = filepath.Join(root, "dist")
-	mustWrite(t, filepath.Join(dist, "artifacts.json"), "[")
-	if err := run(dist, filepath.Join(root, "out"), root); err == nil || !strings.Contains(err.Error(), "parse") {
-		t.Errorf("bad artifacts: run() = %v, want a parse error", err)
-	}
-
-	if err := run(filepath.Join(t.TempDir(), "dist"), t.TempDir(), root); err == nil {
-		t.Error("missing dist: run() = nil, want an error")
-	}
-
-	root = fakeDist(t, "1.0.0", allTargets)
-	if err := os.Remove(filepath.Join(root, "NOTICE.txt")); err != nil {
-		t.Fatal(err)
-	}
-	if err := run(filepath.Join(root, "dist"), filepath.Join(root, "out"), root); err == nil {
-		t.Error("missing licence file: run() = nil, want an error")
+func TestRunRefusesACorruptArchive(t *testing.T) {
+	for _, p := range []platform{platforms[0], platforms[len(platforms)-1]} {
+		t.Run(p.goos, func(t *testing.T) {
+			dir := fakeAssets(t, "1.0.0", nil)
+			name := p.archive("1.0.0")
+			body := "not an archive"
+			mustWrite(t, filepath.Join(dir, name), body)
+			sum := sha256.Sum256([]byte(body))
+			mustWrite(t, filepath.Join(dir, "checksums.txt"), hexOf(sum)+"  "+name+"\n")
+			// Only this platform's archive is listed, so it must be
+			// the first one read.
+			platformsBefore := platforms
+			platforms = []platform{p}
+			t.Cleanup(func() { platforms = platformsBefore })
+			if err := run(dir, "1.0.0", t.TempDir()); err == nil || !strings.Contains(err.Error(), name) {
+				t.Errorf("run() = %v, want an error naming %s", err, name)
+			}
+		})
 	}
 }
+
+func hexOf(sum [32]byte) string { return hex.EncodeToString(sum[:]) }

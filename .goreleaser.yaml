@@ -63,7 +63,7 @@ homebrew_casks:
   - repository:
       owner: pgEdge
       name: homebrew-tap
-      token: '{{ envOrDefault "HOMEBREW_TAP_TOKEN" "" }}'
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}false{{ end }}'
     homepage: https://github.com/pgEdge/pgedge-cli
     description: Unified CLI for the pgEdge product suite

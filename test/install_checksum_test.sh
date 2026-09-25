@@ -138,6 +138,14 @@ check "resolve_version returns a pinned tag" "$rc" 0
 check "resolve_version prints the pinned tag unchanged" \
     "$( [ "$OUT" = "v0.5.0-beta.2" ] && echo 1 || echo 0 )" 1
 
+# T10b: a GA tag, with no pre-release suffix, is a valid pin.
+set +e
+OUT=$(PGEDGE_VERSION=v1.2.3 resolve_version 2>&1); rc=$?
+set -e
+check "resolve_version accepts a GA tag" "$rc" 0
+check "resolve_version prints the GA tag unchanged" \
+    "$( [ "$OUT" = "v1.2.3" ] && echo 1 || echo 0 )" 1
+
 # T11: a pin that is not a release tag is refused before any
 # download, so a typo cannot fall through to the newest release.
 for bad in 0.5.0 v0.5 latest "v0.5.0 beta"; do

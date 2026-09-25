@@ -160,7 +160,11 @@ curl -fsSL -o "${TMPDIR}/checksums.txt" "$CHECKSUM_URL"
 # only verification (integrity, not authenticity).
 if command -v cosign >/dev/null 2>&1; then
     echo "Verifying signature with cosign..."
-    curl -fsSL -o "${TMPDIR}/checksums.txt.sigstore.json" "$BUNDLE_URL"
+    if ! curl -fsSL -o "${TMPDIR}/checksums.txt.sigstore.json" \
+        "$BUNDLE_URL"; then
+        echo "Error: release ${VERSION} has no signature bundle to verify" >&2
+        exit 1
+    fi
     if ! cosign verify-blob \
         --bundle "${TMPDIR}/checksums.txt.sigstore.json" \
         --certificate-identity-regexp \
@@ -207,9 +211,13 @@ echo "  https://github.com/pgEdge/pgedge-cli#ai-agent-skills"
 # the binary is already installed, so a failure here must never fail
 # the install. Running under `curl | sh` is non-interactive, so this
 # writes the script and prints instructions without editing any rc
-# file.
-echo "Setting up shell completion..."
-if ! "${INSTALL_DIR}/${BINARY}" completion install; then
-    echo "Note: automatic completion setup did not run." >&2
-    echo "Enable it later with: ${BINARY} completion install" >&2
+# file. CI runners set CI and have no shell to detect.
+if [ -n "${CI:-}" ]; then
+    echo "Skipping shell completion on CI."
+else
+    echo "Setting up shell completion..."
+    if ! "${INSTALL_DIR}/${BINARY}" completion install; then
+        echo "Note: automatic completion setup did not run." >&2
+        echo "Enable it later with: ${BINARY} completion install" >&2
+    fi
 fi

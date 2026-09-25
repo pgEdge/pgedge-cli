@@ -1,0 +1,49 @@
+name: Set up pgEdge CLI
+description: Install a signed, verified release of the pgedge CLI.
+author: pgEdge
+
+inputs:
+  version:
+    description: >-
+      Release tag to install, such as v0.5.0-beta.2. Defaults to the
+      tag the action is referenced at.
+    required: false
+    default: ""
+
+outputs:
+  version:
+    description: The release tag that was installed.
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the runner
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo "::error::pgedge setup supports Linux and macOS runners" >&2
+        exit 1
+
+    - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+    - name: Install pgedge
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        version="${INPUT_VERSION:-$ACTION_REF}"
+        if [ -z "$version" ]
+        then
+            echo "::error::set the version input to a release tag" >&2
+            exit 1
+        fi
+        # cosign is on PATH, so install.sh verifies the signature and
+        # fails rather than skipping it.
+        PGEDGE_VERSION="$version" sh "$ACTION_PATH/install.sh"
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        echo "version=$version" >> "$GITHUB_OUTPUT"

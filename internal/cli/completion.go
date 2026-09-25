@@ -113,10 +113,10 @@ script to the directory that shell loads completions from, and
 prints any remaining step (such as a zsh fpath line or a
 PowerShell profile line).
 
-With --rc-only no script is written: install adds a single line to
-your shell's startup file that evaluates this binary's completion
-script at each shell start. That costs roughly 10–20 ms on a warm
-cache and can never fall out of step with the installed binary.
+With --rc-only, install adds a single line to your shell's startup
+file in place of the script. That line evaluates this binary's
+completion script at each shell start, so completion always matches
+the installed binary.
 
 Supports bash, zsh, fish and PowerShell. $SHELL rarely names
 PowerShell, so pass --shell powershell explicitly on macOS or

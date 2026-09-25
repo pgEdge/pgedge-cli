@@ -292,8 +292,10 @@ var stderrComposedMessages = map[string]struct {
 // 159 -> 163: `auth login` names where the secret went, and `auth
 // logout` reports a keychain it could not reach.
 // 180 -> 192: the `managed database link` prompt's lists.
+// 192 -> 195: `controlplane database update` names the nodes it
+// removes, or the database whose nodes it could not read.
 const (
-	stderrArgSites      = 192
+	stderrArgSites      = 195
 	stderrComposedSites = 22
 )
 

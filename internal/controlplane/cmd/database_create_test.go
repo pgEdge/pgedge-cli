@@ -129,7 +129,7 @@ func TestDatabaseUpdateFromFile(t *testing.T) {
 	}
 	url := newServer(t, jsonHandler(200, updateResp))
 	if err := runControlplane(t, rt, out, url,
-		"database", "update", "storefront", "-f", specPath); err != nil {
+		"database", "update", "storefront", "-f", specPath, "--force"); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	if !strings.Contains(errb.String(), updateTaskID) {

@@ -266,7 +266,7 @@ func asyncMatrixCases(t *testing.T, dir string) []asyncCase {
 		},
 		{
 			name:     "database update",
-			args:     []string{"database", "update", "storefront", "-f", specPath},
+			args:     []string{"database", "update", "storefront", "-f", specPath, "--force"},
 			respBody: updateResp,
 			taskID:   updateTaskID,
 		},

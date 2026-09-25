@@ -120,7 +120,7 @@ controlplane module take each one, and what it changes:
 
 | Flag | Commands | What it changes |
 |---|---|---|
-| `--force` | `node switchover`, `node failover`, `instance stop`, `instance restart`, `host remove`, `database restore`, `database delete`, `database upgrade`, `task cancel` | Skips the confirmation prompt in the CLI. It is never sent to the server. |
+| `--force` | `node switchover`, `node failover`, `instance stop`, `instance restart`, `host remove`, `database restore`, `database delete`, `database update`, `database upgrade`, `task cancel` | Skips the confirmation prompt in the CLI. It is never sent to the server. |
 | `--force-unmodifiable` | `instance start`, `instance stop`, `node backup`, `database restore`, `database delete` | Sets the API's own force parameter, so the server waives its unmodifiable-state check. |
 | `--force-lost` | `host remove` | Sets that same API parameter on host removal, so the server waives the instance and quorum checks. |
 

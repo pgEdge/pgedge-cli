@@ -253,6 +253,11 @@ edit it, and apply it:
 decoding checks that `create` does, and reads the `spec:` section of a
 `database get` document without any restructuring.
 
+A spec that leaves out a node the database has now removes that node
+and its data. Before sending that spec, `update` names each node it
+removes and asks you to confirm. Off a terminal, the command exits
+with status 2 unless you pass `--force`.
+
 `database upgrade` moves the database to a new container image, which
 is how a minor-version upgrade lands. The target must be a newer build
 in the same Postgres and Spock major bucket, and it restarts the
@@ -279,7 +284,7 @@ table describes what each one does:
 
 | Flag | Where it appears | What it does |
 |---|---|---|
-| `--force` | Every command that prompts, including `database delete`, `database upgrade`, `database restore` and `task cancel` | Skips the confirmation prompt, and nothing else |
+| `--force` | Every command that prompts, including `database delete`, `database update`, `database upgrade`, `database restore` and `task cancel` | Skips the confirmation prompt, and nothing else |
 | `--force-unmodifiable` | `database delete`, `database restore`, `database node backup`, `database instance start`, `database instance stop` | Tells the server to waive its unmodifiable-state check |
 | `--force-lost` | `host remove` only | Tells the server to waive its instance and quorum checks, for a host that is permanently gone |
 

@@ -86,6 +86,15 @@ to its tag:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
 
+### GitHub Actions
+
+The action installs the release its tag names and verifies its
+signature, on Linux and macOS runners:
+
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+
+The [CI and automation guide](docs/ci.md) carries a full pipeline.
+
 ### Homebrew (macOS, Linux)
 
 One command:
@@ -225,8 +234,7 @@ the `skills/` directory of this repository:
 - `skills/pgedge-managed`: pgEdge-hosted managed databases
 - `skills/pgedge-controlplane`: pgEdge Control Plane resources
 
-The `pgedge` binary does not install them, because skills are a layer
-above the CLI.
+Skills are a layer above the CLI, so they install separately.
 
 One command installs all five and detects your agent:
 

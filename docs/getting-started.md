@@ -95,8 +95,8 @@ Code, Cursor, Copilot, Amp, and a dozen others read the same location:
     npx skills add pgEdge/pgedge-cli
 
 This clones the repository itself, so it also works for a developer
-who installed the binary via `go install` or a release archive and has
-no checkout. Project scope
+who installed the binary via `go install` or a release archive.
+Project scope
 is the default, which puts the skills in the repository you run it
 from so teammates and cloud agents share the setup. Add `--global` to
 install for your user instead. The README's "AI-agent skills" section
@@ -118,20 +118,19 @@ skills.
 
 ## Other ways to install
 
-Four routes in all, each buying something different. Two of them need
-no Go toolchain, so do not install one just to get a binary. What each
-route needs:
+Four routes in all, each buying something different. Only
+`go install` and a clone-and-build need Go. What each route needs:
 
 | Install path | Also needs |
 |---|---|
 | Hand it to your AI agent | Node.js, for the agent-skills step |
-| Download a release archive | nothing further |
+| Download a release archive | `tar` and `sha256sum` or `shasum` |
 | `go install` from main | Go 1.26 or newer |
 | Clone and build | Go 1.26 or newer |
 
-On macOS, `brew install node` and `brew install go` cover those. Node
-is for `npx skills add`, not for the CLI, which never needs it, and
-the README's manual-copy path installs the skills without it.
+On macOS, `brew install node` and `brew install go` cover those. Only
+`npx skills add` uses Node, and the README's manual-copy path installs
+the skills by hand.
 
 To download a release archive, follow the README's "Manual download"
 section. To ask a question or report a problem, open a

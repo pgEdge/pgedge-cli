@@ -99,6 +99,17 @@ func Find(start, home string) (*Found, error) {
 	}
 }
 
+// IsHome reports whether dir is the user's home folder.
+func IsHome(dir string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	a, errA := os.Stat(dir)
+	b, errB := os.Stat(home)
+	return errA == nil && errB == nil && os.SameFile(a, b)
+}
+
 // Read returns the link in dir itself, without walking up.
 func Read(dir string) (*Found, error) {
 	return read(filepath.Join(dir, Dir, File))

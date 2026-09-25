@@ -195,3 +195,17 @@ func TestEveryModuleHasACommandPath(t *testing.T) {
 		}
 	}
 }
+
+func TestIsHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if !IsHome(home) {
+		t.Error("IsHome(home) = false")
+	}
+	if !IsHome(home + "/.") {
+		t.Error("IsHome did not see through a non-canonical spelling")
+	}
+	if IsHome(t.TempDir()) {
+		t.Error("IsHome(another folder) = true")
+	}
+}

@@ -66,6 +66,22 @@ func databaseArg(rt *module.Runtime, args []string, i int) (
 	return uuid.MustParse(f.DatabaseID), f, nil
 }
 
+// projectFolder is the working directory, refused when it is the home
+// folder: ~/.pgedge is the shared config root, and Find never reads a
+// link there.
+func projectFolder() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if projectlink.IsHome(wd) {
+		return "", newExitError("the home folder cannot be linked, because "+
+			"~/.pgedge is the shared pgEdge config folder; run this from a "+
+			"project folder", ExitUsage)
+	}
+	return wd, nil
+}
+
 // --- link ---
 
 func newDatabaseLinkCmd(rt *module.Runtime) *cobra.Command {
@@ -108,7 +124,7 @@ Example:
 					return err
 				}
 			}
-			wd, err := os.Getwd()
+			wd, err := projectFolder()
 			if err != nil {
 				return err
 			}
@@ -121,8 +137,9 @@ Example:
 			}
 
 			existing, err := projectlink.Read(wd)
-			if err != nil {
-				return newExitError(fmt.Sprintf("read project link: %v", err), ExitGeneral)
+			if err != nil && !force {
+				return newExitError(fmt.Sprintf("read project link: %v; "+
+					"pass --force to replace it", err), ExitGeneral)
 			}
 			if existing != nil && existing.Link != l && !force {
 				return newExitError(fmt.Sprintf(
@@ -201,7 +218,7 @@ Example:
   pgedge starfleet managed database unlink`,
 		Args: cobra.NoArgs,
 		RunE: func(*cobra.Command, []string) error {
-			wd, err := os.Getwd()
+			wd, err := projectFolder()
 			if err != nil {
 				return err
 			}
@@ -286,6 +303,11 @@ func runEnvPull(rt *module.Runtime, cmd *cobra.Command, args []string) error {
 		if _, err := parseUserType(userType); err != nil {
 			return err
 		}
+	}
+	if !dotenv.ValidName(varName) {
+		return newExitError(fmt.Sprintf("--var %q is not a variable name: "+
+			"use letters, digits and underscores, not starting with a digit",
+			varName), ExitUsage)
 	}
 	if cmd.Flags().Changed("file") && file == "" {
 		return newExitError("--file given an empty value: name a file, "+

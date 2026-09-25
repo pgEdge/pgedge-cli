@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -63,16 +64,26 @@ Example:
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			analysis := args[len(args)-1]
-			id, _, err := databaseArg(rt, args[:len(args)-1], 0)
-			if err != nil {
-				return err
+			// A typed ID, then the analysis, then the link: each error
+			// names what was typed before the link is consulted.
+			var id uuid.UUID
+			var err error
+			if len(args) == 2 {
+				if id, err = parseUUIDArg(args[0], "database ID"); err != nil {
+					return err
+				}
 			}
+			analysis := args[len(args)-1]
 			a, ok := inspect.Lookup(analysis)
 			if !ok {
 				return newExitError(fmt.Sprintf(
 					"unknown analysis %q: one of %s", analysis,
 					strings.Join(inspect.Names(), ", ")), ExitUsage)
+			}
+			if len(args) == 1 {
+				if id, _, err = databaseArg(rt, nil, 0); err != nil {
+					return err
+				}
 			}
 			var wireUserType api.GetManagedDatabaseParamsUserType
 			if a.NeedsStats && !cmd.Flags().Changed("user-type") {

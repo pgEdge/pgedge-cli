@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"slices"
 	"strings"
@@ -434,7 +433,7 @@ Example:
 						"a database still being created has no connection "+
 						"to write", ExitUsage)
 				}
-				wd, err := os.Getwd()
+				wd, err := projectFolder()
 				if err != nil {
 					return err
 				}

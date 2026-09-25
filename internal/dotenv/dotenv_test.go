@@ -82,7 +82,7 @@ func TestSetCreatesAPrivateFile(t *testing.T) {
 	}
 }
 
-func TestSetFollowsASymlink(t *testing.T) {
+func TestSetRefusesASymlink(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "real.env")
 	if err := os.WriteFile(target, []byte("A=1\n"), 0o600); err != nil {
@@ -92,15 +92,20 @@ func TestSetFollowsASymlink(t *testing.T) {
 	if err := os.Symlink(target, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set(link, "DATABASE_URL", uri); err != nil {
-		t.Fatal(err)
+	err := Set(link, "DATABASE_URL", uri)
+	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("Set() = %v, want a symlink refusal", err)
 	}
-	if info, _ := os.Lstat(link); info.Mode()&os.ModeSymlink == 0 {
-		t.Error("the symlink was replaced by a file")
+	if got, _ := os.ReadFile(target); string(got) != "A=1\n" {
+		t.Errorf("the link's target was written: %q", got)
 	}
-	got, _ := os.ReadFile(target)
-	if string(got) != "A=1\nDATABASE_URL="+uri+"\n" {
-		t.Errorf("target = %q", got)
+}
+
+func TestValidName(t *testing.T) {
+	for name, want := range map[string]bool{"DATABASE_URL": true, "_x1": true, "": false, "1X": false, "A-B": false} {
+		if got := ValidName(name); got != want {
+			t.Errorf("ValidName(%q) = %v, want %v", name, got, want)
+		}
 	}
 }
 

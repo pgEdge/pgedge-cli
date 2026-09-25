@@ -335,7 +335,8 @@ func TestEnvPullRefuses(t *testing.T) {
 		{"empty --user-type", &linkStub{}, []string{testDatabaseID, "--user-type", ""}, false, ExitUsage, "--user-type given an empty value"},
 		{"unknown --user-type", &linkStub{}, []string{testDatabaseID, "--user-type", "root"}, false, ExitUsage, "unknown user type"},
 		{"empty --file", &linkStub{}, []string{testDatabaseID, "--file", ""}, false, ExitUsage, "--file given an empty value"},
-		{"bad --var", &linkStub{}, []string{testDatabaseID, "--var", "1X"}, false, ExitGeneral, "invalid variable name"},
+		{"bad --var", &linkStub{}, []string{testDatabaseID, "--var", "1X"}, false, ExitUsage, "is not a variable name"},
+		{"empty --var", &linkStub{}, []string{testDatabaseID, "--var", ""}, false, ExitUsage, "is not a variable name"},
 		{"no host yet", &linkStub{noHost: true}, nil, true, ExitGeneral, "no connection host yet"},
 		{"database gone", &linkStub{dbMissing: true}, nil, true, ExitNotFound, "404"},
 	}
@@ -577,4 +578,97 @@ func TestRootEnvPullRunsTheModuleVerb(t *testing.T) {
 			t.Errorf("err = %v", err)
 		}
 	})
+}
+
+func TestEnvPullRefusesBadFlagsBeforeAnyRequest(t *testing.T) {
+	inProject(t)
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	stub := &linkStub{}
+	url := testsupport.NewAuthedServer(t, stub.handler)
+	_ = runAuthed(t, rt, out, url, "database", "env", "pull", testDatabaseID, "--var", "1X")
+	if len(stub.paths) != 0 {
+		t.Errorf("a bad --var still fetched the password: %v", stub.paths)
+	}
+}
+
+func TestEnvPullRefusesASymlinkedEnvFile(t *testing.T) {
+	dir := inProject(t)
+	writeLink(t, dir, "")
+	target := filepath.Join(dir, "elsewhere")
+	if err := os.WriteFile(target, []byte("A=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, ".env")); err != nil {
+		t.Fatal(err)
+	}
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	url := testsupport.NewAuthedServer(t, (&linkStub{}).handler)
+	wantExit(t, runAuthed(t, rt, out, url, "database", "env", "pull"), ExitGeneral, "symbolic link")
+	if got := readFile(t, target); got != "A=1\n" {
+		t.Errorf("the symlink's target was written: %q", got)
+	}
+}
+
+func TestTheHomeFolderIsNeverLinked(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"link", []string{"database", "link", testDatabaseID}},
+		{"unlink", []string{"database", "unlink"}},
+		{"create --link", []string{"database", "create", "--name", "d",
+			"--region", "us-east-2", "--size", "small", "--link", "--wait"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt, out, _ := testsupport.NewRuntime(t, "", "text")
+			home := os.Getenv("HOME")
+			t.Chdir(home)
+			stub := &linkStub{}
+			url := testsupport.NewAuthedServer(t, stub.handler)
+			wantExit(t, runAuthed(t, rt, out, url, tt.args...), ExitUsage, "home folder cannot be linked")
+			if len(stub.paths) != 0 {
+				t.Errorf("requests sent: %v", stub.paths)
+			}
+			if _, err := os.Stat(filepath.Join(home, projectlink.Dir)); !os.IsNotExist(err) {
+				t.Errorf("~/%s was created: %v", projectlink.Dir, err)
+			}
+		})
+	}
+}
+
+func TestLinkForceReplacesABrokenLink(t *testing.T) {
+	dir := inProject(t)
+	if err := os.MkdirAll(filepath.Join(dir, projectlink.Dir), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, projectlink.Dir, projectlink.File), []byte("module: [\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	url := testsupport.NewAuthedServer(t, (&linkStub{}).handler)
+	wantExit(t, runAuthed(t, rt, out, url, "database", "link", testDatabaseID), ExitGeneral, "pass --force")
+
+	rt, out, _ = testsupport.NewRuntime(t, "", "text")
+	if err := runAuthed(t, rt, out, url, "database", "link", testDatabaseID, "--force"); err != nil {
+		t.Fatalf("link --force over a broken link: %v", err)
+	}
+	if got, err := projectlink.Read(dir); err != nil || got == nil || got.DatabaseID != testDatabaseID {
+		t.Errorf("link = %+v, %v", got, err)
+	}
+}
+
+func TestInspectChecksTheAnalysisBeforeTheLink(t *testing.T) {
+	dir := inProject(t)
+	writeLink(t, dir, "")
+	rt, out, errb := testsupport.NewRuntime(t, "", "text")
+	stub := &linkStub{}
+	url := testsupport.NewAuthedServer(t, stub.handler)
+	wantExit(t, runAuthed(t, rt, out, url, "database", "inspect", testDatabaseID), ExitUsage, "unknown analysis")
+	if strings.Contains(errb.String(), "Using database") {
+		t.Errorf("named the linked database before refusing the analysis: %q", errb.String())
+	}
+	if len(stub.paths) != 0 {
+		t.Errorf("requests sent: %v", stub.paths)
+	}
 }

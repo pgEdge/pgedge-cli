@@ -475,7 +475,10 @@ Write `.pgedge/link.yaml` in the current folder, naming one database,
 or with `--branch` one of its branches. The file holds IDs only, so a
 project can commit it. The database, and the branch, are read first:
 an ID the profile cannot see is exit 4 and writes nothing. A folder
-already linked elsewhere is exit 1 unless `--force` is given.
+already linked elsewhere, or holding an unreadable link, is exit 1
+unless `--force` is given. The home folder is refused at exit 2,
+because `~/.pgedge` is the shared config folder; `unlink` and
+`create --link` refuse it the same way.
 
 Below a linked folder, eight read verbs take the linked database when
 the ID is left out, and print `Using database <id> from <path>` on

@@ -21,11 +21,14 @@ var safeValue = regexp.MustCompile(`^[A-Za-z0-9._~%:/@?=&+,;\[\]-]+$`)
 
 var validName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// ValidName reports whether name can be a variable in a .env file.
+func ValidName(name string) bool { return validName.MatchString(name) }
+
 // Set writes name=value into path. The last line assigning name is
 // replaced, since the last assignment is the one every loader keeps;
 // with none, the line is appended. A new file is created at 0600, and
-// an existing file keeps its mode. A symbolic link is followed, as
-// atomicfile.Write does for the config file.
+// an existing file keeps its mode. A symbolic link is refused: the file
+// receives a live password, and a planted link would send it elsewhere.
 func Set(path, name, value string) error {
 	if !validName.MatchString(name) {
 		return fmt.Errorf("invalid variable name %q", name)
@@ -36,11 +39,13 @@ func Set(path, name, value string) error {
 
 	mode := os.FileMode(0o600)
 	var content []byte
-	info, err := os.Stat(path)
+	info, err := os.Lstat(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 	case err != nil:
 		return err
+	case info.Mode()&fs.ModeSymlink != 0:
+		return fmt.Errorf("%s is a symbolic link; pass --file with the file it points to", path)
 	case !info.Mode().IsRegular():
 		return fmt.Errorf("%s is not a regular file", path)
 	default:

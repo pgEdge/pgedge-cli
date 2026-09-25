@@ -84,6 +84,8 @@ Both commands write the same file:
   `.env` stays as it was.
 - Without a `DATABASE_URL` line, the command appends one.
 - A missing `.env` is created readable by you alone.
+- A `.env` that is a symbolic link is refused with status 1. Pass
+  `--file` with the file the link points to.
 - The value is percent-encoded, so every `.env` loader reads the same
   password, with no quoting.
 
@@ -144,7 +146,8 @@ switch to the branch:
         --branch <branch-id> --force
 
 With a branch link, `env pull` and `connection-string` use the
-branch's connection. Run `pgedge env pull` again after switching, and
+branch's connection. The other read commands act on the source
+database. Run `pgedge env pull` again after switching, and
 the command replaces the `DATABASE_URL` line with the branch's URI.
 
 ## Using Read Commands Without an ID
@@ -208,6 +211,14 @@ ID exits with status 2 for the same cause. Either no link exists in
 this folder or above it, or a folder holding `.git` sits between you
 and the link. Link the folder with
 `pgedge starfleet managed database link <db-id>`, or pass the ID.
+
+### Home Folder Refused
+
+`database link`, `database unlink` and `database create --link` exit
+with status 2 in your home folder. The message begins
+`the home folder cannot be linked`. Your home folder's `.pgedge` holds
+shared pgEdge settings, so it never holds a link. Run the command from
+a project folder instead.
 
 ### Folder Already Linked
 

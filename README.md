@@ -9,29 +9,33 @@
 
 ![CI](https://github.com/pgEdge/pgedge-cli/actions/workflows/ci.yml/badge.svg)
 
-`pgedge` is the unified command-line interface for the pgEdge
-product suite: `pgedge <module> <resource> <verb>`.
+With `pgedge`, you work with the pgEdge product suite from one
+command-line interface. Its command shape is
+`pgedge <module> <resource> <verb>`.
 
-Modules: `starfleet` (Starfleet authentication and account
-resources, plus the nested `byoc` and `managed` infrastructure
-sub-trees) and `controlplane` (Control Plane).
+The CLI has two modules:
 
-## Install
+- `starfleet`: pgEdge Starfleet authentication and account resources,
+  plus the nested `byoc` and `managed` infrastructure sub-trees.
+- `controlplane`: the Control Plane.
 
-Releases are published on
+## Installing the CLI
+
+pgEdge publishes each release on
 [GitHub Releases](https://github.com/pgEdge/pgedge-cli/releases). To
 ask a question or report a problem, open a
 [GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
-[docs/getting-started.md](docs/getting-started.md) covers first steps.
+[Getting started](docs/getting-started.md) covers your first steps.
 
-### Hand the install to an AI agent
+### Handing the Install to an AI Agent
 
-Paste the prompt below into your coding agent (Claude Code, Cursor,
-and the like) and it installs the CLI, wires up shell completion,
-and adds the agent skills for the products you use, asking you
-which those are along the way. It needs `curl`, plus Node.js for the
-skills step. It stops if the CLI install fails, and carries on past a
-completion or skills step that fails or that you decline.
+A coding agent can install the CLI for you, set up shell completion,
+and add the agent skills for the products you use. The agent asks you
+which products those are along the way. The install needs `curl`, plus
+Node.js for the skills step. If the CLI install fails, the agent
+stops. If the completion or skills step fails, or you decline it, the
+agent carries on. Paste this prompt into your coding agent, such as
+Claude Code or Cursor:
 
 <!-- install-prompt: begin -->
 <!-- This block is duplicated between README.md and
@@ -77,12 +81,12 @@ completion or skills step that fails or that you decline.
        plane).
 <!-- install-prompt: end -->
 
-### Install script (Linux, macOS)
+### Installing with the Script (Linux, macOS)
 
-Downloads the latest release for your platform, verifies its
-checksum (and its cosign signature when `cosign` is installed),
-and installs to `/usr/local/bin` (falling back to
-`~/.local/bin`):
+The install script downloads the latest release for your platform and
+verifies its checksum. When `cosign` is installed, the script also
+verifies the release's cosign signature. It installs to
+`/usr/local/bin`, and falls back to `~/.local/bin`. Run the script:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
@@ -91,34 +95,35 @@ to its tag:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | PGEDGE_VERSION=<release-tag> sh
 
-### GitHub Actions
+### Installing in GitHub Actions
 
-The action installs the release its tag names and verifies its
-signature, on Linux and macOS runners:
+On Linux and macOS runners, the action installs the release that its
+own tag names, and verifies that release's signature. Add this step to
+your workflow:
 
     - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
 
-The [CI and automation guide](docs/ci.md) carries a full pipeline.
+[CI and automation](docs/ci.md) shows a full pipeline.
 
-### Homebrew (macOS, Linux)
+### Installing with Homebrew (macOS, Linux)
 
-One command:
+Install from the pgEdge tap with one command:
 
     brew install pgEdge/tap/pgedge
 
-### go install
+### Installing with go install
 
-Go builds it from source at the main branch:
+Go builds the CLI from source at the main branch:
 
     go install github.com/pgEdge/pgedge-cli/cmd/pgedge@main
 
-> Put a release tag in place of `@main` to build that release.
-> A binary installed this way reports its version as `dev`.
+To build a release instead, put its tag in place of `@main`. A binary
+installed this way reports its version as `dev`.
 
-### Manual download
+### Downloading a Release by Hand
 
-Grab the archive for your platform from the
-[releases page](https://github.com/pgEdge/pgedge-cli/releases),
+Download the archive for your platform from
+[GitHub Releases](https://github.com/pgEdge/pgedge-cli/releases),
 then verify and extract it:
 
     # verify integrity
@@ -136,30 +141,29 @@ then verify and extract it:
     tar -xzf pgedge_*.tar.gz
     install pgedge /usr/local/bin/
 
-Builds are published for `linux` and `darwin` (amd64, arm64) and
-`windows` (amd64, arm64). Archive names are lower-case and use Go's
-architecture spelling, which `uname` does not reliably match: the
-mapping is irregular across platforms and shells, agreeing on some and
-not others. Take the name from the releases page rather than
-assembling one from `uname` output. Windows archives are `.zip`, and
-everything else is `.tar.gz`.
+pgEdge publishes builds for `linux` and `darwin` (amd64, arm64) and
+`windows` (amd64, arm64). Archive names are lowercase and use Go's
+spelling for each architecture. The output of `uname` maps to those
+names irregularly across platforms and shells, so take the archive
+name from the releases page. Windows archives are `.zip`, and all
+others are `.tar.gz`.
 
-### Build from source
+### Building from Source
 
 Build the binary in a checkout and run it:
 
     make build
     ./pgedge --help
 
-### Updating
+### Updating an Install
 
 A downloaded release binary updates itself with `pgedge self update`.
-See the Updating section below and
-[docs/updating.md](docs/updating.md). A Homebrew install or a binary
-inside a git checkout is updated by the tool that owns it. `pgedge
-version` prints what you are running.
+The next section and [Updating the CLI](docs/updating.md) give the
+details. For a Homebrew install or a binary inside a git checkout,
+update with the tool that owns it. To see which version you are
+running, use `pgedge version`.
 
-## Updating
+## Updating the CLI
 
 A downloaded release binary updates itself:
 
@@ -167,39 +171,40 @@ A downloaded release binary updates itself:
     pgedge self update --check   # just say whether one exists
 
 The command checks the download against the release's Sigstore
-signature and checksum before that download touches the installed
-binary, and it regenerates an installed completion script afterward.
-It leaves a Homebrew install or a binary inside a git checkout alone
-and names the command to run instead (`brew upgrade pgedge`,
-`make build`). `pgedge doctor` also reports the latest release.
-Details in [Updating the CLI](docs/updating.md).
+signature and checksum. It does this before the download touches the
+installed binary. Afterward, it regenerates an installed completion
+script. A Homebrew install or a binary inside a git checkout stays in
+place, and the command names the one to run instead:
+`brew upgrade pgedge` or `make build`. `pgedge doctor` also reports
+the latest release. [Updating the CLI](docs/updating.md) has the
+details.
 
-## Shell completion
+## Setting Up Shell Completion
 
-Enable Tab completion for commands, subcommands, and flags:
+Enable Tab completion for commands, subcommands and flags:
 
     pgedge completion install
 
-This detects your shell (bash, zsh, fish or PowerShell) and sets
-completion up one of two ways. The install script runs it
-automatically, and a Homebrew install ships completion for bash, zsh
-and fish.
+The command detects your shell: bash, zsh, fish or PowerShell. The
+install script runs it for you, and a Homebrew install ships
+completion for bash, zsh and fish. The command sets up completion in
+one of two ways:
 
-- **File install (default).** Writes a completion script into the
-  directory your shell loads completions from, and prints any
-  remaining step (a zsh `fpath` line, a PowerShell profile line).
-  Your shell loads the script like any other completion file.
-  `pgedge self update` regenerates the script, so it keeps up with
-  the binary.
-- **rc line (`--rc-only`).** Appends one line to your shell's startup
-  file in place of the script. The installed binary generates the
+- **File install (default).** It writes a completion script into the
+  directory your shell loads completions from. Then it prints any
+  step that remains, such as a zsh `fpath` line or a PowerShell
+  profile line. Your shell loads the script like any other completion
+  file. `pgedge self update` regenerates the script, so it keeps up
+  with the binary.
+- **rc line (`--rc-only`).** It adds one line to your shell's startup
+  file in place of the script. The installed binary makes the
   completions at every shell start, so they always match it.
 
-The second route:
+To take the second route, run:
 
     pgedge completion install --rc-only
 
-The lines it adds, if you would rather add one by hand:
+To add the line by hand instead, use the one for your shell:
 
     # ~/.bashrc
     eval "$(pgedge completion bash)"
@@ -216,25 +221,28 @@ The lines it adds, if you would rather add one by hand:
 `pgedge completion uninstall` removes whichever of the two is in
 place.
 
-Any shell's script can also be printed on its own for manual wiring:
+To wire up a shell by hand, print its script on its own:
 
     pgedge completion fish
     pgedge completion powershell
 
 Release archives also ship a `completions/` directory with a script
-per shell, including `pgedge.ps1` for Windows zip users who prefer
-to wire it up manually.
+for each shell. It includes `pgedge.ps1` for Windows zip users who
+prefer to wire it up by hand.
 
-## AI-agent skills
+## Installing the AI-Agent Skills
 
-pgEdge ships agent skills (SKILL.md, the Agent Skills open standard) in
-the `skills/` directory of this repository:
+pgEdge ships agent skills in the `skills/` directory of this
+repository. Each skill is a SKILL.md file in the Agent Skills open
+standard. The directory holds five skills:
 
-- `skills/pgedge`: pgedge CLI orientation and module choice
-- `skills/pgedge-starfleet`: Starfleet authentication, invites,
+- `skills/pgedge`: an orientation to the pgedge CLI, and which module
+  to choose
+- `skills/pgedge-starfleet`: pgEdge Starfleet authentication, invites
   and team memberships
-- `skills/pgedge-byoc`: pgEdge BYOC resources
-- `skills/pgedge-managed`: pgEdge-hosted managed databases
+- `skills/pgedge-byoc`: pgEdge Starfleet BYOC resources
+- `skills/pgedge-managed`: pgEdge Starfleet Managed databases, which
+  pgEdge hosts
 - `skills/pgedge-controlplane`: pgEdge Control Plane resources
 
 Skills are a layer above the CLI, so they install separately.
@@ -243,63 +251,69 @@ One command installs all five and detects your agent:
 
     npx skills add pgEdge/pgedge-cli
 
-It writes to `.agents/skills/`, the shared location supporting agents
-read, and symlinks it for those with their own convention, so Claude
-Code, Cursor, Copilot, Amp, Antigravity and a dozen others pick them
-up from a single install. Project scope is the default, putting them
-in the repository so teammates and cloud agents share the setup. Add
-`--global` for a per-user install. `npx skills list`, `update` and
-`remove` manage them afterward, and `skills-lock.json` pins each one
-by content hash.
+The command writes to `.agents/skills/`, the shared location that
+supporting agents read. For agents with their own convention, it adds
+a symlink. That way Claude Code, Cursor, Copilot, Amp, Antigravity and
+a dozen others pick up the skills from a single install. Project scope
+is the default. It puts the skills in the repository, so teammates and
+cloud agents share the setup. For a per-user install, add `--global`.
+Afterward, `npx skills list`, `update` and `remove` manage the skills.
+`skills-lock.json` pins each one by content hash.
 
-For a single skill:
+To install a single skill:
 
     npx skills add pgEdge/pgedge-cli --skill pgedge-managed
 
-Manual copy (any agent, no Node required):
+To install without Node.js, copy the skills by hand. This works with
+any agent:
 
     git clone https://github.com/pgEdge/pgedge-cli
     mkdir -p .agents/skills
     cp -r pgedge-cli/skills/* .agents/skills/
 
-Use `~/.claude/skills/` in place of `.agents/skills/` to install for
-Claude Code alone.
+To install for Claude Code alone, use `~/.claude/skills/` in place of
+`.agents/skills/`.
 
-## Quickstart
+## Running the Quickstart
 
 Print the command tree, then sign in:
 
     pgedge --help
     pgedge starfleet auth login
 
-## Documentation
+## Finding the Documentation
 
-The `docs/` tree carries the guides and the generated command
-reference: [getting started](docs/getting-started.md),
-[authentication and profiles](docs/auth-and-profiles.md),
-[CI and automation](docs/ci.md),
-[troubleshooting](docs/troubleshooting.md),
-[versions, uninstall and support](docs/support-versioning-and-uninstall.md),
-per-module guides under [docs/starfleet/](docs/starfleet/),
-[docs/managed/](docs/managed/), [docs/byoc/](docs/byoc/) and
-[docs/controlplane/](docs/controlplane/), and per-module reference
-pages in [docs/reference/](docs/reference/). AI agents should run
-`pgedge llms` instead, the same reference embedded in the binary.
+The `docs/` tree holds the guides and the generated command reference:
 
-## Versioning
+- [Getting started](docs/getting-started.md)
+- [Authentication and profiles](docs/auth-and-profiles.md)
+- [CI and automation](docs/ci.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Versions, uninstall and support](docs/support-versioning-and-uninstall.md)
+- Guides for each module: [pgEdge Starfleet](docs/starfleet/),
+  [pgEdge Starfleet Managed](docs/managed/),
+  [pgEdge Starfleet BYOC](docs/byoc/) and
+  [the Control Plane](docs/controlplane/)
+- Reference pages for each module, in [docs/reference/](docs/reference/)
 
-`pgedge version` reports the launcher version plus one per module, and
-what its first line reads depends on how the binary was built. The
-[versions, uninstall and support](docs/support-versioning-and-uninstall.md)
-page has the detail.
+AI agents should run `pgedge llms` instead. It prints the same
+reference, which is embedded in the binary.
 
-## Uninstall
+## Checking the Version
 
-`pgedge completion uninstall` removes the shell completion script. The
-[versions, uninstall and support](docs/support-versioning-and-uninstall.md)
-page lists everything else the CLI put on the machine and where.
+`pgedge version` reports the launcher version, plus one version for
+each module. What its first line reads depends on how the binary was
+built.
+[Versions, uninstall and support](docs/support-versioning-and-uninstall.md)
+has the details.
 
-## Development
+## Uninstalling the CLI
+
+`pgedge completion uninstall` removes the shell completion script.
+[Versions, uninstall and support](docs/support-versioning-and-uninstall.md)
+lists everything else the CLI put on the machine, and where.
+
+## Developing the CLI
 
 Build, test and lint the checkout:
 

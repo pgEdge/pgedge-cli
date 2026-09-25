@@ -101,8 +101,6 @@ One command:
 
     brew install pgEdge/tap/pgedge
 
-> The tap's first cask is published with the next release.
-
 ### go install
 
 Go builds it from source at the main branch:
@@ -179,8 +177,8 @@ Enable Tab completion for commands, subcommands, and flags:
 
 This detects your shell (bash, zsh, fish or PowerShell) and sets
 completion up one of two ways. The install script runs it
-automatically, and Homebrew will too once the tap (see above) is
-published.
+automatically, and a Homebrew install ships completion for bash, zsh
+and fish.
 
 - **File install (default).** Writes a completion script into the
   directory your shell loads completions from, and prints any

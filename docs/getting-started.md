@@ -7,7 +7,7 @@ published on
 ## Install the binary
 
 On Linux or macOS, the install script is the quickest route and needs
-no Go toolchain:
+only `curl`:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
@@ -118,12 +118,14 @@ skills.
 
 ## Other ways to install
 
-Four routes in all, each buying something different. Only
+Six routes in all, each buying something different. Only
 `go install` and a clone-and-build need Go. What each route needs:
 
 | Install path | Also needs |
 |---|---|
 | Hand it to your AI agent | Node.js, for the agent-skills step |
+| Homebrew | Homebrew, on macOS or Linux |
+| GitHub Actions | A Linux or macOS runner |
 | Download a release archive | `tar` and `sha256sum` or `shasum` |
 | `go install` from main | Go 1.26 or newer |
 | Clone and build | Go 1.26 or newer |
@@ -185,6 +187,24 @@ improvising.
        (control plane).
 <!-- install-prompt: end -->
 
+### Homebrew
+
+Install from the pgEdge tap on macOS or Linux:
+
+    brew install pgEdge/tap/pgedge
+
+Update with `brew upgrade pgedge`.
+
+### GitHub Actions
+
+Add the action as a step, and it installs the release its tag names:
+
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.2
+
+The action verifies the release signature and checksum before
+installing. To install another release, set its `version` input to
+that release's tag.
+
 ### `go install` from main
 
 Install, and later update, with one command:
@@ -218,9 +238,10 @@ A binary you downloaded from a release updates itself:
 It looks up the newest release on GitHub, verifies the release's
 Sigstore signature and the archive's checksum before it touches the
 installed binary, and swaps the new one into place. `pgedge self
-update --check` reports whether an update exists without downloading
-anything, and `pgedge doctor` reports the same answer in its "Latest
-version" row.
+update --check` reports whether an update exists and leaves the
+installed binary in place, and `pgedge doctor` reports the same
+answer in its "Latest version" row. A Homebrew install updates with
+`brew upgrade pgedge`, and `self update` refuses it.
 
 The [updating guide](updating.md) covers the rest: the two-rung GitHub
 lookup, the exit codes and deadlines, where the CLI caches the Sigstore trust
@@ -230,8 +251,8 @@ completion scripts after a swap.
 ## CI and containers
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your
-pipeline's secret store, and every invocation uses them with nothing
-written to disk. The [CI and automation guide](ci.md) covers the
+pipeline's secret store, and every invocation authenticates from
+them and leaves the disk as it found it. The [CI and automation guide](ci.md) covers the
 pair in CI, Docker and Kubernetes, skipping prompts with `--force`,
 scripting against the exit-code contract, and two complete pipelines
 you can copy.

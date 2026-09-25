@@ -30,7 +30,8 @@ Paste the prompt below into your coding agent (Claude Code, Cursor,
 and the like) and it installs the CLI, wires up shell completion,
 and adds the agent skills for the products you use, asking you
 which those are along the way. It needs `curl`, plus Node.js for the
-skills step, and it stops on any failure rather than improvising.
+skills step. It stops if the CLI install fails, and carries on past a
+completion or skills step that fails or that you decline.
 
 <!-- install-prompt: begin -->
 <!-- This block is duplicated between README.md and
@@ -39,12 +40,14 @@ skills step, and it stops on any failure rather than improvising.
      holds the two byte-for-byte, so edit both, or neither. -->
 
     Install the pgEdge CLI on this machine and set up its agent skills.
-    Follow these steps exactly, in order. If a step fails, stop and show
-    me the error. Do not improvise an alternative.
+    Follow these steps exactly, in order, and do not improvise an
+    alternative to any of them. Step 2 installs the CLI: if it fails,
+    stop and show me the error. Steps 3 and 4 are optional: if one
+    fails, or I decline it, tell me why and carry on with the next step.
 
     1. Preflight: check `curl` and `npx` exist. If `curl` is missing,
        stop and tell me it is needed for step 2. If `npx` is missing,
-       stop and tell me Node.js is needed for step 4.
+       tell me Node.js is needed for step 4, and skip step 4.
     2. Install the CLI (no sudo, ever): run
        `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh`.
        The script verifies the release before installing it. Its
@@ -54,22 +57,24 @@ skills step, and it stops on any failure rather than improvising.
        `export PATH=...` line it prints to the rc file of my login shell
        (`~/.zshrc` for zsh, `~/.bashrc` for bash, creating it if missing,
        and skipping if the line is already there), and tell me you did.
-    3. Shell completion: the script runs `pgedge completion install`.
-       If its output says a line still needs adding to my rc file, add
-       that line once.
+    3. Shell completion: the script runs `pgedge completion install`,
+       unless `CI` is set. If its output says a line still needs adding
+       to my rc file, add that line once.
     4. Ask me this question and wait for my answer. Do not guess it:
-       "Which pgEdge products do you use: Starfleet, Control Plane, or
-       both?" Then install the matching agent skills into the current
-       project:
+       "Which pgEdge products do you use: Starfleet, Control Plane,
+       both, or neither?" For neither, skip this step. Otherwise install
+       the matching agent skills into the current project:
        - starfleet: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
        - control plane: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-controlplane -y`
        - both: `npx -y skills add pgEdge/pgedge-cli -y`
-    5. Verify, and show me the output of each: `pgedge version`,
+    5. Verify, and show me the output of each: `pgedge version` and
        `pgedge doctor` (both at the full path from step 2), and
-       `npx -y skills list`. A doctor warning about missing credentials
-       is expected on a fresh install. The next step after this setup
-       is `pgedge starfleet auth login` (starfleet) or reading `pgedge llms controlplane`
-       (control plane).
+       `npx -y skills list` if step 4 ran. A doctor warning about
+       missing credentials is expected on a fresh install. List each
+       step you skipped, with the command that completes it later. The
+       next step after this setup is `pgedge starfleet auth login`
+       (starfleet) or reading `pgedge llms controlplane` (control
+       plane).
 <!-- install-prompt: end -->
 
 ### Install script (Linux, macOS)

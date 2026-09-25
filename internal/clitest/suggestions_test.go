@@ -141,12 +141,14 @@ func TestEveryGroupCommandSuggestsANearMiss(t *testing.T) {
 	// another new group command, offering a near-miss the same way.
 	// 49 -> 50 and 47 -> 48 when `managed database branch` landed:
 	// another new group command, offering a near-miss the same way.
-	if groups != 50 {
-		t.Errorf("walked %d group commands, expected 50; update this "+
+	// 50 -> 52 and 48 -> 50 when root `env` and `managed database env`
+	// landed: two new group commands, each offering a near-miss.
+	if groups != 52 {
+		t.Errorf("walked %d group commands, expected 52; update this "+
 			"number deliberately and say why", groups)
 	}
-	if suggested != 48 {
-		t.Errorf("%d group commands offered a near-miss, expected 48",
+	if suggested != 50 {
+		t.Errorf("%d group commands offered a near-miss, expected 50",
 			suggested)
 	}
 	if len(sawNilArgs) != len(groupCommandsWithoutAnArgsValidator) {

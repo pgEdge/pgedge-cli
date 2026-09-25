@@ -96,6 +96,7 @@ AI agents: do not improvise from --help output alone. Run
 	root.AddCommand(NewVersionCmd(rt, module.DescribeAll()))
 	root.AddCommand(NewDoctorCmd(rt, nil))
 	root.AddCommand(NewInspectCmd(rt, nil))
+	root.AddCommand(NewEnvCmd(rt))
 	root.AddCommand(NewProfileCmd(rt))
 	root.AddCommand(NewSelfCmd(rt, module.DescribeAll(), nil))
 	root.AddCommand(NewLLMSCmd())

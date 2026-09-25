@@ -7,7 +7,7 @@
 <!-- BEGIN GENERATED: pgedge starfleet managed database logs -->
 ##### pgedge starfleet managed database logs
 
-**Usage:** `pgedge starfleet managed database logs <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database logs [<database_id>] [flags]`
 
 Read a managed database's logs
 

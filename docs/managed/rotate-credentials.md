@@ -124,6 +124,10 @@ in the application's own configuration.
     pgedge starfleet managed database connection-string <db-id> \
         --user-type app
 
+In a project folder linked to the database, run `pgedge env pull
+--user-type <role>` instead, naming the role you rotated. It rewrites
+`DATABASE_URL` in `.env` with the new password.
+
 The new credential may still be refused briefly, while the old one is
 still accepted. Retry the first reconnection instead of treating that
 attempt as final.

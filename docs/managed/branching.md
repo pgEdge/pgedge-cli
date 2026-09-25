@@ -88,6 +88,18 @@ database name is the same as the source's:
 
     At the prompt, enter the `<password>` value from `connection`.
 
+To point a project folder at the branch, link the folder with
+`--branch`:
+
+    pgedge starfleet managed database link <db-id> \
+        --branch <branch-id>
+
+`pgedge env pull` then writes the branch's `DATABASE_URL` into `.env`.
+A folder already linked to the source database needs `--force` to
+replace that link. The
+[Linking a Project Folder to a pgEdge Starfleet Managed Database](link-a-project.md) guide
+describes linking.
+
 ## Connecting to a Branch's MCP Server
 
 A branch copies the source's MCP server with its own address and

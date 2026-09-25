@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `starfleet managed database link` ties a project folder to a
+  database, and `pgedge env pull` writes its `DATABASE_URL` into
+  `.env`. In a linked folder the read commands take the linked
+  database when the ID is left out.
+
 ## 0.5.0-beta.1
 
 The first public release.

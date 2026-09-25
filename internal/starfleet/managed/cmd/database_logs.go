@@ -87,7 +87,7 @@ func newDatabaseLogsCmd(rt *module.Runtime) *cobra.Command {
 		startTime, endTime string
 	)
 	cmd := &cobra.Command{
-		Use:   "logs <database_id>",
+		Use:   "logs [<database_id>]",
 		Short: "Read a managed database's logs",
 		Long: `logs reads Postgres log records from a managed database.
 
@@ -107,7 +107,8 @@ absolute window with --start-time and --end-time.
 
 An empty result means no records in the window, not a broken endpoint.
 
-The argument takes a full UUID.
+The argument takes a full UUID. In a folder linked with 'database
+link', the ID can be left out.
 
 Example:
   pgedge starfleet managed database logs e5f6a7b8-c9d0-1234-efab-567890123456
@@ -116,7 +117,7 @@ Example:
   pgedge starfleet managed database logs e5f6a7b8-c9d0-1234-efab-567890123456 -o json
   pgedge starfleet managed database logs e5f6a7b8-c9d0-1234-efab-567890123456 \
     --start-time 2026-08-17T00:00:00Z`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f := cmd.Flags()
 			params := &api.GetManagedDatabaseLogsParams{}
@@ -141,7 +142,7 @@ Example:
 				params.EndTime = &at
 			}
 
-			id, err := parseUUIDArg(args[0], "database ID")
+			id, _, err := databaseArg(rt, args, 0)
 			if err != nil {
 				return err
 			}

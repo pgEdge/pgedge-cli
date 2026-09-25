@@ -487,6 +487,7 @@ has its own page:
 |------|------|--------|
 | `completion` | `pgedge llms completion` | Generate and install shell completion scripts |
 | `doctor` | `pgedge llms doctor` | Diagnose the pgedge installation |
+| `env` | `pgedge llms env` | Write a linked database's connection into .env |
 | `inspect` | `pgedge llms inspect` | Run a read-only diagnostic against a Postgres database |
 | `profile` | `pgedge llms profile` | Manage named CLI profiles |
 | `self` | `pgedge llms self` | Manage the pgedge binary itself |

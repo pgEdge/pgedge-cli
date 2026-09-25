@@ -7,7 +7,7 @@
 <!-- BEGIN GENERATED: pgedge starfleet managed database metrics -->
 ##### pgedge starfleet managed database metrics
 
-**Usage:** `pgedge starfleet managed database metrics <database_id> [flags]`
+**Usage:** `pgedge starfleet managed database metrics [<database_id>] [flags]`
 
 Read a managed database's metrics
 

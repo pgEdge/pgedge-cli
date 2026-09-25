@@ -85,6 +85,9 @@ with the message naming the database on stderr.
     Database](network-access.md) guide
     describes every allowlist command.
 
+    Add `--link` to also link the current folder to the new database,
+    so `pgedge env pull` can write its `DATABASE_URL` next.
+
 2. Confirm what the create produced:
 
         pgedge starfleet managed database get <db-id> -o json

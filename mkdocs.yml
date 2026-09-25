@@ -79,6 +79,7 @@ nav:
       - Provision a managed database: managed/provision.md
       - Controlling network access: managed/network-access.md
       - Connect an application: managed/connect-an-application.md
+      - Link a project folder: managed/link-a-project.md
       - Supported extensions: managed/extensions.md
       - Load schema and data: managed/load-data.md
       - Export data: managed/export-data.md

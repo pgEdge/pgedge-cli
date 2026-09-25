@@ -47,6 +47,12 @@ func caseArgs(t *testing.T, tc managedCmdCase) []string {
 
 // --- table-wide tests over the whole surface ---
 
+// localOnlyLeaves never call the API, so the transport, credential
+// and empty-body tables have nothing to drive. Each carries its reason.
+var localOnlyLeaves = map[string]string{
+	"database unlink": "removes .pgedge/link.yaml; no request",
+}
+
 // TestEveryManagedLeafHasACase pins managedCmdCases against the live
 // tree. Without it a new verb could ship undriven by the transport,
 // credential and empty-body tables that walk this list.
@@ -82,6 +88,9 @@ func TestEveryManagedLeafHasACase(t *testing.T) {
 			"has the walk broken?", len(leaves))
 	}
 	for _, leaf := range leaves {
+		if _, local := localOnlyLeaves[leaf]; local {
+			continue
+		}
 		if !covered[leaf] {
 			t.Errorf("leaf %q has no managedCmdCases entry", leaf)
 		}

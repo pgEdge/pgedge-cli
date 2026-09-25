@@ -181,6 +181,9 @@ func environmental(err error) string {
 		return "destructive verb, no terminal to prompt on"
 	case strings.Contains(msg, "no such file or directory"):
 		return "the example names an input file the harness lacks"
+	case strings.Contains(msg, "no .pgedge/link.yaml found") ||
+		strings.Contains(msg, "no database ID given and no .pgedge/link.yaml"):
+		return "the example relies on a project link the harness's folder lacks"
 	case strings.Contains(msg, "unknown module"):
 		// `pgedge llms <module>` resolves through module.Registered(),
 		// which main.go populates in init and this harness

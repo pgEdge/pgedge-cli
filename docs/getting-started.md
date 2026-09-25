@@ -238,6 +238,10 @@ you can copy.
   [Managed](managed/connect-an-application.md) and
   [BYOC](byoc/connect-an-application.md) cover getting a database's
   host, port and credentials out of the CLI and into an application.
+- The
+  [Linking a Project Folder to a pgEdge Starfleet Managed Database](managed/link-a-project.md)
+  guide covers writing a managed database's `DATABASE_URL` into your
+  project's `.env`.
 - The [CI and automation guide](ci.md) covers unattended runs, and
   carries worked GitHub Actions and GitLab CI pipelines.
 - The [telemetry and privacy guide](telemetry-and-privacy.md) covers

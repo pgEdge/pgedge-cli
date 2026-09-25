@@ -134,6 +134,12 @@ none of them. The
 [ORM and framework integration](../orm-and-frameworks.md) guide carries
 the export step and the psql check.
 
+An application that reads `DATABASE_URL` needs one variable, not six.
+`pgedge env pull` sets that variable in an existing `.env` and leaves
+the file's other lines alone. The
+[Linking a Project Folder to a pgEdge Starfleet Managed Database](link-a-project.md)
+guide describes it.
+
 The global `-o json` and `-o yaml` flags outrank `--format`. With
 either one the command prints an object holding `uri` next to the
 fields that produced it: `host`, `port`, `database`, `username`,

@@ -82,6 +82,35 @@ warn_if_not_on_path() {
     echo "  Add it: export PATH=\"${install_dir}:\$PATH\"" >&2
 }
 
+# resolve_version prints the release tag to install: PGEDGE_VERSION
+# when set, otherwise the newest release. A pin skips the API call,
+# which also keeps CI runners clear of its unauthenticated rate limit.
+resolve_version() {
+    if [ -n "${PGEDGE_VERSION:-}" ]; then
+        if ! printf '%s\n' "$PGEDGE_VERSION" \
+            | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "Error: PGEDGE_VERSION must be a release tag such as" \
+                "v0.5.0-beta.2, got: ${PGEDGE_VERSION}" >&2
+            return 1
+        fi
+        printf '%s\n' "$PGEDGE_VERSION"
+        return 0
+    fi
+
+    # The newest release, not releases/latest: GitHub never counts a
+    # pre-release as latest, and every release so far is one.
+    releases=$(curl -fsSL \
+        "https://api.github.com/repos/${REPO}/releases?per_page=1") \
+        || releases=""
+    latest=$(printf '%s\n' "$releases" | grep '"tag_name"' | head -n 1 \
+        | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -z "$latest" ]; then
+        echo "Error: could not find a release of ${REPO} on GitHub" >&2
+        return 1
+    fi
+    printf '%s\n' "$latest"
+}
+
 # When sourced by the test harness (PGEDGE_INSTALL_SH_LIB=1), stop
 # here so the functions above can be exercised without running the
 # installer body.
@@ -102,19 +131,9 @@ fi
 
 echo "Detected platform: ${OS}/${ARCH}"
 
-# The newest release, not releases/latest: GitHub never counts a
-# pre-release as latest, and every release so far is one.
-RELEASES=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=1") \
-    || RELEASES=""
-VERSION=$(printf '%s\n' "$RELEASES" | grep '"tag_name"' | head -n 1 \
-    | sed -E 's/.*"([^"]+)".*/\1/')
+VERSION=$(resolve_version)
 
-if [ -z "$VERSION" ]; then
-    echo "Error: could not find a release of ${REPO} on GitHub" >&2
-    exit 1
-fi
-
-echo "Latest version: ${VERSION}"
+echo "Version: ${VERSION}"
 VERSION_NUM="${VERSION#v}"
 
 ARCHIVE="${BINARY}_${VERSION_NUM}_${OS}_${ARCH}.tar.gz"
@@ -126,7 +145,10 @@ TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
 echo "Downloading ${ARCHIVE}..."
-curl -fsSL -o "${TMPDIR}/${ARCHIVE}" "$URL"
+if ! curl -fsSL -o "${TMPDIR}/${ARCHIVE}" "$URL"; then
+    echo "Error: could not download ${ARCHIVE} from release ${VERSION}" >&2
+    exit 1
+fi
 
 echo "Verifying checksum..."
 curl -fsSL -o "${TMPDIR}/checksums.txt" "$CHECKSUM_URL"

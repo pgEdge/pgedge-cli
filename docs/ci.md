@@ -3,8 +3,8 @@
 You can run the CLI unattended, in a CI pipeline, a container or a
 scheduled job. An unattended run needs three things: credentials
 supplied without a prompt, confirmations skipped, and scripts that read
-the output and the exit status. The CLI designs both to be scripted
-against.
+the output and the exit status. The CLI shapes its output and exit
+statuses for scripts to read.
 
 The page leans on these terms:
 

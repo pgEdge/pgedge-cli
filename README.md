@@ -153,6 +153,10 @@ then verify and extract it:
     tar -xzf pgedge_*.tar.gz
     install pgedge /usr/local/bin/
 
+If you cannot write to `/usr/local/bin`, run the `install` command with
+`sudo`, or install to a directory you own on your PATH, such as
+`~/.local/bin`.
+
 pgEdge publishes builds for `linux` and `darwin` (amd64, arm64) and
 `windows` (amd64, arm64). Archive names are lowercase and use Go's
 spelling for each architecture. The output of `uname` maps to those

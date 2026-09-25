@@ -244,6 +244,10 @@ as well as the binary:
     make build
     install pgedge /usr/local/bin/
 
+If you cannot write to `/usr/local/bin`, run the `install` command with
+`sudo`, or install to a directory you own on your PATH, such as
+`~/.local/bin`.
+
 This build stamps `pgedge version` with the real commit and the
 per-module versions. The checkout carries the AI-agent skills in
 `skills/`. To update, run `git pull && make build`.

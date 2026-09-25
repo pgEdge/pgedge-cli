@@ -83,11 +83,11 @@ and installs to `/usr/local/bin` (falling back to
 
 ### Homebrew (macOS, Linux)
 
-One command, once the tap is published:
+One command:
 
     brew install pgEdge/tap/pgedge
 
-> Available once the `pgEdge/homebrew-tap` repository is published.
+> The tap's first cask is published with the next release.
 
 ### npm (Linux, macOS, Windows)
 

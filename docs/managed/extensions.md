@@ -70,7 +70,7 @@ Install the following extensions as `admin`. Each one is then owned by
 | postgis_raster | Raster types and functions for PostGIS. |
 | postgis_sfcgal | 3D geometry functions for PostGIS. |
 | postgis_topology | Topology types and functions for PostGIS. |
-| postgis_tiger_geocoder | US address geocoding for PostGIS. |
+| postgis_tiger_geocoder | US address normalization for PostGIS. |
 | address_standardizer | Address parsing into its parts. Install address_standardizer_data_us with it. |
 | address_standardizer_data_us | US rules and lexicons for address_standardizer. |
 | pg_cron | Scheduled jobs, run in the database. |

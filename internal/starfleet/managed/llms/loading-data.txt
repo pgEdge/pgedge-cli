@@ -30,9 +30,10 @@ that installs it:
   unaccent and uuid-ossp. app then owns the extension, and a migration
   can only manage an extension its own role owns. pgmq installed as
   admin refuses app access to its schema.
-- Install as admin: vector, postgis, postgis_raster and
-  postgis_sfcgal. The extension is then owned by `postgres`, and app
-  can use it.
+- Install as admin: vector, postgis, postgis_raster, postgis_sfcgal,
+  postgis_topology, postgis_tiger_geocoder, address_standardizer,
+  address_standardizer_data_us, pg_cron, pg_tokenizer and vchord_bm25.
+  The extension is then owned by `postgres`, and app can use it.
 
 As app, `Must be superuser to create this extension` on an extension
 in the admin list means: install it as admin. As admin, the same

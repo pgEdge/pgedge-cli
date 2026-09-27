@@ -11,10 +11,10 @@ cutover.
 Both methods run from your own machine. You use psql, pg_dump and pg_restore
 against both databases.
 
-A Managed database holds two Postgres roles. admin holds CREATEROLE and
+A Managed database holds three Postgres roles. admin holds CREATEROLE and
 CREATEDB, and installs the extensions app cannot. app owns the database. Your
-application and your restore both connect as app. Neither one has Postgres
-superuser rights.
+application and your restore both connect as app. app_read_only reads data and
+never writes it. None of the three has Postgres superuser rights.
 
 ## Before You Start
 
@@ -232,6 +232,43 @@ Your application continues using the source while this runs.
 Leave the subscription running while you prepare the cutover. A write you make
 to the Managed database now is accepted, is never sent to the source, and
 leaves the two databases different from then on.
+
+## Checking Text Sort Order
+
+A Managed database stores text as UTF-8 and sorts it by code point. A source
+with a language locale, such as `en_US.UTF-8`, sorts text differently. Check
+the queries that sort text before you cut over.
+
+Read the source's locale:
+
+    psql "$SOURCE_URL" -c 'SELECT datcollate, datlocprovider FROM pg_database
+        WHERE datname = current_database()'
+
+A `datcollate` of `C` or `POSIX` sorts the same way as the Managed database.
+Any other value can return rows in a different order.
+
+The two orders differ on the same values:
+
+| Collation | Order of `b a B A é e Z` |
+|---|---|
+| Managed database default | `A B Z a b e é` |
+| `en_US.utf8` or `und-x-icu` | `a A b B e é Z` |
+
+Case handling works on every letter. `lower()`, `upper()`, `ILIKE` and
+character classes such as `[[:alpha:]]` handle non-ASCII letters.
+
+The database's default collation is fixed, so set the order per query or per
+column. Add a collation to a query's `ORDER BY` to sort by language rules:
+
+    SELECT name FROM customers ORDER BY name COLLATE "und-x-icu";
+
+Declare a column with a collation to give every query on it that order:
+
+    CREATE TABLE customers (name text COLLATE "und-x-icu");
+
+A column that the source already declares with its own collation, such as
+`COLLATE "en_US.utf8"`, keeps it through the copy. Both libc and ICU
+collations are available on the Managed database.
 
 ## Cutting Over to the Managed Database
 

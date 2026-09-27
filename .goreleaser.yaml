@@ -55,30 +55,22 @@ signs:
       - --yes
     artifacts: checksum
     output: true
-# Homebrew cask pushed to the pgEdge/homebrew-tap repo. Dormant until
-# HOMEBREW_TAP_TOKEN (a PAT with write access to the tap) is set in the
-# release environment; without it the cask is generated but not
-# published, so releases never fail on a missing tap.
+# Homebrew cask for the pgEdge/homebrew-tap repo. goreleaser only
+# writes it: its hooks emit the deprecated postflight block, so
+# release.yml adds postflight_steps with cmd/caskpatch and pushes it.
 homebrew_casks:
+  # goreleaser skips the cask without a repository name, even with
+  # skip_upload set.
   - repository:
       owner: pgEdge
       name: homebrew-tap
-      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
-    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}false{{ end }}'
+    skip_upload: true
     homepage: https://github.com/pgEdge/pgedge-cli
     description: Unified CLI for the pgEdge product suite
     completions:
       bash: completions/pgedge.bash
       zsh: completions/pgedge.zsh
       fish: completions/pgedge.fish
-    # The macOS binary is not notarized, so without this macOS refuses
-    # a brew-installed pgedge as "damaged and cannot be opened".
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/pgedge"]
-          end
 # Tags with a pre-release suffix (v0.2.0-alpha.1) publish as GitHub
 # Pre-releases automatically. Without this the first alpha published
 # as a full release and had to be demoted by hand (2026-08-06) — and

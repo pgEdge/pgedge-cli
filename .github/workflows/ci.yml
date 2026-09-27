@@ -222,6 +222,44 @@ jobs:
           grep -F "Signature verified." signed.log
           grep -F "Skipping shell completion on CI." signed.log
 
+  # The release's cask steps on a real goreleaser build, so a changed
+  # goreleaser output fails here, not at a tag. The misordered copy is
+  # the positive control: brew style must reject it.
+  cask:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Load per-module versions
+        run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        with:
+          version: v2.18.2
+          args: release --snapshot --clean --skip=sign,sbom,publish,validate
+      - uses: Homebrew/actions/setup-homebrew@848c272c7bfe984a197bd4d16383f4c106ec61e6 # main
+      - name: brew style the patched cask
+        run: |
+          mkdir -p "$RUNNER_TEMP/good/Casks" "$RUNNER_TEMP/bad/Casks"
+          go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
+            -out "$RUNNER_TEMP/good/Casks/pgedge.rb"
+          brew style "$RUNNER_TEMP/good/Casks/pgedge.rb"
+          sed '2r /dev/stdin' dist/homebrew/Casks/pgedge.rb \
+            > "$RUNNER_TEMP/bad/Casks/pgedge.rb" <<'EOF'
+            postflight_steps do
+              on_macos do
+                run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "pgedge"]
+              end
+            end
+          EOF
+          if brew style "$RUNNER_TEMP/bad/Casks/pgedge.rb"; then
+            echo "::error::brew style accepted a misordered cask"
+            exit 1
+          fi
+
   # Cross-compilation depends on the commit and nothing else, so this
   # no longer waits on the jobs above. Gating it behind them put the
   # whole build after the slowest gate on every green run: four

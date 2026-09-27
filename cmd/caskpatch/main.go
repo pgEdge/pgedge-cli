@@ -3,7 +3,7 @@
 // quarantine attribute cleared. The binary is not notarized, and with
 // the attribute set macOS refuses it as "damaged and cannot be opened".
 //
-//	go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb -out dist/pgedge.rb
+//	go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb -out dist/tap/Casks/pgedge.rb
 //
 // goreleaser's own hooks can only emit the deprecated postflight block,
 // which makes brew install print a warning, and its custom_block lands
@@ -15,6 +15,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -36,9 +37,13 @@ const postflightSteps = `
 // than guessing where the block goes.
 var flightStanzas = []string{"preflight", "postflight", "uninstall_preflight", "uninstall_postflight"}
 
+// heredocStart matches a Ruby heredoc opener such as <<~EOS, whose body
+// runs to a line holding only EOS.
+var heredocStart = regexp.MustCompile(`<<[~-]?([A-Z_]+)`)
+
 func main() {
 	in := flag.String("in", "dist/homebrew/Casks/pgedge.rb", "cask goreleaser wrote")
-	out := flag.String("out", "dist/pgedge.rb", "where to write the patched cask")
+	out := flag.String("out", "dist/tap/Casks/pgedge.rb", "where to write the patched cask")
 	flag.Parse()
 
 	if err := run(*in, *out); err != nil {
@@ -59,20 +64,32 @@ func run(in, out string) error {
 	return os.WriteFile(out, []byte(patched), 0o644) //nolint:gosec // G306: a cask is public
 }
 
-// patch inserts postflightSteps after the cask's last artifact line
-// (binary or a *_completion), which is where brew style's stanza order
-// puts it.
+// patch inserts postflightSteps after the cask's last top-level
+// artifact line (binary or a *_completion), which is where brew style's
+// stanza order puts it. Top-level only, so a line inside an on_arm
+// block or a caveats heredoc is never the insertion point.
 func patch(cask string) (string, error) {
 	lines := strings.SplitAfter(cask, "\n")
 	last := -1
+	heredocEnd := ""
 	for i, line := range lines {
+		if heredocEnd != "" {
+			if strings.TrimSpace(line) == heredocEnd {
+				heredocEnd = ""
+			}
+			continue
+		}
+		if m := heredocStart.FindStringSubmatch(line); m != nil {
+			heredocEnd = m[1]
+		}
 		word := firstWord(line)
 		for _, s := range flightStanzas {
 			if word == s || word == s+"_steps" {
 				return "", fmt.Errorf("cask already has a %s stanza on line %d", word, i+1)
 			}
 		}
-		if word == "binary" || strings.HasSuffix(word, "_completion") {
+		topLevel := strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ")
+		if topLevel && (word == "binary" || strings.HasSuffix(word, "_completion")) {
 			last = i
 		}
 	}

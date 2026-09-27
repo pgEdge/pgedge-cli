@@ -222,33 +222,32 @@ jobs:
           grep -F "Signature verified." signed.log
           grep -F "Skipping shell completion on CI." signed.log
 
-  # Cross-compilation depends on the commit and nothing else, so this
-  # no longer waits on the jobs above. Gating it behind them put the
-  # whole build after the slowest gate on every green run: four
-  # minutes of build after six of inspect-live, with nothing else
-  # running. A run that was going to fail now pays for a build it did
-  # not need, which is the cheaper of the two.
-  #
-  # One leg per release target, because the four were serial in one
-  # job. Each leg needs the full history: the version in LDFLAGS comes
-  # from `git describe`.
-  # The release's cask check, run on every change. The misordered copy
-  # is the positive control: brew style must reject it.
+  # The release's cask steps on a real goreleaser build, so a changed
+  # goreleaser output fails here, not at a tag. The misordered copy is
+  # the positive control: brew style must reject it.
   cask:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
+      - name: Load per-module versions
+        run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+        with:
+          version: v2.18.2
+          args: release --snapshot --clean --skip=sign,sbom,publish,validate
       - uses: Homebrew/actions/setup-homebrew@848c272c7bfe984a197bd4d16383f4c106ec61e6 # main
       - name: brew style the patched cask
         run: |
           mkdir -p "$RUNNER_TEMP/good/Casks" "$RUNNER_TEMP/bad/Casks"
-          go run ./cmd/caskpatch -in cmd/caskpatch/testdata/goreleaser-v2.18.2.rb \
+          go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
             -out "$RUNNER_TEMP/good/Casks/pgedge.rb"
           brew style "$RUNNER_TEMP/good/Casks/pgedge.rb"
-          sed '2r /dev/stdin' cmd/caskpatch/testdata/goreleaser-v2.18.2.rb \
+          sed '2r /dev/stdin' dist/homebrew/Casks/pgedge.rb \
             > "$RUNNER_TEMP/bad/Casks/pgedge.rb" <<'EOF'
             postflight_steps do
               on_macos do
@@ -261,6 +260,16 @@ jobs:
             exit 1
           fi
 
+  # Cross-compilation depends on the commit and nothing else, so this
+  # no longer waits on the jobs above. Gating it behind them put the
+  # whole build after the slowest gate on every green run: four
+  # minutes of build after six of inspect-live, with nothing else
+  # running. A run that was going to fail now pays for a build it did
+  # not need, which is the cheaper of the two.
+  #
+  # One leg per release target, because the four were serial in one
+  # job. Each leg needs the full history: the version in LDFLAGS comes
+  # from `git describe`.
   build:
     runs-on: ubuntu-latest
     strategy:

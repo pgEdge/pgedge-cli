@@ -75,10 +75,10 @@ jobs:
           fi
           path=repos/pgEdge/homebrew-tap/contents/Casks/pgedge.rb
           sha=$(gh api "$path" --jq .sha)
+          content=$(base64 -w0 dist/tap/Casks/pgedge.rb)
           gh api -X PUT "$path" --silent \
             -f message="Brew cask update for pgedge version $TAG" \
-            -f content="$(base64 -w0 dist/tap/Casks/pgedge.rb)" \
-            -f sha="$sha"
+            -f content="$content" -f sha="$sha"
 
   # Dormant until the NPM_PUBLISH repository variable is "true". It
   # publishes the signed archives the release uploaded, so a tag push

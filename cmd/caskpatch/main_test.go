@@ -45,12 +45,35 @@ func TestPatchRefuses(t *testing.T) {
 		{"already patched", "cask \"x\" do\n  binary \"x\"\n  postflight_steps do\n  end\nend\n", "postflight_steps stanza"},
 		{"preflight", "cask \"x\" do\n  preflight do\n  end\n  binary \"x\"\nend\n", "preflight stanza"},
 		{"no artifact", "cask \"x\" do\n  name \"x\"\nend\n", "no binary or completion line"},
+		{"uninstall_preflight", "cask \"x\" do\n  binary \"x\"\n  uninstall_preflight do\n  end\nend\n", "uninstall_preflight stanza"},
+		{"uninstall_postflight", "cask \"x\" do\n  binary \"x\"\n  uninstall_postflight do\n  end\nend\n", "uninstall_postflight stanza"},
+		{"nested artifact only", "cask \"x\" do\n  on_arm do\n    binary \"x\"\n  end\nend\n", "no binary or completion line"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := patch(tt.cask)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("patch() error = %v, want it to contain %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestPatchInsertsAfterTheLastTopLevelArtifact(t *testing.T) {
+	tests := []struct {
+		name, cask, after string
+	}{
+		{"binary alone", "cask \"x\" do\n  binary \"x\"\n  # zap\nend\n", "  binary \"x\"\n"},
+		{"caveats heredoc", "cask \"x\" do\n  binary \"x\"\n  caveats <<~EOS\n  binary in text\n    zsh_completion in text\n  EOS\nend\n", "  binary \"x\"\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := patch(tt.cask)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(got, tt.after+postflightSteps) {
+				t.Errorf("block not directly after %q:\n%s", tt.after, got)
 			}
 		})
 	}

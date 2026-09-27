@@ -90,9 +90,8 @@ password of your own.
         CREATE ROLE reporting LOGIN PASSWORD '<password>';
 
 The new role connects to the same host, port and database name as
-`admin` and `app`, over TLS. The CLI returns credentials for `admin`
-and `app` only, because `--user-type` takes those two values. As a
-result, the new role's password is yours to keep.
+`admin` and `app`, over TLS. The CLI returns credentials for the
+built-in roles only, so keep the new role's password yourself.
 
 `admin` grants the CREATEDB and CREATEROLE attributes. SUPERUSER,
 REPLICATION and BYPASSRLS are refused, because only a role holding an

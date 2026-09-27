@@ -62,8 +62,11 @@ takes on its schedule.
 
         pgedge starfleet managed backup get <backup-id>
 
-    `backup get` shows one row with ID, DATABASE, KIND, STATUS,
-    CREATED and FINISHED columns. `backup create` reports acceptance,
+    `backup get` shows one row with ID, DATABASE, KIND, PURPOSE,
+    STATUS, CREATED and FINISHED columns. PURPOSE reads `user` for a
+    backup you take, `scheduled` for the platform's daily backup and
+    `prebranch` for the `hot` backup each `database branch create`
+    takes of its source. `backup create` reports acceptance,
     not completion. The new backup arrives in status `pending` and
     runs in the background. It is listable and gettable from the
     moment `create` returns. Waiting for `completed` alone never
@@ -115,17 +118,7 @@ database.
     status does not move while a backup runs, so `database get` cannot
     show one.
 
-2. Record the current time, in UTC, which is what identifies the
-   backup the restore takes of your current data:
-
-        date -u +%Y-%m-%dT%H:%M:%SZ
-
-    The restore takes a `hot` backup of the current data before
-    replacing anything. Nothing on that backup marks it as one.
-    [Recovering from an Unintended Restore](#recovering-from-an-unintended-restore)
-    finds that backup by the time you record here.
-
-3. Start the restore and wait for its task:
+2. Start the restore and wait for its task:
 
         pgedge starfleet managed backup restore <backup-id> --wait
 
@@ -145,7 +138,7 @@ database.
     "<id>" not found`. A malformed UUID is exit status 2, refused
     before the prompt.
 
-4. Confirm what the restore produced:
+3. Confirm what the restore produced:
 
         pgedge starfleet managed database get <db-id> -o json
 
@@ -181,44 +174,22 @@ than as an error from the command, because the API has already
 accepted the request.
 
 The pre-restore backup is an ordinary backup, and you restore from it
-the same way. Nothing on the backup marks it as a pre-restore backup.
-In `backup list` and `backup get` the pre-restore backup is identical
-to a `hot` backup taken by hand. The pre-restore backup does not
-appear in `backup list` at once, and appears within about a minute.
+the same way. `backup list` and `backup get` show it with PURPOSE
+`prerestore`. It can take a moment to appear in `backup list`, so run
+the list again if it is missing:
 
-Find the pre-restore backup among the `hot` backups taken since the
-time you recorded in step 2:
+    pgedge starfleet managed backup list --database-id <db-id>
 
-    pgedge starfleet managed backup list --database-id <db-id> \
-        --kind hot --created-after <recorded-time> -o json
-
-`--created-after` takes an RFC3339 timestamp, the form step 2 prints.
-Each backup in that output holds a `created_at` field, which shows the
-date and the time. The pre-restore backup is the one created as the
-restore started. The CREATED column of the table shows the date alone,
-so it cannot separate two backups taken on one day.
-
-An empty result means the pre-restore backup has yet to appear, or
-that the recorded time is later than the platform's clock. Run the
-list again with an earlier `--created-after`.
-
-Without a recorded time, read the restore's start time from the
-restore's own task:
-
-    pgedge starfleet managed task list --subject-id <db-id> \
-        --name restore-managed
-    pgedge starfleet managed task get <task-id>
-
-`task get` prints a Created line holding the date and the time. Pass
-that time to `--created-after` above.
+The list is newest first, so after several restores the first
+`prerestore` row is the backup the latest restore took.
 
 No retention is published for the pre-restore backup, so treat it as
 a way to undo a mistake noticed soon after, not as an archive.
 
 On a database with durable backups the restore also leaves a
-`durable` backup, taken from the restored database when it is up.
-That backup records the state the restore produced, not the state it
-replaced. It is not a way to undo the restore.
+`durable` backup with PURPOSE `postrestore`, taken from the restored
+database when it is up. It records the state the restore produced,
+so restoring from it keeps the restore in place.
 
 ## Troubleshooting
 

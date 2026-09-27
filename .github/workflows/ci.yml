@@ -232,6 +232,35 @@ jobs:
   # One leg per release target, because the four were serial in one
   # job. Each leg needs the full history: the version in LDFLAGS comes
   # from `git describe`.
+  # The release's cask check, run on every change. The misordered copy
+  # is the positive control: brew style must reject it.
+  cask:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - uses: Homebrew/actions/setup-homebrew@848c272c7bfe984a197bd4d16383f4c106ec61e6 # main
+      - name: brew style the patched cask
+        run: |
+          mkdir -p "$RUNNER_TEMP/good/Casks" "$RUNNER_TEMP/bad/Casks"
+          go run ./cmd/caskpatch -in cmd/caskpatch/testdata/goreleaser-v2.18.2.rb \
+            -out "$RUNNER_TEMP/good/Casks/pgedge.rb"
+          brew style "$RUNNER_TEMP/good/Casks/pgedge.rb"
+          sed '2r /dev/stdin' cmd/caskpatch/testdata/goreleaser-v2.18.2.rb \
+            > "$RUNNER_TEMP/bad/Casks/pgedge.rb" <<'EOF'
+            postflight_steps do
+              on_macos do
+                run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "pgedge"]
+              end
+            end
+          EOF
+          if brew style "$RUNNER_TEMP/bad/Casks/pgedge.rb"; then
+            echo "::error::brew style accepted a misordered cask"
+            exit 1
+          fi
+
   build:
     runs-on: ubuntu-latest
     strategy:

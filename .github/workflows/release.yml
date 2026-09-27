@@ -41,12 +41,12 @@ jobs:
         run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
+          # Pinned because cmd/caskpatch is tested against this
+          # version's cask output.
+          version: v2.18.2
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional PAT with write access to pgEdge/homebrew-tap. When
-          # unset the cask is built but not published (see .goreleaser).
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
@@ -54,6 +54,31 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/checksums.txt
+      - name: Patch the Homebrew cask
+        run: |
+          mkdir -p dist/tap/Casks
+          go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
+            -out dist/tap/Casks/pgedge.rb
+      - uses: Homebrew/actions/setup-homebrew@848c272c7bfe984a197bd4d16383f4c106ec61e6 # main
+      - name: Check the cask with brew style
+        run: brew style dist/tap/Casks/pgedge.rb
+      # A PAT with write access to pgEdge/homebrew-tap. Unset, the
+      # release still succeeds and the tap keeps its previous cask.
+      - name: Push the cask to pgEdge/homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::HOMEBREW_TAP_TOKEN is unset; the cask was not published"
+            exit 0
+          fi
+          path=repos/pgEdge/homebrew-tap/contents/Casks/pgedge.rb
+          sha=$(gh api "$path" --jq .sha)
+          gh api -X PUT "$path" --silent \
+            -f message="Brew cask update for pgedge version $TAG" \
+            -f content="$(base64 -w0 dist/tap/Casks/pgedge.rb)" \
+            -f sha="$sha"
 
   # Dormant until the NPM_PUBLISH repository variable is "true". It
   # publishes the signed archives the release uploaded, so a tag push

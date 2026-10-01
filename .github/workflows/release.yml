@@ -59,7 +59,7 @@ jobs:
           mkdir -p dist/tap/Casks
           go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
             -out dist/tap/Casks/pgedge.rb
-      - uses: Homebrew/actions/setup-homebrew@848c272c7bfe984a197bd4d16383f4c106ec61e6 # main
+      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # main
       - name: Check the cask with brew style
         run: brew style dist/tap/Casks/pgedge.rb
       # A PAT with write access to pgEdge/homebrew-tap. Unset, the

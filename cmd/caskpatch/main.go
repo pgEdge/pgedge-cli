@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -36,6 +37,11 @@ const postflightSteps = `
 // means goreleaser's output changed shape, so the patch refuses rather
 // than guessing where the block goes.
 var flightStanzas = []string{"preflight", "postflight", "uninstall_preflight", "uninstall_postflight"}
+
+// completionOrder is brew style's order for the completion stanzas.
+// goreleaser v2.18.2 writes fish before zsh, which brew style has
+// rejected since Homebrew 5ac888db7.
+var completionOrder = []string{"bash_completion", "zsh_completion", "fish_completion", "pwsh_completion"}
 
 // heredocStart matches a Ruby heredoc opener such as <<~EOS, whose body
 // runs to a line holding only EOS.
@@ -66,11 +72,13 @@ func run(in, out string) error {
 
 // patch inserts postflightSteps after the cask's last top-level
 // artifact line (binary or a *_completion), which is where brew style's
-// stanza order puts it. Top-level only, so a line inside an on_arm
-// block or a caveats heredoc is never the insertion point.
+// stanza order puts it, and sorts the completion lines into
+// completionOrder in the slots they already hold. Top-level only, so a
+// line inside an on_arm block or a caveats heredoc is never touched.
 func patch(cask string) (string, error) {
 	lines := strings.SplitAfter(cask, "\n")
 	last := -1
+	var completions []int
 	heredocEnd := ""
 	for i, line := range lines {
 		if heredocEnd != "" {
@@ -92,12 +100,34 @@ func patch(cask string) (string, error) {
 		if topLevel && (word == "binary" || strings.HasSuffix(word, "_completion")) {
 			last = i
 		}
+		if topLevel && strings.HasSuffix(word, "_completion") {
+			completions = append(completions, i)
+		}
+	}
+	sorted := make([]string, len(completions))
+	for j, i := range completions {
+		sorted[j] = lines[i]
+	}
+	slices.SortStableFunc(sorted, func(a, b string) int {
+		return completionRank(a) - completionRank(b)
+	})
+	for j, i := range completions {
+		lines[i] = sorted[j]
 	}
 	if last < 0 {
 		return "", errors.New("cask has no binary or completion line to follow")
 	}
 	head := strings.Join(lines[:last+1], "")
 	return head + postflightSteps + strings.Join(lines[last+1:], ""), nil
+}
+
+// completionRank places a completion line by completionOrder, and one
+// it does not list after all of those.
+func completionRank(line string) int {
+	if r := slices.Index(completionOrder, firstWord(line)); r >= 0 {
+		return r
+	}
+	return len(completionOrder)
 }
 
 func firstWord(line string) string {

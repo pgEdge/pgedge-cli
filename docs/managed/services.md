@@ -134,22 +134,20 @@ ones the API treats as secrets.
 
 | Flag | Secret | Notes |
 |---|---|---|
-| `--embedding-llm-provider` | No | Required on deploy. |
+| `--embedding-llm-provider` | No | `openai` or `voyage`. Required on deploy. |
 | `--embedding-llm-model` | No | Required on deploy. |
 | `--embedding-llm-api-key` | Yes | Required on deploy. The stored key is reused when the flag is omitted on update. `rag deploy` requires every field together, so a key is already stored before any update runs. |
-| `--completion-llm-provider` | No | Required on deploy. |
+| `--completion-llm-provider` | No | `openai` or `anthropic`. Required on deploy. |
 | `--completion-llm-model` | No | Required on deploy. |
 | `--completion-llm-api-key` | Yes | Required on deploy. The stored key is reused when the flag is omitted on update. `rag deploy` requires every field together, so a key is already stored before any update runs. |
 | `--pipeline-config` | No | Path to a JSON file holding the pipeline definitions. Required on deploy. |
 | `--top-n` | No | Default number of results retrieved per pipeline. A zero counts as an explicit zero. |
 | `--token-budget` | No | Default maximum completion tokens across all pipelines. A zero counts as an explicit zero. |
 
-The CLI checks neither provider name. A value the platform does not
-know comes back as an API error, not as exit status 2. The API's enum
-for a RAG LLM provider is `openai` and `anthropic`. The CLI's own
-`--embedding-llm-provider --help` text offers a different example
-pair, `openai` and `voyage`. Take the accepted values from the API,
-not from that help text.
+The embedding provider is `openai` or `voyage`, and the completion
+provider is `openai` or `anthropic`. The CLI checks neither provider
+name. A value the API refuses comes back as an API error, not as exit
+status 2.
 
 `--pipeline-config` takes a file holding either a bare array of
 pipelines or an object with a `pipelines` key. The second shape is the

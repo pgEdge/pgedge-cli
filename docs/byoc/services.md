@@ -205,10 +205,10 @@ treats as secrets:
 
 | Flag | Secret | Notes |
 |---|---|---|
-| `--embedding-llm-provider` | No | Required on deploy. |
+| `--embedding-llm-provider` | No | `openai` or `voyage`. Required on deploy. |
 | `--embedding-llm-model` | No | Required on deploy. |
 | `--embedding-llm-api-key` | Yes | Required on deploy. Write-only, so pass it again whenever you change the provider or model it belongs to. |
-| `--completion-llm-provider` | No | Required on deploy. |
+| `--completion-llm-provider` | No | `openai` or `anthropic`. Required on deploy. |
 | `--completion-llm-model` | No | Required on deploy. |
 | `--completion-llm-api-key` | Yes | Required on deploy, and write-only in the same way. |
 | `--pipeline-config` | No | Path to a JSON file holding the pipeline definitions. Required on deploy. |

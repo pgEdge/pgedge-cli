@@ -79,14 +79,18 @@ Claude Code or Cursor:
     4. Ask me this question and wait for my answer. Do not guess it:
        "Which pgEdge products do you use: Starfleet, Control Plane,
        both, or neither?" For neither, skip this step. Otherwise install
-       the matching agent skills into the current project:
-       - starfleet: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
-       - control plane: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-controlplane -y`
-       - both: `npx -y skills add pgEdge/pgedge-cli -y`
+       the matching agent skills for my user, so every project has
+       them. Replace `<tag>` with the tag from step 2's `Installed`
+       line, so the skills match the binary:
+       - starfleet: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
+       - control plane: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-controlplane -y`
+       - both: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -y`
     5. Verify, and show me the output of each: `pgedge version` and
        `pgedge doctor` (both at the full path from step 2), and
-       `npx -y skills list` if step 4 ran. A doctor warning about
-       missing credentials is expected on a fresh install. List each
+       `npx -y skills list -g` if step 4 ran. A doctor warning about
+       missing credentials is expected on a fresh install. If step 4
+       ran, tell me the skills load in a new agent session, or after
+       `/reload-plugins` in Claude Code. List each
        step you skipped, with the command that completes it later. The
        next step after this setup is `pgedge starfleet auth login`
        (starfleet) or reading `pgedge llms controlplane` (control
@@ -101,6 +105,10 @@ verifies the release's cosign signature. It installs to
 `/usr/local/bin`, and falls back to `~/.local/bin`. Run the script:
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
+
+At a terminal, the script then offers to install the agent skills for
+your user, pinned to the release it installed. In CI, or when an agent
+runs the script, it prints that command instead.
 
 To install one release instead of the newest, set `PGEDGE_VERSION`
 to its tag:
@@ -253,20 +261,32 @@ standard. The directory holds five skills:
   pgEdge hosts
 - `skills/pgedge-controlplane`: pgEdge Control Plane resources
 
-Skills are a layer above the CLI, so they install separately.
+Skills are a layer above the CLI, so they install separately. The
+install script offers to install them when it runs at a terminal.
 
-One command installs all five and detects your agent:
+On a single-user machine, install all five for your user, so every
+project has them. The command detects your agent:
 
-    npx skills add pgEdge/pgedge-cli
+    npx skills add pgEdge/pgedge-cli --global
 
-The command writes to `.agents/skills/`, the shared location that
-supporting agents read. For agents with their own convention, it adds
-a symlink. That way Claude Code, Cursor, Copilot, Amp, Antigravity and
-a dozen others pick up the skills from a single install. Project scope
-is the default. It puts the skills in the repository, so teammates and
-cloud agents share the setup. For a per-user install, add `--global`.
-Afterward, `npx skills list`, `update` and `remove` manage the skills.
-`skills-lock.json` pins each one by content hash.
+The command writes to `.agents/skills/` in your home directory, the
+shared location that supporting agents read. For agents with their own
+convention, it adds a symlink. That way Claude Code, Cursor, Copilot,
+Amp, Antigravity and a dozen others pick up the skills from a single
+install.
+
+To share the setup with teammates and cloud agents, run the command
+without `--global` from the repository. The skills then land in that
+project, and `skills-lock.json` pins each one by content hash. Commit
+both.
+
+To match the skills to an installed release, name its tag:
+
+    npx skills add 'pgEdge/pgedge-cli#<release-tag>' --global
+
+An agent session that is already running loads new skills after a
+restart, or after `/reload-plugins` in Claude Code. Afterward,
+`npx skills list`, `update` and `remove` manage the skills.
 
 To install a single skill:
 

@@ -5,7 +5,7 @@ describes deploying, reaching and removing them. The MCP server gives
 an LLM a query interface over the database. The RAG server answers
 questions from retrieval pipelines built over the database's own
 tables. PostgREST is a third service type in the API, but the platform
-does not accept one on a managed database.
+refuses one on a managed database.
 
 A service is addressed by type rather than by an identifier, because a
 database carries at most one of each. The read commands and `remove`
@@ -19,8 +19,8 @@ says how.
 
 You need a tenant with a managed plan. You also need the full UUID
 of a database that reports `available`, named `<database-id>` below.
-`pgedge starfleet managed database list` shows the UUID, and a name
-from that list is not an identifier. Every services write requires
+`pgedge starfleet managed database list` shows the UUID. A name from
+that list is refused at exit status 2. Every services write requires
 that status, and a busy database refuses one.
 
 ## The commands
@@ -38,8 +38,7 @@ The following table lists the service commands.
 | `database rag update <db>` | Reconfigures the deployed RAG service. |
 
 Every write above is asynchronous and takes `--wait`, `--follow`,
-`--wait-timeout` and `--wait-interval`. The reads take none of them.
-An unknown type, or a malformed database identifier, is refused at
+`--wait-timeout` and `--wait-interval`. An unknown type, or a malformed database identifier, is refused at
 exit status 2 before any request leaves. The unknown-type refusal
 names the three types the CLI knows.
 
@@ -48,7 +47,7 @@ reports the request it would have sent, and stops. The
 deploy-versus-update guard reports into it, so a dry run tells you
 which of the two the CLI thinks you are doing. The
 [Dry runs](../dry-run.md) page describes what a dry run checks and
-does not check.
+what it leaves to the API.
 
 ## Deploy versus update
 
@@ -59,7 +58,7 @@ sends no write. `deploy` exits at exit status 1, naming `update` as
 the fix, and `update` exits at exit status 1, appending the `deploy`
 command to run instead.
 
-`deploy` is therefore not idempotent. A caller may want one command to
+A second `deploy` therefore fails. A caller may want one command to
 do either job. That caller branches on `service get`, which exits at
 exit status 4 when the type is absent:
 
@@ -103,7 +102,7 @@ ones the API treats as secrets.
 |---|---|---|
 | `--allow-writes` | No | Grants the LLM insert, update and delete access through the query tool. Off by default. |
 | `--embedding-provider` | No | Accepts `openai` or `voyage`. Any other value is exit status 2 before any request. |
-| `--embedding-model` | No | The API requires it alongside the provider. The CLI does not check for it. |
+| `--embedding-model` | No | The API requires it alongside the provider, and refuses a deploy without it at exit status 1. |
 | `--embedding-api-key` | Yes | Required whenever `--embedding-provider` is passed. With no key passed or already stored, `deploy` and `update` both fail at exit status 2 before the change is sent. On `update`, omit the flag to reuse the stored key. |
 | `--init-tokens` | Yes | Bearer token forwarded to the server as INIT_TOKENS. The API generates one when the flag is omitted. |
 | `--init-users` | Yes | Comma-separated `username:password` pairs forwarded as INIT_USERS. |
@@ -134,22 +133,20 @@ ones the API treats as secrets.
 
 | Flag | Secret | Notes |
 |---|---|---|
-| `--embedding-llm-provider` | No | Required on deploy. |
+| `--embedding-llm-provider` | No | `openai` or `voyage`. Required on deploy. |
 | `--embedding-llm-model` | No | Required on deploy. |
 | `--embedding-llm-api-key` | Yes | Required on deploy. The stored key is reused when the flag is omitted on update. `rag deploy` requires every field together, so a key is already stored before any update runs. |
-| `--completion-llm-provider` | No | Required on deploy. |
+| `--completion-llm-provider` | No | `openai` or `anthropic`. Required on deploy. |
 | `--completion-llm-model` | No | Required on deploy. |
 | `--completion-llm-api-key` | Yes | Required on deploy. The stored key is reused when the flag is omitted on update. `rag deploy` requires every field together, so a key is already stored before any update runs. |
 | `--pipeline-config` | No | Path to a JSON file holding the pipeline definitions. Required on deploy. |
 | `--top-n` | No | Default number of results retrieved per pipeline. A zero counts as an explicit zero. |
 | `--token-budget` | No | Default maximum completion tokens across all pipelines. A zero counts as an explicit zero. |
 
-The CLI checks neither provider name. A value the platform does not
-know comes back as an API error, not as exit status 2. The API's enum
-for a RAG LLM provider is `openai` and `anthropic`. The CLI's own
-`--embedding-llm-provider --help` text offers a different example
-pair, `openai` and `voyage`. Take the accepted values from the API,
-not from that help text.
+The embedding provider is `openai` or `voyage`, and the completion
+provider is `openai` or `anthropic`. The API checks both names, and a
+value it refuses fails at exit status 1 with an `API error (400)`
+message.
 
 `--pipeline-config` takes a file holding either a bare array of
 pipelines or an object with a `pipelines` key. The second shape is the
@@ -178,8 +175,8 @@ require at least one pipeline, a name on each, no duplicate names, and
 `_default` refused as reserved. The file also needs at least one table
 per pipeline, with `table`, `text_column` and `vector_column` set on
 every table. Each is exit status 2, the code an unreadable path or
-unparsable JSON also gets, and no write goes out. Neither the CLI nor
-the API checks that the tables exist.
+unparsable JSON also gets, and no write goes out. A pipeline naming a
+table that does not exist still deploys, so create the tables first.
 
 `system_prompt`, `top_n`, `token_budget`, `min_similarity`,
 `hybrid_enabled` and `vector_weight` tune retrieval per pipeline, and
@@ -202,13 +199,12 @@ A RAG deploy reads its keys from the environment:
 `rag update` changes only the flags you pass. `--pipeline-config` is
 the complete pipeline list the CLI sends, and a pipeline absent from
 the file is dropped. Include every pipeline you want to keep. Pass an
-API key only to rotate one, because the API never returns a RAG key.
-The CLI therefore cannot read one back, and the API refills an omitted
-key from stored state.
+API key only to rotate one. The API keeps the stored key when the flag
+is omitted.
 
-The API's RAG schema carries a CORS block the CLI binds no flag to. A
-browser client calling a pipeline directly therefore has nothing to
-set here.
+The RAG server's CORS policy has no CLI flag. A browser client calling
+a pipeline from another origin needs the `cors` block set through the
+API.
 
 ### Who can reach a RAG pipeline
 
@@ -226,18 +222,16 @@ pipeline only at data you would publish to every address you allow.
 
 Each service has its own allowlist: the IPv4 addresses and blocks that
 may open a connection to its endpoint. That list is independent of the
-Postgres endpoint's list and of every other service's. Allowing an
-address on Postgres does not allow it on MCP. A service starts closed
-when it is deployed, and nothing reaches its endpoint until you add a
-rule. A service you have deployed can refuse a client. Add the
-client's address to that service's list:
+Postgres endpoint's list and of every other service's. A service
+starts closed when it is deployed, and refuses every client until you
+add a rule. Add the client's address to that service's list:
 
     pgedge starfleet managed database allowlist add <database-id> \
         <cidr> --service mcp --wait
 
 `<cidr>` is a bare IPv4 address, which the API stores as a `/32`, or a
 CIDR block. The CLI sends it as typed, so a malformed or IPv6 value
-comes back as an API error, not as exit status 2. The write needs the
+fails at exit status 1 with an API error. The write needs the
 database `available`, moves it through `modifying`, and takes the same
 wait flags as the writes above.
 
@@ -267,8 +261,8 @@ table lists where each one appears.
 `database list` omits them, so a configuration built from a list entry
 arrives with its secrets blank. That blank looks the same as a service
 that has none set. Read a single database before building a
-configuration from one. No table view prints a secret in any format,
-so a working MCP call needs `-o json`.
+configuration from one. A secret appears only under `-o json` or
+`-o yaml`, so a working MCP call reads one of those.
 
 ## The endpoint to dial
 
@@ -380,9 +374,8 @@ fails. A write that fails outright can leave the row at `modifying`
 without settling, and every other write is refused while the row sits
 there.
 
-Each write spawns a task named `update-managed`, and none of them
-returns that task's identifier. `--wait` therefore finds the task by
-subject. The CLI records the database's newest task before the write,
+Each write spawns a task named `update-managed`, and `--wait` finds
+that task by subject. The CLI records the database's newest task before the write,
 and tracks the first one that differs. Without `--wait` the command exits at
 exit status 0 the moment the API accepts the change. In text output, the
 command then prints the `task list --subject-id <database-id>` call to
@@ -400,14 +393,11 @@ A task reaching `succeeded` means the API-side work finished, not that
 the running server reflects it, for an `mcp deploy`, an `mcp update`
 and a `rag update` alike. A script that writes and immediately queries
 should tolerate briefly seeing the old configuration, or a 503 from
-the endpoint. A `rag deploy` has no readiness handshake to measure
-against, so its readiness is tested the same way: call the pipeline
+the endpoint. To test a `rag deploy` for readiness, call the pipeline
 endpoint.
 
 The service `state` field reads `running` as soon as the write
-completes, while the server is still answering 503. Repeated reads of
-`state` therefore say nothing about whether the service answers. A
-service `state` and its database `status` can also disagree. Act on
+completes, while the server is still answering 503. A service `state` and its database `status` can also disagree. Act on
 `failed`, and read `running` as a report that a write finished, not as
 permission to dial.
 
@@ -437,22 +427,22 @@ answers 400.
 `postgrest update` does reach the platform. The command resolves
 credentials and reads the database before it checks whether a
 PostgREST service exists. The command therefore needs a working
-profile to fail the way it does: with no credentials it exits at exit status 5,
-not exit status 1. When the read succeeds, the client-side guard exits at exit
+profile to fail the way it does: with no credentials it exits at exit
+status 5. When the read succeeds, the client-side guard exits at exit
 status 1 and names `deploy`, because no PostgREST service can exist for it to
 update.
 
 A bad flag value is the exception to that ordering. `--db-pool`,
 `--max-rows` and `--jwt-secret` are range-checked before the client is
-built. `postgrest update --db-pool 0` is therefore exit status 2 with
-no credentials configured, and never reaches the profile or the guard.
+built. `postgrest update --db-pool 0` is therefore exit status 2 even
+with no credentials configured.
 
 ## Next steps
 
 - The [Output formats and paging](../output-and-paging.md) page owns
   the `.status` and `.state` vocabularies.
-- The [Exit codes](../exit-codes.md) page explains what exit status 4 does
-  and does not tell you about a missing service.
+- The [Exit codes](../exit-codes.md) page explains what exit status 4
+  tells you about a missing service.
 - The [CI and automation](../ci.md) page describes running these
   writes unattended, including bounding a wait.
 - The [pgedge starfleet managed command reference](../reference/starfleet-managed.md)

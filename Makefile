@@ -35,10 +35,11 @@ test-scripts:
 	shellcheck install.sh scripts/coverage-gate.sh scripts/lint-docs.sh \
 		scripts/cp-service-keys.sh scripts/lint-version.sh \
 		scripts/third-party-licenses.sh \
-		test/install_checksum_test.sh \
+		test/install_checksum_test.sh test/install_skills_test.sh \
 		test/coverage_gate_test.sh test/cp_service_keys_test.sh \
 		test/lint_version_test.sh test/third_party_licenses_test.sh
 	sh test/install_checksum_test.sh
+	sh test/install_skills_test.sh
 	sh test/coverage_gate_test.sh
 	sh test/cp_service_keys_test.sh
 	sh test/lint_version_test.sh

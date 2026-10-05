@@ -38,11 +38,11 @@ A service id is an 8-character hex string the platform assigns, not a
 UUID. Every other identifier on this page is a UUID, and the service
 id is the exception. Read the service id from the SERVICE ID column,
 or from `service_id` under `-o json`. `get` takes a service id, and
-`remove` takes a type, so passing one where the other belongs does not
-behave as expected.
+`remove` takes a type. A service id passed to `remove` removes nothing
+and still exits at exit status 0.
 
 Every write above is asynchronous and takes `--wait`, `--follow`,
-`--wait-timeout` and `--wait-interval`. The reads take none of them.
+`--wait-timeout` and `--wait-interval`.
 
 ## Service replacement and merging
 
@@ -50,10 +50,9 @@ The BYOC API treats a database's `services` field as declarative:
 whatever a request sends replaces the whole list. Sending only a RAG
 service therefore destroys the MCP server already deployed beside it.
 
-The CLI never sends a partial list. Every write here reads the
+The CLI always sends the complete list. Every write here reads the
 database first, merges your flags into the service being changed, and
-carries the other services through untouched. The write then sends
-the complete list back. That read is also why a write needs a
+carries the other services through untouched. That read is also why a write needs a
 database that is readable, and why a failure to read is a refusal to
 write.
 
@@ -65,10 +64,10 @@ do the same merge by hand.
 `deploy` refuses to run when a service of that type is already
 deployed, and `update` refuses when none is. Both checks are
 client-side, over the read the command has already made, so a refusal
-sends no write at all. `deploy` exits 1 naming `update` as the fix,
+sends no write. `deploy` exits 1 naming `update` as the fix,
 and `update` exits 1 naming `deploy`.
 
-`deploy` is therefore not idempotent. A caller that wants one command
+A second `deploy` therefore fails. A caller that wants one command
 to do either job branches on the read:
 
     if ! pgedge starfleet byoc database service list "$DB" -o json \
@@ -91,10 +90,9 @@ printed nothing. Without the first check, a 404, an expired credential
 or a network error picks the `else` branch. The branch then deploys a
 second service off a read that never ran.
 
-BYOC has no by-type read to shorten that recipe with. `service get`
-addresses a service by its generated id, so checking for a type before
-it has an id means filtering `service list`. Managed does have one,
-which is why the
+`service get` addresses a service by its generated id, so checking
+for a type before it has an id means filtering `service list`. Managed
+`service get` takes a type, which is why the
 [Deploy managed services](../managed/services.md) guide branches on an
 exit code instead.
 
@@ -153,28 +151,26 @@ treats as secrets:
 | Flag | Secret | Notes |
 |---|---|---|
 | `--allow-writes` | No | Grants the LLM insert, update and delete access through the query tool. Off by default. |
-| `--embedding-provider` | No | Accepts `ollama`, `openai` or `voyage`. The CLI checks neither the name nor the model. The API refuses a wrong value instead. |
+| `--embedding-provider` | No | Accepts `ollama`, `openai` or `voyage`. The API refuses any other provider, or a missing model, at exit status 1. |
 | `--embedding-model` | No | Required by the API alongside the provider. |
 | `--embedding-api-key` | Yes | Required for `openai` and `voyage`. Setting either provider with no key passed or already stored fails at exit status 2 before the change is sent. On `update`, omit the flag to reuse the stored key. |
 | `--ollama-url` | No | Endpoint of an Ollama server, required when the provider is `ollama`. |
 | `--init-tokens` | Yes | Bearer token forwarded to the MCP server as INIT_TOKENS. |
 | `--init-users` | Yes | Comma-separated `username:password` pairs forwarded as INIT_USERS. |
 
-`--ollama-url` is one of the differences from managed. Managed has no
-Ollama provider at all, because self-hosted model serving has nowhere
-to run there.
+`--ollama-url` is one of the differences from managed. Managed refuses
+the Ollama provider, because self-hosted model serving has nowhere to
+run there.
 
 `update` changes only the flags you pass and reads everything else
 back from the deployed service, including the embedding provider, the
 model and the node placement. MCP's secrets survive that round trip,
 because the API returns all three of them on a single-database read.
 
-`--allow-writes` is a boolean, so it cannot express "leave it alone"
-through its value. Omit `--allow-writes` to keep the current access
+`--allow-writes` is a boolean. Omit it to keep the current access
 level, pass `--allow-writes` to grant write access, and
-`--allow-writes=false` to revoke it. Do not pass `--allow-writes` on an
-unrelated change to be safe: that is a privilege decision, not a
-no-op.
+`--allow-writes=false` to revoke it. Passing `--allow-writes` on an
+unrelated change grants write access.
 
 ## MCP query limits
 
@@ -205,10 +201,10 @@ treats as secrets:
 
 | Flag | Secret | Notes |
 |---|---|---|
-| `--embedding-llm-provider` | No | Required on deploy. |
+| `--embedding-llm-provider` | No | `openai` or `voyage`. Required on deploy. |
 | `--embedding-llm-model` | No | Required on deploy. |
 | `--embedding-llm-api-key` | Yes | Required on deploy. Write-only, so pass it again whenever you change the provider or model it belongs to. |
-| `--completion-llm-provider` | No | Required on deploy. |
+| `--completion-llm-provider` | No | `openai` or `anthropic`. Required on deploy. |
 | `--completion-llm-model` | No | Required on deploy. |
 | `--completion-llm-api-key` | Yes | Required on deploy, and write-only in the same way. |
 | `--pipeline-config` | No | Path to a JSON file holding the pipeline definitions. Required on deploy. |
@@ -230,21 +226,20 @@ each, and no duplicate names. `_default` is refused as a reserved
 name. Each pipeline needs at least one table, and every table needs
 `table`, `text_column` and `vector_column` set. All of those checks
 are exit 2, along with an unreadable path, a path naming a directory,
-and JSON that does not parse. All are the same class of mistake.
-Neither the CLI nor the API checks that the tables exist.
+and JSON that does not parse. All are the same class of mistake. A
+pipeline naming a table that does not exist still deploys, so create
+the tables first.
 
 `rag update` changes only the flags you pass, and the pipelines are
 the ones to watch. `--pipeline-config` is the complete pipeline list,
 so include every pipeline you want to keep. The two API keys are the
-other exception: the API never returns them, so there is nothing for
-the CLI to read back and merge.
+other exception, because they are write-only. Pass each one again
+whenever you change the provider or model it belongs to.
 
 ## Pipeline endpoint access
 
-WARNING: a RAG pipeline serves whatever it retrieves to whoever can
-reach it. Neither the CLI nor the API offers a token, a password or
-any other credential for the pipeline endpoint. MCP's `--init-tokens`
-has no RAG equivalent on either product.
+WARNING: a RAG pipeline endpoint accepts requests with no credential,
+so it serves whatever it retrieves to whoever can reach it.
 
 On managed, the pipeline endpoint answers a plain `curl` carrying no
 credential of any kind. The MCP service at the same hostname answers
@@ -261,8 +256,8 @@ Three consequences follow:
 - every request spends your own embedding and completion credits, on
   the keys supplied at deploy time.
 
-Establish what stands in front of the endpoint before you deploy. Do
-not point a pipeline at data you would not publish at that hostname.
+Establish what stands in front of the endpoint before you deploy.
+Point a pipeline only at data you would publish at that hostname.
 The
 [Deploy managed services](../managed/services.md) guide covers the
 managed case.
@@ -328,8 +323,7 @@ The following table describes where each one appears:
 database, so all three carry MCP's secrets. `database list` is the
 read that omits them. A configuration built from a list entry arrives
 with its secrets blank. That is indistinguishable from a service that
-has none set. No table view prints a secret in any format, so reading
-one needs `-o json` or `-o yaml`.
+has none set. A secret appears only under `-o json` or `-o yaml`.
 
 ## The endpoint to dial
 
@@ -393,7 +387,7 @@ The recipe then opens a session:
              "capabilities":{},"clientInfo":{"name":"curl-example",
              "version":"1.0"}}}'
 
-`--fail` is what makes this a readiness check, not a request. Without
+`--fail` makes this a readiness check. Without
 `--fail`, `curl` exits 0 on the 503 a server that is still starting
 returns, and a retry loop would stop on the first attempt. The
 redirection truncates the file before the command runs, so a failed
@@ -406,8 +400,8 @@ call against the wrong server, with nothing to notice.
 ## Waiting and service state
 
 A services write moves the database to `modifying` for the duration
-and settles it back to `available`. No BYOC response has a task
-identifier, so `--wait` finds the task by subject. The CLI reads the
+and settles it back to `available`. `--wait` finds the write's task by
+subject. The CLI reads the
 database's newest task before the write, and tracks the first one that
 differs. `--follow` streams that task's step messages, instead of
 requiring repeated status reads.
@@ -421,9 +415,8 @@ a failed write explains itself, and the
 [Tasks and async operations](../tasks-and-async.md) guide covers task
 inspection in full.
 
-A write returns the updated database, not a service object. In text
-output that means a confirmation sentence on `stderr` and no table at
-all. Under `-o json` or `-o yaml` the database object goes to stdout,
+A write returns the updated database. In text output, it prints a
+confirmation sentence on `stderr`. Under `-o json` or `-o yaml` the database object goes to stdout,
 which is where a script reads back the new service id.
 
 A resource reports its lifecycle in `status` and a service reports its
@@ -432,12 +425,11 @@ sets, and a script reading one where the other lives finds nothing.
 The [Output formats and paging](../output-and-paging.md) guide owns
 both vocabularies.
 
-`state` is not the deployment signal. The platform records `state`
-when a write succeeds, and does not refresh it afterward. The value
-therefore describes what the last successful write observed, not the
-service now. Reading state repeatedly while waiting for `running`
-can outlast a deploy that already succeeded. A failed deploy reports
-on the task, not in `state`. A failed deploy can leave the database
+Wait on the task, not on `state`. The platform records `state`
+only when a write succeeds, so the value describes what the last
+successful write observed. Reading state repeatedly while waiting for
+`running` can outlast a deploy that already succeeded. A failed deploy
+reports on the task. A failed deploy can leave the database
 `available`, with the entry's `state` empty or still carrying the
 value an earlier write stored. As a result, wait on the task, and
 treat a `state` of `failed`, where one appears, as naming a service
@@ -452,9 +444,8 @@ Every write on this page takes `--dry-run`, which runs the
 client-side checks, reports the request it would have sent, and stops.
 The deploy-versus-update guard reports into that report, so a dry run
 tells you which of the two the CLI thinks you are doing. Secret values
-are masked in the preview. Nothing is submitted, so a clean dry run
-means the listed checks passed, not that the API will accept the
-request. The [Dry runs](../dry-run.md) guide covers the
+are masked in the preview. A clean dry run means the listed checks
+passed, and the API can still refuse the real request. The [Dry runs](../dry-run.md) guide covers the
 limits.
 
 ## Removing a service
@@ -464,20 +455,17 @@ Removal is irrecoverable, because the service's configuration and
 credentials are discarded. The command prompts unless `--force` is
 given. The other services on the database survive:
 
-    pgedge starfleet byoc database service remove <db-id> mcp \
-        --force --wait
+    pgedge starfleet byoc database service remove <db-id> mcp --wait
 
-The type argument is not checked against the three the CLI knows.
-`remove` reads the database, sends back every service whose type does
+`remove` accepts any type string. It reads the database, sends back every service whose type does
 not match the string you typed, and reports success. A misspelt type,
 or a type that was never deployed, therefore removes nothing and still
 exits 0. Confirm a removal with `service list`, not with the exit
 code. Managed refuses both cases outright.
 
-The prompt is decided by `stdin`. In a script, a CI job or an agent,
-`stdin` is not a terminal. The command then fails with a usage
-error asking for `--force`, instead of hanging. Redirecting the output
-changes nothing.
+The prompt needs a terminal on `stdin`. In a script, a CI job or an
+agent, the command fails with a usage error asking for `--force`.
+Redirecting the output leaves that result the same.
 
 ## Next steps
 
@@ -485,8 +473,8 @@ changes nothing.
   database these services attach to, and the built-in roles they
   connect as.
 - The [Deploy managed services](../managed/services.md) guide covers
-  the same services on a managed database. A managed database differs
-  in enough places that this recipe does not carry across unchanged.
+  the same services on a managed database, where the recipes on this
+  page need changes.
 - The [Tasks and async operations](../tasks-and-async.md) guide covers
   waiting on a deploy and reading the task when one fails.
 - The [pgedge starfleet byoc command reference](../reference/starfleet-byoc.md)

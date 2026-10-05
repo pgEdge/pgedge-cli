@@ -16,7 +16,8 @@ verifies the archive's checksum. When `cosign` is installed, it also
 verifies the release signature. The script installs to `/usr/local/bin`.
 When it cannot write there, it installs to `~/.local/bin` instead.
 Then it sets up shell completion, unless the `CI` environment variable
-is set. If the install directory is missing from your PATH, the script
+is set. At a terminal, it also offers to install the agent skills for
+your user. If the install directory is missing from your PATH, the script
 prints the `export PATH=...` line to add.
 
 To install one release rather than the newest, set `PGEDGE_VERSION`
@@ -96,17 +97,19 @@ To remove completion after either route, run
 
 ## Setting Up Your AI Agent
 
-Install the pgedge skills into the agent you use. Claude Code, Cursor,
-Copilot, Amp and a dozen others read the same location:
+Install the pgedge skills for your user, so every project has them.
+Claude Code, Cursor, Copilot, Amp and a dozen others read the same
+location:
 
-    npx skills add pgEdge/pgedge-cli
+    npx skills add pgEdge/pgedge-cli --global
 
 This command clones the repository itself, so it also works when you
-installed the binary with `go install` or from a release archive.
+installed the binary with `go install` or from a release archive. An
+agent session that is already running loads the skills after a
+restart, or after `/reload-plugins` in Claude Code.
 
-Project scope is the default. It puts the skills in the repository you
-run the command from, so teammates and cloud agents share the setup.
-To install for your user instead, add `--global`. The README's
+To share the setup with teammates and cloud agents, run the command
+without `--global` from the repository. The README's
 "Installing the AI-Agent Skills" section covers updating and removing
 the skills. It also covers the manual-copy path for agents without
 Node.
@@ -190,14 +193,18 @@ step fails, or you decline it, the agent carries on:
     4. Ask me this question and wait for my answer. Do not guess it:
        "Which pgEdge products do you use: Starfleet, Control Plane,
        both, or neither?" For neither, skip this step. Otherwise install
-       the matching agent skills into the current project:
-       - starfleet: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
-       - control plane: `npx -y skills add pgEdge/pgedge-cli -s pgedge -s pgedge-controlplane -y`
-       - both: `npx -y skills add pgEdge/pgedge-cli -y`
+       the matching agent skills for my user, so every project has
+       them. Replace `<tag>` with the tag from step 2's `Installed`
+       line, so the skills match the binary:
+       - starfleet: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
+       - control plane: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-controlplane -y`
+       - both: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -y`
     5. Verify, and show me the output of each: `pgedge version` and
        `pgedge doctor` (both at the full path from step 2), and
-       `npx -y skills list` if step 4 ran. A doctor warning about
-       missing credentials is expected on a fresh install. List each
+       `npx -y skills list -g` if step 4 ran. A doctor warning about
+       missing credentials is expected on a fresh install. If step 4
+       ran, tell me the skills load in a new agent session, or after
+       `/reload-plugins` in Claude Code. List each
        step you skipped, with the command that completes it later. The
        next step after this setup is `pgedge starfleet auth login`
        (starfleet) or reading `pgedge llms controlplane` (control

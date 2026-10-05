@@ -27,8 +27,7 @@ description: >
       cloud account (clusters, databases, MCP/RAG/PostgREST services,
       backups, ingresses).
     - `pgedge starfleet managed` — databases pgEdge hosts and operates for
-      you. No clusters or nodes to place them on; a region and a size
-      instead.
+      you. A database takes a region and a size, and pgEdge places it.
 
   Every starfleet command — the account-level verbs and both sub-trees —
   shares the one connection `pgedge starfleet auth login` establishes.
@@ -64,8 +63,7 @@ doctor` reports it.
   `pgedge profile use default` needs a `default` section in the
   file.
 - **Broken `current_profile`:** if the file names a profile that does
-  not exist, every command exits 1 rather than falling back to the
-  production URL. `pgedge profile list` still runs and marks the row
+  not exist, every command exits 1. `pgedge profile list` still runs and marks the row
   `yes (unresolved)`; `pgedge profile use <name>` repairs it.
 - **Diagnostics:** `pgedge starfleet doctor` (the Starfleet connection byoc
   and managed both borrow) and `pgedge controlplane doctor` (Control Plane).
@@ -79,10 +77,8 @@ doctor` reports it.
   rules. Read verbs may omit the ID there. Every write still needs it.
 - **Dry runs:** every verb that writes accepts `--dry-run`. It runs the
   client-side checks, stops before the write, and prints the request it
-  would have sent. Reads still go out, so it needs credentials; nothing
-  server-side is validated (no API exposes a validate endpoint), which
-  makes this a CLIENT dry run in kubectl's sense. So `cmd --dry-run &&
-  cmd` is **not** a gate on the real run: an input only the API can
+  would have sent. Reads still go out, so it needs credentials. Only the
+  client-side checks run, so `cmd --dry-run && cmd` is **not** a gate on the real run: an input only the API can
   reject passes the dry run and fails the real call. Read the checks it
   lists rather than trusting the exit code. On a read-only verb the flag
   is unknown (exit 2).
@@ -120,20 +116,21 @@ Questions and problem reports go to
 Skills are a layer above the CLI, distributed from the `skills/`
 directory of this repository.
 
-**Recommended — the skills CLI.** One command installs all five and
-detects your agent:
+**Recommended — the skills CLI.** One command installs all five for
+the user and detects your agent:
 
 ```bash
-npx skills add pgEdge/pgedge-cli
+npx skills add pgEdge/pgedge-cli --global
 ```
 
-It writes to `.agents/skills/` — the shared location every supporting
-agent reads — and symlinks it for the ones with their own convention,
-so Claude Code, Cursor, Copilot, Amp, Antigravity and a dozen others
-pick the skills up from a single install. Project scope is the
-default, which puts them in the repository so teammates and cloud
-agents get the same setup; add `--global` to install for your user
-instead.
+It writes to `~/.agents/skills/` — the shared location every
+supporting agent reads — and symlinks it for the ones with their own
+convention, so Claude Code, Cursor, Copilot, Amp, Antigravity and a
+dozen others pick the skills up from a single install. Drop `--global`
+to install into the repository instead, so teammates and cloud agents
+get the same setup. Append `#<release-tag>` to the source, quoted, to
+match the skills to an installed binary. A running session loads new
+skills after a restart, or `/reload-plugins` in Claude Code.
 
 Useful follow-ups:
 
@@ -143,7 +140,7 @@ npx skills update               # pull newer versions
 npx skills remove pgedge-byoc   # drop one
 ```
 
-Installing writes `skills-lock.json`, which pins each skill by content
+A project install writes `skills-lock.json`, which pins each skill by content
 hash — commit it, and `npx skills experimental_install` restores the
 same set.
 

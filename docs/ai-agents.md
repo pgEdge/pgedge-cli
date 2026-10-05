@@ -73,27 +73,28 @@ table describes what each one covers:
 | `pgedge-managed` | Managed databases, their services and their backups. |
 | `pgedge-controlplane` | A self-hosted Control Plane: cluster formation, databases, backups and failover. |
 
-One command installs all five and detects your agent:
+One command installs all five for your user and detects your agent:
 
-    npx skills add pgEdge/pgedge-cli
+    npx skills add pgEdge/pgedge-cli --global
 
-The installer writes to `.agents/skills/`, the shared location that
-supporting agents read. For agents with a convention of their own, it
+The installer writes to `.agents/skills/` in your home directory, the
+shared location that supporting agents read. For agents with a convention of their own, it
 adds a symlink to that location. As a result, Claude Code, Cursor,
 Copilot, Amp, Antigravity and a dozen others pick up the skills from
 one install.
 
-Project scope is the default. The skills land in the repository you run
-the command from, so teammates and cloud agents share the setup. After
-the install, the same tool's `list`, `update` and `remove` commands
-manage the skills. `skills-lock.json` pins each skill by content hash.
+Without `--global`, the skills land in the repository you run the
+command from, so teammates and cloud agents share the setup. After the
+install, the same tool's `list`, `update` and `remove` commands
+manage the skills. A project install writes `skills-lock.json`, which
+pins each skill by content hash.
 
 Skills are a layer above the CLI, so you install them separately from
 the `pgedge` binary, with `npx skills`. The README's "Installing the
 AI-Agent Skills" section covers three more cases:
 
 - installing a single skill
-- installing for your user in place of a project
+- pinning the skills to an installed release
 - copying the skills by hand for an agent without Node
 
 Some agents read neither `.agents/skills/` nor a convention the

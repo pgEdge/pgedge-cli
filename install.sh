@@ -111,6 +111,40 @@ resolve_version() {
     printf '%s\n' "$latest"
 }
 
+# print_skills_command prints the command that installs the agent
+# skills for every project, pinned to the release tag in $1 so the
+# skills match the binary.
+print_skills_command() {
+    echo "To give your AI agent the pgedge skills in every project, run:"
+    echo "  npx -y skills add 'pgEdge/pgedge-cli#$1' --global"
+}
+
+# offer_skills asks on the terminal in $2 whether to install the skills
+# for release $1, and installs them on a yes. Under `curl | sh` stdin is
+# the script itself, so the answer and the skills CLI's own prompts are
+# read from the terminal. A failed install never fails the CLI install.
+offer_skills() {
+    if ! command -v npx >/dev/null 2>&1 \
+        || ! (exec <"$2") 2>/dev/null; then
+        print_skills_command "$1"
+        return 0
+    fi
+    printf 'Install the pgedge agent skills for every project now? [Y/n] '
+    answer=""
+    read -r answer <"$2" || answer=n
+    case "$answer" in
+        ""|[Yy]|[Yy][Ee][Ss]) ;;
+        *)
+            print_skills_command "$1"
+            return 0
+            ;;
+    esac
+    if ! npx -y skills add "pgEdge/pgedge-cli#$1" --global <"$2"; then
+        echo "Note: the agent skills did not install." >&2
+        print_skills_command "$1" >&2
+    fi
+}
+
 # When sourced by the test harness (PGEDGE_INSTALL_SH_LIB=1), stop
 # here so the functions above can be exercised without running the
 # installer body.
@@ -201,11 +235,13 @@ echo "Installed ${BINARY} ${VERSION} to ${INSTALL_DIR}/${BINARY}"
 
 warn_if_not_on_path "$INSTALL_DIR"
 
-# Agent skills ship in the repo, not the binary. Point users at the
-# install docs rather than installing anything here.
-echo "AI-agent skills are available separately (SKILL.md format)."
-echo "To install them for your agent, see:"
-echo "  https://github.com/pgEdge/pgedge-cli#installing-the-ai-agent-skills"
+# Only a person at a terminal is asked. An agent running this script
+# captures stdout, and installs the skills its own prompt chose.
+if [ -z "${CI:-}" ] && [ -t 1 ]; then
+    offer_skills "$VERSION" /dev/tty
+else
+    print_skills_command "$VERSION"
+fi
 
 # Enable shell completion (bash, zsh, fish, PowerShell). Best-effort:
 # the binary is already installed, so a failure here must never fail

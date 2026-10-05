@@ -132,6 +132,7 @@ var externalToolFlags = map[string]struct {
 			"../../README.md":               true,
 			"../../skills/pgedge/SKILL.md":  true,
 			"../../docs/getting-started.md": true,
+			"../../docs/ai-agents.md":       true,
 		}},
 	"--skill": {"the skills CLI (npx skills add)",
 		map[string]bool{

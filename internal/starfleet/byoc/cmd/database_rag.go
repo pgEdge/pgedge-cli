@@ -151,13 +151,13 @@ Example:
 func bindRAGFlags(cmd *cobra.Command, opts *ragServiceOpts) {
 	f := cmd.Flags()
 	f.StringVar(&opts.embeddingProvider, "embedding-llm-provider", "",
-		"Embedding LLM provider (openai or anthropic)")
+		"Embedding LLM provider: openai or voyage")
 	f.StringVar(&opts.embeddingModel, "embedding-llm-model", "",
 		"Embedding LLM model identifier")
 	f.StringVar(&opts.embeddingAPIKey, "embedding-llm-api-key", "",
 		"API key for the embedding LLM provider")
 	f.StringVar(&opts.completionProvider, "completion-llm-provider", "",
-		"Completion LLM provider (e.g. openai)")
+		"Completion LLM provider: openai or anthropic")
 	f.StringVar(&opts.completionModel, "completion-llm-model", "",
 		"Completion LLM model identifier")
 	f.StringVar(&opts.completionAPIKey, "completion-llm-api-key", "",

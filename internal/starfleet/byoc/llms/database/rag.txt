@@ -26,11 +26,11 @@ Deploy a RAG server on a database
 |------|----------|---------|-------------|
 | `--completion-llm-api-key string` | Yes |  | API key for the completion LLM provider |
 | `--completion-llm-model string` | Yes |  | Completion LLM model identifier |
-| `--completion-llm-provider string` | Yes |  | Completion LLM provider (e.g. openai) |
+| `--completion-llm-provider string` | Yes |  | Completion LLM provider: openai or anthropic |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
-| `--embedding-llm-provider string` | Yes |  | Embedding LLM provider (openai or anthropic) |
+| `--embedding-llm-provider string` | Yes |  | Embedding LLM provider: openai or voyage |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
 | `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
 | `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
@@ -158,11 +158,11 @@ Update the RAG server on a database
 |------|----------|---------|-------------|
 | `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
 | `--completion-llm-model string` | No |  | Completion LLM model identifier |
-| `--completion-llm-provider string` | No |  | Completion LLM provider (e.g. openai) |
+| `--completion-llm-provider string` | No |  | Completion LLM provider: openai or anthropic |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
-| `--embedding-llm-provider string` | No |  | Embedding LLM provider (openai or anthropic) |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
 | `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
 | `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |

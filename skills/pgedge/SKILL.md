@@ -63,8 +63,9 @@ doctor` reports it.
   `pgedge profile use default` needs a `default` section in the
   file.
 - **Broken `current_profile`:** if the file names a profile that does
-  not exist, every command exits 1. `pgedge profile list` still runs and marks the row
-  `yes (unresolved)`; `pgedge profile use <name>` repairs it.
+  not exist, every command exits 1. `pgedge profile list` still runs
+  and marks the row `yes (unresolved)`; `pgedge profile use <name>`
+  repairs it.
 - **Diagnostics:** `pgedge starfleet doctor` (the Starfleet connection byoc
   and managed both borrow) and `pgedge controlplane doctor` (Control Plane).
   Inside a database, `database inspect <id> table-sizes` on managed and
@@ -78,10 +79,11 @@ doctor` reports it.
 - **Dry runs:** every verb that writes accepts `--dry-run`. It runs the
   client-side checks, stops before the write, and prints the request it
   would have sent. Reads still go out, so it needs credentials. Only the
-  client-side checks run, so `cmd --dry-run && cmd` is **not** a gate on the real run: an input only the API can
-  reject passes the dry run and fails the real call. Read the checks it
-  lists rather than trusting the exit code. On a read-only verb the flag
-  is unknown (exit 2).
+  client-side checks run, so `cmd --dry-run && cmd` is **not** a gate
+  on the real run: an input only the API can reject passes the dry run
+  and fails the real call. Read the checks it lists rather than
+  trusting the exit code. On a read-only verb the flag is unknown
+  (exit 2).
 
 ## Installing the CLI
 

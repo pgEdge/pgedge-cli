@@ -78,10 +78,10 @@ One command installs all five for your user and detects your agent:
     npx skills add pgEdge/pgedge-cli --global
 
 The installer writes to `.agents/skills/` in your home directory, the
-shared location that supporting agents read. For agents with a convention of their own, it
-adds a symlink to that location. As a result, Claude Code, Cursor,
-Copilot, Amp, Antigravity and a dozen others pick up the skills from
-one install.
+shared location that supporting agents read. For agents with a
+convention of their own, it adds a symlink to that location. As a
+result, Claude Code, Cursor, Copilot, Amp, Antigravity and a dozen
+others pick up the skills from one install.
 
 Without `--global`, the skills land in the repository you run the
 command from, so teammates and cloud agents share the setup. After the

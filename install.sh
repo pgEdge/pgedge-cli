@@ -145,6 +145,18 @@ offer_skills() {
     fi
 }
 
+# skills_step offers the skills for release $1 on terminal $2, or prints
+# the command. Only a person at a terminal is asked: an agent running
+# this script captures stdout, and installs the skills its own prompt
+# chose.
+skills_step() {
+    if [ -z "${CI:-}" ] && [ -t 1 ]; then
+        offer_skills "$1" "$2"
+    else
+        print_skills_command "$1"
+    fi
+}
+
 # When sourced by the test harness (PGEDGE_INSTALL_SH_LIB=1), stop
 # here so the functions above can be exercised without running the
 # installer body.
@@ -235,13 +247,7 @@ echo "Installed ${BINARY} ${VERSION} to ${INSTALL_DIR}/${BINARY}"
 
 warn_if_not_on_path "$INSTALL_DIR"
 
-# Only a person at a terminal is asked. An agent running this script
-# captures stdout, and installs the skills its own prompt chose.
-if [ -z "${CI:-}" ] && [ -t 1 ]; then
-    offer_skills "$VERSION" /dev/tty
-else
-    print_skills_command "$VERSION"
-fi
+skills_step "$VERSION" /dev/tty
 
 # Enable shell completion (bash, zsh, fish, PowerShell). Best-effort:
 # the binary is already installed, so a failure here must never fail

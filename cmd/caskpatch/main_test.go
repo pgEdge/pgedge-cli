@@ -18,7 +18,8 @@ func mask(cask string) string {
 
 // The tap's cask at da42311 is the hand-fixed one that passed brew
 // style and brew audit and installed cleanly. Patching goreleaser's
-// output must reproduce it apart from the release-specific lines.
+// output must reproduce it apart from the release-specific lines and
+// the zsh-before-fish order brew style has required since.
 func TestPatchReproducesTheTapCask(t *testing.T) {
 	gen, err := os.ReadFile(filepath.Join("testdata", "goreleaser-v2.18.2.rb"))
 	if err != nil {
@@ -32,7 +33,13 @@ func TestPatchReproducesTheTapCask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if mask(got) != mask(string(tap)) {
+	want := strings.Replace(string(tap),
+		"  fish_completion \"completions/pgedge.fish\"\n  zsh_completion \"completions/pgedge.zsh\"\n",
+		"  zsh_completion \"completions/pgedge.zsh\"\n  fish_completion \"completions/pgedge.fish\"\n", 1)
+	if want == string(tap) {
+		t.Fatal("tap fixture no longer has fish before zsh")
+	}
+	if mask(got) != mask(want) {
 		t.Errorf("patched cask differs from the tap's:\n%s", got)
 	}
 }
@@ -76,6 +83,39 @@ func TestPatchInsertsAfterTheLastTopLevelArtifact(t *testing.T) {
 				t.Errorf("block not directly after %q:\n%s", tt.after, got)
 			}
 		})
+	}
+}
+
+func TestPatchSortsCompletions(t *testing.T) {
+	cask := "cask \"x\" do\n" +
+		"  binary \"x\"\n" +
+		"  pwsh_completion \"p\"\n" +
+		"  fish_completion \"f\"\n" +
+		"  other_completion \"o\"\n" +
+		"  zsh_completion \"z\"\n" +
+		"  bash_completion \"b\"\n" +
+		"  on_linux do\n" +
+		"    fish_completion \"nested\"\n" +
+		"  end\n" +
+		"end\n"
+	got, err := patch(cask)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "cask \"x\" do\n" +
+		"  binary \"x\"\n" +
+		"  bash_completion \"b\"\n" +
+		"  zsh_completion \"z\"\n" +
+		"  fish_completion \"f\"\n" +
+		"  pwsh_completion \"p\"\n" +
+		"  other_completion \"o\"\n" +
+		postflightSteps +
+		"  on_linux do\n" +
+		"    fish_completion \"nested\"\n" +
+		"  end\n" +
+		"end\n"
+	if got != want {
+		t.Errorf("patch() =\n%s\nwant\n%s", got, want)
 	}
 }
 

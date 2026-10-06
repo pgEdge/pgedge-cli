@@ -29,26 +29,19 @@ const nodeListBody = `[{"availability_zone":"us-east-1a",` +
 	`"name":"us-east-1"},"volume_iops":100,"volume_size":30,` +
 	`"volume_type":"gp2"}]`
 
-// nodeLogsBody mirrors a prod response's SHAPE. The API pads the array
-// with a trailing all-empty element, so the renderer must drop blanks.
-//
-// level, message and time are populated here but are always empty on the
-// real API today — only raw_text is filled, on every log name checked.
-// The fixture fills them deliberately: the assertion it drives is that
-// json/yaml do not DROP fields the response carries, which has to hold
-// whenever the API starts filling them in.
+// nodeLogsBody is a devapi docker-log entry captured 2026-10-06, with
+// raw_text cut to a few of the journald record's fields.
 const nodeLogsBody = `[` +
-	`{"level":"info","message":"checkpoint complete",` +
-	`"raw_text":"Aug 04 09:00:00 n1 postgres[34]: checkpoint complete",` +
-	`"time":"2026-08-04T09:00:00Z"},` +
-	`{"level":"","message":"","raw_text":"","time":""}]`
+	`{"level":"INFO","message":"NetworkDB stats netPeers:1 entries:1",` +
+	`"raw_text":"{\"_SYSTEMD_UNIT\":\"docker.service\",\"PRIORITY\":\"6\",` +
+	`\"MESSAGE\":\"NetworkDB stats netPeers:1 entries:1\"}",` +
+	`"time":"2026-10-06T18:54:23Z"}]`
 
-// nodeLogsEmptyBody is what every unknown log_name answers, and also
-// what a real log with nothing in it answers. The API validates neither,
-// so this string must reach the user rather than being translated into a
-// claim about which case it was.
-const nodeLogsEmptyBody = `[` +
-	`{"level":"","message":"","raw_text":"-- No entries --","time":""},` +
+// nodeLogsRawOnlyBody is the older API's shape: only raw_text filled,
+// and a trailing all-empty element.
+const nodeLogsRawOnlyBody = `[` +
+	`{"level":"","message":"","raw_text":"Aug 04 09:00:00 n1 dockerd[34]: up",` +
+	`"time":""},` +
 	`{"level":"","message":"","raw_text":"","time":""}]`
 
 // nodeLogsRouter serves the cluster-nodes list and the node-logs read
@@ -77,32 +70,63 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err != nil {
+			testClusterID, "n1", "docker"); err != nil {
 			t.Fatalf("node logs: %v", err)
 		}
 		want := "/byoc/v1/clusters/" + testClusterID + "/nodes/" +
-			testNodeID + "/logs/postgresql"
+			testNodeID + "/logs/docker"
 		if path != want {
 			t.Errorf("requested %q, want %q", path, want)
 		}
-		if !strings.Contains(out.String(), "checkpoint complete") {
+		if !strings.Contains(out.String(), "NetworkDB stats") {
 			t.Errorf("missing log line: %q", out.String())
 		}
 	})
 
-	t.Run("text drops the trailing blank entry", func(t *testing.T) {
+	t.Run("text prints time, level and message", func(t *testing.T) {
 		rt, out, _ := testsupport.NewRuntime(t, "", "text")
 		var path, query string
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err != nil {
+			testClusterID, "n1", "docker"); err != nil {
 			t.Fatalf("node logs: %v", err)
 		}
-		// Exact equality, not a trimmed line count: TrimRight("\n")
-		// removes the blank line this test exists to catch, so a
-		// renderer that printed the API's padding entry passed.
-		want := "Aug 04 09:00:00 n1 postgres[34]: checkpoint complete\n"
+		want := "2026-10-06T18:54:23Z  INFO     " +
+			"NetworkDB stats netPeers:1 entries:1\n"
+		if out.String() != want {
+			t.Errorf("output = %q, want exactly %q", out.String(), want)
+		}
+	})
+
+	t.Run("text escapes a newline in the message", func(t *testing.T) {
+		rt, out, _ := testsupport.NewRuntime(t, "", "text")
+		var path, query string
+		body := `[{"level":"INFO","message":"a\nERR forged",` +
+			`"raw_text":"{}","time":"2026-10-06T18:54:23Z"}]`
+		url := testsupport.NewAuthedServer(t,
+			nodeLogsRouter(body, &path, &query))
+		if err := runAuthed(t, rt, out, url, "node", "logs",
+			testClusterID, "n1", "docker"); err != nil {
+			t.Fatalf("node logs: %v", err)
+		}
+		if n := strings.Count(out.String(), "\n"); n != 1 {
+			t.Errorf("one entry printed %d lines: %q", n, out.String())
+		}
+	})
+
+	// Exact equality, not a trimmed line count: TrimRight("\n") removes
+	// the blank line this test exists to catch.
+	t.Run("text falls back to raw_text and drops blanks", func(t *testing.T) {
+		rt, out, _ := testsupport.NewRuntime(t, "", "text")
+		var path, query string
+		url := testsupport.NewAuthedServer(t,
+			nodeLogsRouter(nodeLogsRawOnlyBody, &path, &query))
+		if err := runAuthed(t, rt, out, url, "node", "logs",
+			testClusterID, "n1", "docker"); err != nil {
+			t.Fatalf("node logs: %v", err)
+		}
+		want := "Aug 04 09:00:00 n1 dockerd[34]: up\n"
 		if out.String() != want {
 			t.Errorf("output = %q, want exactly %q", out.String(), want)
 		}
@@ -122,7 +146,7 @@ func TestNodeLogsRun(t *testing.T) {
 				_, _ = w.Write([]byte(nodeLogsBody))
 			})
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, testNodeID, "postgresql"); err != nil {
+			testClusterID, testNodeID, "docker"); err != nil {
 			t.Fatalf("node logs by UUID: %v", err)
 		}
 		if listed {
@@ -136,31 +160,12 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "nope", "postgresql")
+			testClusterID, "nope", "docker")
 		if err == nil {
 			t.Fatal("expected an error for an unknown node name")
 		}
 		if !strings.Contains(err.Error(), "n1") {
 			t.Errorf("error should list valid node names: %v", err)
-		}
-	})
-
-	// The API answers ANY log_name with 200, so the CLI cannot tell a
-	// misspelled name from a log with nothing in it. It must therefore
-	// pass the API's own "-- No entries --" through rather than
-	// substituting a claim of its own.
-	t.Run("passes -- No entries -- through", func(t *testing.T) {
-		rt, out, _ := testsupport.NewRuntime(t, "", "text")
-		var path, query string
-		url := testsupport.NewAuthedServer(t,
-			nodeLogsRouter(nodeLogsEmptyBody, &path, &query))
-		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "zzz-bogus"); err != nil {
-			t.Fatalf("node logs bogus name: %v", err)
-		}
-		if !strings.Contains(out.String(), "-- No entries --") {
-			t.Errorf("must not swallow the API's own notice: %q",
-				out.String())
 		}
 	})
 
@@ -170,7 +175,7 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err != nil {
+			testClusterID, "n1", "docker"); err != nil {
 			t.Fatalf("node logs json: %v", err)
 		}
 		var got []api.ClusterNodeLogMessage
@@ -178,10 +183,11 @@ func TestNodeLogsRun(t *testing.T) {
 			t.Fatalf("output is not a message array: %v (%q)",
 				err, out.String())
 		}
-		if len(got) != 2 {
-			t.Fatalf("json dropped entries: got %d, want 2", len(got))
+		if len(got) != 1 {
+			t.Fatalf("json dropped entries: got %d, want 1", len(got))
 		}
-		if got[0].Level != "info" || got[0].Time != "2026-08-04T09:00:00Z" {
+		if got[0].Level != "INFO" || got[0].Time != "2026-10-06T18:54:23Z" ||
+			!strings.Contains(got[0].RawText, "docker.service") {
 			t.Errorf("json lost fields: %+v", got[0])
 		}
 	})
@@ -192,7 +198,7 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(`[]`, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err != nil {
+			testClusterID, "n1", "docker"); err != nil {
 			t.Fatalf("node logs empty: %v", err)
 		}
 		if !strings.Contains(errb.String(), "No log entries found") {
@@ -209,7 +215,7 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql",
+			testClusterID, "n1", "docker",
 			"--lines", "50", "--since", "2026-08-01T00:00:00Z",
 			"--until", "2026-08-04T00:00:00Z", "--priority", "err",
 			"--grep", "checkpoint", "--case-sensitive",
@@ -234,7 +240,7 @@ func TestNodeLogsRun(t *testing.T) {
 		url := testsupport.NewAuthedServer(t,
 			nodeLogsRouter(nodeLogsBody, &path, &query))
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err != nil {
+			testClusterID, "n1", "docker"); err != nil {
 			t.Fatalf("node logs bare: %v", err)
 		}
 		if query != "" {
@@ -258,7 +264,7 @@ func TestNodeLogsRun(t *testing.T) {
 				_, _ = w.Write([]byte(nodeListBody))
 			})
 		if err := runAuthed(t, rt, out, url, "node", "logs",
-			testClusterID, "n1", "postgresql"); err == nil {
+			testClusterID, "n1", "docker"); err == nil {
 			t.Fatal("expected an error on 500")
 		}
 	})

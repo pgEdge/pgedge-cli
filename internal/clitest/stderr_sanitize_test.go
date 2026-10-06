@@ -294,8 +294,9 @@ var stderrComposedMessages = map[string]struct {
 // 180 -> 192: the `managed database link` prompt's lists.
 // 192 -> 195: `controlplane database update` names the nodes it
 // removes, or the database whose nodes it could not read.
+// 195 -> 198: byoc `node logs` prints time, level and message.
 const (
-	stderrArgSites      = 195
+	stderrArgSites      = 198
 	stderrComposedSites = 22
 )
 

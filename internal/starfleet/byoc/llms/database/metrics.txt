@@ -74,11 +74,12 @@ Values are printed as the API sends them: not rounded, not rescaled.
 every sample newer than now minus the interval, and reads 15 minutes
 back when the flag is omitted. It takes value,unit form (`5,minute`,
 `2,hours`) with second, minute, hour, day, week, month or year as the
-unit. A malformed value is exit 2 before the request, where the API
-would answer `500 failed to read metrics`, not a 400. A zero is exit 2
+unit. A malformed value is exit 2 before the request. A zero is exit 2
 as well: the API accepts it and answers 200 with an empty series,
-which reads as a database with no metrics. `--columns` is not
-validated, and a name the API does not recognize is that same 500. An
+which reads as a database with no metrics. The CLI does not
+check `--columns`. The API refuses a malformed column name with
+`400 invalid column name`, and answers an unknown one with
+`500 failed to read metrics`. An
 unknown `--node-name` answers 200 with a null series, reported as
 `No metrics found.`
 

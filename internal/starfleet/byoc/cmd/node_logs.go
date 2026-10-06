@@ -5,11 +5,15 @@ import (
 	"fmt"
 
 	"github.com/pgEdge/pgedge-cli/internal/module"
+	"github.com/pgEdge/pgedge-cli/internal/output"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/byoc/api"
 	"github.com/spf13/cobra"
 )
 
 // --- logs ---
+
+// nodeLogLevelWidth fits journald's longest level name, WARNING.
+const nodeLogLevelWidth = 7
 
 func newNodeLogsCmd(rt *module.Runtime) *cobra.Command {
 	var (
@@ -33,17 +37,11 @@ full node UUID. A name is resolved through the cluster's node list,
 because the API's log path takes a UUID and 'cluster get' does not
 report one. The CLUSTER argument takes a full UUID.
 
-The log name is a journald selector, and the API does not validate it:
-every name answers 200, and an unrecognised one comes back carrying the
-same '-- No entries --' as a real log with nothing in it. The CLI passes
-that through rather than translating it, because it cannot tell the two
-apart. Verified live on a BYOC node, 'system', 'docker' and
-'containerd' return entries; 'postgresql', 'pgedge', 'patroni',
-'messages', 'syslog', 'journal', 'kern', 'daemon' and 'spock' all
-return '-- No entries --', and 'postgres' answers 500.
-For Postgres's own log use 'database logs' instead.
+The log name is 'system', 'docker' or 'containerd'. The API refuses
+any other name with '400 invalid log_name'. For Postgres's own log,
+use 'database logs' instead.
 
---priority, --reverse and --dmesg work. --grep, --since and --until
+--priority, --grep, --reverse and --dmesg work. --since and --until
 are currently refused server-side with '500 failed to read log', even
 against a log that returns entries without them; they are sent
 unchanged so they start working when the API does. --since and --until
@@ -51,10 +49,8 @@ take RFC3339 timestamps — the API rejects a bare date outright.
 
 Filters are sent only when you set them.
 
-Text output prints each entry's raw text, one per line, and drops the
-blank entry the API appends. json and yaml also carry level, message
-and time, but the API leaves all three empty today — only raw_text is
-populated.
+Text output prints each entry's time, level and message, one per line.
+json and yaml also carry raw_text, the entry's full journald record.
 
 Example:
   pgedge starfleet byoc node logs a1b2c3d4-e5f6-7890-abcd-ef1234567890 n1 system
@@ -129,19 +125,26 @@ Example:
 				return nil
 			}
 
-			// The API pads the array with an all-empty element, so text
-			// mode skips entries with nothing to print. json and yaml
-			// carry the response verbatim.
+			// raw_text is the whole journald JSON record, unreadable as
+			// text, so print the parsed fields. An older API fills only
+			// raw_text and pads the array with an all-empty element.
 			var printed int
 			for _, e := range *entries {
-				if e.RawText == "" {
+				switch {
+				case e.Message != "":
+					// Escaped, as in managed's renderer: time, level and
+					// message share a line, so an embedded newline would
+					// forge a record.
+					fmt.Fprintf(rt.Stdout, "%s  %-*s  %s\n",
+						output.Sanitize(e.Time), nodeLogLevelWidth,
+						output.Sanitize(e.Level),
+						output.Sanitize(e.Message))
+				case e.RawText != "":
+					// Verbatim: nothing the CLI supplies shares the line.
+					fmt.Fprintln(rt.Stdout, e.RawText)
+				default:
 					continue
 				}
-				// Verbatim, as in database logs: nothing the CLI
-				// supplies shares the line, so an embedded newline
-				// cannot forge a field. managed's renderer escapes
-				// because it prints a time and level on the same line.
-				fmt.Fprintln(rt.Stdout, e.RawText)
 				printed++
 			}
 			if printed == 0 {

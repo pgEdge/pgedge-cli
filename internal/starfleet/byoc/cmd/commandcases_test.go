@@ -32,7 +32,7 @@ var byocCmdCases = []byocCmdCase{
 	{"cluster metrics", []string{"cluster", "metrics", testClusterID}},
 	{"node list", []string{"node", "list", testClusterID}},
 	{"node logs", []string{"node", "logs", testClusterID,
-		testNodeID, "postgresql"}},
+		testNodeID, "docker"}},
 	{"database list", []string{"database", "list"}},
 	{"database get", []string{"database", "get", testDatabaseID}},
 	{"database connection-string",

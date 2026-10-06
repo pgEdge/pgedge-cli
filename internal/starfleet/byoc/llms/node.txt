@@ -95,24 +95,12 @@ large read is bounded only by the 30-second per-request `--timeout`,
 so raise it, or pass `--timeout 0` to disable the bound, before asking
 for a whole journal.
 
-**The API does not validate the log name.** It is a journald selector,
-every name answers 200, and an unrecognized one returns the same
-`-- No entries --` body as a real log with nothing in it, so nothing can
-distinguish a typo from an idle log. The CLI passes that notice through
-rather than rewriting it.
-
-These results are recorded from observation rather than declared by
-the API contract:
-
-| Log name | Result |
-|----------|--------|
-| `system`, `docker`, `containerd` | real entries |
-| `postgresql`, `pgedge`, `patroni`, `messages`, `syslog`, `journal`, `kern`, `daemon`, `spock` | `-- No entries --` |
-| `postgres` | `500 failed to read log` |
+The log name is `system`, `docker` or `containerd`. The API refuses
+any other name with `400 invalid log_name`.
 
 For Postgres's own log use `database logs`, not this command.
 
-`--priority`, `--reverse` and `--dmesg` work. **`--grep`, `--since` and
+`--priority`, `--grep`, `--reverse` and `--dmesg` work. **`--since` and
 `--until` are currently refused server-side** with
 `500 failed to read log`, even against a log that returns entries
 without them — so this is an API-side fault, not an argument problem.
@@ -120,10 +108,8 @@ The CLI sends them unchanged so they start working when the API does.
 `--since` and `--until` take RFC3339 timestamps; a bare date is refused
 with `400 failed to parse since`. Filters are sent only when set.
 
-Table output prints each entry's raw text, one per line, and drops the
-blank entry the API appends to every response. `-o json` also carries
-`level`, `message` and `time`, but the API leaves all three **empty**
-today — only `raw_text` is populated.
+Table output prints each entry's time, level and message, one per line.
+`-o json` also carries `raw_text`, the entry's full journald record.
 
 **Example:**
 

@@ -50,8 +50,9 @@ Narrow the result with `--columns`, restrict it to one node with
 defaults to 15 minutes and takes `value,unit` with second, minute,
 hour, day, week, month or year as the unit. A malformed or zero
 interval is exit 2 before the request. The CLI does not check
-`--columns`, so a column the API cannot use reaches the API, which
-answers `500 failed to read metrics` rather than 400. An unknown
+`--columns`. The API refuses a malformed column name with
+`400 invalid column name`, and answers an unknown one with
+`500 failed to read metrics`. An unknown
 `--node-name` answers 200 with a null series, reported as
 `No metrics found.` The sample
 timestamps here are epoch milliseconds, not the seconds `cluster
@@ -69,21 +70,9 @@ or a node name as shown by `node list`, which costs an extra call to
 look up. The log path needs a UUID and `cluster get` reports none,
 which is why the lookup exists.
 
-The log name is a journald selector and the API does not validate the
-value. Almost every name answers 200, and an unrecognized one returns
-the same `-- No entries --` an idle log returns, printed to stdout
-unrewritten like any other line, so nothing tells a typo from an idle
-log. `postgres` is the one exception, answering 500. The following
-table describes what each log name returns:
-
-| Log name | Result |
-|---|---|
-| `system`, `docker`, `containerd` | Real entries |
-| `postgresql`, `pgedge`, `patroni`, `messages` | `-- No entries --` |
-| `postgres` | `500 failed to read log` |
-
-For the Postgres log itself, use `database logs` rather than this
-command.
+The log name is `system`, `docker` or `containerd`. The API refuses
+any other name with `400 invalid log_name`, at exit status 1. For the
+Postgres log itself, use `database logs` instead.
 
 Not every filter works. The following table describes each:
 
@@ -93,12 +82,12 @@ Not every filter works. The following table describes each:
 | `--reverse` | Works: returns the newest entries first |
 | `--dmesg` | Works: returns kernel entries only |
 | `--lines` | Caps the entries returned, per its help |
-| `--grep` | Refused server-side with `500 failed to read log` |
-| `--case-sensitive` | Modifies `--grep`, so refused with it |
+| `--grep` | Works: returns entries matching a regular expression |
+| `--case-sensitive` | Makes `--grep` case-sensitive |
 | `--since` | Refused server-side with `500 failed to read log` |
 | `--until` | Refused server-side with `500 failed to read log` |
 
-The three refused filters fail even against a log that returns entries
+The two refused filters fail even against a log that returns entries
 without them, which makes this an API-side fault rather than an
 argument problem. The CLI sends all of them unchanged. `--since` and
 `--until` take RFC3339 timestamps, and a bare date is refused with
@@ -109,12 +98,10 @@ first:
     pgedge starfleet byoc node logs <cluster-id> n1 docker \
         --lines 200 --reverse
 
-Text output prints each entry's raw text one per line and skips every
-entry whose raw text is empty, which is how the blank element the API
-appends never reaches you. A response that is empty, or whose entries
-are all blank, prints `No log entries found.` on stderr at exit 0.
-Structured output also carries `level`, `message` and `time`, but the
-API leaves all three empty, so only `raw_text` holds anything.
+Text output prints each entry's time, level and message, one per line.
+A response with no entries prints `No log entries found.` on stderr at
+exit 0. Structured output also carries `raw_text`, the entry's full
+journald record.
 
 ## Postgres logs on a BYOC database
 

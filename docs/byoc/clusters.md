@@ -317,15 +317,11 @@ various node-targeting flags expect.
 
 `node logs <cluster-id> <node> <log-name>` reads one journald log from
 one node, and accepts either a node name or a node UUID. The log name
-is a journald selector the API does not validate: every name answers
-200, and an unrecognized one returns the same "no entries" marker as a
-real log with nothing in it. `system`, `docker` and `containerd`
-return entries, `postgresql`, `pgedge`, `patroni` and `messages`
-return the empty marker, and `postgres` answers 500. Read Postgres's
-own log with `database logs` instead.
+is `system`, `docker` or `containerd`, and the API refuses any other
+name with a 400. Read Postgres's own log with `database logs` instead.
 
-`--lines`, `--priority`, `--reverse` and `--dmesg` work on node logs.
-`--grep`, `--since` and `--until` are refused server-side with a 500,
+`--lines`, `--priority`, `--grep`, `--reverse` and `--dmesg` work on
+node logs. `--since` and `--until` are refused server-side with a 500,
 even against a log that returns entries without them. The CLI sends
 them unchanged.
 

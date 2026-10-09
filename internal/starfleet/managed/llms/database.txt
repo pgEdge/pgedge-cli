@@ -491,6 +491,8 @@ stderr when they do: `get`, `connection-string`, `inspect`, `logs`,
 `metrics`, `allowlist get`, `branch list` and `env pull`. Every verb
 that changes anything still requires its ID, so a script whose ID
 variable is unset fails rather than writing to the linked database.
+With a branch link, `connection-string`, `inspect` and `env pull` use
+the branch's connection, and the other five read the source database.
 The folder search stops at the first folder holding `.git`, and never
 reads `~/.pgedge`.
 

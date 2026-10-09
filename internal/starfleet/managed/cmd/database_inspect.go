@@ -11,6 +11,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/inspect"
 	"github.com/pgEdge/pgedge-cli/internal/module"
+	"github.com/pgEdge/pgedge-cli/internal/projectlink"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/managed/api"
 )
 
@@ -46,7 +47,8 @@ replication-lag would return a row per replica with every column
 blank but application. A database that refuses the connection is exit
 1; one that accepts it and never answers is exit 3 after 30 seconds.
 The database ID takes a full UUID. In a folder linked with
-'database link', the ID can be left out.
+'database link', the ID can be left out, and a link naming a branch
+inspects the branch.
 
 Example:
   pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 table-sizes
@@ -81,10 +83,13 @@ Example:
 					"unknown analysis %q: one of %s", analysis,
 					strings.Join(inspect.Names(), ", ")), ExitUsage)
 			}
+			branchID := uuid.Nil
 			if len(args) == 1 {
-				if id, _, err = databaseArg(rt, nil, 0); err != nil {
+				var link *projectlink.Found
+				if id, link, err = databaseArg(rt, nil, 0); err != nil {
 					return err
 				}
+				branchID = linkedBranch(rt, link)
 			}
 			var wireUserType api.GetManagedDatabaseParamsUserType
 			if a.NeedsStats && !cmd.Flags().Changed("user-type") {
@@ -92,6 +97,7 @@ Example:
 				// would read as a quiet database or as blank
 				// columns rather than as a missing privilege.
 				wireUserType = api.GetManagedDatabaseParamsUserTypeAdmin
+				userType = "admin"
 			}
 			if cmd.Flags().Changed("user-type") {
 				if userType == "" {
@@ -109,6 +115,14 @@ Example:
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
+			}
+			if branchID != uuid.Nil {
+				cs, err := branchConnectionString(client, id, branchID,
+					userType, true)
+				if err != nil {
+					return err
+				}
+				return cli.RunInspect(cmd.Context(), rt, inspectDeps, a, cs.URI)
 			}
 			params := &api.GetManagedDatabaseParams{}
 			if wireUserType != "" {

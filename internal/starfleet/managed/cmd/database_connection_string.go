@@ -88,9 +88,9 @@ Example:
 				return err
 			}
 			var cs *connstr.String
-			if link != nil && link.BranchID != "" {
+			if branchID := linkedBranch(rt, link); branchID != uuid.Nil {
 				cs, err = branchConnectionString(client, id,
-					uuid.MustParse(link.BranchID), userType, !noPassword)
+					branchID, userType, !noPassword)
 			} else {
 				cs, err = databaseConnectionString(client, id,
 					wireUserType, !noPassword)

@@ -160,8 +160,8 @@ switch to the branch:
     pgedge starfleet managed database link <db-id> \
         --branch <branch-id> --force
 
-With a branch link, `env pull` and `connection-string` use the
-branch's connection. The other read commands act on the source
+With a branch link, `env pull`, `connection-string` and `inspect` use
+the branch's connection. The other read commands act on the source
 database. Run `pgedge env pull` again after switching, and
 the command replaces the `DATABASE_URL` line with the branch's URI.
 

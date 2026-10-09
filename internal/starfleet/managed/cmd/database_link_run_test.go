@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/pgEdge/pgedge-cli/internal/cli"
+	"github.com/pgEdge/pgedge-cli/internal/inspect/inspecttest"
 	"github.com/pgEdge/pgedge-cli/internal/projectlink"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
@@ -460,7 +461,7 @@ func TestReadVerbsTakeTheLinkedDatabase(t *testing.T) {
 func TestConnectionStringFollowsABranchLink(t *testing.T) {
 	dir := inProject(t)
 	writeLink(t, dir, testBranchID)
-	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	rt, out, errb := testsupport.NewRuntime(t, "", "text")
 	url := testsupport.NewAuthedServer(t, (&linkStub{}).handler)
 	if err := runAuthed(t, rt, out, url, "database", "connection-string", "--no-password"); err != nil {
 		t.Fatal(err)
@@ -468,6 +469,103 @@ func TestConnectionStringFollowsABranchLink(t *testing.T) {
 	want := "postgresql://app@" + testBranchHost + ":5432/mydb?sslmode=require\n"
 	if out.String() != want {
 		t.Errorf("stdout = %q, want %q", out.String(), want)
+	}
+	if !strings.Contains(errb.String(), "Using branch "+testBranchID) {
+		t.Errorf("stderr = %q", errb.String())
+	}
+}
+
+func TestInspectFollowsABranchLink(t *testing.T) {
+	seen := withFakeInspect(t)
+	inspecttest.Script(t, "FROM pg_stat_user_tables\nORDER BY seq_scan",
+		inspecttest.Result{Cols: []string{"schema", "table", "seq_scans", "seq_rows_read", "index_scans"}})
+	inspecttest.Script(t, "pg_blocking_pids", inspecttest.Result{
+		Cols: []string{"blocked_pid", "blocked_by", "blocked_duration", "blocked_query"},
+	})
+	branchPath := "/managed/v1/databases/" + testDatabaseID + "/branches/" + testBranchID
+	for _, tc := range []struct {
+		args     []string
+		userType string
+	}{
+		{[]string{"seq-scans"}, ""},
+		{[]string{"seq-scans", "--user-type", "app_read_only"}, "application_read_only"},
+		{[]string{"locks"}, "admin"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			dir := inProject(t)
+			writeLink(t, dir, testBranchID)
+			rt, out, errb := testsupport.NewRuntime(t, "", "text")
+			stub := &linkStub{}
+			url := testsupport.NewAuthedServer(t, stub.handler)
+			args := append([]string{"database", "inspect"}, tc.args...)
+			if err := runAuthed(t, rt, out, url, args...); err != nil {
+				t.Fatal(err)
+			}
+			if len(stub.paths) != 1 || stub.paths[0] != branchPath {
+				t.Errorf("requests = %v, want only the branch", stub.paths)
+			}
+			if stub.userTypes[0] != tc.userType {
+				t.Errorf("user_type = %q, want %q", stub.userTypes[0], tc.userType)
+			}
+			if !strings.Contains(*seen, "@"+testBranchHost+":") {
+				t.Errorf("connected with %q, want the branch host", *seen)
+			}
+			if !strings.Contains(errb.String(), "Using branch "+testBranchID) {
+				t.Errorf("stderr = %q", errb.String())
+			}
+		})
+	}
+}
+
+// A typed ID names a database, so a branch link does not redirect it.
+func TestInspectWithAnIDIgnoresABranchLink(t *testing.T) {
+	seen := withFakeInspect(t)
+	inspecttest.Script(t, "FROM pg_stat_user_tables\nORDER BY seq_scan",
+		inspecttest.Result{Cols: []string{"schema", "table", "seq_scans", "seq_rows_read", "index_scans"}})
+	dir := inProject(t)
+	writeLink(t, dir, testBranchID)
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	stub := &linkStub{}
+	url := testsupport.NewAuthedServer(t, stub.handler)
+	if err := runAuthed(t, rt, out, url, "database", "inspect", testDatabaseID, "seq-scans"); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.paths) != 1 || stub.paths[0] != "/managed/v1/databases/"+testDatabaseID {
+		t.Errorf("requests = %v, want only the database", stub.paths)
+	}
+	if strings.Contains(*seen, testBranchHost) {
+		t.Errorf("connected with %q, want the database host", *seen)
+	}
+}
+
+// get, logs, metrics and allowlist get read the source database even
+// in a branch-linked folder: the branch has its own verbs for those.
+func TestSourceVerbsIgnoreABranchLink(t *testing.T) {
+	for _, args := range [][]string{
+		{"database", "get"},
+		{"database", "logs"},
+		{"database", "metrics"},
+		{"database", "allowlist", "get"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			dir := inProject(t)
+			writeLink(t, dir, testBranchID)
+			rt, out, errb := testsupport.NewRuntime(t, "", "text")
+			stub := &linkStub{}
+			url := testsupport.NewAuthedServer(t, stub.handler)
+			_ = runAuthed(t, rt, out, url, args...)
+			for _, p := range stub.paths {
+				if strings.Contains(p, testBranchID) {
+					t.Errorf("requested %s, want the source database only", p)
+				}
+			}
+			if len(stub.paths) == 0 {
+				t.Error("made no request")
+			}
+			if strings.Contains(errb.String(), "Using branch") {
+				t.Errorf("stderr = %q", errb.String())
+			}
+		})
 	}
 }
 

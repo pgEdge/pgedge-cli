@@ -2,6 +2,7 @@ package selfupdate
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -75,4 +76,19 @@ func Resolve(releases []Release, want string) (Release, error) {
 // a "v" prefix on either side.
 func IsCurrent(tag, current string) bool {
 	return canonicalTag(tag) == canonicalTag(current)
+}
+
+// describeSuffix matches what `git describe --tags --dirty` appends to
+// the nearest tag on a build past it.
+var describeSuffix = regexp.MustCompile(`(-\d+-g[0-9a-f]+)?(-dirty)?$`)
+
+// AtLeast reports whether current is tag or newer. A describe build
+// compares as its base tag: left on, semver reads "beta.3-25-gabc" as
+// an alphanumeric identifier and ranks it above "beta.10".
+func AtLeast(current, tag string) bool {
+	base := describeSuffix.ReplaceAllString(canonicalTag(current), "")
+	if !semver.IsValid(base) {
+		return false
+	}
+	return semver.Compare(base, canonicalTag(tag)) >= 0
 }

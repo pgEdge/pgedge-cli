@@ -142,6 +142,36 @@ func TestResolveNoValidSemverTags(t *testing.T) {
 	}
 }
 
+func TestAtLeast(t *testing.T) {
+	cases := []struct {
+		name    string
+		current string
+		tag     string
+		want    bool
+	}{
+		{"same tag", "v0.5.0-beta.3", "v0.5.0-beta.3", true},
+		{"same tag, no v on current", "0.5.0-beta.3", "v0.5.0-beta.3", true},
+		{"older pre-release", "0.5.0-beta.3", "v0.5.0-beta.4", false},
+		{"newer pre-release", "0.5.0-beta.4", "v0.5.0-beta.3", true},
+		{"describe build past the tag", "v0.5.0-beta.3-25-g0e9a622", "v0.5.0-beta.3", true},
+		{"dirty describe build", "v0.5.0-beta.3-25-g0e9a622-dirty", "v0.5.0-beta.3", true},
+		{"dirty build on the tag", "v0.5.0-beta.3-dirty", "v0.5.0-beta.3", true},
+		{"describe build behind beta.10", "v0.5.0-beta.3-25-g0e9a622", "v0.5.0-beta.10", false},
+		{"describe build past a release", "v0.5.0-4-gabc1234", "v0.5.0", true},
+		{"release beats its pre-release", "0.5.0", "v0.5.0-beta.3", true},
+		{"bare commit hash", "0e9a622", "v0.5.0-beta.3", false},
+		{"empty version", "", "v0.5.0-beta.3", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := AtLeast(c.current, c.tag); got != c.want {
+				t.Errorf("AtLeast(%q, %q) = %v, want %v",
+					c.current, c.tag, got, c.want)
+			}
+		})
+	}
+}
+
 func TestIsCurrent(t *testing.T) {
 	cases := []struct {
 		name    string

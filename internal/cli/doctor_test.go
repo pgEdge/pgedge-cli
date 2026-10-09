@@ -351,6 +351,13 @@ func TestRootDoctorLatestVersionCases(t *testing.T) {
 			wantDetail: Version + " (up to date)",
 		},
 		{
+			name:          "older tag is up to date",
+			releases:      []selfupdate.Release{{TagName: "v0.5.0"}},
+			wantStatus:    "ok",
+			wantDetail:    Version + " (up to date)",
+			wantNotDetail: "available",
+		},
+		{
 			name:       "gh unauthenticated",
 			err:        fmt.Errorf("gh releases: %w", selfupdate.ErrGHUnauthenticated),
 			wantStatus: "warning",

@@ -192,7 +192,7 @@ func checkLatestVersion(src selfupdate.Source) (latestInfo, error) {
 	}
 
 	info.Latest = release.TagName
-	info.UpToDate = selfupdate.IsCurrent(release.TagName, Version)
+	info.UpToDate = selfupdate.AtLeast(Version, release.TagName)
 	return info, nil
 }
 

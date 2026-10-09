@@ -296,8 +296,9 @@ var stderrComposedMessages = map[string]struct {
 // removes, or the database whose nodes it could not read.
 // 195 -> 198: byoc `node logs` prints time, level and message.
 // 198 -> 199: a branch link's `Using branch` line.
+// 199 -> 200: `branch get` prints the display name.
 const (
-	stderrArgSites      = 199
+	stderrArgSites      = 200
 	stderrComposedSites = 22
 )
 

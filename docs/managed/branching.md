@@ -133,8 +133,9 @@ deleted:
 
 Each row shows the ID, DATABASE, NAME, STATUS, REGION, SIZE, DEPTH and
 CREATED columns. NAME is the name the platform assigns, which also
-labels the branch's hostname. The display name you chose appears only
-under `-o json` or `-o yaml`.
+labels the branch's hostname. To read the display name you chose, run
+`branch get`, which prints it on a `Display name:` line, or add
+`-o json` or `-o yaml` to the list.
 
 The list takes these flags:
 

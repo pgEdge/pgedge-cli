@@ -351,6 +351,13 @@ func TestRootDoctorLatestVersionCases(t *testing.T) {
 			wantDetail: Version + " (up to date)",
 		},
 		{
+			name:          "older tag is up to date",
+			releases:      []selfupdate.Release{{TagName: "v0.5.0"}},
+			wantStatus:    "ok",
+			wantDetail:    Version + " (up to date)",
+			wantNotDetail: "available",
+		},
+		{
 			name:       "gh unauthenticated",
 			err:        fmt.Errorf("gh releases: %w", selfupdate.ErrGHUnauthenticated),
 			wantStatus: "warning",
@@ -382,6 +389,34 @@ func TestRootDoctorLatestVersionCases(t *testing.T) {
 			}
 			if tt.wantNotDetail != "" && strings.Contains(line, tt.wantNotDetail) {
 				t.Errorf("row %q wrongly carries %q", line, tt.wantNotDetail)
+			}
+		})
+	}
+}
+
+// A dev or bare-hash build cannot be ranked against a release, so
+// offering `self update` would recommend a possible downgrade.
+func TestRootDoctorUnversionedBuildNamesTheReleaseOnly(t *testing.T) {
+	for _, v := range []string{"dev", "0e9a622"} {
+		t.Run(v, func(t *testing.T) {
+			prevVersion := Version
+			Version = v
+			t.Cleanup(func() { Version = prevVersion })
+
+			rt, out := doctorRuntime(t, "text")
+			deps := &DoctorDeps{Source: &fixtureSource{
+				releases: []selfupdate.Release{{TagName: "v0.5.0"}},
+			}}
+			if err := runDoctor(rt, deps); err != nil {
+				t.Fatalf("doctor: %v", err)
+			}
+			line := doctorRowLine(t, out.String(), "Latest version")
+			want := "v0.5.0 is the newest release (unversioned build " + v + ")"
+			if !strings.Contains(line, "ok") || !strings.Contains(line, want) {
+				t.Errorf("row %q, want ok and %q", line, want)
+			}
+			if strings.Contains(line, "self update") {
+				t.Errorf("row %q offers self update", line)
 			}
 		})
 	}

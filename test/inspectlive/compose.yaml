@@ -1,10 +1,12 @@
 # Two Postgres servers for the live inspect suite: a publisher, which
 # also carries pg_stat_statements, and a subscriber that replicates one
 # table from it over native logical replication. PG_VERSION picks the
-# image tag (18 by default). PUBLISHER_PORT and SUBSCRIBER_PORT move the
-# host ports off 55432 and 55433; the suite's default connection strings
-# name those two, so a run against moved ports sets
-# PGEDGE_INSPECT_LIVE_PUBLISHER and PGEDGE_INSPECT_LIVE_SUBSCRIBER too.
+# image tag (18 by default), pulled through mirror.gcr.io because
+# Docker Hub rate-limits CI's anonymous pulls. PUBLISHER_PORT and
+# SUBSCRIBER_PORT move the host ports off 55432 and 55433; the suite's
+# default connection strings name those two, so a run against moved
+# ports sets PGEDGE_INSPECT_LIVE_PUBLISHER and
+# PGEDGE_INSPECT_LIVE_SUBSCRIBER too.
 #
 # The health check names the host explicitly: while the image's
 # entrypoint runs initdb its temporary server listens on the socket
@@ -13,7 +15,7 @@
 name: pgedge-inspectlive
 
 x-postgres: &postgres
-  image: postgres:${PG_VERSION:-18}
+  image: mirror.gcr.io/library/postgres:${PG_VERSION:-18}
   environment:
     POSTGRES_USER: inspect
     POSTGRES_PASSWORD: inspect

@@ -172,6 +172,21 @@ func TestAtLeast(t *testing.T) {
 	}
 }
 
+func TestComparable(t *testing.T) {
+	for v, want := range map[string]bool{
+		"v0.5.0-beta.3":                   true,
+		"0.5.0":                           true,
+		"v0.5.0-beta.3-25-g0e9a622-dirty": true,
+		"dev":                             false,
+		"0e9a622":                         false,
+		"":                                false,
+	} {
+		if got := Comparable(v); got != want {
+			t.Errorf("Comparable(%q) = %v, want %v", v, got, want)
+		}
+	}
+}
+
 func TestIsCurrent(t *testing.T) {
 	cases := []struct {
 		name    string

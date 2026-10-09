@@ -86,9 +86,16 @@ var describeSuffix = regexp.MustCompile(`(-\d+-g[0-9a-f]+)?(-dirty)?$`)
 // compares as its base tag: left on, semver reads "beta.3-25-gabc" as
 // an alphanumeric identifier and ranks it above "beta.10".
 func AtLeast(current, tag string) bool {
-	base := describeSuffix.ReplaceAllString(canonicalTag(current), "")
-	if !semver.IsValid(base) {
-		return false
-	}
-	return semver.Compare(base, canonicalTag(tag)) >= 0
+	return Comparable(current) &&
+		semver.Compare(describeBase(current), canonicalTag(tag)) >= 0
+}
+
+// Comparable reports whether current carries a release version, which
+// "dev" and a bare `git describe --always` commit hash do not.
+func Comparable(current string) bool {
+	return semver.IsValid(describeBase(current))
+}
+
+func describeBase(current string) string {
+	return describeSuffix.ReplaceAllString(canonicalTag(current), "")
 }

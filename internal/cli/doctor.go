@@ -356,6 +356,12 @@ func runDoctor(rt *module.Runtime, deps *DoctorDeps) error {
 		latestStatus = "ok"
 		latestDetail = fmt.Sprintf("%s (up to date)",
 			report.LatestVersion.Current)
+	case latestErr == nil && !selfupdate.Comparable(report.LatestVersion.Current):
+		latestStatus = "ok"
+		latestDetail = fmt.Sprintf("%s is the newest release "+
+			"(unversioned build %s)",
+			report.LatestVersion.Latest,
+			output.Sanitize(report.LatestVersion.Current))
 	case latestErr == nil:
 		latestDetail = fmt.Sprintf("%s available — run 'pgedge self update'",
 			report.LatestVersion.Latest)

@@ -394,6 +394,34 @@ func TestRootDoctorLatestVersionCases(t *testing.T) {
 	}
 }
 
+// A dev or bare-hash build cannot be ranked against a release, so
+// offering `self update` would recommend a possible downgrade.
+func TestRootDoctorUnversionedBuildNamesTheReleaseOnly(t *testing.T) {
+	for _, v := range []string{"dev", "0e9a622"} {
+		t.Run(v, func(t *testing.T) {
+			prevVersion := Version
+			Version = v
+			t.Cleanup(func() { Version = prevVersion })
+
+			rt, out := doctorRuntime(t, "text")
+			deps := &DoctorDeps{Source: &fixtureSource{
+				releases: []selfupdate.Release{{TagName: "v0.5.0"}},
+			}}
+			if err := runDoctor(rt, deps); err != nil {
+				t.Fatalf("doctor: %v", err)
+			}
+			line := doctorRowLine(t, out.String(), "Latest version")
+			want := "v0.5.0 is the newest release (unversioned build " + v + ")"
+			if !strings.Contains(line, "ok") || !strings.Contains(line, want) {
+				t.Errorf("row %q, want ok and %q", line, want)
+			}
+			if strings.Contains(line, "self update") {
+				t.Errorf("row %q offers self update", line)
+			}
+		})
+	}
+}
+
 // TestRootDoctorNoVersionCheckNeverCallsTheSource: the flag
 // exists so an air-gapped operator can run doctor without it dialling
 // api.github.com, so the proof is a source that fails the test when

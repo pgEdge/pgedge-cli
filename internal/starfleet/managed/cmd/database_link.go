@@ -67,6 +67,17 @@ func databaseArg(rt *module.Runtime, args []string, i int) (
 	return uuid.MustParse(f.DatabaseID), f, nil
 }
 
+// linkedBranch returns the branch a link names, or uuid.Nil. Only the
+// verbs that connect follow it; get, logs and metrics read the source
+// database, since a branch has its own verbs for those.
+func linkedBranch(rt *module.Runtime, f *projectlink.Found) uuid.UUID {
+	if f == nil || f.BranchID == "" {
+		return uuid.Nil
+	}
+	fmt.Fprintf(rt.Stderr, "Using branch %s\n", output.Sanitize(f.BranchID))
+	return uuid.MustParse(f.BranchID)
+}
+
 // projectFolder is the working directory, refused when it is the home
 // folder: ~/.pgedge is the shared config root, and Find never reads a
 // link there.

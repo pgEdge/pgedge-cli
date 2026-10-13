@@ -12,8 +12,12 @@ func InstallMethodFrom(path string) string {
 	// /opt/homebrew/lib/node_modules and must not read as Homebrew.
 	case strings.Contains(lower, "node_modules"):
 		return "npm"
+	// A cask resolves under Caskroom, which on an Intel Mac
+	// (/usr/local) or Linux (/home/linuxbrew) names neither of the others.
 	case strings.Contains(lower, "cellar") ||
-		strings.Contains(lower, "homebrew"):
+		strings.Contains(lower, "caskroom") ||
+		strings.Contains(lower, "homebrew") ||
+		strings.Contains(lower, "linuxbrew"):
 		return "homebrew"
 	case strings.Contains(lower, ".local/bin"):
 		return "install-script"

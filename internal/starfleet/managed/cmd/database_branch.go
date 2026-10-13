@@ -248,8 +248,17 @@ Example:
 			if rt.Output.Structured() {
 				return rt.Output.Print(b, nil)
 			}
-			return rt.Output.Print(
-				[]output.Row{branchRowFrom(*b)}, branchColumns)
+			if err := rt.Output.Print(
+				[]output.Row{branchRowFrom(*b)}, branchColumns); err != nil {
+				return err
+			}
+			// A line, as database get prints it, so the table keeps
+			// branch list's columns.
+			if dn, err := b.DisplayName.Get(); err == nil && dn != "" {
+				fmt.Fprintf(rt.Output.Out, "\nDisplay name: %s\n",
+					output.Sanitize(dn))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&userType, "user-type", "",

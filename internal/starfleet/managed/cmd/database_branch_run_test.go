@@ -80,6 +80,28 @@ func TestDatabaseBranchGetRendersRow(t *testing.T) {
 			t.Errorf("get output missing %q; got:\n%s", want, out.String())
 		}
 	}
+	if strings.Contains(out.String(), "Display name") {
+		t.Errorf("printed a display-name label with nothing set:\n%s",
+			out.String())
+	}
+}
+
+func TestDatabaseBranchGetShowsDisplayName(t *testing.T) {
+	body := strings.Replace(branchJSON(testDatabaseID, testBranchID),
+		`"name":"br-1",`, `"name":"br-1","display_name":"dev-copy",`, 1)
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	url := testsupport.NewAuthedServer(t,
+		testsupport.JSONHandler(http.StatusOK, body))
+
+	err := runAuthed(t, rt, out, url,
+		"database", "branch", "get", testDatabaseID, testBranchID)
+	if err != nil {
+		t.Fatalf("branch get: %v", err)
+	}
+	if !strings.Contains(out.String(), "Display name: dev-copy") {
+		t.Errorf("get output missing the display name; got:\n%s",
+			out.String())
+	}
 }
 
 // --- create ---

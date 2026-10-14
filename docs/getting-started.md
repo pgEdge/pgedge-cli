@@ -138,7 +138,7 @@ lists what each route needs:
 | Install path | Also needs |
 |---|---|
 | Hand it to your AI agent | Node.js, for the agent-skills step |
-| Homebrew | Homebrew, on macOS |
+| Homebrew | Homebrew, on Linux or macOS |
 | GitHub Actions | A Linux or macOS runner |
 | Download a release archive | `tar` and `sha256sum` or `shasum` |
 | `go install` from main | Go 1.26 or newer |
@@ -213,7 +213,7 @@ step fails, or you decline it, the agent carries on:
 
 ### Installing with Homebrew
 
-On macOS, install from the pgEdge tap:
+On Linux or macOS, install from the pgEdge tap:
 
     brew install pgEdge/tap/pgedge
 

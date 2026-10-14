@@ -13,6 +13,10 @@ func TestInstallMethodFrom(t *testing.T) {
 	}{
 		{"/opt/homebrew/Cellar/pgedge/0.1.0/bin/pgedge", "homebrew"},
 		{"/usr/local/Homebrew/bin/pgedge", "homebrew"},
+		{"/opt/homebrew/Caskroom/pgedge/0.5.0-beta.3/pgedge", "homebrew"},
+		{"/usr/local/Caskroom/pgedge/0.5.0-beta.3/pgedge", "homebrew"},
+		{"/home/linuxbrew/.linuxbrew/Caskroom/pgedge/0.5.0-beta.3/pgedge", "homebrew"},
+		{"/home/linuxbrew/.linuxbrew/bin/pgedge", "homebrew"},
 		{"/opt/homebrew/lib/node_modules/@pgedge/cli-darwin-arm64/bin/pgedge", "npm"},
 		{"/Users/alice/.nvm/versions/node/v24.1.0/lib/node_modules/@pgedge/cli-linux-x64/bin/pgedge", "npm"},
 		{"/app/node_modules/.pnpm/@pgedge+cli-linux-arm64@0.5.0/node_modules/@pgedge/cli-linux-arm64/bin/pgedge", "npm"},

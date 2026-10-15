@@ -39,7 +39,7 @@ jobs:
       # KEY=VALUE lines are forwarded (comments/blanks are skipped).
       - name: Load per-module versions
         run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
-      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           # Pinned because cmd/caskpatch is tested against this
           # version's cask output.
@@ -59,7 +59,7 @@ jobs:
           mkdir -p dist/tap/Casks
           go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
             -out dist/tap/Casks/pgedge.rb
-      - uses: Homebrew/actions/setup-homebrew@e99025eb970cfa124b8284a35463d87426917478 # main
+      - uses: Homebrew/actions/setup-homebrew@eb02c69dbabdb66ff183c614f4ce7ab3c077592c # main
       - name: Check the cask with brew style
         run: brew style dist/tap/Casks/pgedge.rb
       # A PAT with write access to pgEdge/homebrew-tap. Unset, the
@@ -128,7 +128,7 @@ jobs:
               "^https://github\.com/${GITHUB_REPOSITORY}/\.github/workflows/release\.yml@refs/tags/" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             assets/checksums.txt
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         # No registry-url: its _authToken line, even empty, stops npm
         # trying trusted publishing.
         with:

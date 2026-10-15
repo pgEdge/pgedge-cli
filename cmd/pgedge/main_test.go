@@ -573,6 +573,29 @@ func TestRunByocAuthErrorExitCode(t *testing.T) {
 	}
 }
 
+// TestRunSendsTheUserAgent proves main wires the build's version into
+// the header: the token exchange is the first request a command makes.
+func TestRunSendsTheUserAgent(t *testing.T) {
+	var got atomic.Value
+	srv := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			got.Store(r.Header.Get("User-Agent"))
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+	defer srv.Close()
+
+	home := t.TempDir()
+	testsupport.ClearEnv(t)
+	writeStarfleetConfig(t, home, srv.URL, "test-id", "test-secret")
+	runSubprocess(t, home,
+		[]string{"pgedge", "starfleet", "byoc", "cluster", "list"})
+
+	want := "pgedge-cli/dev (" + runtime.GOOS + "; " + runtime.GOARCH + ")"
+	if ua, _ := got.Load().(string); ua != want {
+		t.Errorf("server saw User-Agent %q, want %q", ua, want)
+	}
+}
+
 // TestExitCodeContract drives the whole exit-code vocabulary through
 // real child processes. It is the gate that matters most for this
 // contract, because every layer can be individually correct while the

@@ -24,6 +24,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/httplog"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
+	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
 )
 
@@ -354,7 +355,8 @@ func httpClientFor(
 	// server really sent, not the repaired one.
 	return &http.Client{
 		Transport: dryrun.Wrap(
-			errbody.Wrap(httplog.Wrap(base, rt.Stderr, lvl)), rt.DryRun,
+			errbody.Wrap(httplog.Wrap(
+				useragent.Wrap(base, rt.UserAgent), rt.Stderr, lvl)), rt.DryRun,
 			mutatingGETs...),
 		Timeout: c.timeout,
 	}, nil

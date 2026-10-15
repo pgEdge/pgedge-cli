@@ -100,15 +100,10 @@ func TestHTTPClientForCarriesOnlyTheRepairWhenNothingAsked(t *testing.T) {
 func TestAuthHTTPClientForNeverCarriesDryRun(t *testing.T) {
 	rt := &module.Runtime{DryRun: dryrun.New()}
 	c := authHTTPClientFor(rt, RequestTimeout)
-	// The carve-out is asserted on the transport rather than on
-	// client identity: the quiet branch builds its own client, since
-	// a Timeout on the shared global would bound every other caller
-	// in the process.
-	if c.Transport != nil {
-		t.Errorf("authHTTPClientFor returned a wrapped client (%T); "+
-			"with no --verbose/--debug it must add no transport",
-			c.Transport)
+	if _, ok := c.Transport.(*dryrun.Transport); ok {
+		t.Error("authHTTPClientFor installed the dry-run transport")
 	}
+	// A Timeout on the shared global would bound every other caller.
 	if c == http.DefaultClient {
 		t.Error("authHTTPClientFor handed out the shared " +
 			"http.DefaultClient, which cannot be bounded")

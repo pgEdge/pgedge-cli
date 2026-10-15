@@ -28,6 +28,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/httplog"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	accountapi "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
+	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/pflag"
 )
 
@@ -310,7 +311,8 @@ func HTTPClientFor(rt *module.Runtime, timeout time.Duration) *http.Client {
 		Timeout: timeout,
 		Transport: dryrun.Wrap(
 			errbody.Wrap(
-				httplog.Wrap(http.DefaultTransport, rt.Stderr, lvl)),
+				httplog.Wrap(useragent.Wrap(http.DefaultTransport,
+					rt.UserAgent), rt.Stderr, lvl)),
 			rt.DryRun),
 	}
 }
@@ -319,17 +321,14 @@ func HTTPClientFor(rt *module.Runtime, timeout time.Duration) *http.Client {
 // token exchange: that POST would otherwise be intercepted and every dry
 // run would fail to authenticate before its first read. The exemption
 // is by client rather than by URL path so no path string can drift from
-// the spec; TestTokenExchangeIsNotInterceptedByDryRun pins it. The quiet
-// branch builds its own client because setting Timeout on
-// http.DefaultClient would bound every other caller.
+// the spec; TestTokenExchangeIsNotInterceptedByDryRun pins it.
 func authHTTPClientFor(rt *module.Runtime, timeout time.Duration) *http.Client {
 	lvl := httplog.LevelFor(rt.Verbose, rt.Debug)
-	if lvl == httplog.Off {
-		return &http.Client{Timeout: timeout}
-	}
 	return &http.Client{
-		Timeout:   timeout,
-		Transport: httplog.Wrap(http.DefaultTransport, rt.Stderr, lvl),
+		Timeout: timeout,
+		Transport: httplog.Wrap(
+			useragent.Wrap(http.DefaultTransport, rt.UserAgent),
+			rt.Stderr, lvl),
 	}
 }
 

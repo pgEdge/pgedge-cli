@@ -14,6 +14,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
+	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
 )
 
@@ -166,7 +167,10 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 	// A bare client for an unauthenticated reachability probe; `doctor`
 	// takes no --dry-run. A write added here must move to
 	// conn.HTTPClientFor first, or it bypasses dry-run.
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: useragent.Wrap(http.DefaultTransport, rt.UserAgent),
+	}
 
 	start := time.Now()
 	resp, err := client.Get(apiURL)

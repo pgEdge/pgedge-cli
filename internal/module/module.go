@@ -32,6 +32,9 @@ type Runtime struct {
 	Verbose bool
 	Debug   bool
 
+	// UserAgent is sent on every API call; empty sends Go's default.
+	UserAgent string
+
 	// DryRun is non-nil when --dry-run is active. One field rather than
 	// a bool beside a recorder, so "enabled with nowhere to record"
 	// cannot happen.

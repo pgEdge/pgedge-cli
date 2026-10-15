@@ -11,6 +11,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet"
+	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +32,8 @@ func run() int {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 
-		Keychain: newKeychain(),
+		Keychain:  newKeychain(),
+		UserAgent: useragent.String(cli.Version),
 	}
 
 	module.Register(&starfleet.Module{})

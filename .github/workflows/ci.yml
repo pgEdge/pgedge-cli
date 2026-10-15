@@ -224,9 +224,14 @@ jobs:
 
   # The release's cask steps on a real goreleaser build, so a changed
   # goreleaser output fails here, not at a tag. The misordered copy is
-  # the positive control: brew style must reject it.
+  # the positive control: brew style must reject it. The install runs
+  # on both platforms the cask serves, from the snapshot archives.
   cask:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -241,11 +246,15 @@ jobs:
           version: v2.18.2
           args: release --snapshot --clean --skip=sign,sbom,publish,validate
       - uses: Homebrew/actions/setup-homebrew@eb02c69dbabdb66ff183c614f4ce7ab3c077592c # main
-      - name: brew style the patched cask
+      - name: Patch the cask
         run: |
-          mkdir -p "$RUNNER_TEMP/good/Casks" "$RUNNER_TEMP/bad/Casks"
+          mkdir -p "$RUNNER_TEMP/good/Casks"
           go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
             -out "$RUNNER_TEMP/good/Casks/pgedge.rb"
+      - name: brew style the patched cask
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bad/Casks"
           brew style "$RUNNER_TEMP/good/Casks/pgedge.rb"
           sed '2r /dev/stdin' dist/homebrew/Casks/pgedge.rb \
             > "$RUNNER_TEMP/bad/Casks/pgedge.rb" <<'EOF'
@@ -257,6 +266,35 @@ jobs:
           EOF
           if brew style "$RUNNER_TEMP/bad/Casks/pgedge.rb"; then
             echo "::error::brew style accepted a misordered cask"
+            exit 1
+          fi
+      - name: brew install the patched cask
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$GITHUB_WORKSPACE/scripts/cask-install-test.sh" local \
+            good/Casks/pgedge.rb "$GITHUB_WORKSPACE/dist"
+
+  # The release pushes the cask with this token, so an expired or
+  # revoked one fails here rather than at a tag. Dependabot and fork PRs
+  # get no secrets.
+  tap-token:
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    steps:
+      - name: HOMEBREW_TAP_TOKEN can push to pgEdge/homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN is unset"
+            exit 1
+          fi
+          push=$(gh api repos/pgEdge/homebrew-tap --jq .permissions.push)
+          if [ "$push" != true ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN cannot push to the tap"
             exit 1
           fi
 

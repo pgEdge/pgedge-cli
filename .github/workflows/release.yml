@@ -80,6 +80,27 @@ jobs:
             -f message="Brew cask update for pgedge version $TAG" \
             -f content="$content" -f sha="$sha"
 
+  # Installs what a user gets from the tap, on both platforms the cask
+  # serves, so a broken published cask is caught minutes after the tag.
+  brew:
+    needs: release
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: Homebrew/actions/setup-homebrew@eb02c69dbabdb66ff183c614f4ce7ab3c077592c # main
+      - name: brew install pgedge/tap/pgedge
+        working-directory: ${{ runner.temp }}
+        env:
+          TAG: ${{ github.ref_name }}
+        run: '"$GITHUB_WORKSPACE/scripts/cask-install-test.sh" tap "${TAG#v}"'
+
   # Dormant until the NPM_PUBLISH repository variable is "true". It
   # publishes the signed archives the release uploaded, so a tag push
   # and a manual run publish the same bytes the same way. Trusted

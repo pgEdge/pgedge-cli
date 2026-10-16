@@ -89,8 +89,14 @@ install, the same tool's `list`, `update` and `remove` commands
 manage the skills. A project install writes `skills-lock.json`, which
 pins each skill by content hash.
 
+In Claude Code, the repository is also a plugin marketplace, and one
+command installs all five skills as the `pgedge` plugin:
+
+    /plugin install pgedge --marketplace pgEdge/pgedge-cli
+
 Skills are a layer above the CLI, so you install them separately from
-the `pgedge` binary, with `npx skills`. The README's "Installing the
+the `pgedge` binary. When an agent finds no `pgedge` on the PATH, the
+skills tell it to install the CLI first. The README's "Installing the
 AI-Agent Skills" section covers three more cases:
 
 - installing a single skill

@@ -263,6 +263,8 @@ standard. The directory holds five skills:
 
 Skills are a layer above the CLI, so they install separately. The
 install script offers to install them when it runs at a terminal.
+When an agent finds no `pgedge` on the PATH, the skills tell it to
+install the CLI first.
 
 On a single-user machine, install all five for your user, so every
 project has them. The command detects your agent:
@@ -287,6 +289,12 @@ To match the skills to an installed release, name its tag:
 An agent session that is already running loads new skills after a
 restart, or after `/reload-plugins` in Claude Code. Afterward,
 `npx skills list`, `update` and `remove` manage the skills.
+
+In Claude Code, the repository is also a plugin marketplace. One
+command installs all five skills as the `pgedge` plugin, and
+`claude plugin update` refreshes them:
+
+    /plugin install pgedge --marketplace pgEdge/pgedge-cli
 
 To install a single skill:
 

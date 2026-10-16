@@ -134,6 +134,11 @@ var externalToolFlags = map[string]struct {
 			"../../docs/getting-started.md": true,
 			"../../docs/ai-agents.md":       true,
 		}},
+	"--marketplace": {"Claude Code (/plugin install)",
+		map[string]bool{
+			"../../README.md":         true,
+			"../../docs/ai-agents.md": true,
+		}},
 	"--skill": {"the skills CLI (npx skills add)",
 		map[string]bool{
 			"../../README.md":              true,

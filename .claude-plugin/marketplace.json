@@ -1,0 +1,11 @@
+{
+  "name": "pgedge-cli",
+  "description": "The pgEdge plugin: agent skills for the pgedge CLI.",
+  "owner": {
+    "name": "pgEdge, Inc.",
+    "url": "https://www.pgedge.com"
+  },
+  "plugins": [
+    { "name": "pgedge", "source": "./" }
+  ]
+}

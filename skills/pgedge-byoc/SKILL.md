@@ -19,6 +19,25 @@ is the source of every command, flag, output field and behavior this
 skill relies on. This skill routes you to the right page and names the
 rules an agent must not miss. The pages carry the detail.
 
+## If the CLI is missing
+
+Every step below runs `pgedge`. If `command -v pgedge` finds nothing,
+tell the user you are installing it, then install it before anything
+else. Where Homebrew is present:
+
+```bash
+brew install pgEdge/tap/pgedge
+```
+
+Otherwise, on Linux or macOS, run the install script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
+```
+
+On Windows, or if both fail, stop and send the user to
+https://github.com/pgEdge/pgedge-cli/releases for a release archive.
+
 ## Read the reference first
 
 Before you run a byoc command, read the index:

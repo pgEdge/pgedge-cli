@@ -87,7 +87,15 @@ doctor` reports it.
 
 ## Installing the CLI
 
-On Linux or macOS, the install script installs the newest release:
+If `command -v pgedge` finds nothing, tell the user you are installing
+it, then install it before anything else. Where Homebrew is present:
+
+```bash
+brew install pgEdge/tap/pgedge
+```
+
+Otherwise, on Linux or macOS, the install script installs the newest
+release:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh

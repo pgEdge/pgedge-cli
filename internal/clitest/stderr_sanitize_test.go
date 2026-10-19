@@ -299,8 +299,10 @@ var stderrComposedMessages = map[string]struct {
 // 199 -> 200: `branch get` prints the display name.
 // 200 -> 211: browser sign-in's URL, tenant prompt and summary lines,
 // and whoami's `User:` line.
+// 211 -> 215: session renewal's keychain warning, and logout's revoke
+// and keychain warnings.
 const (
-	stderrArgSites      = 211
+	stderrArgSites      = 215
 	stderrComposedSites = 22
 )
 

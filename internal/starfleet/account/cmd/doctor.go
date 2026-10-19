@@ -40,6 +40,8 @@ type authInfo struct {
 	ExpiresAt  string `json:"expires_at,omitempty"`
 	// User is a browser session's email or subject.
 	User string `json:"user,omitempty"`
+	// Renews reports a browser session that can renew its own token.
+	Renews bool `json:"renews"`
 }
 
 type apiInfo struct {
@@ -179,9 +181,8 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	return info
 }
 
-// checkSessionAuth fills the Auth row for a browser session, whose
-// token cannot be re-minted: TokenValid and TokenBound are read the way
-// conn.LoadSession reads them.
+// checkSessionAuth fills the Auth row for a browser session the way
+// conn.Resolve reads it, without renewing it.
 func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
 	flagTenant string, info authInfo,
 ) authInfo {
@@ -191,6 +192,7 @@ func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
 		info.ExpiresAt = s.tok.ExpiresAt.Format(time.RFC3339)
 	}
 	info.TokenValid, info.TokenBound = s.valid, s.bound
+	info.Renews = s.renews
 	if s.problem != nil {
 		info.Authenticated = false
 		info.Problem = s.problem.Error()
@@ -369,9 +371,15 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	switch {
 	case session && report.Auth.Authenticated:
 		authStatus = "ok"
-		authDetail = fmt.Sprintf("signed in as %s via browser "+
-			"(expires %s)", output.Sanitize(report.Auth.User),
-			report.Auth.ExpiresAt)
+		state := "expires " + report.Auth.ExpiresAt
+		switch {
+		case !report.Auth.TokenValid:
+			state = "token expired, renews on next use"
+		case report.Auth.Renews:
+			state += ", renews itself"
+		}
+		authDetail = fmt.Sprintf("signed in as %s via browser (%s)",
+			output.Sanitize(report.Auth.User), state)
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

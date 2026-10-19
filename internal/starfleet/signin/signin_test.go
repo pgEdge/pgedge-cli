@@ -115,15 +115,12 @@ func TestRunExchangesTheCodeWithTheVerifier(t *testing.T) {
 		"response_type":         "code",
 		"client_id":             "cid",
 		"audience":              "https://api.example",
-		"scope":                 "openid profile email",
+		"scope":                 "openid profile email offline_access",
 		"code_challenge_method": "S256",
 	} {
 		if q.Get(k) != want {
 			t.Errorf("authorize %s = %q, want %q", k, q.Get(k), want)
 		}
-	}
-	if strings.Contains(q.Get("scope"), "offline_access") {
-		t.Error("step 1 must not ask for offline_access")
 	}
 	if !strings.HasPrefix(q.Get("redirect_uri"), "http://127.0.0.1:") ||
 		!strings.HasSuffix(q.Get("redirect_uri"), "/callback") {

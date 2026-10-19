@@ -66,11 +66,13 @@ type Flow struct {
 	Out io.Writer
 }
 
-// Tokens is what the token endpoint returns.
+// Tokens is what the token endpoint returns. RefreshToken is empty
+// when the Auth0 app does not grant refresh tokens.
 type Tokens struct {
-	AccessToken string `json:"access_token"`
-	IDToken     string `json:"id_token"`
-	ExpiresIn   int64  `json:"expires_in"`
+	AccessToken  string `json:"access_token"`
+	IDToken      string `json:"id_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
 type callback struct {
@@ -178,7 +180,7 @@ func (f *Flow) authorizeURL(redirect, challenge, state string) string {
 		"client_id":             {f.ClientID},
 		"redirect_uri":          {redirect},
 		"audience":              {f.Audience},
-		"scope":                 {"openid profile email"},
+		"scope":                 {"openid profile email offline_access"},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 		"state":                 {state},
@@ -249,37 +251,60 @@ func callbackHandler(state string, results chan<- callback) http.Handler {
 // exchange trades the code for tokens at /oauth/token.
 func (f *Flow) exchange(ctx context.Context,
 	code, redirect, verifier string) (*Tokens, error) {
-	form := url.Values{
+	return postToken(ctx, f.HTTPClient, f.BaseURL, url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {f.ClientID},
 		"code":          {code},
 		"redirect_uri":  {redirect},
 		"code_verifier": {verifier},
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimRight(f.BaseURL, "/")+"/oauth/token",
-		strings.NewReader(form.Encode()))
+	})
+}
+
+// Refresh trades a refresh token for new tokens. Auth0 rotates refresh
+// tokens, so the old one is dead once this succeeds. A refusal is a
+// *DeniedError; IsInvalidGrant says whether the token itself is dead.
+func Refresh(ctx context.Context, client *http.Client,
+	baseURL, clientID, refreshToken string) (*Tokens, error) {
+	return postToken(ctx, client, baseURL, url.Values{
+		"grant_type":    {"refresh_token"},
+		"client_id":     {clientID},
+		"refresh_token": {refreshToken},
+	})
+}
+
+// IsInvalidGrant reports Auth0 refusing a refresh token: expired,
+// reused after rotation, revoked, or its user blocked.
+func IsInvalidGrant(err error) bool {
+	var d *DeniedError
+	return errors.As(err, &d) && d.Code == "invalid_grant"
+}
+
+// Revoke revokes a refresh token at /oauth/revoke.
+func Revoke(ctx context.Context, client *http.Client,
+	baseURL, clientID, token string) error {
+	resp, raw, err := postForm(ctx, client, baseURL, "/oauth/revoke",
+		url.Values{"client_id": {clientID}, "token": {token}})
 	if err != nil {
-		return nil, fmt.Errorf("signin: token request: %w", err)
+		return fmt.Errorf("revoke: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := f.HTTPClient.Do(req)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if d := deniedFrom(raw); d != nil {
+			return d
+		}
+		return fmt.Errorf("revoke returned %s", resp.Status)
+	}
+	return nil
+}
+
+func postToken(ctx context.Context, client *http.Client, baseURL string,
+	form url.Values) (*Tokens, error) {
+	resp, raw, err := postForm(ctx, client, baseURL, "/oauth/token", form)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, fmt.Errorf("token exchange: read response: %w", err)
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var e struct {
-			Error       string `json:"error"`
-			Description string `json:"error_description"`
-		}
-		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
-			return nil, &DeniedError{Code: e.Error,
-				Description: e.Description}
+		if d := deniedFrom(raw); d != nil {
+			return nil, d
 		}
 		return nil, fmt.Errorf("token exchange returned %s", resp.Status)
 	}
@@ -291,6 +316,39 @@ func (f *Flow) exchange(ctx context.Context,
 		return nil, errors.New("token exchange returned no access_token")
 	}
 	return &tok, nil
+}
+
+func postForm(ctx context.Context, client *http.Client, baseURL,
+	path string, form url.Values) (*http.Response, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		strings.TrimRight(baseURL, "/")+path,
+		strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, nil, fmt.Errorf("read response: %w", err)
+	}
+	return resp, raw, nil
+}
+
+// deniedFrom reads an OAuth error body, or returns nil.
+func deniedFrom(raw []byte) *DeniedError {
+	var e struct {
+		Error       string `json:"error"`
+		Description string `json:"error_description"`
+	}
+	if json.Unmarshal(raw, &e) == nil && e.Error != "" {
+		return &DeniedError{Code: e.Error, Description: e.Description}
+	}
+	return nil
 }
 
 // browserCommand is the command that opens target on goos.

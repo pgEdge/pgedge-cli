@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/apidefaults"
 	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/config"
+	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 	"github.com/spf13/pflag"
@@ -147,11 +149,25 @@ func TestSessionWaitThatOutlivesTheTokenFailsWithTheSameMessage(t *testing.T) {
 	wantExit(t, err, ExitAuth, "has expired or is missing")
 }
 
+// TestFlagsOverASessionLeaveItsCacheAlone uses a session due for
+// renewal, so flags that touched it would renew or clear its refresh
+// token.
 func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
 	stub := newTokenStub(t, "client-tok")
+	auth0 := newTokenStub(t, "unused")
+	saved := SignInApp
+	t.Cleanup(func() { SignInApp = saved })
+	SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+		return apidefaults.Auth0App{ClientID: "cid"}, auth0.url(), true
+	}
 	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	kc := &keychain.Fake{}
+	rt.Keychain = kc
 	sess := testsupport.SeedSession(t, rt, sessionAPI, "u1",
-		time.Now().Add(time.Hour), "t-a")
+		time.Now().Add(auth.RefreshWindow/2), "t-a")
+	if err := Store(rt).SaveSessionRefreshToken("rt"); err != nil {
+		t.Fatal(err)
+	}
 	c, err := Resolve(rt, Flags{ClientID: "id", ClientSecret: "s",
 		APIURL: stub.url(), Timeout: RequestTimeout})
 	if err != nil {
@@ -164,8 +180,16 @@ func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
 	if err != nil || tok.AccessToken != sess || !tok.SessionFor(sessionAPI) {
 		t.Fatalf("the session cache was overwritten: %+v, %v", tok, err)
 	}
-	if _, err := Resolve(rt, Flags{}); err != nil {
-		t.Errorf("the session no longer resolves: %v", err)
+	if v, err := Store(rt).SessionRefreshToken(); v != "rt" ||
+		kc.Sets != 1 || kc.Deletes != 0 || auth0.hits() != 0 {
+		t.Fatalf("flags touched the refresh token: %q, %v, %d sets, "+
+			"%d deletes, %d renewals", v, err, kc.Sets, kc.Deletes,
+			auth0.hits())
+	}
+	// Positive control: without flags the session does renew.
+	_, _ = Resolve(rt, Flags{})
+	if auth0.hits() != 1 {
+		t.Errorf("the session did not try to renew: %d", auth0.hits())
 	}
 }
 

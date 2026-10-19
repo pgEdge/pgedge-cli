@@ -76,10 +76,10 @@ func TestPluginManifestsAgree(t *testing.T) {
 	}
 	entry := market.Plugins[0]
 	if entry.Name != claude.Name || entry.Source.Source != "git-subdir" ||
-		entry.Source.URL != "pgEdge/pgedge-cli" || entry.Source.Path != pluginDir ||
+		entry.Source.URL != "https://github.com/pgEdge/pgedge-cli.git" || entry.Source.Path != pluginDir ||
 		entry.Source.Ref != "v"+claude.Version {
 		t.Errorf("marketplace.json entry = %+v, want %q from git-subdir "+
-			"pgEdge/pgedge-cli path %s ref v%s",
+			"https://github.com/pgEdge/pgedge-cli.git path %s ref v%s",
 			entry, claude.Name, pluginDir, claude.Version)
 	}
 

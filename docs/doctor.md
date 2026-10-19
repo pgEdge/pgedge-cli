@@ -122,12 +122,14 @@ login will not help.
 
 `pgedge starfleet auth status` answers a narrower question than
 doctor: which credential resolved, without calling any endpoint. It
-prints `authenticated`, `source`, `problem`, `client_id`, `api_url`,
-`token_valid`, `token_bound` and `expires_at`, and the client secret's
-value never appears in any format. Only the three booleans are always
-there: the five string fields are omitted when empty, so a run with no
-credentials configured answers with `authenticated`, `token_valid`,
-`token_bound` and the `api_url` that resolved anyway.
+prints `authenticated`, `source`, `problem`, `client_id`, `user`,
+`tenant_id`, `api_url`, `token_valid`, `token_bound`, `expires_at` and
+`renews`, and the client secret's value never appears in any format.
+`user`, `tenant_id` and `renews` describe a browser session. Only the
+four booleans are always there: the seven string fields are omitted
+when empty, so a run with no credentials configured answers with
+`authenticated`, `token_valid`, `token_bound`, `renews` and the
+`api_url` that resolved anyway.
 
 Because it calls nothing, `authenticated: true` means the credentials
 resolved, not that the server accepts them: a wrong secret that merely

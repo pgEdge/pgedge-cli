@@ -17,7 +17,7 @@ The page leans on these terms:
 
 An unattended run signs in with an API client, never through the
 browser: a browser sign-in needs a person at the sign-in page, and its
-session ends without renewing itself.
+session ends after a period without use.
 
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your secret
 store. The CLI treats the pair as a profile that lasts one invocation.

@@ -44,9 +44,12 @@ It opens the pgEdge sign-in page and prints the same URL on stderr,
 then waits for the browser to return. A person has to complete the
 page, so an agent asks the user to run this command. The profile
 stores `api_url`, `auth: browser` and `tenant_id`; the user's access
-token goes to the token cache. Every later command runs as that user
-until the session expires. Nothing renews it, so after that a command
-fails at exit 5 and names the `auth login` command to run.
+token goes to the token cache and the token that renews the session
+to the OS keychain. Every later command runs as that user. The
+session renews itself while in use and ends after a period without
+use; where no keychain could hold it, it ends at the time login
+printed. Once it ends, a command fails at exit 5 and names the
+`auth login` command to run.
 
 A user in several tenants is asked which to use when stdin and stdout
 are a terminal. Otherwise login uses the account's default tenant and
@@ -96,8 +99,8 @@ pgedge starfleet auth login --api-client --insecure-storage
 ```
 
 A browser sign-in ends with four lines on stderr: who signed in
-(`Signed in as <email>.`), the tenant, when the session ends, and the
-file the profile was saved to. An API-client sign-in ends with
+(`Signed in as <email>.`), the tenant, whether the session renews
+itself or the time it ends, and the file the profile was saved to. An API-client sign-in ends with
 `Authenticated. Token expires <time>.` and where the secret and the
 client ID went.
 
@@ -113,11 +116,13 @@ Show current authentication state
 <!-- END GENERATED -->
 
 `-o json` renders `authenticated`, `source`, `problem`, `client_id`,
-`user`, `tenant_id`, `api_url`, `token_valid`, `token_bound` and
-`expires_at` as a single object, every field but
-`authenticated`/`token_valid`/`token_bound` `omitempty`. `user` and
-`tenant_id` describe a browser session and `client_id` an API client.
-`-o yaml` carries the same ten facts under the same
+`user`, `tenant_id`, `api_url`, `token_valid`, `token_bound`,
+`expires_at` and `renews` as a single object, every field but
+`authenticated`/`token_valid`/`token_bound`/`renews` `omitempty`.
+`user`, `tenant_id` and `renews` describe a browser session and
+`client_id` an API client; `renews` is `true` when the session can
+renew its own access token, and the text form prints it as `Renews:`.
+`-o yaml` carries the same eleven facts under the same
 names and omits the same fields, so `yq '.client_id'` and
 `jq '.client_id'` are interchangeable. `client_id` is printed (an
 identifier, not a credential); the client secret's value never
@@ -142,10 +147,12 @@ while that env pair is set, because that is the command being
 malformed rather than a credential being absent (see `problem` for
 which it was). 0 whenever an API client's credentials resolve, even
 with no cached token or an expired one, since the CLI mints a new token
-on demand the next time it is needed. A browser session cannot be
-renewed that way, so one that has expired, has no cached token, or
-was signed in for another API URL is 5, with `authenticated: false`
-and `problem` naming the `auth login` command to run. A `--tenant`
+on demand the next time it is needed. A browser session with
+`renews: true` is 0 the same way: an expired access token prints
+`Token:        expired, renews on next use`. A session that cannot
+renew itself and has expired, one with no cached token, and one
+signed in for another API URL are 5, with `authenticated: false` and
+`problem` naming the `auth login` command to run. A `--tenant`
 the session cannot reach, a profile `tenant_id` it no longer reaches,
 or `--tenant` with an API client is 2.
 This command calls no endpoint at all, so passing
@@ -301,8 +308,10 @@ Clear stored pgEdge Starfleet credentials and token
 
 Removes the active profile's cached token, its stored `client_id` and
 `client_secret`, and its OS keychain entry, and keeps its API URL. For
-a browser session it removes the session token, `auth` and
-`tenant_id`, and calls no endpoint.
+a browser session it first asks pgEdge to end the session, then
+removes the session token, its OS keychain entry, `auth` and
+`tenant_id`. If that request fails, `logout` warns on stderr and
+still removes the session from this machine.
 When the config file holds no secret and the keychain cannot be
 reached, `logout` prints a warning on stderr and still clears the
 rest.

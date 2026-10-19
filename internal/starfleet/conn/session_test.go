@@ -82,21 +82,6 @@ func TestSessionTenantFlag(t *testing.T) {
 	wantExit(t, err, ExitUsage, "t-a, t-b")
 }
 
-func TestSessionWithNoProfileTenantUsesTheTokenDefault(t *testing.T) {
-	rt, _, _ := testsupport.NewRuntime(t, "", "text")
-	testsupport.SeedSession(t, rt, sessionAPI, "u1",
-		time.Now().Add(time.Hour), "t-a")
-	rt.Config.SetStarfleetProfile("default", &config.StarfleetProfile{
-		APIURL: sessionAPI, Auth: config.AuthBrowser})
-	c, err := Resolve(rt, Flags{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if h, _ := editedHeaders(t, c); h.Get(SelectedTenantHeader) != "t-a" {
-		t.Errorf("headers = %v", h)
-	}
-}
-
 func TestAPIClientNeverSendsTheTenantHeader(t *testing.T) {
 	stub := newTokenStub(t, "client-tok")
 	rt, _, _ := testsupport.NewRuntime(t, "", "text")

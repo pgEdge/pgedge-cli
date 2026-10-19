@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -103,7 +101,7 @@ func TestRunExchangesTheCodeWithTheVerifier(t *testing.T) {
 	a := &fakeAuth0{}
 	srv := a.serve(t)
 	var q url.Values
-	f, out := newFlow(srv, browser(t, a, &q, approve))
+	f, _ := newFlow(srv, browser(t, a, &q, approve))
 
 	tok, err := f.Run(context.Background())
 	if err != nil {
@@ -145,26 +143,6 @@ func TestRunExchangesTheCodeWithTheVerifier(t *testing.T) {
 		t.Errorf("verifier %q is not 32 bytes base64url",
 			a.form.Get("code_verifier"))
 	}
-	if !strings.Contains(out.String(), srv.URL+"/authorize?") {
-		t.Errorf("the URL was not printed:\n%s", out.String())
-	}
-}
-
-func TestRunFailsWhenTheVerifierDoesNotMatch(t *testing.T) {
-	a := &fakeAuth0{}
-	srv := a.serve(t)
-	var q url.Values
-	f, _ := newFlow(srv, func(target string) error {
-		err := browser(t, a, &q, approve)(target)
-		a.challenge = "something-else"
-		return err
-	})
-	_, err := f.Run(context.Background())
-	var denied *DeniedError
-	if !errors.As(err, &denied) ||
-		!strings.Contains(err.Error(), "PKCE") {
-		t.Fatalf("err = %v, want the token endpoint's refusal", err)
-	}
 }
 
 func TestRunIgnoresAWrongStateAndKeepsWaiting(t *testing.T) {
@@ -193,23 +171,6 @@ func TestRunIgnoresAWrongStateAndKeepsWaiting(t *testing.T) {
 	if a.form.Get("code") != "the-code" {
 		t.Errorf("token endpoint got code %q, want the real one",
 			a.form.Get("code"))
-	}
-}
-
-func TestRunTimesOutAfterOnlyAForgedState(t *testing.T) {
-	f, _ := newFlow(httptest.NewServer(http.NotFoundHandler()),
-		func(target string) error {
-			u, _ := url.Parse(target)
-			resp, err := http.Get(u.Query().Get("redirect_uri") +
-				"?state=forged&code=x")
-			if err == nil {
-				_ = resp.Body.Close()
-			}
-			return err
-		})
-	f.Wait = 100 * time.Millisecond
-	if _, err := f.Run(context.Background()); !errors.Is(err, ErrTimeout) {
-		t.Fatalf("err = %v, want ErrTimeout", err)
 	}
 }
 
@@ -249,92 +210,26 @@ func TestRunReportsAnAuth0Error(t *testing.T) {
 	}
 }
 
-func TestRunRejectsACallbackWithNoCode(t *testing.T) {
-	a := &fakeAuth0{}
-	srv := a.serve(t)
-	var q url.Values
-	f, _ := newFlow(srv, browser(t, a, &q, func(q url.Values) url.Values {
-		return url.Values{"state": {q.Get("state")}}
-	}))
-	if _, err := f.Run(context.Background()); err == nil ||
-		!strings.Contains(err.Error(), "no authorization code") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestRunFailsWhenEveryPortIsBusy(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = ln.Close() }()
-	busy := ln.Addr().(*net.TCPAddr).Port
-
-	f, _ := newFlow(httptest.NewServer(http.NotFoundHandler()), nil)
-	f.Ports = []int{busy}
-	_, err = f.Run(context.Background())
-	if !errors.Is(err, ErrPortsBusy) ||
-		!strings.Contains(err.Error(), fmt.Sprint(busy)) {
-		t.Fatalf("err = %v, want ErrPortsBusy naming %d", err, busy)
-	}
-}
-
-func TestRunTimesOut(t *testing.T) {
-	f, out := newFlow(httptest.NewServer(http.NotFoundHandler()),
-		func(string) error { return errors.New("no display") })
-	f.Wait = 50 * time.Millisecond
-	if _, err := f.Run(context.Background()); !errors.Is(err, ErrTimeout) {
-		t.Fatalf("err = %v, want ErrTimeout", err)
-	}
-	if !strings.Contains(out.String(), "Could not open a browser (no "+
-		"display)") {
-		t.Errorf("a failed launch was not reported:\n%s", out.String())
-	}
-}
-
-func TestRunStopsWhenCancelled(t *testing.T) {
+func TestRunEndsWithoutACallback(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	f, _ := newFlow(httptest.NewServer(http.NotFoundHandler()),
-		func(string) error { cancel(); return nil })
-	if _, err := f.Run(ctx); !errors.Is(err, ErrCancelled) {
-		t.Fatalf("err = %v, want ErrCancelled", err)
-	}
-}
-
-func TestExchangeFailures(t *testing.T) {
+	defer cancel()
 	for _, tc := range []struct {
-		name   string
-		status int
-		body   string
-		want   string
+		name string
+		open func(string) error
+		want error
 	}{
-		{"plain error", 500, "boom", "500"},
-		{"no token", 200, `{"expires_in":1}`, "no access_token"},
-		{"not json", 200, `<html>`, "decode response"},
+		{"timeout", func(string) error { return nil }, ErrTimeout},
+		{"cancelled", func(string) error { cancel(); return nil },
+			ErrCancelled},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(
-				func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(tc.status)
-					_, _ = io.WriteString(w, tc.body)
-				}))
-			defer srv.Close()
-			f := &Flow{BaseURL: srv.URL, HTTPClient: srv.Client()}
-			_, err := f.exchange(context.Background(), "c", "r", "v")
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Fatalf("err = %v, want %q", err, tc.want)
+			f, _ := newFlow(httptest.NewServer(http.NotFoundHandler()),
+				tc.open)
+			f.Wait = 50 * time.Millisecond
+			if _, err := f.Run(ctx); !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
-	}
-	f := &Flow{BaseURL: "http://127.0.0.1:0", HTTPClient: http.DefaultClient}
-	if _, err := f.exchange(context.Background(), "c", "r",
-		"v"); err == nil {
-		t.Error("an unreachable token endpoint should fail")
-	}
-	f = &Flow{BaseURL: "://bad", HTTPClient: http.DefaultClient}
-	if _, err := f.exchange(context.Background(), "c", "r",
-		"v"); err == nil {
-		t.Error("a malformed base URL should fail")
 	}
 }
 

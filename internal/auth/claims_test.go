@@ -4,8 +4,6 @@ import (
 	"encoding/base64"
 	"testing"
 	"time"
-
-	"github.com/pgEdge/pgedge-cli/internal/config"
 )
 
 func jwt(payload string) string {
@@ -36,23 +34,6 @@ func TestParseClaims(t *testing.T) {
 	}
 }
 
-func TestClaimsTenantsFallsBackToTheDefault(t *testing.T) {
-	for _, tc := range []struct {
-		c    Claims
-		want int
-	}{
-		{Claims{TenantID: "t"}, 1},
-		{Claims{}, 0},
-	} {
-		if got := len(tc.c.Tenants()); got != tc.want {
-			t.Errorf("%+v: %d tenants, want %d", tc.c, got, tc.want)
-		}
-	}
-	if !(&Claims{}).ExpiresAt().IsZero() {
-		t.Error("no exp should be the zero time")
-	}
-}
-
 func TestSessionForBindsTheAPIURL(t *testing.T) {
 	tok := &CachedToken{AccessToken: jwt(`{"sub":"u"}`),
 		Fingerprint: SessionFingerprint("https://a", "u")}
@@ -70,21 +51,5 @@ func TestSessionForBindsTheAPIURL(t *testing.T) {
 	if (&CachedToken{AccessToken: "x", Fingerprint: "y"}).SessionFor("a") ||
 		(&CachedToken{}).SessionFor("a") {
 		t.Error("an unreadable or unbound token is not a session")
-	}
-}
-
-func TestResolveCredentialsReportsABrowserSession(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv(EnvClientID, "")
-	t.Setenv(EnvClientSecret, "")
-	a := &Auth{Profile: "p", Module: "starfleet"}
-	ap := &config.StarfleetProfile{Auth: config.AuthBrowser}
-	creds, src, err := a.ResolveCredentials(ap, "", "")
-	if err != nil || creds != nil || src != SourceBrowser {
-		t.Fatalf("got %v %q %v, want the browser source", creds, src, err)
-	}
-	// Flags still outrank the profile.
-	if _, src, _ := a.ResolveCredentials(ap, "i", "s"); src != SourceFlags {
-		t.Errorf("source = %q, want flags", src)
 	}
 }

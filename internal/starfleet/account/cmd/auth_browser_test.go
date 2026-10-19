@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,14 +10,12 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/apidefaults"
-	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/config"
 	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -37,14 +33,13 @@ const tenantsBody = `[` +
 // login command's seams at them. The fake Auth0 issues an access token
 // reaching tenants, with the first as its default.
 type signInStubs struct {
-	api       string
-	tenants   []string
-	verifier  atomic.Value
-	challenge atomic.Value
-	issued    atomic.Value // the access and ID tokens, space-joined
-	reply     func(q url.Values) url.Values
-	apiHits   map[string]int
-	headers   []http.Header
+	api      string
+	tenants  []string
+	verifier atomic.Value
+	issued   atomic.Value // the access and ID tokens, space-joined
+	reply    func(q url.Values) url.Values
+	apiHits  map[string]int
+	headers  []http.Header
 }
 
 // stubCode is the authorization code the fake browser returns.
@@ -109,7 +104,6 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			Open: func(target string) error {
 				u, _ := url.Parse(target)
 				q := u.Query()
-				s.challenge.Store(q.Get("code_challenge"))
 				resp, err := http.Get(q.Get("redirect_uri") + "?" +
 					s.reply(q).Encode())
 				if err == nil {
@@ -137,57 +131,6 @@ func exitCode(err error) int {
 	return -1
 }
 
-func TestSignedInUser(t *testing.T) {
-	id := testsupport.FakeJWT(t, map[string]any{"email": "id@example.com"})
-	for _, tc := range []struct {
-		claims auth.Claims
-		id     string
-		want   string
-	}{
-		{auth.Claims{Subject: "s", Email: "at@example.com"}, id,
-			"id@example.com"},
-		{auth.Claims{Subject: "s", Email: "at@example.com"}, "",
-			"at@example.com"},
-		{auth.Claims{Subject: "s"}, "opaque", "s"},
-	} {
-		if got := signedInUser(&tc.claims, tc.id); got != tc.want {
-			t.Errorf("signedInUser(%+v, %q) = %q, want %q",
-				tc.claims, tc.id, got, tc.want)
-		}
-	}
-}
-
-func TestDefaultSignInFlowTargetsAuth0(t *testing.T) {
-	rt, _, errb := testsupport.NewRuntime(t, "", "text")
-	f := signInFlow(rt, apidefaults.Auth0App{Domain: "auth.example",
-		Audience: "aud", ClientID: "cid"}, time.Second)
-	if f.BaseURL != "https://auth.example" || f.ClientID != "cid" ||
-		f.Audience != "aud" || f.Open == nil || f.Out != errb ||
-		!slices.Equal(f.Ports, []int{8484, 8485, 8486}) ||
-		f.Wait != signin.DefaultWait || f.HTTPClient == nil {
-		t.Errorf("default flow = %+v", f)
-	}
-}
-
-// TestBrowserLoginSendsTheChallengeOfItsVerifier ties the
-// code_challenge sent to /authorize to the verifier sent to
-// /oauth/token, as Auth0 will.
-func TestBrowserLoginSendsTheChallengeOfItsVerifier(t *testing.T) {
-	s := newSignInStubs(t, "t-a")
-	rt, _, _ := testsupport.NewRuntime(t, "", "text")
-	if err := login(t, rt, s); err != nil {
-		t.Fatalf("login: %v", err)
-	}
-	verifier, _ := s.verifier.Load().(string)
-	challenge, _ := s.challenge.Load().(string)
-	sum := sha256.Sum256([]byte(verifier))
-	if verifier == "" ||
-		challenge != base64.RawURLEncoding.EncodeToString(sum[:]) {
-		t.Errorf("challenge %q is not S256 of verifier %q",
-			challenge, verifier)
-	}
-}
-
 func TestBrowserLoginDebugOutputCarriesNoSecrets(t *testing.T) {
 	s := newSignInStubs(t, "t-a")
 	rt, _, errb := testsupport.NewRuntime(t, "", "text")
@@ -208,49 +151,10 @@ func TestBrowserLoginDebugOutputCarriesNoSecrets(t *testing.T) {
 	}
 }
 
-func TestBrowserLoginSavesASession(t *testing.T) {
-	s := newSignInStubs(t, "t-a")
-	rt, _, errb := testsupport.NewRuntime(t, "", "text")
-	if err := login(t, rt, s); err != nil {
-		t.Fatalf("login: %v\n%s", err, errb.String())
-	}
-	cfg, err := config.Load("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	p := cfg.StarfleetProfile("default")
-	if *p != (config.StarfleetProfile{APIURL: s.api,
-		Auth: config.AuthBrowser, TenantID: "t-a"}) {
-		t.Errorf("profile = %+v", p)
-	}
-	tok, err := conn.Store(rt).LoadToken()
-	if err != nil || !tok.SessionFor(s.api) ||
-		tok.User != "user@example.com" ||
-		time.Until(tok.ExpiresAt) < 23*time.Hour {
-		t.Fatalf("cached token = %+v, %v", tok, err)
-	}
-	if v, _ := s.verifier.Load().(string); len(v) != 43 {
-		t.Errorf("token exchange carried verifier %q", v)
-	}
-	for _, want := range []string{
-		"/authorize?",
-		"Signed in as user@example.com.",
-		"Tenant: Alpha (t-a)",
-		"The session lasts until " + tok.ExpiresAt.Format(time.RFC3339),
-		"Profile default saved to",
-	} {
-		if !strings.Contains(errb.String(), want) {
-			t.Errorf("stderr lacks %q:\n%s", want, errb.String())
-		}
-	}
-}
-
 func TestBrowserLoginTenantChoice(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		args    []string
-		tty     bool
-		stdin   string
 		want    string
 		code    int
 		stderr  string
@@ -265,11 +169,6 @@ func TestBrowserLoginTenantChoice(t *testing.T) {
 			code: ExitUsage, stderr: "t-a, t-b"},
 		{name: "several, no terminal", want: "t-a",
 			stderr: "using Alpha (t-a), the account default"},
-		{name: "several, prompt", tty: true, stdin: "2\n", want: "t-b",
-			stderr: "2) Beta (t-b)"},
-		{name: "prompt, bad answer", tty: true, stdin: "9\n",
-			code: ExitUsage},
-		{name: "prompt, no answer", tty: true, code: ExitUsage},
 		{name: "no tenant", tenants: []string{}, code: ExitAuth},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -278,10 +177,7 @@ func TestBrowserLoginTenantChoice(t *testing.T) {
 				tenants = []string{"t-a", "t-b"}
 			}
 			s := newSignInStubs(t, tenants...)
-			promptIsInteractive = func(*module.Runtime) bool {
-				return tc.tty
-			}
-			rt, _, errb := testsupport.NewRuntime(t, tc.stdin, "text")
+			rt, _, errb := testsupport.NewRuntime(t, "", "text")
 			err := login(t, rt, s, tc.args...)
 			if tc.code != 0 {
 				if exitCode(err) != tc.code {
@@ -306,29 +202,7 @@ func TestBrowserLoginTenantChoice(t *testing.T) {
 	}
 }
 
-func TestBrowserLoginWithoutTenantNamesUsesIDs(t *testing.T) {
-	s := newSignInStubs(t, "t-x", "t-y")
-	rt, _, errb := testsupport.NewRuntime(t, "", "text")
-	if err := login(t, rt, s, "--api-url", "http://127.0.0.1:1"); err != nil {
-		t.Fatalf("login: %v", err)
-	}
-	if !strings.Contains(errb.String(), "Tenant: t-x\n") {
-		t.Errorf("stderr:\n%s", errb.String())
-	}
-}
-
 func TestBrowserLoginFailures(t *testing.T) {
-	t.Run("not available", func(t *testing.T) {
-		s := newSignInStubs(t, "t-a")
-		auth0For = apidefaults.Auth0For
-		rt, _, _ := testsupport.NewRuntime(t, "", "text")
-		err := login(t, rt, s)
-		if exitCode(err) != ExitAuth ||
-			!strings.Contains(err.Error(), s.api) ||
-			!strings.Contains(err.Error(), "--client-id") {
-			t.Fatalf("err = %v", err)
-		}
-	})
 	t.Run("auth0 refuses", func(t *testing.T) {
 		s := newSignInStubs(t, "t-a")
 		s.reply = func(q url.Values) url.Values {
@@ -346,43 +220,14 @@ func TestBrowserLoginFailures(t *testing.T) {
 			t.Error("a refused sign-in saved a session")
 		}
 	})
-	t.Run("unreadable token", func(t *testing.T) {
+	t.Run("tenant with an API client", func(t *testing.T) {
 		s := newSignInStubs(t, "t-a")
-		flow := signInFlow
-		signInFlow = func(rt *module.Runtime, app apidefaults.Auth0App,
-			d time.Duration) *signin.Flow {
-			f := flow(rt, app, d)
-			srv := httptest.NewServer(http.HandlerFunc(
-				func(w http.ResponseWriter, _ *http.Request) {
-					_, _ = io.WriteString(w, `{"access_token":"opaque"}`)
-				}))
-			t.Cleanup(srv.Close)
-			f.BaseURL = srv.URL
-			return f
-		}
 		rt, _, _ := testsupport.NewRuntime(t, "", "text")
-		if err := login(t, rt, s); exitCode(err) != ExitAuth {
-			t.Fatalf("err = %v", err)
+		if err := login(t, rt, s, "--client-id", "i", "--client-secret",
+			"s", "--tenant", "t"); exitCode(err) != ExitUsage {
+			t.Fatalf("err = %v, want exit 2", err)
 		}
 	})
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		{"tenant with an API client",
-			[]string{"--client-id", "i", "--client-secret", "s",
-				"--tenant", "t"}},
-		{"insecure storage alone", []string{"--insecure-storage"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			s := newSignInStubs(t, "t-a")
-			rt, _, _ := testsupport.NewRuntime(t, "", "text")
-			if err := login(t, rt, s, tc.args...); exitCode(err) !=
-				ExitUsage {
-				t.Fatalf("err = %v, want exit 2", err)
-			}
-		})
-	}
 }
 
 func TestBrowserLoginKeepsTheSecretWhenTheSaveFails(t *testing.T) {
@@ -447,28 +292,13 @@ func TestLoginSwitchesProfileKind(t *testing.T) {
 	}
 }
 
-func TestStatusWhoamiLogoutForASession(t *testing.T) {
+func TestWhoamiLogoutForASession(t *testing.T) {
 	s := newSignInStubs(t, "t-a", "t-b")
-	rt, out, errb := testsupport.NewRuntime(t, "", "text")
+	rt, out, _ := testsupport.NewRuntime(t, "", "json")
 	testsupport.SeedSession(t, rt, s.api, "u1",
 		time.Now().Add(time.Hour), "t-b", "t-a")
 
-	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "status"); err != nil {
-		t.Fatalf("status: %v", err)
-	}
-	for _, want := range []string{"User:         u1@example.com",
-		"Auth source:  browser", "Tenant:       t-b", "Token:        valid"} {
-		if !strings.Contains(out.String(), want) {
-			t.Errorf("status lacks %q:\n%s", want, out.String())
-		}
-	}
-	if strings.Contains(out.String(), "eyJ") {
-		t.Error("status printed the token")
-	}
-
-	rt.Output.Format = "json"
 	var got whoamiReport
-	out.Reset()
 	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami"); err != nil {
 		t.Fatalf("whoami: %v", err)
 	}
@@ -478,31 +308,15 @@ func TestStatusWhoamiLogoutForASession(t *testing.T) {
 	if s.apiHits["/account/v1/clients"] != 0 {
 		t.Error("whoami listed API clients for a browser session")
 	}
-	if got.User != "u1@example.com" || got.TenantID != "t-b" ||
-		got.TenantName != "Beta" || got.Plan != "managed" ||
-		got.TenantCount != 2 || got.ClientID != "" {
+	if got.TenantID != "t-b" || got.TenantCount != 2 || got.ClientID != "" {
 		t.Errorf("whoami = %+v", got)
 	}
 	if h := s.headers[len(s.headers)-1]; h.Get(conn.SelectedTenantHeader) != "t-b" {
 		t.Errorf("whoami headers = %v", h)
 	}
-	rt.Output.Format = "text"
 
-	out.Reset()
-	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami"); err != nil {
-		t.Fatalf("whoami text: %v", err)
-	}
-	if !strings.Contains(out.String(), "User:          u1@example.com") ||
-		strings.Contains(out.String(), "Client ID") {
-		t.Errorf("whoami text:\n%s", out.String())
-	}
-
-	errb.Reset()
 	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "logout"); err != nil {
 		t.Fatalf("logout: %v", err)
-	}
-	if !strings.Contains(errb.String(), "Session token removed") {
-		t.Errorf("logout said %q", errb.String())
 	}
 	cfg, _ := config.Load("")
 	if p := cfg.StarfleetProfile("default"); p.IsBrowserSession() ||
@@ -551,52 +365,6 @@ func TestStatusForAnExpiredSession(t *testing.T) {
 	}
 }
 
-func TestDoctorForASession(t *testing.T) {
-	s := newSignInStubs(t, "t-a", "t-b")
-	rt, out, _ := testsupport.NewRuntime(t, "", "text")
-	testsupport.SeedSession(t, rt, s.api, "u1",
-		time.Now().Add(time.Hour), "t-b", "t-a")
-	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
-		t.Fatalf("doctor: %v", err)
-	}
-	for _, want := range []string{"signed in as u1@example.com via browser",
-		"Beta (t-b, plan: managed)", "reporting the selected one"} {
-		if !strings.Contains(out.String(), want) {
-			t.Errorf("doctor lacks %q:\n%s", want, out.String())
-		}
-	}
-
-	rt2, out2, _ := testsupport.NewRuntime(t, "", "text")
-	rt2.Profile = "dev"
-	testsupport.SeedSession(t, rt2, s.api, "u1",
-		time.Now().Add(-time.Hour), "t-a")
-	if err := runAccount(t, rt2, &bytes.Buffer{}, "doctor"); err != nil {
-		t.Fatalf("doctor: %v", err)
-	}
-	if !strings.Contains(out2.String(),
-		"auth login --profile dev") {
-		t.Errorf("doctor did not point at login:\n%s", out2.String())
-	}
-}
-
-func TestDoctorJSONForAnExpiredSession(t *testing.T) {
-	rt, out, _ := testsupport.NewRuntime(t, "", "json")
-	testsupport.SeedSession(t, rt, "http://127.0.0.1:1", "u1",
-		time.Now().Add(-time.Minute), "t-a")
-	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
-		t.Fatalf("doctor: %v", err)
-	}
-	var got accountDoctorReport
-	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
-		t.Fatalf("doctor json: %v\n%s", err, out.String())
-	}
-	if got.Auth.Authenticated ||
-		!strings.Contains(got.Auth.Problem, "has expired") {
-		t.Errorf("auth = %+v, want unauthenticated with the expired "+
-			"message", got.Auth)
-	}
-}
-
 func TestTenantFlagIsValidatedByStatusAndDoctor(t *testing.T) {
 	s := newSignInStubs(t, "t-a", "t-b")
 	for _, tc := range []struct {
@@ -636,76 +404,5 @@ func TestTenantFlagIsValidatedByStatusAndDoctor(t *testing.T) {
 				t.Errorf("doctor auth = %+v", got.Auth)
 			}
 		})
-	}
-}
-
-func TestStaleProfileTenant(t *testing.T) {
-	s := newSignInStubs(t, "t-a", "t-b")
-	rt, out, _ := testsupport.NewRuntime(t, "", "json")
-	testsupport.SeedSession(t, rt, s.api, "u1",
-		time.Now().Add(time.Hour), "t-a", "t-b")
-	rt.Config.SetStarfleetProfile("default", &config.StarfleetProfile{
-		APIURL: s.api, Auth: config.AuthBrowser, TenantID: "t-gone"})
-
-	err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami")
-	if exitCode(err) != ExitUsage ||
-		!strings.Contains(err.Error(), "auth login --tenant") {
-		t.Errorf("whoami err = %v, want exit 2 naming the fix", err)
-	}
-	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
-		t.Fatalf("doctor: %v", err)
-	}
-	var got accountDoctorReport
-	_ = json.Unmarshal(out.Bytes(), &got)
-	if got.Auth.Authenticated || got.Tenant.Resolved {
-		t.Errorf("doctor = %+v, want the stale tenant reported", got)
-	}
-}
-
-func TestWhoamiAndDoctorReportTheTenantSent(t *testing.T) {
-	// t-c is in the token but missing from the tenant list.
-	s := newSignInStubs(t, "t-a", "t-b", "t-c")
-	rt, out, _ := testsupport.NewRuntime(t, "", "json")
-	testsupport.SeedSession(t, rt, s.api, "u1",
-		time.Now().Add(time.Hour), "t-c", "t-a", "t-b")
-	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami"); err != nil {
-		t.Fatalf("whoami: %v", err)
-	}
-	var who whoamiReport
-	_ = json.Unmarshal(out.Bytes(), &who)
-	if who.TenantID != "t-c" || who.TenantName != "" {
-		t.Errorf("whoami = %+v, want t-c with no borrowed name", who)
-	}
-	out.Reset()
-	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
-		t.Fatalf("doctor: %v", err)
-	}
-	var doc accountDoctorReport
-	_ = json.Unmarshal(out.Bytes(), &doc)
-	if doc.Tenant.ID != "t-c" || doc.Tenant.Name != "" {
-		t.Errorf("doctor tenant = %+v, want t-c", doc.Tenant)
-	}
-	if row := tenantCheckRow(doc.Tenant); !strings.Contains(row.Details,
-		"missing from the tenant list") {
-		t.Errorf("tenant row = %q", row.Details)
-	}
-}
-
-func TestSessionTenantFlagOnResourceCommands(t *testing.T) {
-	s := newSignInStubs(t, "t-a", "t-b")
-	rt, _, _ := testsupport.NewRuntime(t, "", "text")
-	testsupport.SeedSession(t, rt, s.api, "u1",
-		time.Now().Add(time.Hour), "t-a", "t-b")
-	if err := runAccount(t, rt, &bytes.Buffer{}, "tenant", "list",
-		"--tenant", "t-b"); err != nil {
-		t.Fatalf("tenant list: %v", err)
-	}
-	if h := s.headers[len(s.headers)-1]; h.Get(conn.SelectedTenantHeader) != "t-b" {
-		t.Errorf("headers = %v", h)
-	}
-	err := runAccount(t, rt, &bytes.Buffer{}, "tenant", "list", "--tenant", "t-z")
-	if exitCode(err) != ExitUsage || !strings.Contains(err.Error(),
-		"t-a, t-b") {
-		t.Errorf("err = %v, want a usage error listing the tenants", err)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	accountapi "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
@@ -64,29 +63,21 @@ func checkEmptyBodyResponse(resp *http.Response, what string) error {
 func clientFromCmd(
 	rt *module.Runtime, cmd *cobra.Command,
 ) (*accountapi.ClientWithResponses, error) {
-	id, _ := cmd.Flags().GetString("client-id")
-	secret, _ := cmd.Flags().GetString("client-secret")
-	apiURL, _ := cmd.Flags().GetString("api-url")
-	// Fail safe: a failed read keeps the 30-second default rather
-	// than the zero value, which would be an unbounded client.
-	timeout := conn.RequestTimeout
-	if v, err := cmd.Flags().GetDuration("timeout"); err == nil {
-		timeout = v
-	}
-	return newAccountClient(rt, id, secret, apiURL, timeout)
+	client, _, err := connClientFromCmd(rt, cmd)
+	return client, err
 }
 
-// newAccountClient builds an authenticated Accounts API client from
-// explicit override values.
-func newAccountClient(
-	rt *module.Runtime, id, secret, apiURL string,
-	timeout time.Duration,
-) (*accountapi.ClientWithResponses, error) {
-	c, err := conn.Resolve(rt, id, secret, apiURL, timeout)
+// connClientFromCmd is clientFromCmd that also returns the resolved
+// connection, for a caller that needs to know whose it is.
+func connClientFromCmd(
+	rt *module.Runtime, cmd *cobra.Command,
+) (*accountapi.ClientWithResponses, *conn.Conn, error) {
+	c, err := conn.Resolve(rt, conn.ReadFlags(cmd.Flags()))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return accountClientFor(c)
+	client, err := accountClientFor(c)
+	return client, c, err
 }
 
 // newEphemeralAccountClient is newAccountClient for a caller that must
@@ -97,14 +88,14 @@ func newAccountClient(
 // token cached, which keeps a session to one token exchange.
 // TestOnlyDoctorResolvesEphemerally pins the caller list.
 func newEphemeralAccountClient(
-	rt *module.Runtime, id, secret, apiURL string,
-	timeout time.Duration,
-) (*accountapi.ClientWithResponses, error) {
-	c, err := conn.ResolveEphemeral(rt, id, secret, apiURL, timeout)
+	rt *module.Runtime, f conn.Flags,
+) (*accountapi.ClientWithResponses, *conn.Conn, error) {
+	c, err := conn.ResolveEphemeral(rt, f)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return accountClientFor(c)
+	client, err := accountClientFor(c)
+	return client, c, err
 }
 
 // accountClientFor builds the generated client over an already-resolved

@@ -74,10 +74,9 @@ func checkEmptyBodyResponse(resp *http.Response, what string) error {
 
 // newAPIClient builds an authenticated BYOC API client over the
 // starfleet module's resolved connection.
-func newAPIClient(rt *module.Runtime,
-	flagID, flagSecret, flagAPIURL string, timeout time.Duration,
+func newAPIClient(rt *module.Runtime, f conn.Flags,
 ) (*api.ClientWithResponses, error) {
-	c, err := conn.Resolve(rt, flagID, flagSecret, flagAPIURL, timeout)
+	c, err := conn.Resolve(rt, f)
 	if err != nil {
 		return nil, err
 	}
@@ -93,32 +92,20 @@ func newAPIClient(rt *module.Runtime,
 }
 
 // clientFromCmd builds an authenticated API client for a resource
-// command, reading the byoc root's persistent --client-id,
-// --client-secret, and --api-url overrides off cmd's inherited flag
-// set. Every resource command's RunE calls it to obtain its client.
+// command from the starfleet root's persistent connection flags. Every
+// resource command's RunE calls it to obtain its client.
 func clientFromCmd(
 	rt *module.Runtime, cmd *cobra.Command,
 ) (*api.ClientWithResponses, error) {
-	id, secret, apiURL, timeout := connFlags(cmd)
-	return newAPIClient(rt, id, secret, apiURL, timeout)
+	return newAPIClient(rt, connFlags(cmd))
 }
 
-// connFlags reads the byoc root's persistent connection overrides off
-// cmd's inherited flag set.
-func connFlags(cmd *cobra.Command) (
-	id, secret, apiURL string, timeout time.Duration,
-) {
-	id, _ = cmd.Flags().GetString("client-id")
-	secret, _ = cmd.Flags().GetString("client-secret")
-	apiURL, _ = cmd.Flags().GetString("api-url")
-	// A failed read keeps the default: its zero value would mean an
-	// unbounded client.
-	timeout = conn.RequestTimeout
-	if v, err := cmd.Flags().GetDuration("timeout"); err == nil {
-		timeout = v
-	}
-	requestTimeoutFlag = timeout
-	return id, secret, apiURL, timeout
+// connFlags reads the persistent connection flags off cmd's inherited
+// flag set and records --timeout for the wait machinery.
+func connFlags(cmd *cobra.Command) conn.Flags {
+	f := conn.ReadFlags(cmd.Flags())
+	requestTimeoutFlag = f.Timeout
+	return f
 }
 
 // requestTimeoutFlag is the resolved --timeout, recorded by connFlags

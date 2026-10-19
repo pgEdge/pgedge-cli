@@ -177,8 +177,11 @@ func TestInviteGuardPremiseStillHolds(t *testing.T) {
 	// The credentials themselves are persistent flags on the cloud
 	// root, not local to login, so that is the surface to watch: a
 	// device-code or browser login would add one here.
+	// tenant came with browser sign-in, which does sign a user in. The
+	// invite guard stays for now by decision; lifting it is a follow-up.
 	wantFlags := map[string]bool{
 		"api-url": true, "client-id": true, "client-secret": true,
+		"tenant": true,
 	}
 	newStarfleetRoot(rt).PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if !wantFlags[f.Name] {

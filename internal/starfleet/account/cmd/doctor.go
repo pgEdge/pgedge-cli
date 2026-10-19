@@ -13,6 +13,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
+	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
@@ -37,6 +38,8 @@ type authInfo struct {
 	// diverged; the text wording names both.
 	TokenBound bool   `json:"token_bound"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
+	// User is a browser session's email or subject.
+	User string `json:"user,omitempty"`
 }
 
 type apiInfo struct {
@@ -75,6 +78,18 @@ type tenantInfo struct {
 	// Count makes a credential spanning more than one tenant visible
 	// rather than silently reported as its first.
 	Count int `json:"count,omitempty"`
+	// selected: a browser session's chosen tenant, not the first.
+	selected bool
+}
+
+// selectedTenant returns the tenant whose ID is id, else the first.
+func selectedTenant(tenants []api.Tenant, id string) api.Tenant {
+	for _, t := range tenants {
+		if strings.EqualFold(t.Id, id) {
+			return t
+		}
+	}
+	return tenants[0]
 }
 
 // accountDoctorReport is the Starfleet connection's report: credential
@@ -143,6 +158,9 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	if res.Env {
 		return info
 	}
+	if res.Session {
+		return checkSessionAuth(rt, res.APIURL, info)
+	}
 
 	tok, err := conn.Store(rt).LoadToken()
 	if err != nil {
@@ -153,6 +171,23 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	info.TokenValid = time.Until(tok.ExpiresAt) > 0
 	info.TokenBound = tok.MintedBy(
 		res.APIURL, res.Creds.ClientID, res.Creds.ClientSecret)
+	return info
+}
+
+// checkSessionAuth fills the Auth row for a browser session, whose
+// token cannot be re-minted: TokenValid and TokenBound are read the way
+// conn.LoadSession reads them.
+func checkSessionAuth(
+	rt *module.Runtime, apiURL string, info authInfo,
+) authInfo {
+	tok, err := conn.Store(rt).LoadToken()
+	if err != nil {
+		return info
+	}
+	info.User = tok.User
+	info.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
+	info.TokenValid = time.Until(tok.ExpiresAt) > auth.RefreshWindow
+	info.TokenBound = tok.SessionFor(apiURL)
 	return info
 }
 
@@ -210,8 +245,9 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	if timeout <= 0 {
 		timeout = conn.RequestTimeout
 	}
-	client, err := newEphemeralAccountClient(
-		rt, f.ClientID, f.ClientSecret, f.APIURL, timeout)
+	cf := *f
+	cf.Timeout = timeout
+	client, c, err := newEphemeralAccountClient(rt, cf)
 	if err != nil {
 		return tenantInfo{}
 	}
@@ -230,11 +266,15 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	}
 
 	t := tenants[0]
+	if c.Session != nil {
+		t = selectedTenant(tenants, c.Session.TenantID)
+	}
 	info := tenantInfo{
 		Resolved: true,
 		Name:     t.Name,
 		ID:       t.Id,
 		Count:    len(tenants),
+		selected: c.Session != nil,
 	}
 	if t.Plan != nil {
 		info.Plan = *t.Plan
@@ -265,7 +305,11 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if info.PlanTrial {
 		detail += " [trial]"
 	}
-	if info.Count > 1 {
+	switch {
+	case info.Count > 1 && info.selected:
+		detail += fmt.Sprintf(" — %d tenants reachable, reporting the "+
+			"selected one", info.Count)
+	case info.Count > 1:
 		detail += fmt.Sprintf(" — %d tenants visible, reporting the first",
 			info.Count)
 	}
@@ -310,7 +354,16 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	if report.Auth.Problem != "" {
 		authDetail = report.Auth.Problem
 	}
+	session := report.Auth.Source == auth.SourceBrowser
 	switch {
+	case session && report.Auth.TokenValid && report.Auth.TokenBound:
+		authStatus = "ok"
+		authDetail = fmt.Sprintf("signed in as %s via browser "+
+			"(expires %s)", output.Sanitize(report.Auth.User),
+			report.Auth.ExpiresAt)
+	case session:
+		authDetail = conn.SessionExpiredError(rt,
+			report.API.URL).Error()
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

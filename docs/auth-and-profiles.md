@@ -1,12 +1,41 @@
 # Authentication and profiles
 
 Two questions decide every call the CLI makes: who you are, and where
-it points. One credential pair serves the whole `starfleet` tree: sign
-in once with `pgedge starfleet auth login` and the account-level
+it points. One sign-in serves the whole `starfleet` tree: sign in
+once with `pgedge starfleet auth login` and the account-level
 commands, `byoc` and `managed` all share that connection and its
 cached token. The `controlplane` module has no login at all. It
 targets `--base-url` directly, with optional mTLS flags for a Control
 Plane that requires them.
+
+## Signing in
+
+A profile signs in one of two ways:
+
+- **As you, through the browser.** Run `pgedge starfleet auth login`
+  with no credential flags. It opens your browser on the pgEdge
+  sign-in page and prints the same URL, so you can open it by hand
+  when no browser starts. The CLI then calls pgEdge Starfleet as you,
+  with the same access as the console, and creates nothing on the
+  server.
+- **As an API client.** Pass `--client-id` and `--client-secret`, or
+  `--api-client` to be prompted for them. This is the path for CI and
+  scripts, because it needs no browser and the token renews itself.
+
+A browser session lasts until the time login prints. After that,
+commands fail with exit status 5 and name the login command to run
+again. A profile holds one kind of credential, so signing in one way
+removes what the other way stored.
+
+When you belong to several tenants, login asks which one to use, or
+uses your account's default tenant when it cannot ask. Pass
+`--tenant` with a tenant ID or name to choose without the question.
+To work in another of your tenants for one command, pass `--tenant`
+with its ID to that command.
+
+Browser sign-in works with the pgEdge Starfleet API endpoints that
+have a sign-in app. For any other `--api-url`, login reports that the
+browser path is not available there; sign in with an API client.
 
 ## How credentials resolve
 
@@ -16,7 +45,8 @@ Three sources, in priority order:
 - the `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` environment
   variables.
 - the active profile: its `starfleet` section in
-  `~/.pgedge/cli/config.yaml`, with the secret in the OS keychain.
+  `~/.pgedge/cli/config.yaml`, which holds either a browser session or
+  an API client with its secret in the OS keychain.
 
 The two flags must be supplied together. One without the other is a
 usage error at exit 2, not a partial override that falls back to
@@ -32,7 +62,8 @@ that change something else.
 
 ## Storing the Client Secret
 
-`pgedge starfleet auth login` saves the client secret in the OS
+`pgedge starfleet auth login` with an API client saves the client
+secret in the OS
 keychain: Keychain on macOS, the Secret Service on Linux, and
 Credential Manager on Windows. The client ID and the API URL go in
 `~/.pgedge/cli/config.yaml`. Other commands read the secret back from
@@ -112,7 +143,9 @@ the file and safe to mix binary versions.
 ## A profile is a tenant
 
 A profile carries one Starfleet credential, and an API client belongs
-to one tenant, so selecting a profile selects a tenant. The `byoc`
+to one tenant, so selecting a profile selects a tenant. A browser
+session stores the tenant it works in, so it selects one too, and
+`--tenant` changes it for one command. The `byoc`
 and `managed` sub-trees borrow that same credential rather than
 holding one of their own, which has two consequences:
 
@@ -135,7 +168,10 @@ credential's own ID, the API client's name, description and record
 UUID, then the tenant's name and UUID, the plan, a tenant count on the
 rare credential that reaches more than one, and the API URL in effect.
 A trial plan reads as the plan name followed by `(trial)`. `-o json`
-and `-o yaml` carry the same facts under the same keys.
+and `-o yaml` carry the same facts under the same keys. For a browser
+session it opens with your email in place of the client lines, and
+reports the tenant you are working in and how many tenants you can
+reach.
 
     pgedge starfleet auth whoami
     pgedge starfleet auth whoami -o json

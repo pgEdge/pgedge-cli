@@ -41,7 +41,9 @@ only the page for the resource you are working on.
 
 The whole `starfleet` tree shares one connection: authenticate once
 with `pgedge starfleet auth login` and every starfleet subcommand,
-byoc and managed included, borrows it. `controlplane` has no login: it
+byoc and managed included, borrows it. With no flags, login signs the
+user in through the browser, which only the user can complete; CI and
+agents use an API client. `controlplane` has no login: it
 targets `--base-url` directly, at a Control Plane you run yourself,
 which the controlplane reference's "Getting a Control Plane" section
 covers.

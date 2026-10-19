@@ -31,6 +31,7 @@ Manage pgEdge Starfleet
 | `--api-url string` | No |  | pgEdge Starfleet API base URL (default https://api.pgedge.com) |
 | `--client-id string` | No |  | API client ID (overrides profile config) |
 | `--client-secret string` | No |  | API client secret (overrides profile config) |
+| `--tenant string` | No |  | Tenant ID a browser sign-in acts in (overrides the profile's) |
 | `--timeout duration` | No | `30s` | Per-request timeout (Go duration; 0 disables) |
 
 **Example:**
@@ -89,15 +90,16 @@ Authenticate with pgEdge Starfleet
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 **Example:**
 
 ```
 pgedge starfleet auth login
-pgedge starfleet auth login --api-url https://api.pgedge.com
+pgedge starfleet auth login --tenant TENANT_ID
 pgedge starfleet auth login --client-id ID --client-secret SECRET
-pgedge starfleet auth login --insecure-storage
+pgedge starfleet auth login --api-client --insecure-storage
 ```
 
 #### pgedge starfleet auth logout

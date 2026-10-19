@@ -99,11 +99,20 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 		return newExitError(fmt.Sprintf("save session: %v", err),
 			ExitAuth)
 	}
-	// A previous session's refresh token must not outlive this sign-in.
+	// A refresh token the profile will not keep is ended, not left live.
 	store := conn.Store(rt)
+	old := rt.Config.StarfleetProfile(rt.Profile)
+	if old.IsBrowserSession() {
+		if prev, err := store.SessionRefreshToken(); err == nil {
+			revokeDiscarded(rt, conn.ResolveAPIURL(old, ""), prev)
+		}
+	}
 	renews := false
 	if toks.RefreshToken != "" {
 		renews = store.SaveSessionRefreshToken(toks.RefreshToken) == nil
+		if !renews {
+			revokeDiscarded(rt, apiURL, toks.RefreshToken)
+		}
 	}
 	if !renews {
 		_ = store.ClearSessionRefreshToken()
@@ -112,7 +121,6 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 	// One profile, one kind of credential: an API client's secret goes.
 	// Saved before the secret goes, so a failed save keeps a working
 	// API client.
-	old := rt.Config.StarfleetProfile(rt.Profile)
 	rt.Config.SetStarfleetProfile(rt.Profile, &config.StarfleetProfile{
 		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID})
 	if err := rt.Config.Save(); err != nil {
@@ -129,8 +137,9 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 	fmt.Fprintf(rt.Stderr, "Signed in as %s.\n", output.Sanitize(user))
 	fmt.Fprintf(rt.Stderr, "Tenant: %s\n", output.Sanitize(label))
 	if renews {
-		fmt.Fprintln(rt.Stderr, "The session renews itself while in use "+
-			"and ends after a period without use; run 'pgedge starfleet "+
+		fmt.Fprintln(rt.Stderr, "The session renews itself while in use. "+
+			"It ends after a period without use, or after a fixed "+
+			"maximum however much it is used; run 'pgedge starfleet "+
 			"auth login' to start a new one.")
 	} else {
 		fmt.Fprintf(rt.Stderr, "The session lasts until %s; run 'pgedge "+

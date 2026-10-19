@@ -1,10 +1,17 @@
 package conn
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -190,6 +197,81 @@ func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
 	_, _ = Resolve(rt, Flags{})
 	if auth0.hits() != 1 {
 		t.Errorf("the session did not try to renew: %d", auth0.hits())
+	}
+}
+
+// TestConcurrentRenewalsRefreshOnce races two renewals of one session,
+// as two processes would. Sending a rotating refresh token twice counts
+// as reuse, which makes Auth0 revoke the whole session.
+func TestConcurrentRenewalsRefreshOnce(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		valid = map[string]bool{"rt-1": true}
+		calls atomic.Int32
+	)
+	auth0 := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			_ = r.ParseForm()
+			n := calls.Add(1)
+			time.Sleep(50 * time.Millisecond) // let a rival arrive
+			mu.Lock()
+			defer mu.Unlock()
+			if sent := r.PostForm.Get("refresh_token"); valid[sent] {
+				delete(valid, sent)
+			} else {
+				clear(valid)
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = io.WriteString(w, `{"error":"invalid_grant"}`)
+				return
+			}
+			next := fmt.Sprintf("rt-%d", n+1)
+			valid[next] = true
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": testsupport.SessionToken(t, "u1",
+					time.Now().Add(24*time.Hour), "t-a"),
+				"refresh_token": next,
+			})
+		}))
+	t.Cleanup(auth0.Close)
+	saved := SignInApp
+	t.Cleanup(func() { SignInApp = saved })
+	SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+		return apidefaults.Auth0App{ClientID: "cid"}, auth0.URL, true
+	}
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	rt.Keychain = &keychain.Fake{}
+	testsupport.SeedSession(t, rt, sessionAPI, "u1",
+		time.Now().Add(auth.RefreshWindow/2), "t-a")
+	if err := Store(rt).SaveSessionRefreshToken("rt-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for i := range errs {
+		proc := *rt
+		proc.Stderr = &bytes.Buffer{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, errs[i] = Resolve(&proc, Flags{})
+		}()
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("renewal %d failed: %v", i, err)
+		}
+	}
+	if calls.Load() != 1 {
+		t.Errorf("Auth0 got %d refreshes, want 1", calls.Load())
+	}
+	kept, _ := Store(rt).SessionRefreshToken()
+	mu.Lock()
+	defer mu.Unlock()
+	if !valid[kept] {
+		t.Errorf("the keychain holds %q, which Auth0 no longer honours",
+			kept)
 	}
 }
 

@@ -667,7 +667,8 @@ var SignInApp = func(apiURL string) (apidefaults.Auth0App, string, bool) {
 // apiURL but near expiry is renewed with the session's refresh token
 // when policy allows; anything else unusable is SessionExpiredError.
 func loadSession(rt *module.Runtime, apiURL string, timeout time.Duration,
-	policy tokenPolicy) (*auth.CachedToken, *auth.Claims, error) {
+	policy tokenPolicy, warn *sync.Once,
+) (*auth.CachedToken, *auth.Claims, error) {
 	tok, err := Store(rt).LoadToken()
 	if err != nil || !tok.SessionFor(apiURL) {
 		return nil, nil, SessionExpiredError(rt, apiURL)
@@ -676,8 +677,8 @@ func loadSession(rt *module.Runtime, apiURL string, timeout time.Duration,
 		if policy == ephemeralToken {
 			return nil, nil, SessionExpiredError(rt, apiURL)
 		}
-		tok, err = renewSession(context.Background(), rt, apiURL,
-			tok.User, timeout)
+		tok, err = renewSession(context.Background(), rt, apiURL, tok,
+			timeout, warn)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -689,60 +690,104 @@ func loadSession(rt *module.Runtime, apiURL string, timeout time.Duration,
 	return tok, claims, nil
 }
 
-// renewSession exchanges the session's refresh token for a new access
-// token. Auth0 rotates the refresh token, so both are saved before the
-// access token is used: the old refresh token no longer works.
-func renewSession(ctx context.Context, rt *module.Runtime, apiURL,
-	user string, timeout time.Duration) (*auth.CachedToken, error) {
+// renewSession renews cur. A failure that leaves the session alive, such
+// as a network error, falls back to cur while it is unexpired.
+func renewSession(ctx context.Context, rt *module.Runtime, apiURL string,
+	cur *auth.CachedToken, timeout time.Duration, warn *sync.Once,
+) (*auth.CachedToken, error) {
+	tok, ended, err := renewLocked(ctx, rt, apiURL, cur.User, timeout)
+	if err == nil || ended || !cur.ExpiresAt.After(now()) {
+		return tok, err
+	}
+	warn.Do(func() {
+		fmt.Fprintf(rt.Stderr, "Warning: %s; using the current sign-in "+
+			"until it expires.\n", output.Sanitize(err.Error()))
+	})
+	return cur, nil
+}
+
+// renewLocked exchanges the session's refresh token for a new access
+// token under the session lock, so concurrent processes renew once.
+// ended reports a session that can never renew again.
+func renewLocked(ctx context.Context, rt *module.Runtime, apiURL,
+	user string, timeout time.Duration,
+) (tok *auth.CachedToken, ended bool, err error) {
+	failed := func(err error) *ExitError {
+		return NewExitError(fmt.Sprintf("could not renew the browser "+
+			"sign-in for %s: %v", apiURL, err), ExitAuth)
+	}
 	store := Store(rt)
+	unlock, err := store.LockSession()
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	defer unlock()
+	// Another process may have renewed while this one waited.
+	if t, err := store.LoadToken(); err == nil && t.SessionFor(apiURL) &&
+		t.ExpiresAt.Sub(now()) > auth.RefreshWindow {
+		return t, false, nil
+	}
 	refresh, err := store.SessionRefreshToken()
 	if err != nil {
-		return nil, SessionExpiredError(rt, apiURL)
+		return nil, true, SessionExpiredError(rt, apiURL)
 	}
 	app, base, ok := SignInApp(apiURL)
 	if !ok {
-		return nil, SessionExpiredError(rt, apiURL)
+		return nil, true, SessionExpiredError(rt, apiURL)
 	}
-	if timeout <= 0 {
+	// Bounded however patient --timeout is: the lock is held meanwhile.
+	if timeout <= 0 || timeout > RequestTimeout {
 		timeout = RequestTimeout
 	}
 	toks, err := signin.Refresh(ctx, SignInHTTPClient(rt, timeout), base,
 		app.ClientID, refresh)
 	if signin.IsInvalidGrant(err) {
-		// Expired, reused or revoked: it can never work again. A
-		// network failure keeps it, since it may work next time.
-		_ = store.ClearSessionRefreshToken()
-		return nil, SessionExpiredError(rt, apiURL)
+		// Only the token this process sent is known dead.
+		if v, _ := store.SessionRefreshToken(); v == refresh {
+			_ = store.ClearSessionRefreshToken()
+		}
+		return nil, true, SessionExpiredError(rt, apiURL)
 	}
 	if err != nil {
-		return nil, NewExitError(fmt.Sprintf("could not renew the browser "+
-			"sign-in for %s: %v", apiURL, err), ExitAuth)
+		return nil, false, failed(err)
 	}
 	claims, err := auth.ParseClaims(toks.AccessToken)
 	if err != nil {
-		return nil, NewExitError(fmt.Sprintf("renewing the browser sign-in "+
-			"returned an access token the CLI cannot read: %v", err),
-			ExitAuth)
+		return nil, false, failed(err)
 	}
 	expiresAt := claims.ExpiresAt()
 	if expiresAt.IsZero() {
 		expiresAt = time.Now().Add(time.Duration(toks.ExpiresIn) *
 			time.Second)
 	}
-	tok, err := SaveSession(rt, apiURL, toks.AccessToken, user, expiresAt)
-	if err != nil {
-		return nil, NewExitError(fmt.Sprintf("save renewed session: %v",
-			err), ExitAuth)
-	}
+	// The rotated refresh token first: the one sent is now dead.
 	if toks.RefreshToken != "" {
 		if err := store.SaveSessionRefreshToken(toks.RefreshToken); err != nil {
+			_ = store.ClearSessionRefreshToken()
 			fmt.Fprintf(rt.Stderr, "Warning: could not save the renewed "+
 				"sign-in to the OS keychain (%s); run '%s' when this "+
 				"session ends.\n", output.Sanitize(err.Error()),
 				output.Sanitize(loginCommand(rt)))
 		}
 	}
-	return tok, nil
+	tok, err = SaveSession(rt, apiURL, toks.AccessToken, user, expiresAt)
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	return tok, false, nil
+}
+
+// RevokeSessionToken revokes a browser session's refresh token at the
+// sign-in app for apiURL.
+func RevokeSessionToken(rt *module.Runtime, apiURL, token string) error {
+	app, base, ok := SignInApp(apiURL)
+	if !ok {
+		return fmt.Errorf("no sign-in app for %s", apiURL)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
+	defer cancel()
+	return signin.Revoke(ctx, SignInHTTPClient(rt, RequestTimeout), base,
+		app.ClientID, token)
 }
 
 // SaveSession writes a browser sign-in's access token to the profile's
@@ -786,12 +831,7 @@ func Resolve(rt *module.Runtime, f Flags) (*Conn, error) {
 }
 
 // ResolveEphemeral is Resolve for `starfleet doctor`, which must not
-// change what it reports: it reuses a valid cached token but never
-// writes one, and never renews a browser session, which would rotate
-// its refresh token. Writing would let doctor report "token expired or missing"
-// and leave a fresh token behind, and `doctor --api-url <other>` would
-// evict the profile's working token, since a cached token is bound to
-// its API URL.
+// change what it reports: it never writes a token or renews a session.
 func ResolveEphemeral(rt *module.Runtime, f Flags) (*Conn, error) {
 	return resolve(rt, f, ephemeralToken)
 }
@@ -867,7 +907,8 @@ func resolve(rt *module.Runtime, f Flags, policy tokenPolicy,
 func resolveSession(rt *module.Runtime, res *Resolved, flagTenant string,
 	timeout time.Duration, policy tokenPolicy,
 ) (*Conn, error) {
-	tok, claims, err := loadSession(rt, res.APIURL, timeout, policy)
+	warn := &sync.Once{}
+	tok, claims, err := loadSession(rt, res.APIURL, timeout, policy, warn)
 	if err != nil {
 		return nil, err
 	}
@@ -882,6 +923,7 @@ func resolveSession(rt *module.Runtime, res *Resolved, flagTenant string,
 		ExpiresAt: tok.ExpiresAt,
 	}
 	// A wait that outlives the token renews it as the first call would.
+	cur := tok
 	src := &tokenSource{
 		value:  tok.AccessToken,
 		expiry: tok.ExpiresAt,
@@ -889,10 +931,11 @@ func resolveSession(rt *module.Runtime, res *Resolved, flagTenant string,
 			if policy == ephemeralToken {
 				return "", time.Time{}, SessionExpiredError(rt, res.APIURL)
 			}
-			t, err := renewSession(ctx, rt, res.APIURL, tok.User, timeout)
+			t, err := renewSession(ctx, rt, res.APIURL, cur, timeout, warn)
 			if err != nil {
 				return "", time.Time{}, err
 			}
+			cur = t
 			return t.AccessToken, t.ExpiresAt, nil
 		},
 	}

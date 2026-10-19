@@ -16,7 +16,6 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
-	"github.com/pgEdge/pgedge-cli/internal/starfleet/signin"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -61,16 +60,16 @@ you, through the browser, or as an API client.
 With no credential flags, login opens your browser on the pgEdge
 sign-in page and prints the same URL on stderr, so you can open it by
 hand when no browser starts. Once you sign in, every command runs as
-you, in your tenant. The session renews itself while in use and ends
-after a period without use; run login again to start a new one. The
-profile stores the API URL, the tenant and the fact that it is a
-browser sign-in; the access token goes to the token cache and the
-token that renews the session to the OS keychain, never the config
-file. Where no keychain can be used, the session lasts until the time
-login prints. When you belong to several tenants, login asks which to
-use when it can prompt, and uses
-your account's default tenant otherwise. --tenant picks one by ID or
-name without asking. Browser sign-in is available only for pgEdge
+you, in your tenant. The session renews itself while in use. It ends
+after a period without use, or after a fixed maximum however much it
+is used; run login again to start a new one. The profile stores the
+API URL, the tenant and the fact that it is a browser sign-in; the
+access token goes to the token cache and the token that renews the
+session to the OS keychain, never the config file. Where no keychain
+can be used, the session lasts until the time login prints. When you
+belong to several tenants, login asks which to use when it can
+prompt, and uses your account's default tenant otherwise. --tenant
+picks one by ID or name without asking. Browser sign-in is available only for pgEdge
 Starfleet APIs that have a sign-in app; for any other --api-url,
 login fails with exit 5 and asks for an API client.
 
@@ -189,7 +188,14 @@ Example:
 				return fmt.Errorf("save credentials: %w", err)
 			}
 			if cp.IsBrowserSession() {
-				_ = store.ClearSessionRefreshToken()
+				if prev, err := store.SessionRefreshToken(); err == nil {
+					revokeDiscarded(rt, conn.ResolveAPIURL(cp, ""), prev)
+				}
+				if err := store.ClearSessionRefreshToken(); err != nil {
+					fmt.Fprintf(rt.Stderr, "Warning: could not remove the "+
+						"previous session from the OS keychain: %s\n",
+						output.Sanitize(err.Error()))
+				}
 			}
 
 			// The file Save() actually wrote, not DefaultPath(): Save
@@ -557,21 +563,23 @@ func endSession(rt *module.Runtime) {
 		return
 	}
 	apiURL := conn.ResolveAPIURL(rt.Config.StarfleetProfile(rt.Profile), "")
-	if app, base, ok := conn.SignInApp(apiURL); ok {
-		ctx, cancel := context.WithTimeout(context.Background(),
-			conn.RequestTimeout)
-		defer cancel()
-		if err := signin.Revoke(ctx,
-			conn.SignInHTTPClient(rt, conn.RequestTimeout), base,
-			app.ClientID, token); err != nil {
-			fmt.Fprintf(rt.Stderr, "Warning: could not end the session "+
-				"with pgEdge (%s); it is removed from this machine.\n",
-				output.Sanitize(err.Error()))
-		}
+	if err := conn.RevokeSessionToken(rt, apiURL, token); err != nil {
+		fmt.Fprintf(rt.Stderr, "Warning: could not end the session "+
+			"with pgEdge (%s); it is removed from this machine.\n",
+			output.Sanitize(err.Error()))
 	}
 	if err := store.ClearSessionRefreshToken(); err != nil {
 		fmt.Fprintf(rt.Stderr, "Warning: could not remove the session "+
 			"from the OS keychain: %s\n", output.Sanitize(err.Error()))
+	}
+}
+
+// revokeDiscarded ends a refresh token the profile no longer keeps,
+// best effort.
+func revokeDiscarded(rt *module.Runtime, apiURL, token string) {
+	if err := conn.RevokeSessionToken(rt, apiURL, token); err != nil {
+		fmt.Fprintf(rt.Stderr, "Warning: could not end a replaced "+
+			"session with pgEdge: %s\n", output.Sanitize(err.Error()))
 	}
 }
 

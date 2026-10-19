@@ -543,9 +543,21 @@ func seedRenewableSession(t *testing.T, rt *module.Runtime, api string,
 	return kc, accessToken
 }
 
-// TestSessionRenewalRotatesBeforeUse checks that by the time the API
-// sees a renewed access token, it and Auth0's rotated refresh token are
-// both saved: the old refresh token is dead from that moment.
+// orderedKeychain records the access token cached at each Set.
+type orderedKeychain struct {
+	*keychain.Fake
+	cached func() string
+	atSet  []string
+}
+
+func (k *orderedKeychain) Set(account, secret string) error {
+	k.atSet = append(k.atSet, k.cached())
+	return k.Fake.Set(account, secret)
+}
+
+// TestSessionRenewalRotatesBeforeUse checks that Auth0's rotated refresh
+// token is saved first, then the new access token, and both before the
+// API sees it: the old refresh token is dead from that moment.
 func TestSessionRenewalRotatesBeforeUse(t *testing.T) {
 	s := newSignInStubs(t, "t-a")
 	s.issueRefresh = true
@@ -553,6 +565,11 @@ func TestSessionRenewalRotatesBeforeUse(t *testing.T) {
 	rt, _, _ := testsupport.NewRuntime(t, "", "text")
 	kc, old := seedRenewableSession(t, rt, s.api,
 		time.Now().Add(auth.RefreshWindow/2))
+	ok := &orderedKeychain{Fake: kc, cached: func() string {
+		tok, _ := conn.Store(rt).LoadToken()
+		return tok.AccessToken
+	}}
+	rt.Keychain = ok
 	type seen struct {
 		refresh       string
 		bearer, saved string
@@ -581,6 +598,10 @@ func TestSessionRenewalRotatesBeforeUse(t *testing.T) {
 				"bearer cached %v", got.refresh, got.bearer != old,
 				got.bearer == got.saved)
 		}
+	}
+	if !slices.Equal(ok.atSet, []string{old}) {
+		t.Error("the access token was cached before the rotated " +
+			"refresh token was saved")
 	}
 }
 

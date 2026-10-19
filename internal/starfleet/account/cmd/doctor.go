@@ -80,6 +80,8 @@ type tenantInfo struct {
 	// Count makes a credential spanning more than one tenant visible
 	// rather than silently reported as its first.
 	Count int `json:"count,omitempty"`
+	// Skipped says why the tenant was not read, when doctor chose not to.
+	Skipped string `json:"skipped,omitempty"`
 	// selected: a browser session's chosen tenant, not the first.
 	selected bool
 }
@@ -298,6 +300,13 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 // enterprise is a warning, not an error: the credential works, it just
 // cannot drive byoc.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
+	if info.Skipped != "" {
+		return output.CheckRow{
+			Check:   "Tenant",
+			Status:  "warning",
+			Details: "not read: " + info.Skipped,
+		}
+	}
 	if !info.Resolved {
 		return output.CheckRow{
 			Check:   "Tenant",
@@ -350,8 +359,14 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	report := accountDoctorReport{
 		Auth:        checkAuth(rt, f),
 		API:         checkAPI(rt, f),
-		Tenant:      checkTenant(rt, f),
 		Environment: checkEnvironment(),
+	}
+	// Reading the tenant would need the renewal doctor must not make.
+	if a := report.Auth; a.Source == auth.SourceBrowser &&
+		a.Authenticated && !a.TokenValid {
+		report.Tenant.Skipped = "the browser session renews on next use"
+	} else {
+		report.Tenant = checkTenant(rt, f)
 	}
 
 	if rt.Output.Structured() {

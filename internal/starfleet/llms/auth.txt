@@ -47,8 +47,8 @@ stores `api_url`, `auth: browser` and `tenant_id`; the user's access
 token goes to the token cache and the token that renews the session
 to the OS keychain. Every later command runs as that user. The
 session renews itself while in use and ends after a period without
-use; where no keychain could hold it, it ends at the time login
-printed. Once it ends, a command fails at exit 5 and names the
+use or after a fixed maximum however much it is used; where no
+keychain could hold it, it ends at the time login printed. Once it ends, a command fails at exit 5 and names the
 `auth login` command to run.
 
 A user in several tenants is asked which to use when stdin and stdout

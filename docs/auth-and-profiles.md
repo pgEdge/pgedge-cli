@@ -22,8 +22,9 @@ A profile signs in one of two ways:
   `--api-client` to be prompted for them. This is the path for CI and
   scripts, because it needs no browser and the token renews itself.
 
-A browser session renews itself while you use it and ends after a
-period without use. Login keeps what renews it in the OS keychain;
+A browser session renews itself while you use it. It ends after a
+period without use, or after a fixed maximum however much you use
+it. Login keeps what renews it in the OS keychain;
 where no keychain can be used, the session lasts until the time login
 prints. Once the session ends, commands fail with exit status 5 and
 name the login command, which starts a new session. A profile holds one kind of credential, so signing in one way

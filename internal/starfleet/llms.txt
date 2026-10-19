@@ -34,8 +34,9 @@ A profile signs in one of two ways:
 - **As a user, through the browser.** `pgedge starfleet auth login`
   with no credential flags opens the browser, and every command then
   runs as that user, in the tenant the profile names. The session
-  renews itself while in use and ends after a period without use, or
-  at the time login printed when no OS keychain could hold it. Once
+  renews itself while in use and ends after a period without use or
+  after a fixed maximum however much it is used, or at the time login
+  printed when no OS keychain could hold it. Once
   it ends, a command fails at exit 5 and tells the user to run
   `auth login` again. An agent cannot complete a browser sign-in, so
   ask the user to run it.

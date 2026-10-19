@@ -82,14 +82,15 @@ type tenantInfo struct {
 	selected bool
 }
 
-// selectedTenant returns the tenant whose ID is id, else the first.
+// selectedTenant returns the listed tenant whose ID is id, else one
+// carrying only the ID, so a report names the tenant requests use.
 func selectedTenant(tenants []api.Tenant, id string) api.Tenant {
 	for _, t := range tenants {
 		if strings.EqualFold(t.Id, id) {
 			return t
 		}
 	}
-	return tenants[0]
+	return api.Tenant{Id: id}
 }
 
 // accountDoctorReport is the Starfleet connection's report: credential
@@ -159,7 +160,11 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 		return info
 	}
 	if res.Session {
-		return checkSessionAuth(rt, res.APIURL, info)
+		return checkSessionAuth(rt, res, f.Tenant, info)
+	}
+	if f.Tenant != "" {
+		return authInfo{Source: res.Source,
+			Problem: conn.ErrTenantWithAPIClient().Error()}
 	}
 
 	tok, err := conn.Store(rt).LoadToken()
@@ -177,17 +182,19 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 // checkSessionAuth fills the Auth row for a browser session, whose
 // token cannot be re-minted: TokenValid and TokenBound are read the way
 // conn.LoadSession reads them.
-func checkSessionAuth(
-	rt *module.Runtime, apiURL string, info authInfo,
+func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
+	flagTenant string, info authInfo,
 ) authInfo {
-	tok, err := conn.Store(rt).LoadToken()
-	if err != nil {
-		return info
+	s := readSession(rt, res, flagTenant)
+	if s.tok != nil {
+		info.User = s.tok.User
+		info.ExpiresAt = s.tok.ExpiresAt.Format(time.RFC3339)
 	}
-	info.User = tok.User
-	info.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
-	info.TokenValid = time.Until(tok.ExpiresAt) > auth.RefreshWindow
-	info.TokenBound = tok.SessionFor(apiURL)
+	info.TokenValid, info.TokenBound = s.valid, s.bound
+	if s.problem != nil {
+		info.Authenticated = false
+		info.Problem = s.problem.Error()
+	}
 	return info
 }
 
@@ -301,7 +308,11 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if plan == "" {
 		plan = "unknown"
 	}
-	detail := fmt.Sprintf("%s (%s, plan: %s)", info.Name, info.ID, plan)
+	name := info.Name
+	if name == "" {
+		name = "a tenant missing from the tenant list"
+	}
+	detail := fmt.Sprintf("%s (%s, plan: %s)", name, info.ID, plan)
 	if info.PlanTrial {
 		detail += " [trial]"
 	}
@@ -356,14 +367,11 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	}
 	session := report.Auth.Source == auth.SourceBrowser
 	switch {
-	case session && report.Auth.TokenValid && report.Auth.TokenBound:
+	case session && report.Auth.Authenticated:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("signed in as %s via browser "+
 			"(expires %s)", output.Sanitize(report.Auth.User),
 			report.Auth.ExpiresAt)
-	case session:
-		authDetail = conn.SessionExpiredError(rt,
-			report.API.URL).Error()
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

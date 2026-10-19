@@ -105,18 +105,20 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 	}
 
 	// One profile, one kind of credential: an API client's secret goes.
+	// Saved before the secret goes, so a failed save keeps a working
+	// API client.
 	old := rt.Config.StarfleetProfile(rt.Profile)
+	rt.Config.SetStarfleetProfile(rt.Profile, &config.StarfleetProfile{
+		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID})
+	if err := rt.Config.Save(); err != nil {
+		return fmt.Errorf("save profile: %w", err)
+	}
 	if old.ClientID != "" && old.ClientSecret == "" {
 		if err := keychainDelete(conn.Store(rt)); err != nil {
 			fmt.Fprintf(rt.Stderr, "Warning: could not remove the "+
 				"previous client secret from the OS keychain: %s\n",
 				output.Sanitize(err.Error()))
 		}
-	}
-	rt.Config.SetStarfleetProfile(rt.Profile, &config.StarfleetProfile{
-		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID})
-	if err := rt.Config.Save(); err != nil {
-		return fmt.Errorf("save profile: %w", err)
 	}
 
 	fmt.Fprintf(rt.Stderr, "Signed in as %s.\n", output.Sanitize(user))

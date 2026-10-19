@@ -2,12 +2,17 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -32,31 +37,37 @@ const tenantsBody = `[` +
 // login command's seams at them. The fake Auth0 issues an access token
 // reaching tenants, with the first as its default.
 type signInStubs struct {
-	api      string
-	tenants  []string
-	verifier atomic.Value
-	reply    func(q url.Values) url.Values
-	apiHits  map[string]int
-	headers  []http.Header
+	api       string
+	tenants   []string
+	verifier  atomic.Value
+	challenge atomic.Value
+	issued    atomic.Value // the access and ID tokens, space-joined
+	reply     func(q url.Values) url.Values
+	apiHits   map[string]int
+	headers   []http.Header
 }
+
+// stubCode is the authorization code the fake browser returns.
+const stubCode = "auth-code-7f3a9c"
 
 func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 	t.Helper()
 	s := &signInStubs{tenants: tenants, apiHits: map[string]int{}}
 	s.reply = func(q url.Values) url.Values {
-		return url.Values{"code": {"c"}, "state": {q.Get("state")}}
+		return url.Values{"code": {stubCode}, "state": {q.Get("state")}}
 	}
 	auth0 := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			_ = r.ParseForm()
 			s.verifier.Store(r.PostForm.Get("code_verifier"))
+			at := testsupport.SessionToken(t, "auth0|u1",
+				time.Now().Add(24*time.Hour), s.tenants...)
+			it := testsupport.FakeJWT(t,
+				map[string]any{"email": "user@example.com"})
+			s.issued.Store(at + " " + it)
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"access_token": testsupport.SessionToken(t, "auth0|u1",
-					time.Now().Add(24*time.Hour), s.tenants...),
-				"id_token": testsupport.FakeJWT(t,
-					map[string]any{"email": "user@example.com"}),
-				"expires_in": 86400,
+				"access_token": at, "id_token": it, "expires_in": 86400,
 			})
 		}))
 	t.Cleanup(auth0.Close)
@@ -94,9 +105,11 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			BaseURL: auth0.URL, ClientID: app.ClientID,
 			Audience: app.Audience, Ports: []int{0},
 			Wait: 5 * time.Second, Out: rt.Stderr,
+			HTTPClient: conn.SignInHTTPClient(rt, 5*time.Second),
 			Open: func(target string) error {
 				u, _ := url.Parse(target)
 				q := u.Query()
+				s.challenge.Store(q.Get("code_challenge"))
 				resp, err := http.Get(q.Get("redirect_uri") + "?" +
 					s.reply(q).Encode())
 				if err == nil {
@@ -150,9 +163,48 @@ func TestDefaultSignInFlowTargetsAuth0(t *testing.T) {
 		Audience: "aud", ClientID: "cid"}, time.Second)
 	if f.BaseURL != "https://auth.example" || f.ClientID != "cid" ||
 		f.Audience != "aud" || f.Open == nil || f.Out != errb ||
-		len(f.Ports) != 3 || f.Ports[0] != 8484 ||
+		!slices.Equal(f.Ports, []int{8484, 8485, 8486}) ||
 		f.Wait != signin.DefaultWait || f.HTTPClient == nil {
 		t.Errorf("default flow = %+v", f)
+	}
+}
+
+// TestBrowserLoginSendsTheChallengeOfItsVerifier ties the
+// code_challenge sent to /authorize to the verifier sent to
+// /oauth/token, as Auth0 will.
+func TestBrowserLoginSendsTheChallengeOfItsVerifier(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	if err := login(t, rt, s); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	verifier, _ := s.verifier.Load().(string)
+	challenge, _ := s.challenge.Load().(string)
+	sum := sha256.Sum256([]byte(verifier))
+	if verifier == "" ||
+		challenge != base64.RawURLEncoding.EncodeToString(sum[:]) {
+		t.Errorf("challenge %q is not S256 of verifier %q",
+			challenge, verifier)
+	}
+}
+
+func TestBrowserLoginDebugOutputCarriesNoSecrets(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	rt, _, errb := testsupport.NewRuntime(t, "", "text")
+	rt.Debug = true
+	if err := login(t, rt, s); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if !strings.Contains(errb.String(), "/oauth/token") {
+		t.Fatalf("--debug did not log the exchange:\n%s", errb.String())
+	}
+	issued, _ := s.issued.Load().(string)
+	verifier, _ := s.verifier.Load().(string)
+	secrets := append(strings.Fields(issued), verifier, stubCode)
+	for _, secret := range secrets {
+		if secret == "" || strings.Contains(errb.String(), secret) {
+			t.Errorf("--debug output carries %q", secret)
+		}
 	}
 }
 
@@ -333,6 +385,28 @@ func TestBrowserLoginFailures(t *testing.T) {
 	}
 }
 
+func TestBrowserLoginKeepsTheSecretWhenTheSaveFails(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	kc := &keychain.Fake{}
+	rt.Keychain = kc
+	if err := login(t, rt, s, "--client-id", "kid",
+		"--client-secret", "ks"); err != nil {
+		t.Fatalf("client login: %v", err)
+	}
+	dir := filepath.Dir(rt.Config.Path())
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	if err := login(t, rt, s); err == nil {
+		t.Fatal("login succeeded with an unwritable config")
+	}
+	if _, err := kc.Get(conn.Store(rt).KeychainAccount()); err != nil {
+		t.Errorf("a failed save removed the API client's secret: %v", err)
+	}
+}
+
 func TestLoginSwitchesProfileKind(t *testing.T) {
 	s := newSignInStubs(t, "t-a")
 	rt, _, errb := testsupport.NewRuntime(t, "", "text")
@@ -502,6 +576,118 @@ func TestDoctorForASession(t *testing.T) {
 	if !strings.Contains(out2.String(),
 		"auth login --profile dev") {
 		t.Errorf("doctor did not point at login:\n%s", out2.String())
+	}
+}
+
+func TestDoctorJSONForAnExpiredSession(t *testing.T) {
+	rt, out, _ := testsupport.NewRuntime(t, "", "json")
+	testsupport.SeedSession(t, rt, "http://127.0.0.1:1", "u1",
+		time.Now().Add(-time.Minute), "t-a")
+	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
+		t.Fatalf("doctor: %v", err)
+	}
+	var got accountDoctorReport
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("doctor json: %v\n%s", err, out.String())
+	}
+	if got.Auth.Authenticated ||
+		!strings.Contains(got.Auth.Problem, "has expired") {
+		t.Errorf("auth = %+v, want unauthenticated with the expired "+
+			"message", got.Auth)
+	}
+}
+
+func TestTenantFlagIsValidatedByStatusAndDoctor(t *testing.T) {
+	s := newSignInStubs(t, "t-a", "t-b")
+	for _, tc := range []struct {
+		name    string
+		session bool
+		want    string
+	}{
+		{"session, unreachable tenant", true, "t-a, t-b"},
+		{"API client", false, "--tenant applies only"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rt, out, _ := testsupport.NewRuntime(t, "", "json")
+			args := []string{"--tenant", "t-z"}
+			if tc.session {
+				testsupport.SeedSession(t, rt, s.api, "u1",
+					time.Now().Add(time.Hour), "t-a", "t-b")
+			} else {
+				args = append(args, "--client-id", "i",
+					"--client-secret", "x", "--api-url", s.api)
+			}
+			err := runAccount(t, rt, &bytes.Buffer{},
+				append([]string{"auth", "status"}, args...)...)
+			if exitCode(err) != ExitUsage ||
+				!strings.Contains(err.Error(), tc.want) {
+				t.Errorf("status err = %v, want exit 2", err)
+			}
+
+			out.Reset()
+			if err := runAccount(t, rt, &bytes.Buffer{},
+				append([]string{"doctor"}, args...)...); err != nil {
+				t.Fatalf("doctor: %v", err)
+			}
+			var got accountDoctorReport
+			_ = json.Unmarshal(out.Bytes(), &got)
+			if got.Auth.Authenticated ||
+				!strings.Contains(got.Auth.Problem, tc.want) {
+				t.Errorf("doctor auth = %+v", got.Auth)
+			}
+		})
+	}
+}
+
+func TestStaleProfileTenant(t *testing.T) {
+	s := newSignInStubs(t, "t-a", "t-b")
+	rt, out, _ := testsupport.NewRuntime(t, "", "json")
+	testsupport.SeedSession(t, rt, s.api, "u1",
+		time.Now().Add(time.Hour), "t-a", "t-b")
+	rt.Config.SetStarfleetProfile("default", &config.StarfleetProfile{
+		APIURL: s.api, Auth: config.AuthBrowser, TenantID: "t-gone"})
+
+	err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami")
+	if exitCode(err) != ExitUsage ||
+		!strings.Contains(err.Error(), "auth login --tenant") {
+		t.Errorf("whoami err = %v, want exit 2 naming the fix", err)
+	}
+	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
+		t.Fatalf("doctor: %v", err)
+	}
+	var got accountDoctorReport
+	_ = json.Unmarshal(out.Bytes(), &got)
+	if got.Auth.Authenticated || got.Tenant.Resolved {
+		t.Errorf("doctor = %+v, want the stale tenant reported", got)
+	}
+}
+
+func TestWhoamiAndDoctorReportTheTenantSent(t *testing.T) {
+	// t-c is in the token but missing from the tenant list.
+	s := newSignInStubs(t, "t-a", "t-b", "t-c")
+	rt, out, _ := testsupport.NewRuntime(t, "", "json")
+	testsupport.SeedSession(t, rt, s.api, "u1",
+		time.Now().Add(time.Hour), "t-c", "t-a", "t-b")
+	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami"); err != nil {
+		t.Fatalf("whoami: %v", err)
+	}
+	var who whoamiReport
+	_ = json.Unmarshal(out.Bytes(), &who)
+	if who.TenantID != "t-c" || who.TenantName != "" {
+		t.Errorf("whoami = %+v, want t-c with no borrowed name", who)
+	}
+	out.Reset()
+	if err := runAccount(t, rt, &bytes.Buffer{}, "doctor"); err != nil {
+		t.Fatalf("doctor: %v", err)
+	}
+	var doc accountDoctorReport
+	_ = json.Unmarshal(out.Bytes(), &doc)
+	if doc.Tenant.ID != "t-c" || doc.Tenant.Name != "" {
+		t.Errorf("doctor tenant = %+v, want t-c", doc.Tenant)
+	}
+	if row := tenantCheckRow(doc.Tenant); !strings.Contains(row.Details,
+		"missing from the tenant list") {
+		t.Errorf("tenant row = %q", row.Details)
 	}
 }
 

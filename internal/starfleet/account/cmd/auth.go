@@ -323,6 +323,9 @@ Example:
 			if res.Session {
 				return sessionStatus(rt, res, f.Tenant)
 			}
+			if f.Tenant != "" {
+				return conn.ErrTenantWithAPIClient()
+			}
 			creds, source, apiURL := res.Creds, res.Source, res.APIURL
 
 			report := authStatusReport{
@@ -377,26 +380,62 @@ Example:
 	}
 }
 
+// sessionState is what status and doctor read from a browser session's
+// cache, and the failure a command would hit with it, if any.
+type sessionState struct {
+	tok          *auth.CachedToken
+	valid, bound bool
+	tenant       string
+	problem      error
+}
+
+// readSession checks a session the way conn.Resolve would, without
+// calling the API.
+func readSession(rt *module.Runtime, res *conn.Resolved,
+	flagTenant string) sessionState {
+	var s sessionState
+	expired := conn.SessionExpiredError(rt, res.APIURL)
+	tok, err := conn.Store(rt).LoadToken()
+	if err != nil {
+		s.problem = expired
+		return s
+	}
+	s.tok = tok
+	s.valid = time.Until(tok.ExpiresAt) > auth.RefreshWindow
+	s.bound = tok.SessionFor(res.APIURL)
+	claims, err := auth.ParseClaims(tok.AccessToken)
+	if !s.valid || !s.bound || err != nil {
+		s.problem = expired
+		return s
+	}
+	s.tenant, err = conn.SessionTenant(rt, res.TenantID, flagTenant, claims)
+	if err != nil {
+		s.problem = err
+	}
+	return s
+}
+
 // sessionStatus reports a browser session. Unlike an API client, an
-// expired session cannot be renewed on demand, so it exits 5.
+// expired session cannot be renewed on demand, so it exits 5; a tenant
+// the token cannot reach exits 2.
 func sessionStatus(
 	rt *module.Runtime, res *conn.Resolved, flagTenant string,
 ) error {
+	s := readSession(rt, res, flagTenant)
 	report := authStatusReport{
-		Authenticated: true,
+		Authenticated: s.problem == nil,
 		Source:        res.Source,
 		APIURL:        res.APIURL,
-		TenantID:      res.TenantID,
+		TenantID:      s.tenant,
+		TokenValid:    s.valid,
+		TokenBound:    s.bound,
 	}
-	if flagTenant != "" {
-		report.TenantID = flagTenant
+	if s.tok != nil {
+		report.User = s.tok.User
+		report.ExpiresAt = s.tok.ExpiresAt.Format(time.RFC3339)
 	}
-	tok, err := conn.Store(rt).LoadToken()
-	if err == nil {
-		report.User = tok.User
-		report.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
-		report.TokenValid = time.Until(tok.ExpiresAt) > auth.RefreshWindow
-		report.TokenBound = tok.SessionFor(res.APIURL)
+	if s.problem != nil {
+		report.Problem = s.problem.Error()
 	}
 	lines := []string{
 		fmt.Sprintf("User:         %s", output.Sanitize(report.User)),
@@ -404,29 +443,23 @@ func sessionStatus(
 		fmt.Sprintf("API URL:      %s", report.APIURL),
 		fmt.Sprintf("Tenant:       %s", output.Sanitize(report.TenantID)),
 	}
-	var expired error
 	switch {
-	case err != nil:
+	case s.tok == nil:
 		lines = append(lines, "Token:        not cached")
-	case !report.TokenBound:
+	case !s.bound:
 		lines = append(lines,
 			"Token:        stale (signed in for a different API URL)")
-	case !report.TokenValid:
+	case !s.valid:
 		lines = append(lines, "Token:        expired")
 	default:
 		lines = append(lines, fmt.Sprintf(
 			"Token:        valid (expires %s)", report.ExpiresAt))
 	}
-	if !report.TokenValid || !report.TokenBound {
-		report.Authenticated = false
-		expired = conn.SessionExpiredError(rt, res.APIURL)
-		report.Problem = expired.Error()
-	}
 	if pErr := printAuthStatus(
 		rt, report, strings.Join(lines, "\n")+"\n"); pErr != nil {
 		return pErr
 	}
-	return expired
+	return s.problem
 }
 
 // printAuthStatus renders report through rt.Output for json/yaml, or

@@ -53,8 +53,9 @@ Three credential sources, in priority order:
 A browser session acts in the profile's `tenant_id`. `--tenant <id>`
 picks another tenant the user belongs to for one command; an ID the
 session cannot reach is exit 2, and the message lists the reachable
-IDs. An API client is scoped to one tenant, so `--tenant` alongside
-one is exit 2.
+IDs. A profile `tenant_id` the session no longer reaches is exit 2
+too; sign in again with `--tenant`. An API client is scoped to one
+tenant, so `--tenant` alongside one is exit 2.
 
 The two flags must be supplied together. One without the other is a
 usage error (exit 2, `--client-id given without --client-secret`). The

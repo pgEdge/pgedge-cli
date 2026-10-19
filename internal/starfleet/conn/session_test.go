@@ -148,14 +148,53 @@ func TestSessionExpiredOrMissing(t *testing.T) {
 func TestSessionWaitThatOutlivesTheTokenFailsWithTheSameMessage(t *testing.T) {
 	rt, _, _ := testsupport.NewRuntime(t, "", "text")
 	testsupport.SeedSession(t, rt, sessionAPI, "u1",
-		time.Now().Add(auth.RefreshWindow+150*time.Millisecond), "t-a")
+		time.Now().Add(time.Hour), "t-a")
 	c, err := Resolve(rt, Flags{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(200 * time.Millisecond)
+	if _, err := editedHeaders(t, c); err != nil {
+		t.Fatalf("a live session failed: %v", err)
+	}
+	t.Cleanup(func() { now = time.Now })
+	now = func() time.Time { return time.Now().Add(2 * time.Hour) }
 	_, err = editedHeaders(t, c)
 	wantExit(t, err, ExitAuth, "has expired or is missing")
+}
+
+func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
+	stub := newTokenStub(t, "client-tok")
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	sess := testsupport.SeedSession(t, rt, sessionAPI, "u1",
+		time.Now().Add(time.Hour), "t-a")
+	c, err := Resolve(rt, Flags{ClientID: "id", ClientSecret: "s",
+		APIURL: stub.url(), Timeout: RequestTimeout})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Token != "client-tok" || c.Session != nil {
+		t.Fatalf("flags did not win over the session: %+v", c)
+	}
+	tok, err := Store(rt).LoadToken()
+	if err != nil || tok.AccessToken != sess || !tok.SessionFor(sessionAPI) {
+		t.Fatalf("the session cache was overwritten: %+v, %v", tok, err)
+	}
+	if _, err := Resolve(rt, Flags{}); err != nil {
+		t.Errorf("the session no longer resolves: %v", err)
+	}
+}
+
+func TestStaleProfileTenantIsAUsageError(t *testing.T) {
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	testsupport.SeedSession(t, rt, sessionAPI, "u1",
+		time.Now().Add(time.Hour), "t-a", "t-b")
+	rt.Config.SetStarfleetProfile("default", &config.StarfleetProfile{
+		APIURL: sessionAPI, Auth: config.AuthBrowser, TenantID: "t-gone"})
+	_, err := Resolve(rt, Flags{})
+	wantExit(t, err, ExitUsage, "auth login --tenant")
+	if _, err := Resolve(rt, Flags{Tenant: "t-b"}); err != nil {
+		t.Errorf("--tenant should override a stale profile tenant: %v", err)
+	}
 }
 
 func TestSaveSession(t *testing.T) {

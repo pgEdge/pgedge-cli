@@ -39,6 +39,23 @@ jobs:
       # KEY=VALUE lines are forwarded (comments/blanks are skipped).
       - name: Load per-module versions
         run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
+      # The plugin marketplace installs the skills from this tag, so a
+      # release whose manifests name another one would install nothing.
+      - name: Check the plugin is pinned to this tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          for f in plugins/pgedge/.claude-plugin/plugin.json .cursor-plugin/plugin.json; do
+            got=$(jq -r .version "$f")
+            if [ "$got" != "$want" ]; then
+              echo "::error::$f has version $got; the tag needs $want"
+              exit 1
+            fi
+          done
+          ref=$(jq -r '.plugins[0].source.ref' .claude-plugin/marketplace.json)
+          if [ "$ref" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::marketplace.json pins $ref; the tag is $GITHUB_REF_NAME"
+            exit 1
+          fi
       - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           # Pinned because cmd/caskpatch is tested against this

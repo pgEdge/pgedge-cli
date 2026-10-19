@@ -123,8 +123,8 @@ Questions and problem reports go to
 
 ## Installing these skills
 
-Skills are a layer above the CLI, distributed from the `skills/`
-directory of this repository.
+Skills are a layer above the CLI, distributed from the
+`plugins/pgedge/skills/` directory of this repository.
 
 **Recommended — the skills CLI.** One command installs all five for
 the user and detects your agent:
@@ -165,7 +165,7 @@ npx skills add pgEdge/pgedge-cli --skill pgedge-managed
 ```bash
 git clone https://github.com/pgEdge/pgedge-cli
 mkdir -p .agents/skills
-cp -r pgedge-cli/skills/* .agents/skills/
+cp -r pgedge-cli/plugins/pgedge/skills/* .agents/skills/
 ```
 
 Use `~/.claude/skills/` instead of `.agents/skills/` if you want them

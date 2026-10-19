@@ -248,18 +248,18 @@ prefer to wire it up by hand.
 
 ## Installing the AI-Agent Skills
 
-pgEdge ships agent skills in the `skills/` directory of this
-repository. Each skill is a SKILL.md file in the Agent Skills open
-standard. The directory holds five skills:
+pgEdge ships agent skills in the `plugins/pgedge/skills/` directory
+of this repository. Each skill is a SKILL.md file in the Agent Skills
+open standard. The directory holds five skills:
 
-- `skills/pgedge`: an orientation to the pgedge CLI, and which module
-  to choose
-- `skills/pgedge-starfleet`: pgEdge Starfleet authentication, invites
-  and team memberships
-- `skills/pgedge-byoc`: pgEdge Starfleet BYOC resources
-- `skills/pgedge-managed`: pgEdge Starfleet Managed databases, which
-  pgEdge hosts
-- `skills/pgedge-controlplane`: pgEdge Control Plane resources
+- `pgedge`: an orientation to the pgedge CLI, and which module to
+  choose
+- `pgedge-starfleet`: pgEdge Starfleet authentication, invites and
+  team memberships
+- `pgedge-byoc`: pgEdge Starfleet BYOC resources
+- `pgedge-managed`: pgEdge Starfleet Managed databases, which pgEdge
+  hosts
+- `pgedge-controlplane`: pgEdge Control Plane resources
 
 Skills are a layer above the CLI, so they install separately. The
 install script offers to install them when it runs at a terminal.
@@ -305,7 +305,7 @@ any agent:
 
     git clone https://github.com/pgEdge/pgedge-cli
     mkdir -p .agents/skills
-    cp -r pgedge-cli/skills/* .agents/skills/
+    cp -r pgedge-cli/plugins/pgedge/skills/* .agents/skills/
 
 To install for Claude Code alone, use `~/.claude/skills/` in place of
 `.agents/skills/`.

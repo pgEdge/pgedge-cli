@@ -7,8 +7,8 @@
 // tokens to look up one flag, and left module scope for the doc gates
 // to infer rather than read off the file.
 //
-// Agent skills in skills/ are distributed by external installers (see
-// the README), not embedded.
+// Agent skills in plugins/pgedge/skills/ are distributed by external
+// installers (see the README), not embedded.
 package pgedgecli
 
 import (

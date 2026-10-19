@@ -129,10 +129,10 @@ var externalToolFlags = map[string]struct {
 		map[string]bool{"../../llms.txt": true}},
 	"--global": {"the skills CLI (npx skills add)",
 		map[string]bool{
-			"../../README.md":               true,
-			"../../skills/pgedge/SKILL.md":  true,
-			"../../docs/getting-started.md": true,
-			"../../docs/ai-agents.md":       true,
+			"../../README.md": true,
+			"../../plugins/pgedge/skills/pgedge/SKILL.md": true,
+			"../../docs/getting-started.md":               true,
+			"../../docs/ai-agents.md":                     true,
 		}},
 	"--marketplace": {"Claude Code (/plugin install)",
 		map[string]bool{
@@ -141,8 +141,8 @@ var externalToolFlags = map[string]struct {
 		}},
 	"--skill": {"the skills CLI (npx skills add)",
 		map[string]bool{
-			"../../README.md":              true,
-			"../../skills/pgedge/SKILL.md": true,
+			"../../README.md": true,
+			"../../plugins/pgedge/skills/pgedge/SKILL.md": true,
 		}},
 	"--fail": {"curl",
 		map[string]bool{
@@ -447,7 +447,7 @@ func TestFlagClaimCheckHonoursDeliberatelyWrongMarker(t *testing.T) {
 func TestFlagClaimCheckExternalAllowlistIsFileScoped(t *testing.T) {
 	fixture := "Add `--global` to install for your user instead."
 
-	if got := checkFlagNameClaims(t, "../../skills/pgedge/SKILL.md",
+	if got := checkFlagNameClaims(t, "../../plugins/pgedge/skills/pgedge/SKILL.md",
 		docSection{module: "byoc", text: fixture}); len(got) != 0 {
 		t.Fatalf("--global was flagged in a file the allowlist names: %v",
 			got)

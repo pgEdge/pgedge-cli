@@ -30,3 +30,35 @@ func TestResolveStarfleetAPIURL(t *testing.T) {
 		})
 	}
 }
+
+func TestAuth0For(t *testing.T) {
+	saved := auth0Apps
+	t.Cleanup(func() { auth0Apps = saved })
+	auth0Apps = map[string]Auth0App{
+		"https://ready": {Domain: "d", Audience: "a", ClientID: "c"},
+		"https://empty": {Domain: "d", Audience: "a"},
+	}
+	for _, tc := range []struct {
+		url  string
+		want bool
+	}{
+		{"https://ready", true},
+		{"https://ready/", true},
+		{"https://empty", false},
+		{"https://unknown", false},
+	} {
+		if _, ok := Auth0For(tc.url); ok != tc.want {
+			t.Errorf("Auth0For(%q) = %v, want %v", tc.url, ok, tc.want)
+		}
+	}
+}
+
+func TestAuth0AppsCoverBothAPIs(t *testing.T) {
+	for _, u := range []string{StarfleetAPIURL,
+		"https://devapi.pgedge.com"} {
+		app, ok := auth0Apps[u]
+		if !ok || app.Domain == "" || app.Audience != u {
+			t.Errorf("%s: %+v", u, app)
+		}
+	}
+}

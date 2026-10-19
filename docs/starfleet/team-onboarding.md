@@ -19,12 +19,12 @@ refuses outright:
 | `membership list` | Yes |
 | `membership delete <membership_id>` | Yes |
 
-`invite create` and `invite accept` both need a signed-in user. The
-CLI authenticates with a client ID and secret, which names an
-application rather than a person, so Starfleet refuses those two
-operations whatever the credentials are. Both commands recognize that
-before sending anything and exit 5 with a message pointing at the UI.
-No `-o` value changes it, and a retry cannot help, because the 5 is a
+`invite create` and `invite accept` both need a signed-in user in the
+pgEdge Starfleet UI. An API client names an application rather than a
+person, so Starfleet refuses it those two operations, and the CLI
+does not send them for a browser sign-in either. Both commands exit 5
+before sending anything, with a message pointing at the UI. No `-o`
+value changes it, and a retry cannot help, because the 5 is a
 property of the operation rather than of your credentials.
 
 ## Invite a teammate

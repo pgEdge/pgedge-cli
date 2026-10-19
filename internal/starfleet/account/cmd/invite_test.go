@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 	"github.com/spf13/pflag"
@@ -131,17 +133,11 @@ func TestInviteGuardedVerbsIssueNoRequest(t *testing.T) {
 	}
 }
 
-// TestInviteGuardPremiseStillHolds is the tripwire. The guard exists
-// only because every credential the CLI accepts is a client ID and
-// secret, which the API treats as a client and never a user. If an
-// interactive or device login ever lands, the premise is false and both
-// verbs should be restored rather than left refusing.
-//
-// This is weaker than the spec-divergence pattern used for
-// TestDatabaseLogsSpecShapeDivergesFromAPI, because there is no
-// vendored artefact to key off — it watches the auth surface instead.
-// It fails on a new auth verb or a new login flag, which is the
-// cheapest available signal that the premise moved.
+// TestInviteGuardPremiseStillHolds is the tripwire. Browser sign-in
+// gives the CLI a user, yet both verbs still refuse it until invites
+// are verified with a session. It fails on a new auth verb, on a new
+// persistent flag, and on the guard no longer refusing a session, so
+// that lifting the guard is a decision the test has to be told about.
 func TestInviteGuardPremiseStillHolds(t *testing.T) {
 	rt, _, _ := testsupport.NewRuntime(t, "", "table")
 	// Reached through the real tree rather than newAuthCmd directly, so
@@ -174,11 +170,34 @@ func TestInviteGuardPremiseStillHolds(t *testing.T) {
 			"watching the wrong surface", name)
 	}
 
-	// The credentials themselves are persistent flags on the cloud
-	// root, not local to login, so that is the surface to watch: a
-	// device-code or browser login would add one here.
-	// tenant came with browser sign-in, which does sign a user in. The
-	// invite guard stays for now by decision; lifting it is a follow-up.
+	// A browser session carries a user, and the guard must still refuse
+	// it before any request.
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, _ *http.Request) { hits++ }))
+	defer srv.Close()
+	for _, args := range [][]string{
+		{"invite", "create", "--email", "teammate@example.com"},
+		{"invite", "accept", testInviteID, "--token", "tok"},
+	} {
+		srt, _, _ := testsupport.NewRuntime(t, "", "text")
+		testsupport.SeedSession(t, srt, srv.URL, "u1",
+			time.Now().Add(time.Hour), "t-a")
+		err := runAccount(t, srt, &bytes.Buffer{}, args...)
+		if err == nil || !strings.Contains(err.Error(),
+			"needs a signed-in user") {
+			t.Errorf("%v with a browser session: err = %v. If invites "+
+				"now work with a session, that is the follow-up "+
+				"landing: update this tripwire, the invite help and "+
+				"invite.txt together", args, err)
+		}
+	}
+	if hits != 0 {
+		t.Errorf("a guarded invite verb reached the API %d time(s)", hits)
+	}
+
+	// The credentials themselves are persistent flags on the starfleet
+	// root, so that is the surface to watch for another sign-in kind.
 	wantFlags := map[string]bool{
 		"api-url": true, "client-id": true, "client-secret": true,
 		"tenant": true,

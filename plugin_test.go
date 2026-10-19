@@ -38,8 +38,9 @@ func mustExist(t *testing.T, what, p string) {
 }
 
 // TestPluginManifestsAgree holds the Claude and Cursor manifests to one
-// plugin. A version is refused because Claude Code then pins installs to
-// it until someone remembers to bump it; without one, they track main.
+// plugin, pinned to one release: the marketplace installs the skills from
+// the tag of that release, so they describe the binary users have. The
+// release workflow refuses a tag that doesn't match the version.
 func TestPluginManifestsAgree(t *testing.T) {
 	var claude, cursor pluginManifest
 	readJSON(t, filepath.Join(pluginDir, ".claude-plugin", "plugin.json"), &claude)
@@ -48,7 +49,12 @@ func TestPluginManifestsAgree(t *testing.T) {
 	var market struct {
 		Plugins []struct {
 			Name   string `json:"name"`
-			Source string `json:"source"`
+			Source struct {
+				Source string `json:"source"`
+				URL    string `json:"url"`
+				Path   string `json:"path"`
+				Ref    string `json:"ref"`
+			} `json:"source"`
 		} `json:"plugins"`
 	}
 	readJSON(t, ".claude-plugin/marketplace.json", &market)
@@ -61,13 +67,20 @@ func TestPluginManifestsAgree(t *testing.T) {
 		t.Errorf("descriptions differ or are empty:\nClaude: %q\nCursor: %q",
 			claude.Description, cursor.Description)
 	}
-	if claude.Version != "" || cursor.Version != "" {
-		t.Errorf("a manifest sets version (%q, %q)", claude.Version, cursor.Version)
+	if claude.Version == "" || claude.Version != cursor.Version {
+		t.Errorf("versions are %q (Claude) and %q (Cursor), want one release version",
+			claude.Version, cursor.Version)
 	}
-	if len(market.Plugins) != 1 || market.Plugins[0].Name != claude.Name ||
-		market.Plugins[0].Source != "./"+pluginDir {
-		t.Errorf("marketplace.json plugins = %+v, want one %q entry with source ./%s",
-			market.Plugins, claude.Name, pluginDir)
+	if len(market.Plugins) != 1 {
+		t.Fatalf("marketplace.json has %d plugins, want 1", len(market.Plugins))
+	}
+	entry := market.Plugins[0]
+	if entry.Name != claude.Name || entry.Source.Source != "git-subdir" ||
+		entry.Source.URL != "pgEdge/pgedge-cli" || entry.Source.Path != pluginDir ||
+		entry.Source.Ref != "v"+claude.Version {
+		t.Errorf("marketplace.json entry = %+v, want %q from git-subdir "+
+			"pgEdge/pgedge-cli path %s ref v%s",
+			entry, claude.Name, pluginDir, claude.Version)
 	}
 
 	// Claude resolves the icon from the plugin folder, Cursor resolves its

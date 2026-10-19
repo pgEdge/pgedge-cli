@@ -2,6 +2,7 @@
   "name": "pgedge",
   "displayName": "pgEdge",
   "description": "Agent skills for the pgedge CLI: pgEdge Starfleet Managed and BYOC databases, Starfleet accounts, and a self-hosted pgEdge Control Plane. The skills install the CLI when it is missing.",
+  "version": "0.5.0-beta.4",
   "author": {
     "name": "pgEdge, Inc.",
     "url": "https://www.pgedge.com"

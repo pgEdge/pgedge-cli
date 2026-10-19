@@ -298,7 +298,7 @@ var stderrComposedMessages = map[string]struct {
 // 198 -> 199: a branch link's `Using branch` line.
 // 199 -> 200: `branch get` prints the display name.
 const (
-	stderrArgSites      = 200
+	stderrArgSites      = 211
 	stderrComposedSites = 22
 )
 

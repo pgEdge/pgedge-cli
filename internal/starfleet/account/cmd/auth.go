@@ -50,28 +50,44 @@ Example:
 }
 
 func newAuthLoginCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	var insecureStorage bool
+	var insecureStorage, apiClient bool
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with pgEdge Starfleet",
-		Long: `login takes a client ID and secret, exchanges them for an
-access token, and saves them to the active profile. The secret goes
-to the OS keychain (Keychain on macOS, the Secret Service on Linux,
-Credential Manager on Windows); the client ID and API URL go to
+		Long: `login signs the active profile in to pgEdge Starfleet, either as
+you, through the browser, or as an API client.
+
+With no credential flags, login opens your browser on the pgEdge
+sign-in page and prints the same URL on stderr, so you can open it by
+hand when no browser starts. Once you sign in, every command runs as
+you, in your tenant, until the session expires; login prints when
+that is, and you run login again after it. The profile stores the API
+URL, the tenant and the fact that it is a browser sign-in; the token
+goes to the token cache, never the config file. When you belong to
+several tenants, login asks which to use when it can prompt, and uses
+your account's default tenant otherwise. --tenant picks one by ID or
+name without asking. Browser sign-in is available only for pgEdge
+Starfleet APIs that have a sign-in app; for any other --api-url,
+login fails with exit 5 and asks for an API client.
+
+An API client is the unattended path, for CI and scripts. Supply
+--client-id and --client-secret, or --api-client to be prompted for
+them; the secret is never echoed. login exchanges them for an access
+token and saves them to the profile. The secret goes to the OS
+keychain (Keychain on macOS, the Secret Service on Linux, Credential
+Manager on Windows); the client ID and API URL go to
 ~/.pgedge/cli/config.yaml. Where no keychain can be used, login
 writes the secret to the config file instead and warns that it did.
 --insecure-storage writes it to the config file without trying the
-keychain.
-
-Supply both with --client-id and --client-secret to run it
-unattended, or omit them to be prompted; the secret is never echoed
-either way. Supplying only one of the pair is a usage error (exit 2)
+keychain. Supplying only one of the pair is a usage error (exit 2)
 rather than a prompt for the other, so a mistyped flag cannot sign
 you in under a different identity.
 
-Run this once per profile. The credentials serve every pgEdge Starfleet
-module — account, byoc and managed — which share one connection and
-one token. Provide --api-url to target a non-default API endpoint.
+A profile holds one kind of credential: signing in one way removes
+what the other way stored. Run this once per profile. The sign-in
+serves every pgEdge Starfleet module — account, byoc and managed —
+which share one connection and one token. Provide --api-url to
+target a non-default API endpoint.
 
 login ignores PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET, and warns
 when they are set, because every other command uses them instead of
@@ -79,9 +95,9 @@ the profile until they are unset.
 
 Example:
   pgedge starfleet auth login
-  pgedge starfleet auth login --api-url https://api.pgedge.com
+  pgedge starfleet auth login --tenant TENANT_ID
   pgedge starfleet auth login --client-id ID --client-secret SECRET
-  pgedge starfleet auth login --insecure-storage`,
+  pgedge starfleet auth login --api-client --insecure-storage`,
 		Annotations: map[string]string{
 			cli.AnnotationProfileExempt: "creates the named profile, " +
 				"so a new name is the point rather than a typo",
@@ -94,6 +110,24 @@ Example:
 			if err != nil {
 				// Half a pair is a typo, the code conn.Resolve returns.
 				return newExitError(err.Error(), ExitUsage)
+			}
+
+			if creds == nil && !apiClient {
+				if insecureStorage {
+					return newExitError("--insecure-storage stores an "+
+						"API client's secret: add --api-client or "+
+						"--client-id and --client-secret", ExitUsage)
+				}
+				if err := browserLogin(rt, f); err != nil {
+					return err
+				}
+				warnEnvPair(rt)
+				return nil
+			}
+			if f.Tenant != "" {
+				return newExitError("--tenant applies only to a "+
+					"browser sign-in: an API client is scoped to one "+
+					"tenant", ExitUsage)
 			}
 
 			var clientID, clientSecret string
@@ -169,18 +203,25 @@ Example:
 				fmt.Fprintf(rt.Stderr,
 					"Credentials saved to %s\n", path)
 			}
-			if os.Getenv(auth.EnvClientID) != "" ||
-				os.Getenv(auth.EnvClientSecret) != "" {
-				fmt.Fprintln(rt.Stderr, "Warning: PGEDGE_CLIENT_ID or "+
-					"PGEDGE_CLIENT_SECRET is set, so other commands use "+
-					"it instead of this profile until it is unset.")
-			}
+			warnEnvPair(rt)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&insecureStorage, "insecure-storage", false,
 		"store the client secret in the config file, not the OS keychain")
+	cmd.Flags().BoolVar(&apiClient, "api-client", false,
+		"sign in with an API client, prompting for its ID and secret")
 	return cmd
+}
+
+// warnEnvPair warns that the env pair outranks the profile just saved.
+func warnEnvPair(rt *module.Runtime) {
+	if os.Getenv(auth.EnvClientID) != "" ||
+		os.Getenv(auth.EnvClientSecret) != "" {
+		fmt.Fprintln(rt.Stderr, "Warning: PGEDGE_CLIENT_ID or "+
+			"PGEDGE_CLIENT_SECRET is set, so other commands use "+
+			"it instead of this profile until it is unset.")
+	}
 }
 
 // keychainDelete removes the profile's keychain entry, reporting only
@@ -217,8 +258,11 @@ type authStatusReport struct {
 	Source        string `json:"source,omitempty"`
 	// Problem is as in authInfo: a usage error or an unreadable
 	// keychain, absent when there are simply no credentials.
-	Problem    string `json:"problem,omitempty"`
-	ClientID   string `json:"client_id,omitempty"`
+	Problem  string `json:"problem,omitempty"`
+	ClientID string `json:"client_id,omitempty"`
+	// User and TenantID describe a browser session.
+	User       string `json:"user,omitempty"`
+	TenantID   string `json:"tenant_id,omitempty"`
 	APIURL     string `json:"api_url,omitempty"`
 	TokenValid bool   `json:"token_valid"`
 	// TokenBound means what authInfo.TokenBound (doctor.go) means.
@@ -235,12 +279,16 @@ current profile, the API URL in effect, and whether a cached token
 is present and still valid. -o json and -o yaml carry the same facts
 as a single object, so a script can check them without parsing prose.
 
+For a browser sign-in it reports the user, the tenant and when the
+session expires; for an API client, its client ID.
+
 It exits 5 (the auth-failure code) when no usable
 credentials resolve, 2 if you supplied half a credential pair, and 0
-whenever they do — even if no token is
-cached yet or the cached one has expired, since the CLI mints a new
-one on demand the next time it is needed. Run it to confirm you are
-signed in before using resource commands.
+whenever they do. An API client's token may be missing or expired
+with exit 0, since the CLI mints a new one on demand the next time it
+is needed. A browser session cannot be renewed that way, so an
+expired one exits 5; run 'pgedge starfleet auth login' again. Run
+status to confirm you are signed in before using resource commands.
 
 Example:
   pgedge starfleet auth status
@@ -271,6 +319,9 @@ Example:
 					code = conn.ExitUsage
 				}
 				return conn.NewExitError(err.Error(), code)
+			}
+			if res.Session {
+				return sessionStatus(rt, res, f.Tenant)
 			}
 			creds, source, apiURL := res.Creds, res.Source, res.APIURL
 
@@ -326,6 +377,58 @@ Example:
 	}
 }
 
+// sessionStatus reports a browser session. Unlike an API client, an
+// expired session cannot be renewed on demand, so it exits 5.
+func sessionStatus(
+	rt *module.Runtime, res *conn.Resolved, flagTenant string,
+) error {
+	report := authStatusReport{
+		Authenticated: true,
+		Source:        res.Source,
+		APIURL:        res.APIURL,
+		TenantID:      res.TenantID,
+	}
+	if flagTenant != "" {
+		report.TenantID = flagTenant
+	}
+	tok, err := conn.Store(rt).LoadToken()
+	if err == nil {
+		report.User = tok.User
+		report.ExpiresAt = tok.ExpiresAt.Format(time.RFC3339)
+		report.TokenValid = time.Until(tok.ExpiresAt) > auth.RefreshWindow
+		report.TokenBound = tok.SessionFor(res.APIURL)
+	}
+	lines := []string{
+		fmt.Sprintf("User:         %s", output.Sanitize(report.User)),
+		fmt.Sprintf("Auth source:  %s", report.Source),
+		fmt.Sprintf("API URL:      %s", report.APIURL),
+		fmt.Sprintf("Tenant:       %s", output.Sanitize(report.TenantID)),
+	}
+	var expired error
+	switch {
+	case err != nil:
+		lines = append(lines, "Token:        not cached")
+	case !report.TokenBound:
+		lines = append(lines,
+			"Token:        stale (signed in for a different API URL)")
+	case !report.TokenValid:
+		lines = append(lines, "Token:        expired")
+	default:
+		lines = append(lines, fmt.Sprintf(
+			"Token:        valid (expires %s)", report.ExpiresAt))
+	}
+	if !report.TokenValid || !report.TokenBound {
+		report.Authenticated = false
+		expired = conn.SessionExpiredError(rt, res.APIURL)
+		report.Problem = expired.Error()
+	}
+	if pErr := printAuthStatus(
+		rt, report, strings.Join(lines, "\n")+"\n"); pErr != nil {
+		return pErr
+	}
+	return expired
+}
+
 // printAuthStatus renders report through rt.Output for json/yaml, or
 // writes text verbatim otherwise.
 func printAuthStatus(
@@ -343,10 +446,11 @@ func newAuthLogoutCmd(rt *module.Runtime) *cobra.Command {
 		Use:   "logout",
 		Short: "Clear stored pgEdge Starfleet credentials and token",
 		Long: `logout removes the cached access token and the stored
-client credentials for the active profile, from the OS keychain and
-from ~/.pgedge/cli/config.yaml. The API URL and the profile itself
-are kept, so 'pgedge starfleet auth login' can sign in again without
-re-entering the endpoint.
+credential for the active profile: for an API client, its client ID
+and secret, from the OS keychain and from ~/.pgedge/cli/config.yaml;
+for a browser sign-in, the session and its tenant. The API URL and the
+profile itself are kept, so 'pgedge starfleet auth login' can sign in
+again without re-entering the endpoint.
 
 Example:
   pgedge starfleet auth logout`,
@@ -361,7 +465,7 @@ Example:
 			// cannot be reached warns rather than stopping the file side
 			// being cleared.
 			cp := rt.Config.StarfleetProfile(rt.Profile)
-			if cp.ClientSecret == "" {
+			if !cp.IsBrowserSession() && cp.ClientSecret == "" {
 				if err := keychainDelete(conn.Store(rt)); err != nil {
 					fmt.Fprintf(rt.Stderr, "Warning: could not remove "+
 						"the client secret from the OS keychain: %s\n",
@@ -372,6 +476,11 @@ Example:
 				&config.StarfleetProfile{APIURL: cp.APIURL})
 			if err := rt.Config.Save(); err != nil {
 				return fmt.Errorf("clear credentials: %w", err)
+			}
+			if cp.IsBrowserSession() {
+				fmt.Fprintln(rt.Stderr,
+					"Logged out. Session token removed.")
+				return nil
 			}
 			fmt.Fprintln(rt.Stderr,
 				"Logged out. Token and stored credentials removed.")

@@ -128,6 +128,13 @@ func TestSessionExpiredOrMissing(t *testing.T) {
 			"https://other.example", "https://other.example"},
 		{"no cached token", "dev", seedProfileOnly, "",
 			"auth login --profile dev"},
+		{"refresh refused", "default",
+			seedRenewable(`{"error":"invalid_grant"}`, true), "",
+			"has expired"},
+		{"no sign-in app", "default", seedRenewable("", false), "",
+			"has expired"},
+		{"sign-in app unreachable", "default", seedRenewable("", true), "",
+			"could not renew"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, _, _ := testsupport.NewRuntime(t, "", "text")
@@ -332,6 +339,35 @@ func seedExpiring(in time.Duration) func(*testing.T, *module.Runtime) {
 	return func(t *testing.T, rt *module.Runtime) {
 		testsupport.SeedSession(t, rt, sessionAPI, "u1",
 			time.Now().Add(in), "t-a")
+	}
+}
+
+// seedRenewable seeds an expired session holding a refresh token, its
+// sign-in app answering a refresh with a 403 carrying refusal. An empty
+// refusal points the app at a closed port instead.
+func seedRenewable(refusal string, ok bool) func(*testing.T,
+	*module.Runtime) {
+	return func(t *testing.T, rt *module.Runtime) {
+		base := "http://127.0.0.1:1"
+		if refusal != "" {
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = io.WriteString(w, refusal)
+				}))
+			t.Cleanup(srv.Close)
+			base = srv.URL
+		}
+		saved := SignInApp
+		t.Cleanup(func() { SignInApp = saved })
+		SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+			return apidefaults.Auth0App{ClientID: "cid"}, base, ok
+		}
+		rt.Keychain = &keychain.Fake{}
+		seedExpiring(-time.Minute)(t, rt)
+		if err := Store(rt).SaveSessionRefreshToken("rt"); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

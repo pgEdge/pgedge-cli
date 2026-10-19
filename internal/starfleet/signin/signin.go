@@ -33,9 +33,7 @@ const DefaultWait = 5 * time.Minute
 
 // Errors Run reports. Callers map them to exit codes.
 var (
-	ErrPortsBusy     = errors.New("signin: no free callback port")
-	ErrStateMismatch = errors.New("the sign-in response did not " +
-		"match this request (state mismatch); start the sign-in again")
+	ErrPortsBusy = errors.New("signin: no free callback port")
 	ErrTimeout   = errors.New("timed out waiting for the browser sign-in")
 	ErrCancelled = errors.New("sign-in cancelled")
 )
@@ -97,7 +95,7 @@ func (f *Flow) Run(ctx context.Context) (*Tokens, error) {
 		_ = ln.Close()
 		return nil, err
 	}
-	redirect := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
+	redirect := redirectURI(port)
 
 	results := make(chan callback, 1)
 	srv := &http.Server{
@@ -143,6 +141,11 @@ func (f *Flow) Run(ctx context.Context) (*Tokens, error) {
 		return nil, cb.err
 	}
 	return f.exchange(ctx, cb.code, redirect, verifier)
+}
+
+// redirectURI must match a callback the Auth0 app registers exactly.
+func redirectURI(port int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d/callback", port)
 }
 
 // listen binds the first free port of ports on 127.0.0.1.
@@ -204,16 +207,19 @@ const (
 		"terminal for details. You can close this tab."
 )
 
-// callbackHandler answers /callback once; only the first result is
-// kept.
+// callbackHandler answers /callback; only the first result is kept. A
+// request without this sign-in's state is refused and ignored, so any
+// web page that hits the port cannot end the sign-in.
 func callbackHandler(state string, results chan<- callback) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
+		if q.Get("state") != state {
+			http.Error(w, "state mismatch", http.StatusBadRequest)
+			return
+		}
 		var cb callback
 		switch {
-		case q.Get("state") != state:
-			cb.err = ErrStateMismatch
 		case q.Get("error") != "":
 			cb.err = &DeniedError{
 				Code:        q.Get("error"),
@@ -257,11 +263,7 @@ func (f *Flow) exchange(ctx context.Context,
 		return nil, fmt.Errorf("signin: token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := f.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
-	}
-	resp, err := client.Do(req)
+	resp, err := f.HTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange: %w", err)
 	}

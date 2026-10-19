@@ -184,7 +184,7 @@ func TestClientTimeoutIsIndistinguishableFromAWaitExpiry(t *testing.T) {
 // rewritten into a shape the walk cannot see leaves the population
 // silently, and a "found more than zero" guard reads that as a pass.
 // Raise or lower it deliberately when a client is added or removed.
-const starfleetHTTPClientSites = 5
+const starfleetHTTPClientSites = 4
 
 // TestEveryStarfleetHTTPClientSetsATimeout derives its population by
 // walking internal/starfleet rather than naming the three known

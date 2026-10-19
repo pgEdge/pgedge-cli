@@ -88,13 +88,14 @@ func newFlow(srv *httptest.Server, open func(string) error) (*Flow,
 	*bytes.Buffer) {
 	var out bytes.Buffer
 	return &Flow{
-		BaseURL:  srv.URL,
-		ClientID: "cid",
-		Audience: "https://api.example",
-		Ports:    []int{0},
-		Open:     open,
-		Wait:     5 * time.Second,
-		Out:      &out,
+		BaseURL:    srv.URL,
+		ClientID:   "cid",
+		Audience:   "https://api.example",
+		Ports:      []int{0},
+		Open:       open,
+		Wait:       5 * time.Second,
+		Out:        &out,
+		HTTPClient: srv.Client(),
 	}, &out
 }
 
@@ -166,19 +167,65 @@ func TestRunFailsWhenTheVerifierDoesNotMatch(t *testing.T) {
 	}
 }
 
-func TestRunRejectsAWrongState(t *testing.T) {
+func TestRunIgnoresAWrongStateAndKeepsWaiting(t *testing.T) {
 	a := &fakeAuth0{}
 	srv := a.serve(t)
 	var q url.Values
-	f, _ := newFlow(srv, browser(t, a, &q, func(url.Values) url.Values {
-		return url.Values{"code": {"c"}, "state": {"forged"}}
-	}))
-	if _, err := f.Run(context.Background()); !errors.Is(err,
-		ErrStateMismatch) {
-		t.Fatalf("err = %v, want ErrStateMismatch", err)
+	genuine := browser(t, a, &q, approve)
+	f, _ := newFlow(srv, func(target string) error {
+		u, _ := url.Parse(target)
+		forged := u.Query().Get("redirect_uri") + "?" + url.Values{
+			"code": {"forged-code"}, "state": {"forged"}}.Encode()
+		resp, err := http.Get(forged)
+		if err != nil {
+			t.Fatalf("forged callback: %v", err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("forged callback status = %d, want 400",
+				resp.StatusCode)
+		}
+		return genuine(target)
+	})
+	if _, err := f.Run(context.Background()); err != nil {
+		t.Fatalf("Run: %v", err)
 	}
-	if a.form != nil {
-		t.Error("a forged state reached the token endpoint")
+	if a.form.Get("code") != "the-code" {
+		t.Errorf("token endpoint got code %q, want the real one",
+			a.form.Get("code"))
+	}
+}
+
+func TestRunTimesOutAfterOnlyAForgedState(t *testing.T) {
+	f, _ := newFlow(httptest.NewServer(http.NotFoundHandler()),
+		func(target string) error {
+			u, _ := url.Parse(target)
+			resp, err := http.Get(u.Query().Get("redirect_uri") +
+				"?state=forged&code=x")
+			if err == nil {
+				_ = resp.Body.Close()
+			}
+			return err
+		})
+	f.Wait = 100 * time.Millisecond
+	if _, err := f.Run(context.Background()); !errors.Is(err, ErrTimeout) {
+		t.Fatalf("err = %v, want ErrTimeout", err)
+	}
+}
+
+func TestRedirectURIMatchesTheRegisteredCallbacks(t *testing.T) {
+	want := []string{
+		"http://127.0.0.1:8484/callback",
+		"http://127.0.0.1:8485/callback",
+		"http://127.0.0.1:8486/callback",
+	}
+	if len(DefaultPorts) != len(want) {
+		t.Fatalf("DefaultPorts = %v", DefaultPorts)
+	}
+	for i, p := range DefaultPorts {
+		if got := redirectURI(p); got != want[i] {
+			t.Errorf("redirectURI(%d) = %q, want %q", p, got, want[i])
+		}
 	}
 }
 
@@ -272,19 +319,19 @@ func TestExchangeFailures(t *testing.T) {
 					_, _ = io.WriteString(w, tc.body)
 				}))
 			defer srv.Close()
-			f := &Flow{BaseURL: srv.URL}
+			f := &Flow{BaseURL: srv.URL, HTTPClient: srv.Client()}
 			_, err := f.exchange(context.Background(), "c", "r", "v")
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("err = %v, want %q", err, tc.want)
 			}
 		})
 	}
-	f := &Flow{BaseURL: "http://127.0.0.1:0"}
+	f := &Flow{BaseURL: "http://127.0.0.1:0", HTTPClient: http.DefaultClient}
 	if _, err := f.exchange(context.Background(), "c", "r",
 		"v"); err == nil {
 		t.Error("an unreachable token endpoint should fail")
 	}
-	f = &Flow{BaseURL: "://bad"}
+	f = &Flow{BaseURL: "://bad", HTTPClient: http.DefaultClient}
 	if _, err := f.exchange(context.Background(), "c", "r",
 		"v"); err == nil {
 		t.Error("a malformed base URL should fail")

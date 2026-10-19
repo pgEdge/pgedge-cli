@@ -61,9 +61,9 @@ because it describes the binary that is installed.
 
 ### Installing the Agent Skills
 
-pgEdge ships five agent skills in the `skills/` directory of the
-repository. They follow the Agent Skills open standard. The following
-table describes what each one covers:
+pgEdge ships five agent skills in the `plugins/pgedge/skills/`
+directory of the repository. They follow the Agent Skills open
+standard. The following table describes what each one covers:
 
 | Skill | Covers |
 |---|---|
@@ -105,8 +105,8 @@ AI-Agent Skills" section covers three more cases:
 
 Some agents read neither `.agents/skills/` nor a convention the
 installer links. For such an agent, copy the directories under
-`skills/` to the place that agent reads. Confirm that place in the
-agent's own documentation. The rest of the setup stays the same.
+`plugins/pgedge/skills/` to the place that agent reads. Confirm that
+place in the agent's own documentation. The rest of the setup stays the same.
 
 ### Parsing Command Output
 

@@ -10,8 +10,9 @@ self-hosted Control Plane).
 > for the index (global flags, config, profiles, env vars, exit codes,
 > and a page per top-level command group, such as `pgedge llms
 > inspect`), then `pgedge llms <module>` for the module you are
-> working in. Also read `skills/pgedge/SKILL.md`. Do not improvise
-> commands from `--help` output or fall back to raw curl.
+> working in. Also read `plugins/pgedge/skills/pgedge/SKILL.md`. Do
+> not improvise commands from `--help` output or fall back to raw
+> curl.
 >
 > The command reference is **generated from the cobra tree**. Editing
 > text between `<!-- BEGIN GENERATED: ... -->` and `<!-- END GENERATED
@@ -36,9 +37,10 @@ self-hosted Control Plane).
 >   branch without testing the read's own status — in prose, which no
 >   shell parser can see.
 >
-> Both walk `skills/` and every reference page (the root `llms.txt`,
-> each module's `llms.txt` index and its `llms/**/*.txt` pages), so a
-> new document is covered the day it lands. They read fenced blocks, including
+> Both walk `plugins/pgedge/skills/` and every reference page (the
+> root `llms.txt`, each module's `llms.txt` index and its
+> `llms/**/*.txt` pages), so a new document is covered the day it
+> lands. They read fenced blocks, including
 > unlabelled ones, but not those labelled `json`, `yaml` or `text`,
 > where a `pgedge` line is quoted rather than run. They do NOT read
 > the 4-space indented blocks `README.md` and `docs/*.md` use, no rule

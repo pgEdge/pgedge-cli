@@ -9,5 +9,6 @@
   "homepage": "https://github.com/pgEdge/pgedge-cli",
   "repository": "https://github.com/pgEdge/pgedge-cli",
   "license": "PostgreSQL",
-  "keywords": ["postgres", "postgresql", "pgedge", "starfleet", "database", "cli"]
+  "keywords": ["postgres", "postgresql", "pgedge", "starfleet", "database", "cli"],
+  "icon": "./assets/pgedge-icon.png"
 }

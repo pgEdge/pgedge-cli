@@ -6,6 +6,6 @@
     "url": "https://www.pgedge.com"
   },
   "plugins": [
-    { "name": "pgedge", "source": "./" }
+    { "name": "pgedge", "source": "./plugins/pgedge" }
   ]
 }

@@ -605,8 +605,8 @@ func readFileOrFail(path string) func(t *testing.T) string {
 // changed; the reference states what the code does now.
 var staleNoteScanDocs = []scanDoc{
 	{referenceLabel, managedReferenceText},
-	{"../../../../skills/pgedge-managed/SKILL.md",
-		readFileOrFail("../../../../skills/pgedge-managed/SKILL.md")},
+	{"../../../../plugins/pgedge/skills/pgedge-managed/SKILL.md",
+		readFileOrFail("../../../../plugins/pgedge/skills/pgedge-managed/SKILL.md")},
 }
 
 // noteSpan is a half-open byte range within one line.

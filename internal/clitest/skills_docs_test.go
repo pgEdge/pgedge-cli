@@ -51,7 +51,7 @@ var namedDocs = append([]string{
 func scanDocFiles(t *testing.T) []string {
 	t.Helper()
 
-	skillMatches, err := filepath.Glob("../../skills/*/SKILL.md")
+	skillMatches, err := filepath.Glob("../../plugins/pgedge/skills/*/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}

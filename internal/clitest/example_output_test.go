@@ -69,13 +69,13 @@ var exampleTableScopes = buildExampleTableScopes()
 // report every table in that module's pages.
 func buildExampleTableScopes() map[string][]string {
 	out := map[string][]string{
-		"../../skills/pgedge/SKILL.md":           {"../cli", "../output"},
-		"../../skills/pgedge-starfleet/SKILL.md": {"../starfleet/account/cmd", "../output"},
-		"../../skills/pgedge-byoc/SKILL.md":      {"../starfleet/byoc/cmd", "../output"},
-		"../../skills/pgedge-managed/SKILL.md": {
+		"../../plugins/pgedge/skills/pgedge/SKILL.md":           {"../cli", "../output"},
+		"../../plugins/pgedge/skills/pgedge-starfleet/SKILL.md": {"../starfleet/account/cmd", "../output"},
+		"../../plugins/pgedge/skills/pgedge-byoc/SKILL.md":      {"../starfleet/byoc/cmd", "../output"},
+		"../../plugins/pgedge/skills/pgedge-managed/SKILL.md": {
 			"../starfleet/managed/cmd", "../output",
 		},
-		"../../skills/pgedge-controlplane/SKILL.md": {"../controlplane/cmd", "../output"},
+		"../../plugins/pgedge/skills/pgedge-controlplane/SKILL.md": {"../controlplane/cmd", "../output"},
 	}
 	for _, f := range ReferenceFiles() {
 		if dirs, ok := referenceTableScopes[ReferenceModuleDir(f)]; ok {

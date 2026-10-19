@@ -126,8 +126,9 @@ on to one page per resource, such as `pgedge llms starfleet byoc
 cluster`. Point an AI agent at these pages first, because they are
 generated from the live command tree.
 
-In a checkout, agents should also read `skills/pgedge/SKILL.md`. It is
-the entry point for the bundled Claude Code skills.
+In a checkout, agents should also read
+`plugins/pgedge/skills/pgedge/SKILL.md`. It is the entry point for the
+bundled Claude Code skills.
 
 ## Other Ways to Install
 
@@ -257,7 +258,7 @@ If you cannot write to `/usr/local/bin`, run the `install` command with
 
 This build stamps `pgedge version` with the real commit and the
 per-module versions. The checkout carries the AI-agent skills in
-`skills/`. To update, run `git pull && make build`.
+`plugins/pgedge/skills/`. To update, run `git pull && make build`.
 
 ## Keeping the CLI Up to Date
 

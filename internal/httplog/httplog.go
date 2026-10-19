@@ -13,6 +13,8 @@ import (
 	"io"
 	"net/http"
 	"net/textproto"
+	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -101,7 +103,8 @@ var maskedHeaders = map[string]bool{
 // must be added here or listed in notSecrets with a reason.
 var secretFieldNames = []string{
 	// Auth: the token endpoint and stored client credentials.
-	"access_token", "refresh_token", "client_secret", "auth0_secret",
+	"access_token", "refresh_token", "id_token", "client_secret",
+	"auth0_secret",
 	// Database and role credentials.
 	"password",
 	// Cloud-provider credentials, byoc and controlplane.
@@ -150,7 +153,12 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		var raw []byte
 		raw, send = requestBody(req)
 		if len(raw) > 0 {
-			fmt.Fprintf(t.Out, "> %s\n", RedactBody(raw, MaxDumpBytes))
+			body := RedactBody(raw, MaxDumpBytes)
+			if strings.HasPrefix(req.Header.Get("Content-Type"),
+				"application/x-www-form-urlencoded") {
+				body = RedactForm(raw, MaxDumpBytes)
+			}
+			fmt.Fprintf(t.Out, "> %s\n", body)
 		}
 	} else if req.Header.Get("Authorization") != "" {
 		fmt.Fprintf(t.Out, "> Authorization: %s\n", mask)
@@ -298,6 +306,28 @@ func RedactBody(raw []byte, limit int) string {
 		return truncate(masked, limit)
 	}
 	return wholeBodySummary(doc)
+}
+
+// formSecretNames are the form fields of an OAuth code exchange that
+// would let a reader of the log finish it.
+var formSecretNames = []string{"code", "code_verifier"}
+
+// RedactForm is RedactBody for a form-encoded body: the value of every
+// secret field, JSON names included, is masked, and the field order is
+// kept.
+func RedactForm(raw []byte, limit int) string {
+	parts := strings.Split(string(raw), "&")
+	for i, p := range parts {
+		k, _, _ := strings.Cut(p, "=")
+		name, err := url.QueryUnescape(k)
+		if err != nil {
+			return "<redacted: unreadable form body>"
+		}
+		if isSecretField(name) || slices.Contains(formSecretNames, name) {
+			parts[i] = k + "=" + mask
+		}
+	}
+	return truncate([]byte(strings.Join(parts, "&")), limit)
 }
 
 // wholeBodySummary is the fail-closed fallback: it says what shape

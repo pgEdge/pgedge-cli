@@ -108,9 +108,11 @@ Each rule is stated in full on the page named beside it.
 - **Run writes one at a time.** A database accepts one change at a
   time, so deploy services one by one, each with `--wait`. See the
   index's "Resource status".
-- **Pass `--force` only when the user asked for an unattended run.**
-  Eleven verbs prompt, four of them not spelled `delete`. See the
-  index's "Destructive operations".
+- **A request that names the action and its target is consent: pass
+  `--force`.** That consent covers the named action only, so ask
+  before any other destructive step it turns out to need. Eleven verbs
+  prompt, four of them not spelled `delete`. See the index's
+  "Destructive operations".
 - **An empty list proves nothing about entitlement.** Some verbs are
   plan-gated and some answer an empty array on any plan. See the
   index's "Plan entitlement".

@@ -2,9 +2,7 @@
 name: pgedge-managed
 description: "Use this skill when the user wants to manage pgEdge
   Managed databases, single-master Postgres that pgEdge hosts and
-  operates, through the pgedge CLI, including a request that names a
-  database only by its name (delete, resize, back up, branch or
-  connect to <name>). Triggers on: pgEdge Managed, pgedge
+  operates, through the pgedge CLI. Triggers on: pgEdge Managed, pgedge
   starfleet managed, managed database, creating or resizing a hosted
   pgEdge database, connecting to one, a refused connection, IP
   allowlist, allowing an address, deletion protection, managed regions

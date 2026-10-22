@@ -100,6 +100,25 @@ class Scorecard(unittest.TestCase):
         rows = [row("with", tokens=80), row("without", tokens=100)]
         self.assertFalse(self.card(rows, 1)["cheaper"])
 
+    def test_failed_runs_count_against_their_side(self):
+        # Without: 200 tokens over two runs for one right answer = 200.
+        # With: 150 for one right answer. A median would say 100 vs 150.
+        rows = [row("with", tokens=150),
+                row("without", tokens=100),
+                row("without", tokens=100, passed=False)]
+        c = self.card(rows, 1)
+        self.assertEqual(c["tokens_per_correct_without"], 200)
+        self.assertAlmostEqual(c["token_cut"], 0.25)
+        self.assertTrue(c["cheaper"])
+
+    def test_a_side_that_never_passed_loses(self):
+        rows = [row("with"), row("without", passed=False)]
+        self.assertTrue(self.card(rows, 1)["cheaper"])
+        rows = [row("with", passed=False), row("without")]
+        self.assertFalse(self.card(rows, 1)["cheaper"])
+        rows = [row("with", passed=False), row("without", passed=False)]
+        self.assertIsNone(self.card(rows, 1)["cheaper"])
+
 
 class Escapes(unittest.TestCase):
     def setUp(self):

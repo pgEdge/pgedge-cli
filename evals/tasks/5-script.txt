@@ -1,0 +1,1 @@
+Write me a bash script that lists my managed databases as JSON and exits non-zero if listing them fails. Save it as list.sh.

@@ -1,0 +1,1 @@
+Create a branch of {fixture} called {branch}, wait until it's ready, and tell me its host.

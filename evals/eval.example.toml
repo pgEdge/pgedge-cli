@@ -1,0 +1,25 @@
+# Copy to eval.toml (ignored by git) and edit.
+
+# A pgedge config and the profile in it to test against. The eval
+# creates and deletes databases in that profile's tenant, so use one
+# where that is safe. Runs get a HOME of their own and cannot reach the
+# OS keychain, so log in with --insecure-storage, into a config kept
+# for the eval:
+#
+#   pgedge starfleet auth login --profile eval \
+#       --config ~/.pgedge/cli/eval.yaml --insecure-storage
+pgedge_config = "~/.pgedge/cli/eval.yaml"
+profile = "eval"
+
+# The values below are the release suite. Keep them for a --release
+# run, so one release compares with the next.
+runs = 3
+tasks = [6, 7, 8, 9, 10]
+arms = ["with", "without", "api"]
+
+# One table per harness. Each model gets its own lane and fixture.
+[harness.claude]
+models = ["opus", "sonnet", "haiku"]
+
+# [harness.cursor]
+# models = ["auto"]

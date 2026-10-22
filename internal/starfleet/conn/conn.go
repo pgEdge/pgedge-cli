@@ -616,6 +616,19 @@ func SessionExpiredError(rt *module.Runtime, apiURL string) *ExitError {
 		apiURL, loginCommand(rt)), ExitAuth)
 }
 
+// SessionRefusedError is SessionExpiredError carrying the reason Auth0
+// gave for refusing a refresh, so a blocked user is told so.
+func SessionRefusedError(rt *module.Runtime, apiURL string,
+	err error) *ExitError {
+	var d *signin.DeniedError
+	if !errors.As(err, &d) || d.Description == "" {
+		return SessionExpiredError(rt, apiURL)
+	}
+	return NewExitError(fmt.Sprintf("the browser sign-in for %s could "+
+		"not be renewed: %s; run '%s' to sign in again",
+		apiURL, d.Description, loginCommand(rt)), ExitAuth)
+}
+
 // loginCommand is the auth login line for rt's profile.
 func loginCommand(rt *module.Runtime) string {
 	login := "pgedge starfleet auth login"
@@ -746,7 +759,7 @@ func renewLocked(ctx context.Context, rt *module.Runtime, apiURL,
 		if v, _ := store.SessionRefreshToken(); v == refresh {
 			_ = store.ClearSessionRefreshToken()
 		}
-		return nil, true, SessionExpiredError(rt, apiURL)
+		return nil, true, SessionRefusedError(rt, apiURL, err)
 	}
 	if err != nil {
 		return nil, false, failed(err)

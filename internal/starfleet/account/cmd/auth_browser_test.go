@@ -49,8 +49,10 @@ type signInStubs struct {
 
 	issueRefresh bool
 	refreshes    atomic.Int32
-	// refreshError, when set, is the OAuth error a refresh gets.
-	refreshError string
+	// refreshError, when set, is the OAuth error a refresh gets, with
+	// refreshReason as its error_description.
+	refreshError  string
+	refreshReason string
 	// revokeStatus, when set, is the status /oauth/revoke answers.
 	revokeStatus int
 	// atAPI, when set, runs as each API request arrives.
@@ -89,7 +91,8 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 				if s.refreshError != "" {
 					w.WriteHeader(http.StatusForbidden)
 					_ = json.NewEncoder(w).Encode(map[string]string{
-						"error": s.refreshError})
+						"error":             s.refreshError,
+						"error_description": s.refreshReason})
 					return
 				}
 			} else {
@@ -608,17 +611,21 @@ func TestSessionRenewalRotatesBeforeUse(t *testing.T) {
 func TestSessionRenewalRefused(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
+		reason      string
 		auth0Down   bool
 		want        string
 		keepRefresh bool
 	}{
-		{"invalid_grant", false, "has expired or is missing: run " +
+		{"invalid_grant", "", false, "has expired or is missing: run " +
 			"'pgedge starfleet auth login'", false},
-		{"network failure", true, "could not renew", true},
+		{"blocked user", "user is blocked", false, "could not be renewed: " +
+			"user is blocked", false},
+		{"network failure", "", true, "could not renew", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newSignInStubs(t, "t-a")
 			s.refreshError = "invalid_grant"
+			s.refreshReason = tc.reason
 			if tc.auth0Down {
 				conn.SignInApp = func(string) (apidefaults.Auth0App,
 					string, bool) {

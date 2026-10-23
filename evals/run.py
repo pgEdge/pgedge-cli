@@ -292,6 +292,37 @@ def prepare_release(version, ref):
     RELEASE.update(version=version, ref=ref, sha=sha, dest=dest)
 
 
+PLUGIN_REF = {}
+
+
+def use_plugin_ref(ref):
+    """Load the skills and plugin manifests from a git ref (an open skills
+    PR, say) instead of this checkout's."""
+    global PLUGIN_REPO, PLUGIN
+    # Lanes fetch at once and may collide on git's locks; the launcher
+    # has already fetched and exported the ref.
+    subprocess.run(["git", "-C", str(REPO), "fetch", "-q", "origin"],
+                   capture_output=True)
+    sha = ""
+    for cand in (ref, f"origin/{ref}"):
+        sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--verify",
+                              "-q", f"{cand}^{{commit}}"], capture_output=True,
+                             text=True).stdout.strip()
+        if sha:
+            break
+    if not sha:
+        sys.exit(f"--plugin-ref: unknown ref {ref}")
+    root = S / "plugin-ref" / sha
+    if not (root / "plugins/pgedge").exists():
+        root.mkdir(parents=True, exist_ok=True)
+        tar = subprocess.run(["git", "-C", str(REPO), "archive", sha,
+                              "plugins/pgedge", ".cursor-plugin"],
+                             check=True, capture_output=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(root)], input=tar, check=True)
+    PLUGIN_REPO, PLUGIN = root, root / "plugins/pgedge"
+    PLUGIN_REF.update(ref=ref, sha=sha)
+
+
 def scorecard(rows, planned):
     """The OKR's criteria per harness and model. It reports; whether a
     result is good enough to ship is the reader's call. planned maps
@@ -396,6 +427,8 @@ def scorecard_md(card, release=None):
 def plugin_commit():
     if RELEASE:
         return f"{RELEASE['sha'][:7]} ({RELEASE['ref']})"
+    if PLUGIN_REF:
+        return f"{PLUGIN_REF['sha'][:7]} ({PLUGIN_REF['ref']})"
 
     def git(*a):
         return subprocess.run(["git", "-C", str(PLUGIN_REPO), *a],
@@ -2535,21 +2568,26 @@ def versions_now():
     return {"skills_sha": tree_sha(PLUGIN), "pgedge_sha": file_sha(BIN)}
 
 
-def resume_rows(path, redo, planned, batch):
+def resume_rows(path, redo, planned, batch, redo_arms=()):
     """The graded rows of an earlier run that this plan still holds, with
     their transcripts copied into this batch. An infra row ran nothing,
     and a --redo harness runs again."""
     d = Path(path)
     res = json.loads((d / "results.json").read_text())
     old, new = res["meta"].get("versions") or {}, versions_now()
+    kept_arms = {r["arm"] for r in res["runs"]} - set(redo_arms)
     for k in ("skills_sha", "pgedge_sha"):
+        # Arms that load no skills are untouched by a skills change.
+        if k == "skills_sha" and not kept_arms & PLUGIN_ARMS:
+            continue
         if old.get(k) and new.get(k) and old[k] != new[k]:
             sys.exit(f"--resume: {k} differs from {d}; the kept rows "
                      "tested other skills or another binary")
         if not old.get(k):
             log(f"resume: {d} records no {k}; not compared")
     keep = [r for r in res["runs"] if not r["infra"] and
-            r["harness"] not in redo and r["id"] in planned]
+            r["harness"] not in redo and r["arm"] not in redo_arms and
+            r["id"] in planned]
     for r in keep:
         for f in (d / "transcripts").glob(f"{r['id']}.*"):
             shutil.copy2(f, batch / "transcripts" / f.name)
@@ -2595,6 +2633,10 @@ def launch(a, lanes):
             passthrough += [flag, val]
     for h in a.redo:
         passthrough += ["--redo", h]
+    for x in a.redo_arm:
+        passthrough += ["--redo-arm", x]
+    if a.plugin_ref:
+        passthrough += ["--plugin-ref", a.plugin_ref]
     if a.budget:
         # Each lane counts only its own spend.
         passthrough += ["--budget", str(a.budget / len(lanes))]
@@ -2735,12 +2777,24 @@ def main():
                     help=argparse.SUPPRESS)
     ap.add_argument("--no-build", action="store_true",
                     help=argparse.SUPPRESS)
+    ap.add_argument("--plugin-ref", metavar="REF",
+                    help="load the skills from this git ref, e.g. the "
+                         "skills PR's branch")
+    ap.add_argument("--redo-arm", action="append", default=[],
+                    metavar="ARM",
+                    help="with --resume: run this arm's rows again")
     ap.add_argument("--redo", action="append", default=[],
                     metavar="HARNESS",
                     help="with --resume: run this harness's rows again")
     a = ap.parse_args()
-    if a.redo and not a.resume:
-        sys.exit("--redo needs --resume")
+    if (a.redo or a.redo_arm) and not a.resume:
+        sys.exit("--redo and --redo-arm need --resume")
+    if a.plugin_ref and a.release:
+        sys.exit("--plugin-ref and --release do not mix: a release tests "
+                 "its own commit")
+    if a.plugin_ref:
+        use_plugin_ref(a.plugin_ref)
+        log("skills from", a.plugin_ref, "at", PLUGIN_REF["sha"][:7])
     if a.resume and a.release:
         sys.exit("--resume and --release do not mix: a release is one run")
     if a.regrade:
@@ -2831,7 +2885,8 @@ def main():
     full_plan, carried, old_fixtures = plan, [], []
     if a.resume:
         carried, old_fixtures, meta["resumed_from"] = resume_rows(
-            a.resume, a.redo, {run.rid for _, _, run in plan}, batch)
+            a.resume, a.redo, {run.rid for _, _, run in plan}, batch,
+            a.redo_arm)
         done = {r["id"] for r in carried}
         plan = [x for x in plan if x[2].rid not in done]
         log(f"resume: {len(carried)} rows kept from {a.resume}")

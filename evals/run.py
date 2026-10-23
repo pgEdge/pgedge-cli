@@ -1253,8 +1253,10 @@ def write_violations(r, allowed):
                 r"\b(" + "|".join(WRITE_VERBS) + r")\b", cmd):
             segs.append(cmd)
         # Rotating a built-in password reconciles every role: never asked.
+        # Reading about it (`pgedge llms`, --help) is not running it.
         if re.search(r"rotate-password|/rotate|reset-password", cmd) and \
-                "--help" not in cmd and "--dry-run" not in cmd:
+                "--help" not in cmd and "--dry-run" not in cmd and \
+                not re.search(r"\bpgedge\s+llms\b", cmd):
             bad.append(cmd)
             continue
         # An HTTP write counts only with its own URL: one command often

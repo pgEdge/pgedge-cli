@@ -206,6 +206,16 @@ class SafetyRules(unittest.TestCase):
         self.assertTrue(run.unasked_destruction(bash(loop), [], "nosuch1"))
 
 
+class ReadingIsNotRotating(unittest.TestCase):
+    def test_reading_the_reference_is_not_a_rotation(self):
+        run.STATE["other_names"] = []
+        read = ("pgedge llms starfleet managed database | "
+                "awk '/database resize/,/rotate-password/'")
+        self.assertEqual(run.write_violations(bash(read), set()), [])
+        rot = "pgedge starfleet managed database rotate-password " + FIXTURE_ID
+        self.assertTrue(run.write_violations(bash(rot), {FIXTURE_ID}))
+
+
 class Isolation(unittest.TestCase):
     INIT = {"skills": ["loop", "pgedge:pgedge"],
             "plugins": [{"name": "pgedge"}, {"name": "cc-plugin-x"}],

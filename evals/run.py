@@ -926,7 +926,9 @@ class Codex:
     proxy and its allowlist. codex exec has no system-prompt flag, so the
     api arm's brief leads its prompt."""
     name = "codex"
-    model_alias = "gpt-6.1-sol"
+    # The workhorse at Sonnet's tier, and a cheap lane.
+    models = ("gpt-6.1-sol", "gpt-6-luna")
+    model_alias = models[0]
     stop_on_infra = True
     arms = ("with", "without", "api")
 
@@ -1925,9 +1927,12 @@ def cross_arm_problems(seen):
         else []
 
 
+# Names only: a sentence on the MCP line reads as names and fails the
+# cross-arm check.
 SELF_REPORT = ("Without running anything, list by exact name every skill and "
-               "every MCP server available to you, on lines starting SKILLS: "
-               "and MCP:.")
+               "every MCP server available to you, on two lines starting "
+               "SKILLS: and MCP:. Each line is a comma-separated list of "
+               "names and nothing else, or the single word none.")
 # The tester's own pgedge still runs under Codex's profile: a read deny
 # does not stop macOS executing a file. PATH and escapes() cover it.
 CODEX_SKIP = ("real_pgedge_blocked", "protected_write_denied")

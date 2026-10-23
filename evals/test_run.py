@@ -304,6 +304,9 @@ class Harnesses(unittest.TestCase):
              "claude": ["sonnet"]}), {})
         self.assertEqual(run.refused_models(
             {"cursor": ["auto", "composer-2.5"]}), {"cursor": ["auto"]})
+        self.assertEqual(run.refused_models(
+            {"codex": ["gpt-6-luna", "gpt-5.3-codex"]}),
+            {"codex": ["gpt-5.3-codex"]})
 
 
 class PublicSummary(unittest.TestCase):

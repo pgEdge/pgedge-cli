@@ -313,12 +313,13 @@ the skills and MCP servers it sees.
   and makes the shim directory read-only. Network goes through Codex's
   proxy, which enforces the arm's allowlist. Web search, connectors,
   plugins, sub-agents and the browser are switched off.
-- **The Codex login:** every copy holds the same refresh token, so
-  Codex runs go one at a time across every lane of the runner, and
-  it refuses to start when the access token has under three days
-  left. Run any `codex` command first to refresh it. A login that Codex refreshes during a run is
-  written back to `~/.codex/auth.json`, and each run's copy is deleted
-  when the run ends.
+- **The Codex login:** every copy holds the same refresh token, and
+  a refresh rotates it, so the runner refuses to start when the
+  access token has under three days left; Codex refreshes only near
+  expiry. Run any `codex` command first to refresh it. A login that
+  Codex refreshes during a run is written back to
+  `~/.codex/auth.json`, and each run's copy is deleted when the run
+  ends.
 - **Task 5's scripts** run under `sandbox-exec` with the tester's
   HOME unreadable and unwritable and their own `pgedge` blocked.
 

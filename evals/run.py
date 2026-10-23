@@ -12,7 +12,6 @@ import argparse
 import base64
 import concurrent.futures as cf
 import datetime as dt
-import fcntl
 import json
 import os
 import posixpath
@@ -905,10 +904,6 @@ CODEX = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/"
              "codex")
 CODEX_AUTH = HOME / ".codex/auth.json"
 CODEX_LOCK = threading.Lock()
-# Held from start() to finish(): one codex process at a time across every
-# lane and every runner process, since each copy of the login holds the
-# same refresh token. flock conflicts between two opens in one process too.
-CODEX_LOCKFILE = Path("/private/tmp/pgedge-evals/codex.lock")
 CODEX_MIN_DAYS = 3
 # Codex's own features that reach past the shell: connectors, plugins,
 # sub-agents, the browser. The Claude lane has none of them.
@@ -1025,26 +1020,10 @@ class Codex:
     def start(self, run):
         """The login is copied as late as possible: an earlier run may have
         refreshed it."""
-        CODEX_LOCKFILE.parent.mkdir(parents=True, exist_ok=True)
-        run.codex_lock = os.open(CODEX_LOCKFILE, os.O_RDWR | os.O_CREAT,
-                                 0o600)
-        while True:
-            try:
-                fcntl.flock(run.codex_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if STOP.is_set():
-                    os.close(run.codex_lock)
-                    raise Stopped
-                time.sleep(1)
-        try:
-            with CODEX_LOCK:
-                codex_auth()
-                shutil.copy(CODEX_AUTH, self.codex_home(run) / "auth.json")
-                os.chmod(self.codex_home(run) / "auth.json", 0o600)
-        except BaseException:
-            os.close(run.codex_lock)
-            raise
+        with CODEX_LOCK:
+            codex_auth()
+            shutil.copy(CODEX_AUTH, self.codex_home(run) / "auth.json")
+            os.chmod(self.codex_home(run) / "auth.json", 0o600)
 
     def finish(self, run):
         """A refresh inside the run rotates the tester's refresh token, so
@@ -1066,7 +1045,6 @@ class Codex:
             except (OSError, ValueError):
                 pass
             mine.unlink(missing_ok=True)
-        os.close(run.codex_lock)
 
     def cmd(self, run, prompt, max_turns=MAX_TURNS):
         # No turn cap in codex exec; RUN_TIMEOUT bounds a run instead.

@@ -329,6 +329,21 @@ class Resume(unittest.TestCase):
             self.assertTrue((new / "transcripts" / "claude-a.jsonl").exists())
 
 
+class Combine(unittest.TestCase):
+    def test_a_run_counted_twice_is_refused(self):
+        with tempfile.TemporaryDirectory() as d:
+            dirs = []
+            for name in ("lane", "lane-resumed"):
+                p = Path(d) / name
+                (p / "transcripts").mkdir(parents=True)
+                (p / "results.json").write_text(run.json.dumps(
+                    {"meta": {}, "runs": [dict(row("with"), id="claude-a")]}))
+                dirs.append(str(p))
+            with mock.patch.object(run, "RESULTS_DIR", Path(d) / "out"), \
+                    self.assertRaises(SystemExit):
+                run.combine(dirs)
+
+
 class PublicSummary(unittest.TestCase):
     def test_names_nothing_outside_the_run(self):
         meta = {"timestamp": "t", "harnesses": ["claude"], "models": ["m"],

@@ -408,6 +408,20 @@ def plugin_commit():
             + (" DIRTY" if dirty else ""))
 
 
+def file_sha(path):
+    import hashlib
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16] \
+        if Path(path).exists() else None
+
+
+def tree_sha(root):
+    import hashlib
+    h = hashlib.sha256()
+    for f in sorted(p for p in Path(root).rglob("*") if p.is_file()):
+        h.update(str(f.relative_to(root)).encode() + b"\0" + f.read_bytes())
+    return h.hexdigest()[:16]
+
+
 def versions():
     return {
         "pgedge": pg("version")[1].splitlines()[0],
@@ -423,6 +437,8 @@ def versions():
         if CODEX.exists() else None,
         "plugin_commit": plugin_commit(),
         "plugin_path": str(PLUGIN),
+        "skills_sha": tree_sha(PLUGIN),
+        "pgedge_sha": file_sha(BIN),
     }
 
 
@@ -1012,7 +1028,15 @@ class Codex:
         CODEX_LOCKFILE.parent.mkdir(parents=True, exist_ok=True)
         run.codex_lock = os.open(CODEX_LOCKFILE, os.O_RDWR | os.O_CREAT,
                                  0o600)
-        fcntl.flock(run.codex_lock, fcntl.LOCK_EX)
+        while True:
+            try:
+                fcntl.flock(run.codex_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if STOP.is_set():
+                    os.close(run.codex_lock)
+                    raise Stopped
+                time.sleep(1)
         try:
             with CODEX_LOCK:
                 codex_auth()
@@ -1158,7 +1182,7 @@ def scrub(text, secrets):
 
 # Agents in flight, so a stop can end them. Each gets its own process
 # group: cursor-agent leaves node workers behind when only it is killed.
-ACTIVE, ACTIVE_LOCK = set(), threading.Lock()
+ACTIVE, ACTIVE_LOCK = set(), threading.RLock()
 STOP = threading.Event()
 
 
@@ -1174,9 +1198,9 @@ def kill_group(p):
 
 
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
-    t0 = time.time()
     if hasattr(h, "start"):
         h.start(run)
+    t0 = time.time()
     try:
         if STOP.is_set():
             raise Stopped
@@ -1186,6 +1210,8 @@ def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
                              stdin=subprocess.DEVNULL, start_new_session=True)
         with ACTIVE_LOCK:
             ACTIVE.add(p)
+            if STOP.is_set():
+                kill_group(p)
         try:
             out, err = p.communicate(timeout=RUN_TIMEOUT)
             rc = p.returncode
@@ -2525,12 +2551,23 @@ def load_tasks(sel):
     return tasks
 
 
+def versions_now():
+    return {"skills_sha": tree_sha(PLUGIN), "pgedge_sha": file_sha(BIN)}
+
+
 def resume_rows(path, redo, planned, batch):
     """The graded rows of an earlier run that this plan still holds, with
     their transcripts copied into this batch. An infra row ran nothing,
     and a --redo harness runs again."""
     d = Path(path)
     res = json.loads((d / "results.json").read_text())
+    old, new = res["meta"].get("versions") or {}, versions_now()
+    for k in ("skills_sha", "pgedge_sha"):
+        if old.get(k) and new.get(k) and old[k] != new[k]:
+            sys.exit(f"--resume: {k} differs from {d}; the kept rows "
+                     "tested other skills or another binary")
+        if not old.get(k):
+            log(f"resume: {d} records no {k}; not compared")
     keep = [r for r in res["runs"] if not r["infra"] and
             r["harness"] not in redo and r["id"] in planned]
     for r in keep:
@@ -2579,9 +2616,15 @@ def launch(a, lanes):
     for h in a.redo:
         passthrough += ["--redo", h]
     if a.budget:
-        passthrough += ["--budget", str(a.budget)]
+        # Each lane counts only its own spend.
+        passthrough += ["--budget", str(a.budget / len(lanes))]
     if a.skip_controls:
         passthrough.append("--skip-controls")
+    # A lane that dies before writing results still counts as planned.
+    cfg = tomllib.loads(Path(a.config).expanduser().read_text())
+    with_runs = int(cfg.get("runs", 3)) * len(cfg.get("tasks", [])) \
+        if "with" in cfg.get("arms", ARMS) else 0
+    expected = {hm: with_runs for hm in lanes}
     procs = []
     for k, ((hn, m), n) in enumerate(zip(lanes, names)):
         out = open(root / f"{n}.log", "w")
@@ -2606,20 +2649,36 @@ def launch(a, lanes):
         log(f"lane {hn}:{m} exited {p.returncode}")
     done = [str(RESULTS_DIR / n) for *_, n, _ in procs
             if (RESULTS_DIR / n / "results.json").exists()]
+    for hn, m, n, p in procs:
+        if str(RESULTS_DIR / n) not in done:
+            log(f"LANE {hn}:{m} WROTE NO RESULTS: see {root / (n + '.log')}")
     if done:
-        combine(done)
+        combine(done, expected)
 
 
-def combine(dirs):
+def combine(dirs, expected=None):
     """Merge lane results: rows, fixtures and plans add up; the scorecard
-    is computed over all of them."""
-    metas, rows = [], []
-    out = RESULTS_DIR / (dt.datetime.now().strftime("%Y%m%d-%H%M%S") +
-                         "-combined")
-    (out / "transcripts").mkdir(parents=True)
-    planned = {}
+    is computed over all of them. Pass each lane once, its newest result:
+    a resumed lane's result already holds the rows it kept."""
+    metas, rows, seen = [], [], set()
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = RESULTS_DIR / f"{stamp}-combined"
+    n = 1
+    while out.exists():
+        n += 1
+        out = RESULTS_DIR / f"{stamp}-combined-{n}"
+    planned = dict(expected or {})
+    loaded = []
     for d in map(Path, dirs):
         res = json.loads((d / "results.json").read_text())
+        dup = seen & {r["id"] for r in res["runs"]}
+        if dup:
+            sys.exit(f"--combine: {d} repeats {sorted(dup)[:3]}: pass each "
+                     "lane once, its newest result")
+        seen |= {r["id"] for r in res["runs"]}
+        loaded.append((d, res))
+    (out / "transcripts").mkdir(parents=True)
+    for d, res in loaded:
         metas.append(res["meta"])
         rows += res["runs"]
         for c in res["meta"].get("scorecard", []):
@@ -2633,7 +2692,13 @@ def combine(dirs):
         harnesses=sorted({h for m in metas for h in m["harnesses"]}),
         models=sorted({x for m in metas for x in m.get("models", [])}),
         total_cost=sum(m.get("total_cost") or 0 for m in metas),
-        fixtures=[f for m in metas for f in m.get("fixtures", [])],
+        fixtures=list({(f.get("id") or f["name"]): f for m in metas
+                       for f in m.get("fixtures", [])}.values()),
+        lanes=[{k: m.get(k) for k in ("harnesses", "model_aliases",
+                                      "controls", "versions",
+                                      "stopped_on_limit",
+                                      "stopped_by_signal", "resumed_from")}
+               for m in metas],
         planned_runs=sum(m.get("planned_runs") or 0 for m in metas),
         completed_runs=len(rows),
         other_names=sorted({x for m in metas
@@ -2694,6 +2759,8 @@ def main():
                     metavar="HARNESS",
                     help="with --resume: run this harness's rows again")
     a = ap.parse_args()
+    if a.redo and not a.resume:
+        sys.exit("--redo needs --resume")
     if a.resume and a.release:
         sys.exit("--resume and --release do not mix: a release is one run")
     if a.regrade:
@@ -2743,7 +2810,8 @@ def main():
             sys.exit("--release needs --ref, the commit the CUT will tag")
         prepare_release(a.release, a.ref)
         log("release", a.release, "at", RELEASE["sha"][:7])
-    if not a.no_build:
+    # A lane started alone keeps the binary other lanes are running.
+    if not (a.no_build or (a.lane and BIN.exists())):
         setup_scratch()
     ts = a.batch_name or dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     batch = S / "runs" / ts
@@ -2857,7 +2925,7 @@ def main():
     def lane(model, fx):
         items = [(hn, t, run) for hn, t, run in plan
                  if (hn, run.model) == model]
-        if not items:
+        if not items or STOP.is_set():
             return
         fx.create()
         for phase in sorted({PHASE[t["id"]] for _, t, _ in items}):

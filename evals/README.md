@@ -71,6 +71,18 @@ To pick it up again:
         --resume results/<that lane's directory>
     python3 run.py --combine results/<lane> results/<lane> ...
 
+Pass `--combine` each lane once, its newest result: a resumed lane's
+result already holds the rows it kept, and a repeated run is refused.
+A resume refuses kept rows that tested other skills or another
+`pgedge` binary, and a lane started alone reuses the binary already
+built.
+
+In lanes mode each lane runs up to three agents at once, and
+`--budget` is split evenly across the lanes. A lane started on its
+own while other lanes run is missing from their Claude Read-tool
+denies, which list the run directories present when each run
+started; their sandboxed shells cannot read it.
+
 `--one-process` runs every lane in one process instead. A dry run and
 a release run always do.
 

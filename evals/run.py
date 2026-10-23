@@ -12,12 +12,14 @@ import argparse
 import base64
 import concurrent.futures as cf
 import datetime as dt
+import fcntl
 import json
 import os
 import posixpath
 import random
 import re
 import shlex
+import signal
 import shutil
 import statistics
 import subprocess
@@ -209,24 +211,32 @@ def setup_scratch():
     if not RELEASE:
         subprocess.run(["make", "-C", str(REPO), "build"], check=True,
                        stdout=subprocess.DEVNULL)
-    # Copied, so a rebuild during the run cannot change it.
-    shutil.copy2(BUILD, BIN)
+    # Copied, so a rebuild during the run cannot change it. Every write
+    # here is a rename: another lane's process may be running the binary.
+    tmp = BIN.with_name(f".pgedge.{os.getpid()}")
+    shutil.copy2(BUILD, tmp)
+    os.replace(tmp, BIN)
     lines = ["current_profile: " + PROFILE, "profiles:",
              *profile_block(TESTER_CONFIG, PROFILE)]
     write_private(EVAL_CONFIG, "\n".join(lines) + "\n")
-    CANARY.write_text("canary\n")
-    SHIM.write_text(
-        "#!/bin/sh\n"
-        f"HOME={PGHOME} exec {BIN} --config {EVAL_CONFIG} \"$@\"\n")
-    os.chmod(SHIM, 0o755)
+    write_private(CANARY, "canary\n")
+    tmp = SHIM.with_name(f".pgedge-shim.{os.getpid()}")
+    tmp.write_text("#!/bin/sh\n"
+                   f"HOME={PGHOME} exec {BIN} --config {EVAL_CONFIG} \"$@\"\n")
+    os.chmod(tmp, 0o755)
+    os.replace(tmp, SHIM)
     if not (PLUGIN / ".claude-plugin/plugin.json").exists():
         sys.exit(f"missing plugin at {PLUGIN}")
 
 
 def write_private(path, text):
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    """0600, written beside the target and renamed over it."""
+    tmp = Path(path).with_name(f".{Path(path).name}.{os.getpid()}."
+                               f"{threading.get_ident()}")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
         f.write(text)
+    os.replace(tmp, path)
 
 
 # Set by --release: the commit the CUT will tag, built and exported once.
@@ -710,13 +720,15 @@ class Cursor:
         self.token = cursor_token()
         if not self.token:
             sys.exit("no Cursor access token in the keychain")
-        # Rebuilt each batch from the plugin under test.
-        if CURSOR_PLUGIN_ROOT.exists():
-            shutil.rmtree(CURSOR_PLUGIN_ROOT)
-        (CURSOR_PLUGIN_ROOT / ".cursor-plugin").mkdir(parents=True)
+        # Built per batch from the plugin under test: another lane's
+        # process may be reading its own copy.
+        self.plugin_root = CURSOR_PLUGIN_ROOT / batch_dir.name
+        if self.plugin_root.exists():
+            shutil.rmtree(self.plugin_root)
+        (self.plugin_root / ".cursor-plugin").mkdir(parents=True)
         shutil.copy(PLUGIN_REPO / ".cursor-plugin/plugin.json",
-                    CURSOR_PLUGIN_ROOT / ".cursor-plugin")
-        shutil.copytree(PLUGIN, CURSOR_PLUGIN_ROOT / "plugins/pgedge")
+                    self.plugin_root / ".cursor-plugin")
+        shutil.copytree(PLUGIN, self.plugin_root / "plugins/pgedge")
         self.homes, self.zdots = {}, {}
         for arm in self.arms:
             h = CURSOR_HOME_ROOT / f"{batch_dir.name}-{arm}"
@@ -725,7 +737,9 @@ class Cursor:
             z.mkdir(parents=True, exist_ok=True)
             path = BASE_PATH if arm == "api" else f"{SHIM_DIR}:{BASE_PATH}"
             for f in (".zshenv", ".zprofile", ".zshrc"):
-                (z / f).write_text(f"export PATH={path}\n")
+                (z / f).write_text("unset CURSOR_AUTH_TOKEN "
+                                   "AGENT_CLI_CREDENTIAL_STORE\n"
+                                   f"export PATH={path}\n")
             deny = [f"Read({HOME}/**)", f"Read({SCRATCH_ROOT}/**)",
                     f"Read({CURSOR_HOME_ROOT}/**)", f"Read({WS_ROOT}/**)",
                     f"Read({HOME_ROOT}/**)",
@@ -741,7 +755,7 @@ class Cursor:
             if arm != "api":
                 reads.append(str(TOOL_ROOT))
             if arm == "with":
-                reads.append(str(CURSOR_PLUGIN_ROOT))
+                reads.append(str(self.plugin_root))
             else:
                 deny.append(f"Read({CURSOR_PLUGIN_ROOT}/**)")
             (h / ".cursor/cli-config.json").write_text(json.dumps({
@@ -774,7 +788,7 @@ class Cursor:
              getattr(run, "model", self.model_alias), "--sandbox", "enabled",
              "--trust", "--workspace", str(run.ws)]
         if run.arm == "with":
-            c += ["--plugin-dir", str(CURSOR_PLUGIN_ROOT)]
+            c += ["--plugin-dir", str(self.plugin_root)]
         return c
 
     def env(self, run, creds):
@@ -876,8 +890,9 @@ CODEX = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/"
 CODEX_AUTH = HOME / ".codex/auth.json"
 CODEX_LOCK = threading.Lock()
 # Held from start() to finish(): one codex process at a time across every
-# lane, since each copy of the login holds the same refresh token.
-CODEX_RUN = threading.Lock()
+# lane and every runner process, since each copy of the login holds the
+# same refresh token. flock conflicts between two opens in one process too.
+CODEX_LOCKFILE = Path("/private/tmp/pgedge-evals/codex.lock")
 CODEX_MIN_DAYS = 3
 # Codex's own features that reach past the shell: connectors, plugins,
 # sub-agents, the browser. The Claude lane has none of them.
@@ -994,14 +1009,17 @@ class Codex:
     def start(self, run):
         """The login is copied as late as possible: an earlier run may have
         refreshed it."""
-        CODEX_RUN.acquire()
+        CODEX_LOCKFILE.parent.mkdir(parents=True, exist_ok=True)
+        run.codex_lock = os.open(CODEX_LOCKFILE, os.O_RDWR | os.O_CREAT,
+                                 0o600)
+        fcntl.flock(run.codex_lock, fcntl.LOCK_EX)
         try:
             with CODEX_LOCK:
                 codex_auth()
                 shutil.copy(CODEX_AUTH, self.codex_home(run) / "auth.json")
                 os.chmod(self.codex_home(run) / "auth.json", 0o600)
         except BaseException:
-            CODEX_RUN.release()
+            os.close(run.codex_lock)
             raise
 
     def finish(self, run):
@@ -1024,7 +1042,7 @@ class Codex:
             except (OSError, ValueError):
                 pass
             mine.unlink(missing_ok=True)
-        CODEX_RUN.release()
+        os.close(run.codex_lock)
 
     def cmd(self, run, prompt, max_turns=MAX_TURNS):
         # No turn cap in codex exec; RUN_TIMEOUT bounds a run instead.
@@ -1138,20 +1156,47 @@ def scrub(text, secrets):
     return re.sub(r"(?i)(password:\s+)\S+", r"\1<redacted>", text)
 
 
+# Agents in flight, so a stop can end them. Each gets its own process
+# group: cursor-agent leaves node workers behind when only it is killed.
+ACTIVE, ACTIVE_LOCK = set(), threading.Lock()
+STOP = threading.Event()
+
+
+class Stopped(Exception):
+    """A stop arrived while this run waited (for the Codex lock, say)."""
+
+
+def kill_group(p):
+    try:
+        os.killpg(p.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
     t0 = time.time()
     if hasattr(h, "start"):
         h.start(run)
     try:
-        p = subprocess.run(h.cmd(run, prompt, max_turns), cwd=run.ws,
-                           env=h.env(run, creds), capture_output=True,
-                           text=True, timeout=RUN_TIMEOUT,
-                           stdin=subprocess.DEVNULL)
-        out, err, rc = p.stdout, p.stderr, p.returncode
-    except subprocess.TimeoutExpired as e:
-        out = e.stdout.decode() if isinstance(e.stdout, bytes) else \
-            (e.stdout or "")
-        err, rc = "timeout", -1
+        if STOP.is_set():
+            raise Stopped
+        p = subprocess.Popen(h.cmd(run, prompt, max_turns), cwd=run.ws,
+                             env=h.env(run, creds), stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+        with ACTIVE_LOCK:
+            ACTIVE.add(p)
+        try:
+            out, err = p.communicate(timeout=RUN_TIMEOUT)
+            rc = p.returncode
+        except subprocess.TimeoutExpired:
+            kill_group(p)
+            out, _ = p.communicate()
+            err, rc = "timeout", -1
+        finally:
+            with ACTIVE_LOCK:
+                ACTIVE.discard(p)
+            kill_group(p)
     finally:
         if hasattr(h, "finish"):
             h.finish(run)
@@ -1746,6 +1791,8 @@ COMMON_STEPS = [
     ("protected_write_denied", "echo delete {protected}"),
     ("home_is_run_home", "echo $HOME"),
     ("child_mktemp_works", "sh -c 'mktemp -d'"),
+    ("harness_token_not_in_shell",
+     "echo TOKEN=${CURSOR_AUTH_TOKEN:+SET}"),
 ]
 ARM_STEPS = {
     "with": [("shim_first_on_path", "command -v pgedge"),
@@ -1862,6 +1909,8 @@ def check_step(key, c, run):
     if key == "protected_write_denied":
         return bool(c["is_error"] and re.search(r"(?i)denied|permission",
                                                 out))
+    if key == "harness_token_not_in_shell":
+        return "TOKEN=" in out and "TOKEN=SET" not in out
     if key == "child_mktemp_works":
         return c["exit"] == 0
     if key == "home_is_run_home":
@@ -2476,6 +2525,129 @@ def load_tasks(sel):
     return tasks
 
 
+def resume_rows(path, redo, planned, batch):
+    """The graded rows of an earlier run that this plan still holds, with
+    their transcripts copied into this batch. An infra row ran nothing,
+    and a --redo harness runs again."""
+    d = Path(path)
+    res = json.loads((d / "results.json").read_text())
+    keep = [r for r in res["runs"] if not r["infra"] and
+            r["harness"] not in redo and r["id"] in planned]
+    for r in keep:
+        for f in (d / "transcripts").glob(f"{r['id']}.*"):
+            shutil.copy2(f, batch / "transcripts" / f.name)
+    fixtures = [f for f in res["meta"].get("fixtures", [])]
+    return keep, fixtures, {"path": str(d), "kept": len(keep),
+                            "versions": res["meta"].get("versions")}
+
+
+def stop_lane(signum, frame):
+    """SIGINT or SIGTERM: queue nothing more, end the agents in flight,
+    then let main's finally delete the fixtures and save the rows."""
+    if STOP.is_set():
+        return
+    STOP.set()
+    log(f"signal {signum}: stopping; finished runs are kept")
+    with ACTIVE_LOCK:
+        for p in list(ACTIVE):
+            kill_group(p)
+
+
+def lane_slug(hn, m):
+    return re.sub(r"[^a-z0-9]+", "-", f"{hn}-{m}".lower()).strip("-")
+
+
+def launch(a, lanes):
+    """One process per lane, each with its own batch, fixture, log and
+    results, so one can be stopped and resumed alone. Then the lanes'
+    results are combined."""
+    ts = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    setup_scratch()
+    root = S / "runs" / f"{ts}-lanes"
+    root.mkdir(parents=True)
+    names = [f"{ts}-{lane_slug(*hm)}" for hm in lanes]
+    # Made before any lane starts, so every lane's read denies list them.
+    for n in names:
+        for r in (WS_ROOT, HOME_ROOT):
+            (r / n).mkdir(parents=True, exist_ok=True)
+    passthrough = []
+    for flag, val in (("--label", a.label), ("--tag", a.tag),
+                      ("--prompt-prefix", a.prompt_prefix),
+                      ("--resume", a.resume)):
+        if val:
+            passthrough += [flag, val]
+    for h in a.redo:
+        passthrough += ["--redo", h]
+    if a.budget:
+        passthrough += ["--budget", str(a.budget)]
+    if a.skip_controls:
+        passthrough.append("--skip-controls")
+    procs = []
+    for k, ((hn, m), n) in enumerate(zip(lanes, names)):
+        out = open(root / f"{n}.log", "w")
+        p = subprocess.Popen(
+            [sys.executable, str(Path(__file__).resolve()), "--config",
+             a.config, "--lane", f"{hn}:{m}", "--batch-name", n,
+             "--lane-index", str(k), "--no-build", *passthrough],
+            stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        procs.append((hn, m, n, p))
+        log(f"lane {hn}:{m} pid {p.pid}, log {root / (n + '.log')}")
+    (root / "lanes.json").write_text(json.dumps(
+        [{"lane": f"{hn}:{m}", "pid": p.pid, "results": str(RESULTS_DIR / n),
+          "log": str(root / f"{n}.log")} for hn, m, n, p in procs],
+        indent=1))
+    log(f"stop one lane with: kill -INT <pid>; resume it with: run.py "
+        f"--config {a.config} --lane <harness:model> --resume "
+        f"<its results dir>; lanes in {root / 'lanes.json'}")
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda s, f: [p.send_signal(s) for *_, p in procs])
+    for hn, m, n, p in procs:
+        p.wait()
+        log(f"lane {hn}:{m} exited {p.returncode}")
+    done = [str(RESULTS_DIR / n) for *_, n, _ in procs
+            if (RESULTS_DIR / n / "results.json").exists()]
+    if done:
+        combine(done)
+
+
+def combine(dirs):
+    """Merge lane results: rows, fixtures and plans add up; the scorecard
+    is computed over all of them."""
+    metas, rows = [], []
+    out = RESULTS_DIR / (dt.datetime.now().strftime("%Y%m%d-%H%M%S") +
+                         "-combined")
+    (out / "transcripts").mkdir(parents=True)
+    planned = {}
+    for d in map(Path, dirs):
+        res = json.loads((d / "results.json").read_text())
+        metas.append(res["meta"])
+        rows += res["runs"]
+        for c in res["meta"].get("scorecard", []):
+            k = (c["harness"], c["model"])
+            planned[k] = max(planned.get(k, 0), c["planned"])
+        for f in (d / "transcripts").glob("*"):
+            shutil.copy2(f, out / "transcripts" / f.name)
+    meta = dict(metas[0])
+    meta.update(
+        timestamp=out.name, combined_from=[str(d) for d in dirs],
+        harnesses=sorted({h for m in metas for h in m["harnesses"]}),
+        models=sorted({x for m in metas for x in m.get("models", [])}),
+        total_cost=sum(m.get("total_cost") or 0 for m in metas),
+        fixtures=[f for m in metas for f in m.get("fixtures", [])],
+        planned_runs=sum(m.get("planned_runs") or 0 for m in metas),
+        completed_runs=len(rows),
+        other_names=sorted({x for m in metas
+                            for x in m.get("other_names", [])}))
+    meta["fixture"] = {"name": ", ".join(f["name"] for f in meta["fixtures"]),
+                       "gone": all(f.get("gone") for f in meta["fixtures"])}
+    meta["scorecard"] = scorecard(rows, planned)
+    rows.sort(key=lambda r: (r["harness"], r.get("model_alias", ""),
+                             r["task"], ARMS.index(r["arm"]), r["rep"]))
+    write_results(out, meta, rows, [])
+    log("combined results in", out)
+    print(summary_md(meta, rows))
+
+
 def refused_models(hmodels):
     """Models a harness with an allowlist does not allow."""
     out = {}
@@ -2505,9 +2677,29 @@ def main():
                     help="score the commit a CUT would tag, e.g. "
                          "0.5.0-beta.4; writes releases/VERSION/SUMMARY.md")
     ap.add_argument("--ref", help="with --release: the commit the CUT tags")
+    ap.add_argument("--resume", metavar="RESULTS_DIR",
+                    help="keep that run's graded rows and run only the rest")
+    ap.add_argument("--lane", metavar="HARNESS:MODEL",
+                    help="run only this lane of the config")
+    ap.add_argument("--one-process", action="store_true",
+                    help="run every lane in this process, not one each")
+    ap.add_argument("--combine", nargs="+", metavar="RESULTS_DIR",
+                    help="merge lane results into one scorecard")
+    ap.add_argument("--batch-name", help=argparse.SUPPRESS)
+    ap.add_argument("--lane-index", type=int, default=0,
+                    help=argparse.SUPPRESS)
+    ap.add_argument("--no-build", action="store_true",
+                    help=argparse.SUPPRESS)
+    ap.add_argument("--redo", action="append", default=[],
+                    metavar="HARNESS",
+                    help="with --resume: run this harness's rows again")
     a = ap.parse_args()
+    if a.resume and a.release:
+        sys.exit("--resume and --release do not mix: a release is one run")
     if a.regrade:
         return regrade(a.regrade)
+    if a.combine:
+        return combine(a.combine)
     if not a.config:
         sys.exit("--config is required: copy eval.example.toml")
     cfg = tomllib.loads(Path(a.config).expanduser().read_text())
@@ -2536,16 +2728,28 @@ def main():
     bad = refused_models(hmodels)
     if bad:
         sys.exit(f"models refused: {bad}")
+    all_lanes = [(hn, m) for hn in hmodels for m in hmodels[hn]]
+    if a.lane:
+        hn, _, m = a.lane.partition(":")
+        if (hn, m) not in all_lanes:
+            sys.exit(f"--lane {a.lane} is not in {a.config}")
+        hmodels = {hn: [m]}
+    elif len(all_lanes) > 1 and not (a.one_process or a.dry_run or
+                                     a.release):
+        return launch(a, all_lanes)
     hnames = list(hmodels)
     if a.release:
         if not a.ref:
             sys.exit("--release needs --ref, the commit the CUT will tag")
         prepare_release(a.release, a.ref)
         log("release", a.release, "at", RELEASE["sha"][:7])
-    setup_scratch()
-    ts = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    if not a.no_build:
+        setup_scratch()
+    ts = a.batch_name or dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     batch = S / "runs" / ts
     (batch / "transcripts").mkdir(parents=True)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, stop_lane)
     creds = eval_creds()
     secrets = [creds[1]]
     dbs = list_dbs()
@@ -2576,20 +2780,29 @@ def main():
                                   arm)
                         run.rep, run.model = i, m
                         plan.append((hn, t, run))
+    full_plan, carried, old_fixtures = plan, [], []
+    if a.resume:
+        carried, old_fixtures, meta["resumed_from"] = resume_rows(
+            a.resume, a.redo, {run.rid for _, _, run in plan}, batch)
+        done = {r["id"] for r in carried}
+        plan = [x for x in plan if x[2].rid not in done]
+        log(f"resume: {len(carried)} rows kept from {a.resume}")
     log(f"plan: {len(plan)} runs ({hmodels} x {len(tasks)} tasks"
         f" x {arms} x {a.runs}), batch {batch}")
     log("versions", meta["versions"])
     if "cursor" in harness:
         secrets.append(harness["cursor"].token)
-    spent = [0.0]
+    spent = [sum(r.get("cost_usd") or 0 for r in carried)]
     if not a.skip_controls:
         meta["controls"] = {}
         for hn, h in harness.items():
+            if not any(x[0] == hn for x in plan):
+                continue
             h.model_alias = hmodels[hn][0]
             h_arms = [x for x in arms if x in getattr(h, "arms", ARMS)]
             meta["controls"][hn] = controls(h, batch, secrets, creds,
                                             canary_db, h_arms)
-        spent[0] = sum((c.get("cost_usd") or 0)
+        spent[0] += sum((c.get("cost_usd") or 0)
                        for hc in meta["controls"].values()
                        for c in hc.values())
         ok = all(c["negative_ok"] and c["positive_ok"]
@@ -2601,15 +2814,17 @@ def main():
             sys.exit("controls failed: not running tasks")
     if a.dry_run:
         return
-    rows, lock, stop = [], threading.Lock(), threading.Event()
+    rows, lock, stop = list(carried), threading.Lock(), threading.Event()
     branches = 2 if any(t["id"] in NEEDS_BRANCHES for t in tasks) else 0
     stamp = dt.datetime.now().strftime("%m%d%H%M")
     # One lane per harness and model, each with its own fixture, so their
     # serial phases overlap instead of queueing.
-    lanes = {hm: Fixture(f"skilleval{stamp}{a.tag}{chr(97 + k)}", branches)
+    lanes = {hm: Fixture(f"skilleval{stamp}{a.tag}"
+                         f"{chr(97 + k + a.lane_index)}", branches)
              for k, hm in enumerate((hn, m) for hn in hnames
-                                    for m in hmodels[hn])}
-    per_lane = max(1, CONCURRENCY // len(lanes))
+                                    for m in hmodels[hn])
+             if any((x[0], x[2].model) == hm for x in plan)}
+    per_lane = max(1, CONCURRENCY // max(1, len(lanes)))
     batch_runs = [run for _, _, run in plan]
     for hn, _, run in plan:
         harness[hn].prepare(run, batch_runs)
@@ -2618,9 +2833,16 @@ def main():
             t["prompt"] = f"{a.prompt_prefix}\n{t['prompt']}"
 
     def job(hn, t, run, fx):
-        if stop.is_set() or (a.budget and spent[0] > a.budget):
+        if stop.is_set() or STOP.is_set() or (a.budget and
+                                              spent[0] > a.budget):
             return None
-        row = do_run(harness[hn], run, t, fx, secrets, creds)
+        try:
+            row = do_run(harness[hn], run, t, fx, secrets, creds)
+        except Stopped:
+            return None
+        if STOP.is_set():
+            # Killed part way: a resume runs it again.
+            return None
         with lock:
             rows.append(row)
             spent[0] += row["cost_usd"] or 0
@@ -2656,7 +2878,8 @@ def main():
                 fx.sweep()
             except Exception as e:
                 log("SWEEP FAILED", fx.stem, repr(e))
-        meta["fixtures"] = [h for fx in lanes.values() for h in fx.history]
+        meta["fixtures"] = old_fixtures + [h for fx in lanes.values()
+                                           for h in fx.history]
         meta["fixture"] = {"name": ", ".join(h["name"] for h in
                                              meta["fixtures"]),
                            "gone": all(h.get("gone") for h in
@@ -2665,9 +2888,10 @@ def main():
                                  r["task"], ARMS.index(r["arm"]), r["rep"]))
         meta["models"] = sorted({str(r["model"]) for r in rows}) or ["-"]
         meta["total_cost"] = spent[0]
-        meta["planned_runs"], meta["completed_runs"] = len(plan), len(rows)
+        meta["planned_runs"], meta["completed_runs"] = len(full_plan), len(rows)
         meta["stopped_on_limit"] = stop.is_set()
-        meta["scorecard"] = scorecard(rows, planned_with(plan))
+        meta["stopped_by_signal"] = STOP.is_set()
+        meta["scorecard"] = scorecard(rows, planned_with(full_plan))
         if RELEASE:
             meta["release"] = {k: str(v) for k, v in RELEASE.items()}
         write_results(batch, meta, rows, secrets)

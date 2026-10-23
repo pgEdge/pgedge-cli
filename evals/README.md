@@ -59,11 +59,30 @@ records the commit, the models, the harness versions and the pgedge
 version. The commit is marked DIRTY when a tracked file has changed,
 or when `plugins/pgedge` or `.cursor-plugin` holds an untracked file.
 
+Each lane, one harness and model, runs as its own process with its
+own fixture, log and results directory, and the runner combines the
+lanes' results when they all end. `lanes.json` in the batch directory
+lists each lane's pid, log and results. To stop one lane, send its
+pid SIGINT: it ends the agents in flight, discards their runs, keeps
+every finished one and deletes its fixture. The other lanes carry on.
+To pick it up again:
+
+    python3 run.py --config eval.toml --lane cursor:grok-4.7-medium \
+        --resume results/<that lane's directory>
+    python3 run.py --combine results/<lane> results/<lane> ...
+
+`--one-process` runs every lane in one process instead. A dry run and
+a release run always do.
+
 - `--dry-run` prints the plan and runs the controls only.
 - `--budget <dollars>` stops queuing runs once Claude's reported cost
   passes it.
 - `--regrade results/<timestamp>` grades a saved run again from its
   transcripts, offline.
+- `--resume results/<timestamp>` keeps that run's graded rows and
+  transcripts and runs only the planned runs it lacks; add `--redo
+  <harness>` to run one harness's rows again. The scorecard covers the
+  whole plan. It cannot be combined with `--release`.
 
 `make test-evals` runs the unit tests for the grading, scoring and
 publishing code. They run no agents and need no tenant.
@@ -213,6 +232,9 @@ Tasks do not start unless every check passes.
 - `curl` the API, which must succeed, proving the lock is not just a
   broken network
 - `echo $HOME`, which must print the run's own HOME
+- print whether `CURSOR_AUTH_TOKEN` is set, which it must not be:
+  `cursor-agent` holds the token, and the agent's shell profile
+  unsets it
 
 Arm checks: the shim is first on the PATH and `database list` works
 through it (with, without); no pgedge on the PATH, docs reachable and
@@ -299,6 +321,11 @@ the skills and MCP servers it sees.
   so its positive control is a check that its fake HOME holds no
   other config, plus the agent's own lists: the with arm may list only
   what the without arm lists, plus the pgedge skills.
+- Cursor fetches pages on `cursor.com` even when a `WebFetch` deny
+  rule names that domain (measured 2026-10-23); fetches to other
+  hosts are refused. Its built-in `origin` skill, about Cursor-hosted
+  git repositories, is loaded in every arm, so a task about branches
+  can send the without arm to it.
 - Codex reports no cost, turns or model, so the same self-report
   comparison is its positive control. Its bundled system skills
   appear in every arm.

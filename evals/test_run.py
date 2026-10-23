@@ -309,6 +309,26 @@ class Harnesses(unittest.TestCase):
             {"codex": ["gpt-5.3-codex"]})
 
 
+class Resume(unittest.TestCase):
+    def test_keeps_only_graded_rows_still_planned(self):
+        rows = [dict(row("with"), id="claude-a"),
+                dict(row("with", infra=True), id="claude-b"),
+                dict(row("with", harness="cursor"), id="cursor-a"),
+                dict(row("with"), id="claude-gone")]
+        with tempfile.TemporaryDirectory() as d:
+            old, new = Path(d) / "old", Path(d) / "new"
+            (old / "transcripts").mkdir(parents=True)
+            (new / "transcripts").mkdir(parents=True)
+            (old / "transcripts" / "claude-a.jsonl").write_text("{}")
+            (old / "results.json").write_text(run.json.dumps(
+                {"meta": {"fixtures": [{"name": "f1"}]}, "runs": rows}))
+            keep, fixtures, _ = run.resume_rows(
+                old, ["cursor"], {"claude-a", "claude-b", "cursor-a"}, new)
+            self.assertEqual([r["id"] for r in keep], ["claude-a"])
+            self.assertEqual(fixtures, [{"name": "f1"}])
+            self.assertTrue((new / "transcripts" / "claude-a.jsonl").exists())
+
+
 class PublicSummary(unittest.TestCase):
     def test_names_nothing_outside_the_run(self):
         meta = {"timestamp": "t", "harnesses": ["claude"], "models": ["m"],

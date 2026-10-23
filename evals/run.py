@@ -9,6 +9,7 @@ See README.md for the arms, what each control proves and the safety rules.
 """
 
 import argparse
+import base64
 import concurrent.futures as cf
 import datetime as dt
 import json
@@ -16,6 +17,7 @@ import os
 import posixpath
 import random
 import re
+import shlex
 import shutil
 import statistics
 import subprocess
@@ -405,6 +407,10 @@ def versions():
         "cursor_agent": subprocess.run(
             [str(CURSOR_AGENT), "--version"],
             capture_output=True, text=True).stdout.strip(),
+        "codex": subprocess.run([str(CODEX), "--version"],
+                                capture_output=True,
+                                text=True).stdout.strip()
+        if CODEX.exists() else None,
         "plugin_commit": plugin_commit(),
         "plugin_path": str(PLUGIN),
     }
@@ -476,6 +482,9 @@ def read_denies(run, batch_runs):
     for o in batch_runs:
         if o.rid != run.rid:
             paths += [o.ws, o.home]
+    # Every Codex home in the batch, the controls' included.
+    paths += [run.home.parent / e for e in os.listdir(run.home.parent)
+              if e.endswith(".codex")]
     paths += claude_tmp_siblings()
     batch = run.ws.parent.name
     for root in (WS_ROOT, HOME_ROOT):
@@ -538,7 +547,7 @@ def claude_settings(run, batch_runs, protected):
 
 class Claude:
     name = "claude"
-    model_alias = "opus"
+    model_alias = "sonnet"
 
     def __init__(self, batch_dir, protected):
         self.protected = protected
@@ -672,6 +681,9 @@ CURSOR_HYPHENATED = ("pgedge-managed", "pgedge-byoc", "pgedge-starfleet",
 CURSOR_INFRA = (r"ActionRequiredError|Named models unavailable|rate.?limit|"
                 r"quota|usage limit|upgrade (your )?plan|resource.?exhausted|"
                 r"too many requests")
+# Every other Cursor model, auto included, bills API usage on top of the
+# plan.
+CURSOR_MODELS = ("grok-4.7-medium", "composer-2.5")
 
 
 def cursor_token():
@@ -689,7 +701,8 @@ class Cursor:
     cursor-agent has no system-prompt flag, so the api arm's brief leads
     its prompt instead."""
     name = "cursor"
-    model_alias = "auto"
+    model_alias = CURSOR_MODELS[0]
+    models = CURSOR_MODELS
     stop_on_infra = True
     arms = ("with", "without", "api")
 
@@ -715,6 +728,7 @@ class Cursor:
                 (z / f).write_text(f"export PATH={path}\n")
             deny = [f"Read({HOME}/**)", f"Read({SCRATCH_ROOT}/**)",
                     f"Read({CURSOR_HOME_ROOT}/**)", f"Read({WS_ROOT}/**)",
+                    f"Read({HOME_ROOT}/**)",
                     "WebFetch(*)"]
             reads = [str(z)]
             # Cursor reads /opt/homebrew as a toolchain path, so the
@@ -857,7 +871,257 @@ class Cursor:
         return p
 
 
-HARNESSES = {"claude": Claude, "cursor": Cursor}
+CODEX = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/"
+             "codex")
+CODEX_AUTH = HOME / ".codex/auth.json"
+CODEX_LOCK = threading.Lock()
+# Held from start() to finish(): one codex process at a time across every
+# lane, since each copy of the login holds the same refresh token.
+CODEX_RUN = threading.Lock()
+CODEX_MIN_DAYS = 3
+# Codex's own features that reach past the shell: connectors, plugins,
+# sub-agents, the browser. The Claude lane has none of them.
+CODEX_OFF = ("apps", "plugins", "remote_plugin", "plugin_sharing",
+             "image_generation", "multi_agent", "goals", "browser_use",
+             "browser_use_external", "computer_use", "in_app_browser",
+             "tool_suggest", "skill_mcp_dependency_install", "hooks",
+             "realtime_conversation")
+
+
+def codex_auth():
+    """The tester's ChatGPT login, refused unless it is one: an API key
+    would bill every run."""
+    try:
+        a = json.loads(CODEX_AUTH.read_text())
+    except (OSError, ValueError):
+        sys.exit(f"no Codex login at {CODEX_AUTH}: run `codex login`")
+    if a.get("auth_mode") != "chatgpt" or a.get("OPENAI_API_KEY"):
+        sys.exit("Codex is not signed in with ChatGPT, or holds an API key: "
+                 "runs use the ChatGPT subscription only")
+    return a
+
+
+def codex_token_days(a):
+    """Days left on the login's access token (10 when fresh, measured
+    2026-10-23). A refresh inside a run rotates the refresh token every
+    other copy holds, so a batch starts only with time to spare."""
+    try:
+        part = a["tokens"]["access_token"].split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(
+            part) % 4)))
+        return (claims["exp"] - time.time()) / 86400
+    except (KeyError, IndexError, ValueError):
+        return 0
+
+
+def toml_str(s):
+    return json.dumps(str(s))
+
+
+class Codex:
+    """codex exec with a private CODEX_HOME per run: a copy of the ChatGPT
+    login, a generated config.toml, and the skills for the with arm. The
+    agent's shell runs under a permissions profile: read-only outside
+    the grants, HOME and CODEX_HOME unreadable, network through Codex's
+    proxy and its allowlist. codex exec has no system-prompt flag, so the
+    api arm's brief leads its prompt."""
+    name = "codex"
+    model_alias = "gpt-6.1-sol"
+    stop_on_infra = True
+    arms = ("with", "without", "api")
+
+    def __init__(self, batch_dir, protected):
+        if not CODEX.exists():
+            sys.exit(f"no codex at {CODEX}")
+        if codex_token_days(codex_auth()) < CODEX_MIN_DAYS:
+            sys.exit(f"the Codex login expires within {CODEX_MIN_DAYS} days: "
+                     "run any codex command to refresh it, then start again")
+
+    @staticmethod
+    def codex_home(run):
+        return run.home.parent / f"{run.rid}.codex"
+
+    def prepare(self, run, batch_runs):
+        run.prepare()
+        ch = self.codex_home(run)
+        if ch.exists():
+            shutil.rmtree(ch)
+        ch.mkdir(parents=True)
+        if run.arm == "with":
+            # Where `npx skills add` puts them for Codex.
+            shutil.copytree(PLUGIN / "skills", ch / "skills")
+        run.codex_config = self.config(run, batch_runs)
+        write_private(ch / "config.toml", run.codex_config)
+
+    def config(self, run, batch_runs):
+        ch = self.codex_home(run)
+        # Whole roots, so a run or batch made later is covered too; the
+        # run's own paths are granted back inside them.
+        deny = [HOME, SCRATCH_ROOT, WS_ROOT, HOME_ROOT, CURSOR_HOME_ROOT,
+                CURSOR_PLUGIN_ROOT, *claude_tmp_siblings(),
+                *map(Path, REAL_PGEDGE)]
+        fs = {str(p): "deny" for p in deny}
+        fs.update({str(run.ws): "write", str(run.home): "write",
+                   str(run.zdot): "read", DARWIN_TMP.rstrip("/"): "write"})
+        if run.arm == "with":
+            fs[str(ch / "skills")] = "read"
+        if run.arm in SHIM_ARMS:
+            # Read and run the shim, write only its own state.
+            fs.update({str(TOOL_ROOT): "read", str(PGHOME): "write"})
+        else:
+            fs[str(TOOL_ROOT)] = "deny"
+        lines = [f"model_reasoning_effort = {toml_str(EFFORT)}",
+                 'forced_login_method = "chatgpt"',
+                 'default_permissions = "eval"', 'web_search = "disabled"',
+                 "", "[features]", "network_proxy = true",
+                 *(f"{f} = false" for f in CODEX_OFF), "",
+                 # The runner's env is already a whitelist; Codex's default
+                 # would drop the api arm's PGEDGE_CLIENT_SECRET.
+                 "[shell_environment_policy]", 'inherit = "all"',
+                 "ignore_default_excludes = true", "",
+                 "[permissions.eval]", 'extends = ":read-only"', "",
+                 "[permissions.eval.filesystem]",
+                 *(f"{toml_str(k)} = {toml_str(v)}" for k, v in fs.items()),
+                 "", '[permissions.eval.filesystem.":workspace_roots"]',
+                 '"." = "write"', "",
+                 "[permissions.eval.network]", "enabled = true", "",
+                 "[permissions.eval.network.domains]",
+                 *(f"{toml_str(d)} = \"allow\"" for d in NETWORK[run.arm])]
+        return "\n".join(lines) + "\n"
+
+    def start(self, run):
+        """The login is copied as late as possible: an earlier run may have
+        refreshed it."""
+        CODEX_RUN.acquire()
+        try:
+            with CODEX_LOCK:
+                codex_auth()
+                shutil.copy(CODEX_AUTH, self.codex_home(run) / "auth.json")
+                os.chmod(self.codex_home(run) / "auth.json", 0o600)
+        except BaseException:
+            CODEX_RUN.release()
+            raise
+
+    def finish(self, run):
+        """A refresh inside the run rotates the tester's refresh token, so
+        the newer login goes back or the tester is signed out. The copy is
+        then deleted: other lanes' Read tools are not sandboxed."""
+        mine = self.codex_home(run) / "auth.json"
+        with CODEX_LOCK:
+            try:
+                new, old = (json.loads(p.read_text())
+                            for p in (mine, CODEX_AUTH))
+                if new.get("auth_mode") == "chatgpt" and \
+                        (new.get("last_refresh") or "") > \
+                        (old.get("last_refresh") or ""):
+                    tmp = CODEX_AUTH.with_suffix(".eval-tmp")
+                    write_private(tmp, mine.read_text())
+                    os.replace(tmp, CODEX_AUTH)
+                    log("codex login refreshed during", run.rid,
+                        "- saved back")
+            except (OSError, ValueError):
+                pass
+            mine.unlink(missing_ok=True)
+        CODEX_RUN.release()
+
+    def cmd(self, run, prompt, max_turns=MAX_TURNS):
+        # No turn cap in codex exec; RUN_TIMEOUT bounds a run instead.
+        if run.arm == "api":
+            prompt = f"{API_BRIEF}\n\n{prompt}"
+        return [str(CODEX), "exec", "--json", "--ephemeral", "--strict-config",
+                "--skip-git-repo-check", "-m",
+                getattr(run, "model", self.model_alias), "-c",
+                'forced_login_method="chatgpt"', "-C", str(run.ws), prompt]
+
+    def env(self, run, creds):
+        env = {k: os.environ[k] for k in CHILD_ENV if k in os.environ}
+        # TMPDIR too: the tester's may sit under a denied root.
+        env.update(HOME=str(run.home), ZDOTDIR=str(run.zdot),
+                   CODEX_HOME=str(self.codex_home(run)), PATH=run.path,
+                   TMPDIR=DARWIN_TMP)
+        if run.arm == "api":
+            env["PGEDGE_CLIENT_ID"], env["PGEDGE_CLIENT_SECRET"] = creds
+        return env
+
+    @staticmethod
+    def unwrap(cmd):
+        """Codex reports `/bin/zsh -lc '<command>'`; the graders match the
+        command itself."""
+        try:
+            argv = shlex.split(cmd)
+        except ValueError:
+            return cmd
+        if len(argv) == 3 and argv[0].endswith("sh") and argv[1] in ("-c", "-lc"):
+            return argv[2]
+        return cmd
+
+    @staticmethod
+    def parse(lines):
+        r = {"init": None, "calls": [], "final": "", "result": None}
+        usage, errors = [], []
+        for line in lines:
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            t, item = e.get("type"), e.get("item") or {}
+            if t == "thread.started":
+                r["init"] = e
+            elif t == "turn.completed":
+                usage.append(e.get("usage") or {})
+                r["result"] = e
+            elif t in ("turn.failed", "error"):
+                errors.append(json.dumps(e.get("error") or e.get("message")))
+            elif t == "item.completed" and \
+                    item.get("type") == "command_execution":
+                code = item.get("exit_code")
+                out = item.get("aggregated_output") or ""
+                exit_ = int(code) if code is not None else 1
+                r["calls"].append({"tool": "Bash", "input": item,
+                                   "command": Codex.unwrap(
+                                       item.get("command", "")),
+                                   "output": out, "exit": exit_,
+                                   "is_error": exit_ != 0})
+            elif t == "item.completed" and item.get("type") == "agent_message":
+                r["final"] = item.get("text") or ""
+            elif t == "item.completed" and item.get("type") not in (
+                    "reasoning", "error"):
+                r["calls"].append({"tool": item.get("type"), "input": item,
+                                   "command": "",
+                                   "output": json.dumps(item)[:2000],
+                                   "exit": 0, "is_error": False})
+        if errors and not r["final"]:
+            r["final"] = " ".join(errors)[:2000]
+        tin = sum(u.get("input_tokens", 0) for u in usage)
+        tout = sum(u.get("output_tokens", 0) for u in usage)
+        r["metrics"] = {
+            "model": None,      # not reported by codex exec
+            "turns": None,
+            "cost_usd": None,   # subscription; not reported
+            # input_tokens already counts the cached ones, and
+            # output_tokens the reasoning ones.
+            "input_tokens": tin if usage else None,
+            "output_tokens": tout if usage else None,
+            "tokens": tin + tout if usage else None,
+            "duration_s": None,
+            "stop": "completed" if usage else ("failed" if errors else None),
+        }
+        # Codex has no Skill tool: the agent reads SKILL.md through the
+        # shell.
+        r["skills_invoked"] = sorted({
+            m.group(1) for c in r["calls"] if c["tool"] == "Bash"
+            if c["exit"] == 0
+            for m in [re.search(r"skills/([\w-]+)/SKILL\.md", c["command"])]
+            if m})
+        return r
+
+    def isolation(self, init, arm):
+        """Structural part of the positive control; the agent's own list
+        of what it can see is checked in controls()."""
+        return [] if init else ["no init event"]
+
+
+HARNESSES = {"claude": Claude, "cursor": Cursor, "codex": Codex}
 
 
 # ------------------------------------------------------------ execution
@@ -874,6 +1138,8 @@ def scrub(text, secrets):
 
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
     t0 = time.time()
+    if hasattr(h, "start"):
+        h.start(run)
     try:
         p = subprocess.run(h.cmd(run, prompt, max_turns), cwd=run.ws,
                            env=h.env(run, creds), capture_output=True,
@@ -884,11 +1150,16 @@ def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
         out = e.stdout.decode() if isinstance(e.stdout, bytes) else \
             (e.stdout or "")
         err, rc = "timeout", -1
+    finally:
+        if hasattr(h, "finish"):
+            h.finish(run)
     leaked = bool(secrets[0]) and secrets[0] in out
     run.transcript.write_text(scrub(out, secrets))
     if err.strip():
         run.transcript.with_suffix(".stderr").write_text(scrub(err, secrets))
     parsed = h.parse(out.splitlines())
+    if h.name == "codex":
+        parsed["metrics"]["duration_s"] = round(time.time() - t0, 1)
     parsed["rc"] = rc
     parsed["stderr"] = err[-2000:]
     parsed["secret_in_transcript"] = leaked
@@ -1609,8 +1880,8 @@ def check_step(key, c, run):
 
 
 def self_report_problems(final, arm):
-    """Cursor's init event lists no skills or MCP servers, so the agent's
-    own list is the evidence for what it could see."""
+    """Cursor's and Codex's start events list no skills or MCP servers,
+    so the agent's own list is the evidence for what it could see."""
     p = []
     seen = [n for n in CURSOR_HYPHENATED if n in final]
     if arm == "with" and len(seen) != len(CURSOR_HYPHENATED):
@@ -1631,7 +1902,8 @@ def self_reported(final):
         m = re.match(r"\W*(SKILLS|MCP):(.*)", line)
         if not m:
             continue
-        body = m.group(2)
+        # An aside such as "(no others are exposed)" names nothing.
+        body = re.sub(r"\([^)]*\)", "", m.group(2))
         items = body.split(",") if "," in body else body.split()
         for x in items:
             word = (x.split() or [""])[0].strip("`*.()[]:").lower()
@@ -1653,11 +1925,88 @@ def cross_arm_problems(seen):
         else []
 
 
+SELF_REPORT = ("Without running anything, list by exact name every skill and "
+               "every MCP server available to you, on lines starting SKILLS: "
+               "and MCP:.")
+# The tester's own pgedge still runs under Codex's profile: a read deny
+# does not stop macOS executing a file. PATH and escapes() cover it.
+CODEX_SKIP = ("real_pgedge_blocked", "protected_write_denied")
+
+
+def codex_control(h, run, protected_name, secrets, creds):
+    """The model will not try a path its profile denies, so the negative
+    steps run under `codex sandbox`, the same profile with no model. The
+    agent run is the positive control: what it says it can see."""
+    _, steps = control_prompt(run.arm, protected_name, "codex")
+    env = h.env(run, creds)
+    h.start(run)
+    try:
+        def sh(*argv):
+            p = subprocess.run([str(CODEX), *argv], cwd=run.ws, env=env,
+                               capture_output=True, text=True, timeout=60,
+                               stdin=subprocess.DEVNULL)
+            return p.returncode, p.stdout + p.stderr
+        neg = {}
+        for key, cmd in steps:
+            if key.startswith(CODEX_SKIP):
+                continue
+            # The agent's own shell: a login zsh runs path_helper.
+            rc, text = sh("sandbox", "zsh", "-lc", cmd)
+            neg[key] = check_step(key, {"output": text, "exit": rc,
+                                        "is_error": rc != 0}, run)
+        ch = Codex.codex_home(run)
+        # (key, command, must succeed)
+        extra = [("codex_login_unreadable", f"cat {ch}/auth.json", False),
+                 ("direct_network_blocked", "curl --noproxy '*' -sS -m 10 "
+                  "-o /dev/null https://example.com/", False),
+                 ("keychain_unreachable", "/usr/bin/security "
+                  "find-generic-password -s cursor-access-token", False)]
+        if run.arm in SHIM_ARMS:
+            extra.append(("shim_not_writable", f"touch {SHIM}", False))
+        else:
+            extra.append(("shim_dir_unreadable", f"ls {TOOL_ROOT}", False))
+        if run.arm == "with":
+            extra.append(("skill_readable",
+                          f"cat {ch}/skills/pgedge/SKILL.md", True))
+        for key, cmd, ok in extra:
+            rc, _ = sh("sandbox", "zsh", "-lc", cmd)
+            neg[key] = (rc == 0) == ok
+        # 44 also means "no such item": prove it exists outside first.
+        neg["keychain_unreachable"] &= subprocess.run(
+            ["/usr/bin/security", "find-generic-password", "-s",
+             "cursor-access-token"], capture_output=True).returncode == 0
+        rc, text = sh("login", "status")
+        neg["chatgpt_login"] = rc == 0 and "Logged in using ChatGPT" in text
+    finally:
+        h.finish(run)
+    r = run_agent(h, run, SELF_REPORT, secrets, creds)
+    skills = Codex.codex_home(run) / "skills"
+    have = sorted(p.name for p in skills.iterdir()
+                  if not p.name.startswith(".")) if skills.exists() else []
+    iso = h.isolation(r["init"], run.arm) + self_report_problems(
+        r["final"], run.arm)
+    if have != (sorted(["pgedge", *CURSOR_HYPHENATED])
+                if run.arm == "with" else []):
+        iso.append(f"{run.arm} CODEX_HOME skills = {have}")
+    return {"negative": neg, "negative_ok": all(neg.values()),
+            "positive_problems": iso, "positive_ok": not iso,
+            "model": run.model, "pgedge_skills_seen": have,
+            "secret_in_transcript": r["secret_in_transcript"],
+            "cost_usd": None}, self_reported(r["final"])
+
+
 def controls(h, batch, secrets, creds, protected_name, arms):
     out, seen = {}, {}
     for arm in arms:
         run = Run(batch, f"{h.name}-control-{arm}", arm)
+        run.model = h.model_alias
         h.prepare(run, [run])
+        if h.name == "codex":
+            out[arm], seen[arm] = codex_control(h, run, protected_name,
+                                                secrets, creds)
+            log(f"control codex/{arm}: negative={out[arm]['negative']} "
+                f"positive={out[arm]['positive_problems'] or 'ok'}")
+            continue
         prompt, steps = control_prompt(arm, protected_name, h.name)
         r = run_agent(h, run, prompt, secrets, creds, max_turns=20)
         neg = {k: check_step(k, find_call(r, cmd), run) for k, cmd in steps}
@@ -1881,14 +2230,15 @@ def summary_md(meta, rows, public=False):
             f"- Model: {', '.join(meta['models'])}",
             f"- Claude Code: {v['claude_code']}",
             f"- cursor-agent: {v['cursor_agent']}",
+            f"- Codex: {v.get('codex')}",
             f"- pgedge: {v['pgedge']}",
             f"- Plugin commit: {v['plugin_commit']}",
             f"- Runs per task per arm: {meta['runs']}",
             f"- Fixture: {meta['fixture']['name']} "
             f"(deleted: {meta['fixture'].get('gone')})",
             f"- Total agent spend: ${meta['total_cost']:.2f}"
-            + (" (Claude only; Cursor reports no cost)"
-               if "cursor" in meta["harnesses"] else ""),
+            + (" (Claude only; Cursor and Codex report no cost)"
+               if set(meta["harnesses"]) - {"claude"} else ""),
             ""]
     if meta.get("note"):
         out += [meta["note"], ""]
@@ -2025,7 +2375,9 @@ def regrade(dirpath):
             .splitlines())
         r["extra"] = {}
         metrics_from_calls(r)
-        row.update({k: v for k, v in r["metrics"].items()})
+        # Codex's duration is the runner's clock, not in the transcript.
+        row.update({k: v for k, v in r["metrics"].items()
+                    if v is not None or k != "duration_s"})
         row["no_api_call"] = not any(
             c["tool"] == "Bash" and re.search(
                 r"\bstarfleet\s+(managed|auth|byoc|doctor)|" +
@@ -2119,6 +2471,17 @@ def load_tasks(sel):
     return tasks
 
 
+def refused_models(hmodels):
+    """Models a harness with an allowlist does not allow."""
+    out = {}
+    for hn, ms in hmodels.items():
+        allowed = getattr(HARNESSES[hn], "models", None)
+        bad = [m for m in ms if allowed and m not in allowed]
+        if bad:
+            out[hn] = bad
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", help="eval config; see eval.example.toml")
@@ -2165,6 +2528,9 @@ def main():
     unknown = set(cfg.get("harness", {})) - set(HARNESSES)
     if unknown or not hmodels:
         sys.exit(f"harness must be one or more of {sorted(HARNESSES)}")
+    bad = refused_models(hmodels)
+    if bad:
+        sys.exit(f"models refused: {bad}")
     hnames = list(hmodels)
     if a.release:
         if not a.ref:

@@ -19,7 +19,13 @@ arms = ["with", "without", "api"]
 
 # One table per harness. Each model gets its own lane and fixture.
 [harness.claude]
-models = ["opus", "sonnet", "haiku"]
+models = ["sonnet"]
 
-# [harness.cursor]
-# models = ["auto"]
+# Only these two: every other Cursor model, auto included, bills API
+# usage on top of the plan, and the runner refuses it.
+[harness.cursor]
+models = ["grok-4.7-medium", "composer-2.5"]
+
+# The ChatGPT subscription only: the runner refuses an API-key login.
+[harness.codex]
+models = ["gpt-6.1-sol"]

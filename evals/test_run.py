@@ -237,7 +237,73 @@ class Isolation(unittest.TestCase):
             {"with": with_, "without": without}), [])
         api = run.self_reported("SKILLS: loop\nMCP: None.")
         self.assertEqual(run.self_reported("MCP: none"), set())
+        self.assertEqual(run.self_reported(
+            "MCP: clock (other server names are not exposed)"),
+            {"MCP:clock"})
         self.assertEqual(api, {"SKILLS:loop"})
+
+
+class Harnesses(unittest.TestCase):
+    # Captured from codex exec --json 0.163, paths replaced.
+    STREAM = [
+        '{"type":"thread.started","thread_id":"t1"}',
+        '{"type":"turn.started"}',
+        '{"type":"item.completed","item":{"id":"item_1","type":'
+        '"command_execution","command":"/bin/zsh -lc \'cat /w/skills/'
+        'pgedge-managed/SKILL.md\'","aggregated_output":"x\\n",'
+        '"exit_code":0,"status":"completed"}}',
+        '{"type":"item.completed","item":{"id":"item_2","type":'
+        '"command_execution","command":"/bin/zsh -lc \'ls /nonexistent\'",'
+        '"aggregated_output":"ls: No such file\\n","exit_code":1,'
+        '"status":"failed"}}',
+        '{"type":"item.completed","item":{"id":"item_3","type":'
+        '"agent_message","text":"DONE"}}',
+        '{"type":"turn.completed","usage":{"input_tokens":33150,'
+        '"cached_input_tokens":27904,"output_tokens":97,'
+        '"reasoning_output_tokens":40}}',
+    ]
+
+    def test_codex_stream(self):
+        r = run.Codex.parse(self.STREAM)
+        self.assertEqual([(c["command"], c["exit"]) for c in r["calls"]],
+                         [("cat /w/skills/pgedge-managed/SKILL.md", 0),
+                          ("ls /nonexistent", 1)])
+        self.assertEqual(r["final"], "DONE")
+        self.assertEqual(r["metrics"]["tokens"], 33150 + 97)
+        self.assertEqual(r["skills_invoked"], ["pgedge-managed"])
+        failed = run.Codex.parse([
+            '{"type":"thread.started","thread_id":"t1"}',
+            '{"type":"turn.failed","error":{"message":"The \'x\' model is '
+            'not supported when using Codex with a ChatGPT account."}}'])
+        self.assertIsNone(failed["metrics"]["tokens"])
+        self.assertTrue(run.infra_error(dict(failed, rc=1, stderr="")))
+
+    def test_codex_wrapper_does_not_hide_an_escape(self):
+        for flag in ("-lc", "-c"):
+            cmd = run.Codex.unwrap(f"/bin/zsh {flag} '/opt/homebrew/bin/"
+                                   "pgedge version'")
+            with mock.patch.object(run, "REAL_PGEDGE",
+                                   ["/opt/homebrew/bin/pgedge"]):
+                self.assertTrue(run.escapes(bash(cmd), "with"), flag)
+
+    def test_codex_refuses_anything_but_a_chatgpt_login(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "auth.json"
+            with mock.patch.object(run, "CODEX_AUTH", f):
+                for bad in ('{"auth_mode":"apikey","OPENAI_API_KEY":null}',
+                            '{"auth_mode":"chatgpt","OPENAI_API_KEY":"sk"}'):
+                    f.write_text(bad)
+                    with self.assertRaises(SystemExit):
+                        run.codex_auth()
+                f.write_text('{"auth_mode":"chatgpt","OPENAI_API_KEY":null}')
+                self.assertEqual(run.codex_auth()["auth_mode"], "chatgpt")
+
+    def test_cursor_refuses_models_that_bill_api_usage(self):
+        self.assertEqual(run.refused_models(
+            {"cursor": ["grok-4.7-medium", "composer-2.5"],
+             "claude": ["sonnet"]}), {})
+        self.assertEqual(run.refused_models(
+            {"cursor": ["auto", "composer-2.5"]}), {"cursor": ["auto"]})
 
 
 class PublicSummary(unittest.TestCase):

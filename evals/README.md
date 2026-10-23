@@ -31,7 +31,8 @@ reason follow it.
 ## Requirements
 
 - macOS, Python 3.11 or later, Go and `make`
-- Claude Code (`claude`), signed in; `cursor-agent` too, for Cursor
+- Claude Code (`claude`), signed in; `cursor-agent` for Cursor; the
+  ChatGPT app's `codex`, signed in with ChatGPT, for Codex
 - a pgEdge Starfleet tenant on a Managed plan where creating and
   deleting databases is safe
 - a profile for that tenant whose client secret is in its config
@@ -114,8 +115,15 @@ overwrite an existing one. The committed copy:
 
 Every Claude run uses the same tools (`Bash Read Glob Grep Skill`),
 `--max-turns 20`, `--effort medium` and `--permission-mode dontAsk`.
-Cursor runs `cursor-agent -p` with its sandbox on; it has no turn cap,
-so a timeout bounds each run.
+Cursor runs `cursor-agent -p` with its sandbox on, and Codex runs
+`codex exec --json` under a permissions profile. Neither has a turn
+cap, so a timeout bounds each run.
+
+Models are pinned per harness. Cursor accepts only `grok-4.7-medium`
+and `composer-2.5`, because every other Cursor model, `auto`
+included, bills API usage; the runner refuses any other. Codex runs
+only on a ChatGPT login: the runner refuses a login that is not
+ChatGPT or that holds an API key.
 
 ## Tasks
 
@@ -210,6 +218,18 @@ through it (with, without); no pgedge on the PATH, docs reachable and
 the secret in the environment (api); no pgedge on the PATH,
 `/opt/homebrew` not writable and `install.sh` reachable (with-nocli).
 
+**Codex** refused, in every probe on 2026-10-23, to try a path its
+profile denies, so its negative steps run under `codex sandbox`, the
+same profile with no model, through a login `zsh` as the agent's
+shell. Codex adds steps of its own: its login copy, a direct
+connection that skips the proxy and the keychain must all be out of
+reach, the shim must not be writable (with, without) or listable
+(api), the with arm must be able to read a skill, and `codex login
+status` must report a ChatGPT login. The two steps marked Claude only,
+and running the tester's own `pgedge`, are skipped: the PATH and the
+grader cover that. The agent run is the positive control: it lists
+the skills and MCP servers it sees.
+
 **Positive control** (isolation), from every run's init event:
 
 - with and with-nocli list exactly the five `pgedge:*` skills
@@ -248,6 +268,22 @@ the secret in the environment (api); no pgedge on the PATH,
   the same command. Listing or searching for one is not running it.
   Paths are compared ignoring case, `..`, repeated slashes and the
   `/tmp` alias.
+- **Codex:** each run gets its own `CODEX_HOME` holding a copy of the
+  ChatGPT login and a generated `config.toml`, so the tester's own
+  Codex config, plugins and MCP servers do not load. The profile
+  extends `:read-only` and denies the tester's HOME, the run's
+  `CODEX_HOME` and the whole workspace and HOME roots. It then grants
+  back writes to the run's own workspace, HOME and the per-user temp
+  directory, reads of its zsh dotdir and, in the with arm, its skills,
+  and makes the shim directory read-only. Network goes through Codex's
+  proxy, which enforces the arm's allowlist. Web search, connectors,
+  plugins, sub-agents and the browser are switched off.
+- **The Codex login:** every copy holds the same refresh token, so
+  Codex runs go one at a time across every lane of the runner, and
+  it refuses to start when the access token has under three days
+  left. Run any `codex` command first to refresh it. A login that Codex refreshes during a run is
+  written back to `~/.codex/auth.json`, and each run's copy is deleted
+  when the run ends.
 - **Task 5's scripts** run under `sandbox-exec` with the tester's
   HOME unreadable and unwritable and their own `pgedge` blocked.
 
@@ -261,5 +297,7 @@ the secret in the environment (api); no pgedge on the PATH,
 - Cursor reports no cost or turns, and its init event lists no skills,
   so its positive control is a check that its fake HOME holds no
   other config, plus the agent's own lists: the with arm may list only
-  what the without arm lists, plus the pgedge skills. Cursor's free
-  tier runs only the `auto` model.
+  what the without arm lists, plus the pgedge skills.
+- Codex reports no cost, turns or model, so the same self-report
+  comparison is its positive control. Its bundled system skills
+  appear in every arm.

@@ -19,12 +19,12 @@ var auth0Apps = map[string]Auth0App{
 	"https://api.pgedge.com": {
 		Domain:   "auth.pgedge.com",
 		Audience: "https://api.pgedge.com",
-		ClientID: "",
+		ClientID: "SCexy9LhkGBmBGrBeH2K9jeapuKb6kQb",
 	},
 	"https://devapi.pgedge.com": {
 		Domain:   "devauth.pgedge.com",
 		Audience: "https://devapi.pgedge.com",
-		ClientID: "",
+		ClientID: "ZHg4rTGZCCZf1DpaWdj2agAm7aDRvCUj",
 	},
 }
 

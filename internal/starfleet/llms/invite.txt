@@ -92,11 +92,13 @@ Create an invite (needs the web UI)
 
 <!-- END GENERATED -->
 
-**This cannot run with CLI credentials.** Issuing an invite needs a
-signed-in user, and every credential the CLI accepts is a client ID
-and secret, which identifies an application rather than a person.
-Starfleet answers `400 cannot create invites from an api client`, so
-the CLI refuses before making the request and exits **5**. The flags
+**This does not run from the CLI.** Issuing an invite needs a
+signed-in user in the Starfleet UI. An API client identifies an
+application rather than a person, and Starfleet answers it with
+`400 cannot create invites from an api client`. A browser sign-in is
+a user, but the CLI does not send the request for one either. So the
+CLI refuses before making the request, whichever way it signed in,
+and exits **5**. The flags
 stay declared so the operation's shape is documented, and none is
 marked required, so the refusal is the error you see rather than
 "required flag not set".
@@ -104,11 +106,8 @@ marked required, so the refusal is the error you see rather than
 Invite teammates from the Team page in the Starfleet UI. `invite
 list`, `get` and `delete` all work normally from the CLI.
 
-**Example output (stderr):**
-
-```
-Error: invite create needs a signed-in user. The CLI authenticates with a client ID and secret, which identifies an application rather than a person, so Starfleet rejects this operation whatever the credentials. Invite teammates from the Team page in the Starfleet UI.
-```
+The refusal on stderr opens with `invite create needs a signed-in
+user` and ends by pointing at the Team page.
 
 No `-o` value changes this. The refusal happens before the request is
 made, so stdout is empty and the exit code is 5 in every format.
@@ -161,13 +160,14 @@ Accept an invite (needs the web UI)
 
 <!-- END GENERATED -->
 
-**This cannot run with CLI credentials**, for the same reason as
+**This does not run from the CLI**, for the same reason as
 `invite create`: accepting an invite records *which person* joined,
-and a client credential names no person. Starfleet derives identity
+and an API client names no person. Starfleet derives identity
 from the token's claims, where a user token sets `X-User-ID` and a
 client token sets `X-Client-ID` but never both, and answers 401 on an
-empty user ID. The CLI refuses before making the request and exits
-**5**.
+empty user ID. The CLI does not send the request for a browser
+sign-in either, so it refuses before making the request, whichever
+way it signed in, and exits **5**.
 
 The operation is excluded from the published public API contract.
 

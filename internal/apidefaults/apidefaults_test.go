@@ -30,3 +30,13 @@ func TestResolveStarfleetAPIURL(t *testing.T) {
 		})
 	}
 }
+
+func TestAuth0AppsCoverBothAPIs(t *testing.T) {
+	for _, u := range []string{StarfleetAPIURL,
+		"https://devapi.pgedge.com"} {
+		app, ok := auth0Apps[u]
+		if !ok || app.Domain == "" || app.Audience != u {
+			t.Errorf("%s: %+v", u, app)
+		}
+	}
+}

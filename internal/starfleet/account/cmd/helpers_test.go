@@ -38,6 +38,7 @@ func newStarfleetRoot(rt *module.Runtime) *cobra.Command {
 	pf.StringVar(&f.APIURL, "api-url", "", "pgEdge Starfleet API base URL")
 	pf.StringVar(&f.ClientID, "client-id", "", "API client ID")
 	pf.StringVar(&f.ClientSecret, "client-secret", "", "API client secret")
+	pf.StringVar(&f.Tenant, "tenant", "", "browser session tenant")
 
 	root.AddCommand(NewAuthCmd(rt, f))
 	root.AddCommand(NewDoctorCmd(rt, f))

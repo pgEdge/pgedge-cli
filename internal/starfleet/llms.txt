@@ -29,15 +29,33 @@ belongs to byoc and managed writes only.
 
 ### Authentication
 
+A profile signs in one of two ways:
+
+- **As a user, through the browser.** `pgedge starfleet auth login`
+  with no credential flags opens the browser, and every command then
+  runs as that user, in the tenant the profile names, until the
+  session expires. Nothing renews it: once it expires, a command
+  fails at exit 5 and tells the user to run `auth login` again. An
+  agent cannot complete a browser sign-in, so ask the user to run it.
+- **As an API client,** for CI, scripts and agents. Supply a client
+  ID and secret through one of the sources below.
+
 Three credential sources, in priority order:
 
 1. CLI flags: `--client-id` / `--client-secret` (persistent flags on
    `pgedge starfleet`)
 2. Environment: `PGEDGE_CLIENT_ID` / `PGEDGE_CLIENT_SECRET`
 3. Profile: the active profile's `starfleet` section in
-   `~/.pgedge/cli/config.yaml`, with the secret in the OS keychain
-   (or in that section's `client_secret` when `auth login` could not
-   use a keychain)
+   `~/.pgedge/cli/config.yaml`: a browser session, or an API client
+   with the secret in the OS keychain (or in that section's
+   `client_secret` when `auth login` could not use a keychain)
+
+A browser session acts in the profile's `tenant_id`. `--tenant <id>`
+picks another tenant the user belongs to for one command; an ID the
+session cannot reach is exit 2, and the message lists the reachable
+IDs. A profile `tenant_id` the session no longer reaches is exit 2
+too; sign in again with `--tenant`. An API client is scoped to one
+tenant, so `--tenant` alongside one is exit 2.
 
 The two flags must be supplied together. One without the other is a
 usage error (exit 2, `--client-id given without --client-secret`). The
@@ -56,13 +74,16 @@ file still fails the command.
 The token is cached at `~/.pgedge/cli/cache/<profile>-starfleet.json`,
 bound to the credential and API base URL that minted it. Change either,
 in the profile or with a flag, and the next command exchanges a fresh
-token, so a token only ever goes to the endpoint that minted it.
+token, so a token only ever goes to the endpoint that minted it. A
+browser session's token is bound to its API URL and user, and a
+command with another `--api-url` fails at exit 5 rather than sending
+it there.
 `pgedge starfleet auth logout` removes the active profile's cache file
 and keychain entry, and leaves other profiles' tokens alone.
 
 ### Starfleet Module Flags
 
-The four connection flags are declared on `pgedge starfleet` and
+The five connection flags are declared on `pgedge starfleet` and
 inherited by every subcommand. The `pgedge starfleet` command reference
 below has the flag table. Combine with the global `-o`/`--output` flag
 (text, json, yaml) for machine-readable output.
@@ -102,6 +123,7 @@ Manage pgEdge Starfleet
 | `--api-url string` | No |  | pgEdge Starfleet API base URL (default https://api.pgedge.com) |
 | `--client-id string` | No |  | API client ID (overrides profile config) |
 | `--client-secret string` | No |  | API client secret (overrides profile config) |
+| `--tenant string` | No |  | Tenant ID a browser sign-in acts in (overrides the profile's) |
 | `--timeout duration` | No | `30s` | Per-request timeout (Go duration; 0 disables) |
 
 <!-- END GENERATED -->
@@ -118,7 +140,7 @@ pgedge starfleet
 pgedge starfleet --help
 ```
 
-Flags: --api-url, --client-id, --client-secret, --timeout
+Flags: --api-url, --client-id, --client-secret, --tenant, --timeout
 
 Expected: the module description, usage and flag list on stdout,
 exit 0.

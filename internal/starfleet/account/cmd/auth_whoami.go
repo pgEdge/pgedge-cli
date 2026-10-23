@@ -16,7 +16,10 @@ import (
 // the API client record's UUID, which `client get` takes, is
 // ClientRecordID.
 type whoamiReport struct {
-	ClientID       string `json:"client_id"`
+	// User is a browser session's email or subject; ClientID is empty
+	// then.
+	User           string `json:"user,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
 	ClientName     string `json:"client_name,omitempty"`
 	ClientRecordID string `json:"client_record_id,omitempty"`
 	// Not bare `description`: this object flattens two resources.
@@ -38,7 +41,9 @@ func newAuthWhoamiCmd(
 		Short: "Show the identity the API accepts you as",
 		Long: `whoami reports the identity the pgEdge Starfleet API
 answers your credential as: the named API client, and the tenant and
-plan it is scoped to.
+plan it is scoped to. For a browser sign-in it reports you, the
+tenant you are working in and its plan, and how many tenants you can
+reach.
 
 Use it to tell one profile's credential from another's, and to read
 the plan behind an entitlement refusal. This is the question
@@ -70,6 +75,9 @@ Example:
 					code = ExitUsage
 				}
 				return newExitError(err.Error(), code)
+			}
+			if res.Session {
+				return whoamiSession(rt, cmd)
 			}
 			creds := res.Creds
 			report.APIURL = res.APIURL
@@ -114,6 +122,37 @@ Example:
 				len(tenants) == 0)
 		},
 	}
+}
+
+// whoamiSession reports a browser session: the user and the selected
+// tenant. It lists no API clients, since a user is not one.
+func whoamiSession(rt *module.Runtime, cmd *cobra.Command) error {
+	client, c, err := connClientFromCmd(rt, cmd)
+	if err != nil {
+		return err
+	}
+	report := whoamiReport{
+		User:     c.Session.User,
+		TenantID: c.Session.TenantID,
+		APIURL:   c.APIURL,
+	}
+	tenants, err := whoamiTenants(context.Background(), client)
+	if err != nil {
+		return err
+	}
+	if len(tenants) > 0 {
+		t := selectedTenant(tenants, c.Session.TenantID)
+		report.TenantName = t.Name
+		report.TenantID = t.Id
+		report.Plan = output.DerefString(t.Plan)
+		if t.PlanTrial != nil {
+			report.PlanTrial = *t.PlanTrial
+		}
+	}
+	if len(tenants) > 1 {
+		report.TenantCount = len(tenants)
+	}
+	return printWhoami(rt, report, false, len(tenants) == 0)
 }
 
 // whoamiClientRecord returns the API client record whose auth0_id is
@@ -188,8 +227,13 @@ func printWhoami(
 		return rt.Output.Print(report, nil)
 	}
 
-	fmt.Fprintf(rt.Stdout, "Client ID:     %s\n",
-		output.Sanitize(report.ClientID))
+	if report.User != "" {
+		fmt.Fprintf(rt.Stdout, "User:          %s\n",
+			output.Sanitize(report.User))
+	} else {
+		fmt.Fprintf(rt.Stdout, "Client ID:     %s\n",
+			output.Sanitize(report.ClientID))
+	}
 	if report.ClientName != "" {
 		fmt.Fprintf(rt.Stdout, "Client name:   %s\n",
 			output.Sanitize(report.ClientName))

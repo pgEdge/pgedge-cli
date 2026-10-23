@@ -308,9 +308,9 @@ func RedactBody(raw []byte, limit int) string {
 	return wholeBodySummary(doc)
 }
 
-// formSecretNames are the form fields of an OAuth code exchange that
-// would let a reader of the log finish it.
-var formSecretNames = []string{"code", "code_verifier"}
+// formSecretNames are the OAuth form fields that would let a reader of
+// the log finish a code exchange or use a token being revoked.
+var formSecretNames = []string{"code", "code_verifier", "token"}
 
 // RedactForm is RedactBody for a form-encoded body: the value of every
 // secret field, JSON names included, is masked, and the field order is

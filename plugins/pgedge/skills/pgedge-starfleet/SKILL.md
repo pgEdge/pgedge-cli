@@ -98,9 +98,9 @@ Each rule is stated in full on the page named beside it.
   variable is read. The pair ignores the profile's API URL, and
   `--profile` alongside it is exit status 2. The token cache is bound to the
   credential and the API URL together. See the index.
-- **A browser session expires and nothing renews it.** After that,
-  every command exits 5 and names the `auth login` command to run;
-  ask the user to run it. `--tenant` with an API client is exit 2.
+- **A browser session renews itself while in use and ends after a
+  period without use or a fixed maximum.** Once it ends, every command exits 5 and names
+  the `auth login` command to run; ask the user to run it. `--tenant` with an API client is exit 2.
   See the index.
 - **`auth status` proves only that credentials resolved.** A wrong
   secret still reports `authenticated: true`. `doctor`'s tenant check

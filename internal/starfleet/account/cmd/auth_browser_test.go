@@ -4,18 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/apidefaults"
+	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/config"
 	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -31,7 +35,9 @@ const tenantsBody = `[` +
 
 // signInStubs stands up a fake Auth0 and a fake API, and points the
 // login command's seams at them. The fake Auth0 issues an access token
-// reaching tenants, with the first as its default.
+// reaching tenants, with the first as its default, and, when
+// issueRefresh is set, a new refresh token per answer: refresh~1,
+// refresh~2 and so on. A tilde cannot occur in a JWT.
 type signInStubs struct {
 	api      string
 	tenants  []string
@@ -40,6 +46,21 @@ type signInStubs struct {
 	reply    func(q url.Values) url.Values
 	apiHits  map[string]int
 	headers  []http.Header
+
+	issueRefresh bool
+	refreshes    atomic.Int32
+	// refreshError, when set, is the OAuth error a refresh gets, with
+	// refreshReason as its error_description.
+	refreshError  string
+	refreshReason string
+	// revokeStatus, when set, is the status /oauth/revoke answers.
+	revokeStatus int
+	// atAPI, when set, runs as each API request arrives.
+	atAPI func(*http.Request)
+
+	mu            sync.Mutex
+	refreshedWith []string
+	revoked       []string
 }
 
 // stubCode is the authorization code the fake browser returns.
@@ -54,20 +75,49 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 	auth0 := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			_ = r.ParseForm()
-			s.verifier.Store(r.PostForm.Get("code_verifier"))
+			w.Header().Set("Content-Type", "application/json")
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if r.URL.Path == "/oauth/revoke" {
+				s.revoked = append(s.revoked, r.PostForm.Get("token"))
+				if s.revokeStatus != 0 {
+					w.WriteHeader(s.revokeStatus)
+				}
+				return
+			}
+			if r.PostForm.Get("grant_type") == "refresh_token" {
+				s.refreshedWith = append(s.refreshedWith,
+					r.PostForm.Get("refresh_token"))
+				if s.refreshError != "" {
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]string{
+						"error":             s.refreshError,
+						"error_description": s.refreshReason})
+					return
+				}
+			} else {
+				s.verifier.Store(r.PostForm.Get("code_verifier"))
+			}
 			at := testsupport.SessionToken(t, "auth0|u1",
 				time.Now().Add(24*time.Hour), s.tenants...)
 			it := testsupport.FakeJWT(t,
 				map[string]any{"email": "user@example.com"})
 			s.issued.Store(at + " " + it)
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
+			body := map[string]any{
 				"access_token": at, "id_token": it, "expires_in": 86400,
-			})
+			}
+			if s.issueRefresh {
+				body["refresh_token"] = fmt.Sprintf("refresh~%d",
+					s.refreshes.Add(1))
+			}
+			_ = json.NewEncoder(w).Encode(body)
 		}))
 	t.Cleanup(auth0.Close)
 	api := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
+			if s.atAPI != nil {
+				s.atAPI(r)
+			}
 			s.apiHits[r.URL.Path]++
 			s.headers = append(s.headers, r.Header.Clone())
 			w.Header().Set("Content-Type", "application/json")
@@ -83,15 +133,15 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 	t.Cleanup(api.Close)
 	s.api = api.URL
 
-	savedFor, savedFlow, savedTTY := auth0For, signInFlow,
+	savedApp, savedFlow, savedTTY := conn.SignInApp, signInFlow,
 		promptIsInteractive
 	t.Cleanup(func() {
-		auth0For, signInFlow, promptIsInteractive = savedFor, savedFlow,
-			savedTTY
+		conn.SignInApp, signInFlow, promptIsInteractive = savedApp,
+			savedFlow, savedTTY
 	})
-	auth0For = func(string) (apidefaults.Auth0App, bool) {
+	conn.SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
 		return apidefaults.Auth0App{Domain: "unused",
-			Audience: "aud", ClientID: "cid"}, true
+			Audience: "aud", ClientID: "cid"}, auth0.URL, true
 	}
 	promptIsInteractive = func(*module.Runtime) bool { return false }
 	signInFlow = func(rt *module.Runtime, app apidefaults.Auth0App,
@@ -131,23 +181,88 @@ func exitCode(err error) int {
 	return -1
 }
 
+// TestBrowserLoginDebugOutputCarriesNoSecrets follows a session from
+// sign-in through a renewal to logout's revoke.
 func TestBrowserLoginDebugOutputCarriesNoSecrets(t *testing.T) {
 	s := newSignInStubs(t, "t-a")
+	s.issueRefresh = true
 	rt, _, errb := testsupport.NewRuntime(t, "", "text")
+	rt.Keychain = &keychain.Fake{}
 	rt.Debug = true
 	if err := login(t, rt, s); err != nil {
 		t.Fatalf("login: %v", err)
 	}
-	if !strings.Contains(errb.String(), "/oauth/token") {
-		t.Fatalf("--debug did not log the exchange:\n%s", errb.String())
-	}
 	issued, _ := s.issued.Load().(string)
+	testsupport.SeedSession(t, rt, s.api, "u1",
+		time.Now().Add(-time.Minute), "t-a")
+	for _, args := range [][]string{{"auth", "whoami"}, {"auth", "logout"}} {
+		if err := runAccount(t, rt, &bytes.Buffer{}, args...); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+	}
+	for _, want := range []string{"/oauth/token", "/oauth/revoke"} {
+		if !strings.Contains(errb.String(), want) {
+			t.Fatalf("--debug did not log %s:\n%s", want, errb.String())
+		}
+	}
+	renewed, _ := s.issued.Load().(string)
 	verifier, _ := s.verifier.Load().(string)
-	secrets := append(strings.Fields(issued), verifier, stubCode)
+	secrets := append(strings.Fields(issued+" "+renewed), verifier,
+		stubCode, "refresh~1", "refresh~2")
 	for _, secret := range secrets {
 		if secret == "" || strings.Contains(errb.String(), secret) {
 			t.Errorf("--debug output carries %q", secret)
 		}
+	}
+}
+
+// TestBrowserLoginSavesASession checks that a session renews itself
+// only when Auth0 issued a refresh token and the keychain holds it, and
+// that the token is never written to a file.
+func TestBrowserLoginSavesASession(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		issue, keychain bool
+		renews          bool
+	}{
+		{"refresh token kept", true, true, true},
+		{"no refresh token issued", false, true, false},
+		{"no keychain", true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newSignInStubs(t, "t-a")
+			s.issueRefresh = tc.issue
+			rt, _, errb := testsupport.NewRuntime(t, "", "text")
+			kc := &keychain.Fake{}
+			if tc.keychain {
+				rt.Keychain = kc
+			}
+			// A previous session's refresh token must not survive.
+			_ = kc.Set(conn.Store(rt).SessionAccount(), "refresh~old")
+			if err := login(t, rt, s); err != nil {
+				t.Fatalf("login: %v\n%s", err, errb.String())
+			}
+			got, _ := kc.Get(conn.Store(rt).SessionAccount())
+			if want := map[bool]string{true: "refresh~1"}[tc.renews]; tc.keychain &&
+				got != want {
+				t.Errorf("keychain holds %q, want %q", got, want)
+			}
+			for _, path := range []string{rt.Config.Path(), filepath.Join(
+				os.Getenv("HOME"), ".pgedge", "cli", "cache",
+				"default-starfleet.json")} {
+				raw, err := os.ReadFile(path)
+				if err != nil || bytes.Contains(raw, []byte("refresh~")) {
+					t.Errorf("%s: %v, or it holds a refresh token:\n%s",
+						path, err, raw)
+				}
+			}
+			renews := strings.Contains(errb.String(),
+				"The session renews itself while in use")
+			if renews != tc.renews {
+				t.Errorf("stderr says renews = %v, want %v:\n%s", renews,
+					tc.renews, errb.String())
+			}
+		})
 	}
 }
 
@@ -347,6 +462,11 @@ func TestStatusForAnExpiredSession(t *testing.T) {
 				&config.StarfleetProfile{APIURL: api,
 					Auth: config.AuthBrowser})
 		}, "Token:        not cached"},
+		// Not a failure: the next command renews it.
+		{"expired, renews", func(t *testing.T, rt *module.Runtime,
+			api string) {
+			seedRenewableSession(t, rt, api, time.Now().Add(-time.Minute))
+		}, "Token:        expired, renews on next use"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, out, _ := testsupport.NewRuntime(t, "", "text")
@@ -354,7 +474,11 @@ func TestStatusForAnExpiredSession(t *testing.T) {
 			tc.seed(t, rt, api)
 			err := runAccount(t, rt, &bytes.Buffer{}, "auth", "status",
 				"--api-url", api)
-			if exitCode(err) != ExitAuth ||
+			if strings.HasSuffix(tc.name, "renews") {
+				if err != nil {
+					t.Fatalf("err = %v, want exit 0", err)
+				}
+			} else if exitCode(err) != ExitAuth ||
 				!strings.Contains(err.Error(), "auth login") {
 				t.Fatalf("err = %v, want exit 5", err)
 			}
@@ -402,6 +526,159 @@ func TestTenantFlagIsValidatedByStatusAndDoctor(t *testing.T) {
 			if got.Auth.Authenticated ||
 				!strings.Contains(got.Auth.Problem, tc.want) {
 				t.Errorf("doctor auth = %+v", got.Auth)
+			}
+		})
+	}
+}
+
+// seedRenewableSession is a session expiring at expiresAt whose
+// keychain holds refresh~1, and the fake keychain.
+func seedRenewableSession(t *testing.T, rt *module.Runtime, api string,
+	expiresAt time.Time) (kc *keychain.Fake, accessToken string) {
+	t.Helper()
+	kc = &keychain.Fake{}
+	rt.Keychain = kc
+	accessToken = testsupport.SeedSession(t, rt, api, "u1", expiresAt,
+		"t-a")
+	if err := conn.Store(rt).SaveSessionRefreshToken("refresh~1"); err != nil {
+		t.Fatal(err)
+	}
+	return kc, accessToken
+}
+
+// orderedKeychain records the access token cached at each Set.
+type orderedKeychain struct {
+	*keychain.Fake
+	cached func() string
+	atSet  []string
+}
+
+func (k *orderedKeychain) Set(account, secret string) error {
+	k.atSet = append(k.atSet, k.cached())
+	return k.Fake.Set(account, secret)
+}
+
+// TestSessionRenewalRotatesBeforeUse checks that Auth0's rotated refresh
+// token is saved first, then the new access token, and both before the
+// API sees it: the old refresh token is dead from that moment.
+func TestSessionRenewalRotatesBeforeUse(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	s.issueRefresh = true
+	s.refreshes.Store(1)
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	kc, old := seedRenewableSession(t, rt, s.api,
+		time.Now().Add(auth.RefreshWindow/2))
+	ok := &orderedKeychain{Fake: kc, cached: func() string {
+		tok, _ := conn.Store(rt).LoadToken()
+		return tok.AccessToken
+	}}
+	rt.Keychain = ok
+	type seen struct {
+		refresh       string
+		bearer, saved string
+	}
+	var atAPI []seen
+	s.atAPI = func(r *http.Request) {
+		v, _ := kc.Get(conn.Store(rt).SessionAccount())
+		tok, _ := conn.Store(rt).LoadToken()
+		atAPI = append(atAPI, seen{v, strings.TrimPrefix(
+			r.Header.Get("Authorization"), "Bearer "), tok.AccessToken})
+	}
+	if err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami"); err != nil {
+		t.Fatalf("whoami: %v", err)
+	}
+	if !slices.Equal(s.refreshedWith, []string{"refresh~1"}) {
+		t.Fatalf("Auth0 got refresh tokens %v, want [refresh~1]",
+			s.refreshedWith)
+	}
+	if len(atAPI) == 0 {
+		t.Fatal("the API was never called")
+	}
+	for _, got := range atAPI {
+		if got.refresh != "refresh~2" || got.bearer == old ||
+			got.bearer != got.saved {
+			t.Errorf("at the API: keychain %q, bearer renewed %v, "+
+				"bearer cached %v", got.refresh, got.bearer != old,
+				got.bearer == got.saved)
+		}
+	}
+	if !slices.Equal(ok.atSet, []string{old}) {
+		t.Error("the access token was cached before the rotated " +
+			"refresh token was saved")
+	}
+}
+
+func TestSessionRenewalRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		reason      string
+		auth0Down   bool
+		want        string
+		keepRefresh bool
+	}{
+		{"invalid_grant", "", false, "has expired or is missing: run " +
+			"'pgedge starfleet auth login'", false},
+		{"blocked user", "user is blocked", false, "could not be renewed: " +
+			"user is blocked", false},
+		{"network failure", "", true, "could not renew", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newSignInStubs(t, "t-a")
+			s.refreshError = "invalid_grant"
+			s.refreshReason = tc.reason
+			if tc.auth0Down {
+				conn.SignInApp = func(string) (apidefaults.Auth0App,
+					string, bool) {
+					return apidefaults.Auth0App{ClientID: "cid"},
+						"http://127.0.0.1:1", true
+				}
+			}
+			rt, _, _ := testsupport.NewRuntime(t, "", "text")
+			kc, _ := seedRenewableSession(t, rt, s.api,
+				time.Now().Add(-time.Minute))
+			err := runAccount(t, rt, &bytes.Buffer{}, "auth", "whoami")
+			if exitCode(err) != ExitAuth ||
+				!strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want exit 5 with %q", err, tc.want)
+			}
+			_, kerr := kc.Get(conn.Store(rt).SessionAccount())
+			if kept := kerr == nil; kept != tc.keepRefresh {
+				t.Errorf("refresh token kept = %v, want %v", kept,
+					tc.keepRefresh)
+			}
+		})
+	}
+}
+
+// TestLogoutRevokesTheSession checks that logout revokes the refresh
+// token, then removes it and the session even when the revoke fails.
+func TestLogoutRevokesTheSession(t *testing.T) {
+	for _, status := range []int{http.StatusOK,
+		http.StatusInternalServerError} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			s := newSignInStubs(t, "t-a")
+			s.revokeStatus = status
+			rt, _, errb := testsupport.NewRuntime(t, "", "text")
+			kc, _ := seedRenewableSession(t, rt, s.api,
+				time.Now().Add(time.Hour))
+			if err := runAccount(t, rt, &bytes.Buffer{}, "auth",
+				"logout"); err != nil {
+				t.Fatalf("logout: %v", err)
+			}
+			if !slices.Equal(s.revoked, []string{"refresh~1"}) {
+				t.Errorf("revoked %v, want [refresh~1]", s.revoked)
+			}
+			if _, err := kc.Get(conn.Store(rt).SessionAccount()); err == nil {
+				t.Error("logout left the refresh token in the keychain")
+			}
+			if _, err := conn.Store(rt).LoadToken(); err == nil {
+				t.Error("logout left the session token")
+			}
+			warned := strings.Contains(errb.String(),
+				"could not end the session")
+			if warned != (status != http.StatusOK) {
+				t.Errorf("warning = %v for %d:\n%s", warned, status,
+					errb.String())
 			}
 		})
 	}

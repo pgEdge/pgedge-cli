@@ -81,7 +81,7 @@ The following table describes each row and what a warning means:
 |---|---|---|
 | Auth | Which credential source resolved, whether a token is cached, and whether that token is still valid. | Credentials resolve but the token is expired or absent, or a valid cached token was minted for a different connection. It reports `error` when no credentials resolve at all. |
 | API connectivity | An unauthenticated GET against the resolved base URL, with the status and latency. | Never. An unreachable endpoint is reported as `error`. |
-| Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, or the tenant could not be read. |
+| Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, the tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
 | Environment | The operating system, architecture, and whether `NO_COLOR` is set. | Never. |
 
 A cached token is bound to the credential and the API base URL that
@@ -122,12 +122,14 @@ login will not help.
 
 `pgedge starfleet auth status` answers a narrower question than
 doctor: which credential resolved, without calling any endpoint. It
-prints `authenticated`, `source`, `problem`, `client_id`, `api_url`,
-`token_valid`, `token_bound` and `expires_at`, and the client secret's
-value never appears in any format. Only the three booleans are always
-there: the five string fields are omitted when empty, so a run with no
-credentials configured answers with `authenticated`, `token_valid`,
-`token_bound` and the `api_url` that resolved anyway.
+prints `authenticated`, `source`, `problem`, `client_id`, `user`,
+`tenant_id`, `api_url`, `token_valid`, `token_bound`, `expires_at` and
+`renews`, and the client secret's value never appears in any format.
+`user`, `tenant_id` and `renews` describe a browser session. Only the
+four booleans are always there: the seven string fields are omitted
+when empty, so a run with no credentials configured answers with
+`authenticated`, `token_valid`, `token_bound`, `renews` and the
+`api_url` that resolved anyway.
 
 Because it calls nothing, `authenticated: true` means the credentials
 resolved, not that the server accepts them: a wrong secret that merely

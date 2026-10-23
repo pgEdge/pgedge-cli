@@ -321,6 +321,46 @@ func (a *Auth) KeychainSecret() (string, error) {
 	return a.Keychain.Get(a.KeychainAccount())
 }
 
+// sessionAccountPrefix keeps a browser session's refresh token in an
+// entry of its own, apart from any client secret of the same profile.
+const sessionAccountPrefix = "session-refresh-token:"
+
+// SessionAccount is the keychain entry for this profile's browser
+// session refresh token.
+func (a *Auth) SessionAccount() string {
+	return sessionAccountPrefix + a.KeychainAccount()
+}
+
+// SessionRefreshToken reads the browser session's refresh token.
+func (a *Auth) SessionRefreshToken() (string, error) {
+	if a.Keychain == nil {
+		return "", keychain.ErrUnavailable
+	}
+	return a.Keychain.Get(a.SessionAccount())
+}
+
+// SaveSessionRefreshToken stores the browser session's refresh token.
+// It is never written to the config file or the token cache.
+func (a *Auth) SaveSessionRefreshToken(token string) error {
+	if a.Keychain == nil {
+		return keychain.ErrUnavailable
+	}
+	return a.Keychain.Set(a.SessionAccount(), token)
+}
+
+// ClearSessionRefreshToken removes the browser session's refresh
+// token; there being none is not an error.
+func (a *Auth) ClearSessionRefreshToken() error {
+	if a.Keychain == nil {
+		return nil
+	}
+	err := a.Keychain.Delete(a.SessionAccount())
+	if errors.Is(err, keychain.ErrNotFound) {
+		return nil
+	}
+	return err
+}
+
 // SaveToken writes the token to the profile+module cache file with
 // 0600 permissions. It refuses a token with no Fingerprint, so no
 // caller, including a future one, can write an unbound cache file;

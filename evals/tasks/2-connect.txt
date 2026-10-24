@@ -1,0 +1,1 @@
+How do I connect to my database {fixture} with psql? Give me the connection details.

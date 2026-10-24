@@ -21,10 +21,9 @@ arms = ["with", "without", "api"]
 [harness.claude]
 models = ["sonnet"]
 
-# Only these two: every other Cursor model, auto included, bills API
-# usage on top of the plan, and the runner refuses it.
+# Only this one: the runner refuses any other Cursor model.
 [harness.cursor]
-models = ["grok-4.7-medium", "composer-2.5"]
+models = ["grok-4.7-medium"]
 
 # The ChatGPT subscription only: the runner refuses an API-key login.
 [harness.codex]

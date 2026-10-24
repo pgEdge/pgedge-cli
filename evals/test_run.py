@@ -308,12 +308,13 @@ class Harnesses(unittest.TestCase):
                 f.write_text('{"auth_mode":"chatgpt","OPENAI_API_KEY":null}')
                 self.assertEqual(run.codex_auth()["auth_mode"], "chatgpt")
 
-    def test_cursor_refuses_models_that_bill_api_usage(self):
+    def test_cursor_refuses_models_outside_its_allowlist(self):
         self.assertEqual(run.refused_models(
-            {"cursor": ["grok-4.7-medium", "composer-2.5"],
+            {"cursor": ["grok-4.7-medium"],
              "claude": ["sonnet"]}), {})
         self.assertEqual(run.refused_models(
-            {"cursor": ["auto", "composer-2.5"]}), {"cursor": ["auto"]})
+            {"cursor": ["auto", "composer-2.5"]}),
+            {"cursor": ["auto", "composer-2.5"]})
         self.assertEqual(run.refused_models(
             {"codex": ["gpt-6-luna", "gpt-5.3-codex"]}),
             {"codex": ["gpt-5.3-codex"]})

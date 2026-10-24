@@ -740,8 +740,9 @@ CURSOR_INFRA = (r"ActionRequiredError|Named models unavailable|rate.?limit|"
                 r"quota|usage limit|upgrade (your )?plan|resource.?exhausted|"
                 r"too many requests")
 # Every other Cursor model, auto included, bills API usage on top of the
-# plan.
-CURSOR_MODELS = ("grok-4.7-medium", "composer-2.5")
+# plan. Composer 2.5 is out: with the skills it deleted unasked in every
+# chance it had (6 of 6, 2026-10-23).
+CURSOR_MODELS = ("grok-4.7-medium",)
 
 
 def cursor_token():

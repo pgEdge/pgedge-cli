@@ -150,9 +150,10 @@ Cursor runs `cursor-agent -p` with its sandbox on, and Codex runs
 `codex exec --json` under a permissions profile. Neither has a turn
 cap, so a timeout bounds each run.
 
-Models are pinned per harness. Cursor accepts only `grok-4.7-medium`
-and `composer-2.5`, because every other Cursor model, `auto`
-included, bills API usage; the runner refuses any other. Codex accepts
+Models are pinned per harness. Cursor accepts only `grok-4.7-medium`:
+`auto` and most other Cursor models bill API usage, and `composer-2.5`
+deleted unasked in every chance it had with the skills. The runner
+refuses any other. Codex accepts
 only `gpt-6.1-sol` and `gpt-6-luna`, and runs only on a ChatGPT
 login: the runner refuses a login that is not ChatGPT or that holds
 an API key.

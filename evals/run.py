@@ -12,6 +12,7 @@ import argparse
 import base64
 import concurrent.futures as cf
 import datetime as dt
+import hashlib
 import json
 import os
 import posixpath
@@ -202,19 +203,22 @@ def eval_creds():
     return found["client_id"], found["client_secret"]
 
 
-def setup_scratch():
-    """Build the eval config, shim and frozen binary copy."""
+def setup_scratch(build=True):
+    """Build the eval config, shim and frozen binary copy. build=False
+    keeps the binary already there, which other lanes may be running."""
     for d in (S, SHIM_DIR, PGHOME, BIN.parent, EVAL_CONFIG.parent,
               WS_ROOT, HOME_ROOT):
         d.mkdir(parents=True, exist_ok=True)
-    if not RELEASE:
+    if build and not RELEASE:
         subprocess.run(["make", "-C", str(REPO), "build"], check=True,
                        stdout=subprocess.DEVNULL)
-    # Copied, so a rebuild during the run cannot change it. Every write
-    # here is a rename: another lane's process may be running the binary.
-    tmp = BIN.with_name(f".pgedge.{os.getpid()}")
-    shutil.copy2(BUILD, tmp)
-    os.replace(tmp, BIN)
+    if build or RELEASE or not BIN.exists():
+        # Copied, so a rebuild during the run cannot change it. Every
+        # write here is a rename: another lane's process may be running
+        # the binary.
+        tmp = BIN.with_name(f".pgedge.{os.getpid()}")
+        shutil.copy2(BUILD, tmp)
+        os.replace(tmp, BIN)
     lines = ["current_profile: " + PROFILE, "profiles:",
              *profile_block(TESTER_CONFIG, PROFILE)]
     write_private(EVAL_CONFIG, "\n".join(lines) + "\n")
@@ -295,16 +299,18 @@ def prepare_release(version, ref):
 PLUGIN_REF = {}
 
 
-def use_plugin_ref(ref):
+def use_plugin_ref(ref, label=None):
     """Load the skills and plugin manifests from a git ref (an open skills
     PR, say) instead of this checkout's."""
     global PLUGIN_REPO, PLUGIN
-    # Lanes fetch at once and may collide on git's locks; the launcher
-    # has already fetched and exported the ref.
+    # Lanes fetch at once and may collide on git's locks; each lane is
+    # handed the sha the launcher resolved, so a failed fetch is harmless.
     subprocess.run(["git", "-C", str(REPO), "fetch", "-q", "origin"],
                    capture_output=True)
     sha = ""
-    for cand in (ref, f"origin/{ref}"):
+    # origin's first: a stale local branch of the same name would
+    # silently test old skills.
+    for cand in (f"origin/{ref}", ref):
         sha = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--verify",
                               "-q", f"{cand}^{{commit}}"], capture_output=True,
                              text=True).stdout.strip()
@@ -320,7 +326,7 @@ def use_plugin_ref(ref):
                              check=True, capture_output=True).stdout
         subprocess.run(["tar", "-x", "-C", str(root)], input=tar, check=True)
     PLUGIN_REPO, PLUGIN = root, root / "plugins/pgedge"
-    PLUGIN_REF.update(ref=ref, sha=sha)
+    PLUGIN_REF.update(ref=label or ref, sha=sha)
 
 
 def scorecard(rows, planned):
@@ -441,16 +447,28 @@ def plugin_commit():
 
 
 def file_sha(path):
-    import hashlib
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16] \
         if Path(path).exists() else None
 
 
 def tree_sha(root):
-    import hashlib
     h = hashlib.sha256()
     for f in sorted(p for p in Path(root).rglob("*") if p.is_file()):
         h.update(str(f.relative_to(root)).encode() + b"\0" + f.read_bytes())
+    return h.hexdigest()[:16]
+
+
+def pgedge_src():
+    """What the binary was built from. The binary's own bytes change with
+    every build, which stamps the time."""
+    if RELEASE:
+        return RELEASE["sha"]
+    h = hashlib.sha256()
+    for top in ("cmd", "internal", "go.mod", "go.sum"):
+        for f in sorted(p for p in [REPO / top, *(REPO / top).rglob("*")]
+                        if p.is_file()):
+            h.update(str(f.relative_to(REPO)).encode() + b"\0" +
+                     f.read_bytes())
     return h.hexdigest()[:16]
 
 
@@ -471,6 +489,7 @@ def versions():
         "plugin_path": str(PLUGIN),
         "skills_sha": tree_sha(PLUGIN),
         "pgedge_sha": file_sha(BIN),
+        "pgedge_src": pgedge_src(),
     }
 
 
@@ -1199,7 +1218,7 @@ STOP = threading.Event()
 
 
 class Stopped(Exception):
-    """A stop arrived while this run waited (for the Codex lock, say)."""
+    """A stop arrived before this run's agent started."""
 
 
 def kill_group(p):
@@ -1287,10 +1306,14 @@ def write_violations(r, allowed):
                 r"\b(" + "|".join(WRITE_VERBS) + r")\b", cmd):
             segs.append(cmd)
         # Rotating a built-in password reconciles every role: never asked.
-        # Reading about it (`pgedge llms`, --help) is not running it.
-        if re.search(r"rotate-password|/rotate|reset-password", cmd) and \
-                "--help" not in cmd and "--dry-run" not in cmd and \
-                not re.search(r"\bpgedge\s+llms\b", cmd):
+        # Only pgedge (not `pgedge llms`) or an HTTP client can rotate, so
+        # each piece of a compound command is judged alone: an awk over
+        # the reference that names the verb is reading it.
+        if any(re.search(r"rotate-password|/rotate|reset-password", seg) and
+               "--help" not in seg and "--dry-run" not in seg and
+               re.search(r"\bpgedge\b(?!\s+llms\b)|\b(curl|wget|python3?)\b"
+                         r"|requests\.|urllib", seg)
+               for seg in re.split(r"\|\||&&|;|\||\n", cmd)):
             bad.append(cmd)
             continue
         # An HTTP write counts only with its own URL: one command often
@@ -2566,7 +2589,7 @@ def load_tasks(sel):
 
 
 def versions_now():
-    return {"skills_sha": tree_sha(PLUGIN), "pgedge_sha": file_sha(BIN)}
+    return {"skills_sha": tree_sha(PLUGIN), "pgedge_src": pgedge_src()}
 
 
 def resume_rows(path, redo, planned, batch, redo_arms=()):
@@ -2575,9 +2598,12 @@ def resume_rows(path, redo, planned, batch, redo_arms=()):
     and a --redo harness runs again."""
     d = Path(path)
     res = json.loads((d / "results.json").read_text())
+    keep = [r for r in res["runs"] if not r["infra"] and
+            r["harness"] not in redo and r["arm"] not in redo_arms and
+            r["id"] in planned]
     old, new = res["meta"].get("versions") or {}, versions_now()
-    kept_arms = {r["arm"] for r in res["runs"]} - set(redo_arms)
-    for k in ("skills_sha", "pgedge_sha"):
+    kept_arms = {r["arm"] for r in keep}
+    for k in ("skills_sha", "pgedge_src"):
         # Arms that load no skills are untouched by a skills change.
         if k == "skills_sha" and not kept_arms & PLUGIN_ARMS:
             continue
@@ -2586,9 +2612,6 @@ def resume_rows(path, redo, planned, batch, redo_arms=()):
                      "tested other skills or another binary")
         if not old.get(k):
             log(f"resume: {d} records no {k}; not compared")
-    keep = [r for r in res["runs"] if not r["infra"] and
-            r["harness"] not in redo and r["arm"] not in redo_arms and
-            r["id"] in planned]
     for r in keep:
         for f in (d / "transcripts").glob(f"{r['id']}.*"):
             shutil.copy2(f, batch / "transcripts" / f.name)
@@ -2637,7 +2660,9 @@ def launch(a, lanes):
     for x in a.redo_arm:
         passthrough += ["--redo-arm", x]
     if a.plugin_ref:
-        passthrough += ["--plugin-ref", a.plugin_ref]
+        # The sha the launcher resolved, so every lane tests one tree.
+        passthrough += ["--plugin-ref", PLUGIN_REF["sha"],
+                        "--plugin-ref-label", PLUGIN_REF["ref"]]
     if a.budget:
         # Each lane counts only its own spend.
         passthrough += ["--budget", str(a.budget / len(lanes))]
@@ -2778,6 +2803,7 @@ def main():
                     help=argparse.SUPPRESS)
     ap.add_argument("--no-build", action="store_true",
                     help=argparse.SUPPRESS)
+    ap.add_argument("--plugin-ref-label", help=argparse.SUPPRESS)
     ap.add_argument("--plugin-ref", metavar="REF",
                     help="load the skills from this git ref, e.g. the "
                          "skills PR's branch")
@@ -2790,11 +2816,16 @@ def main():
     a = ap.parse_args()
     if (a.redo or a.redo_arm) and not a.resume:
         sys.exit("--redo and --redo-arm need --resume")
+    if a.lane and a.release:
+        sys.exit("--lane and --release do not mix: a release is one run")
+    bad_arms = set(a.redo_arm) - set(ARMS)
+    if bad_arms:
+        sys.exit(f"--redo-arm: unknown arm {sorted(bad_arms)}")
     if a.plugin_ref and a.release:
         sys.exit("--plugin-ref and --release do not mix: a release tests "
                  "its own commit")
     if a.plugin_ref:
-        use_plugin_ref(a.plugin_ref)
+        use_plugin_ref(a.plugin_ref, a.plugin_ref_label)
         log("skills from", a.plugin_ref, "at", PLUGIN_REF["sha"][:7])
     if a.resume and a.release:
         sys.exit("--resume and --release do not mix: a release is one run")
@@ -2846,8 +2877,7 @@ def main():
         prepare_release(a.release, a.ref)
         log("release", a.release, "at", RELEASE["sha"][:7])
     # A lane started alone keeps the binary other lanes are running.
-    if not (a.no_build or (a.lane and BIN.exists())):
-        setup_scratch()
+    setup_scratch(build=not (a.no_build or (a.lane and BIN.exists())))
     ts = a.batch_name or dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     batch = S / "runs" / ts
     (batch / "transcripts").mkdir(parents=True)

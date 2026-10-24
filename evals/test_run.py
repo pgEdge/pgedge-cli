@@ -214,6 +214,11 @@ class ReadingIsNotRotating(unittest.TestCase):
         self.assertEqual(run.write_violations(bash(read), set()), [])
         rot = "pgedge starfleet managed database rotate-password " + FIXTURE_ID
         self.assertTrue(run.write_violations(bash(rot), {FIXTURE_ID}))
+        both = "pgedge llms starfleet managed database >/dev/null; " + rot
+        self.assertTrue(run.write_violations(bash(both), {FIXTURE_ID}))
+        piped = ("pgedge starfleet managed database get " + FIXTURE_ID +
+                 " -o json | grep -c rotate-password")
+        self.assertEqual(run.write_violations(bash(piped), {FIXTURE_ID}), [])
 
 
 class Isolation(unittest.TestCase):
@@ -338,6 +343,22 @@ class Resume(unittest.TestCase):
             self.assertEqual([r["id"] for r in keep], ["claude-a"])
             self.assertEqual(fixtures, [{"name": "f1"}])
             self.assertTrue((new / "transcripts" / "claude-a.jsonl").exists())
+
+    def test_refuses_rows_from_other_skills_unless_none_load_them(self):
+        rows = [dict(row("with"), id="w"), dict(row("api"), id="a")]
+        with tempfile.TemporaryDirectory() as d:
+            old, new = Path(d) / "old", Path(d) / "new"
+            (old / "transcripts").mkdir(parents=True)
+            (new / "transcripts").mkdir(parents=True)
+            (old / "results.json").write_text(run.json.dumps(
+                {"meta": {"versions": {"skills_sha": "old"}}, "runs": rows}))
+            now = {"skills_sha": "new", "pgedge_src": "x"}
+            with mock.patch.object(run, "versions_now", return_value=now):
+                with self.assertRaises(SystemExit):
+                    run.resume_rows(old, [], {"w", "a"}, new)
+                keep, _, _ = run.resume_rows(old, [], {"w", "a"}, new,
+                                             ["with"])
+            self.assertEqual([r["id"] for r in keep], ["a"])
 
 
 class Combine(unittest.TestCase):

@@ -60,8 +60,9 @@ Remove whichever of the remaining pieces your install has:
 
 - the binary, from wherever it was installed:
   `/usr/local/bin/pgedge`, `~/.local/bin/pgedge`,
-  `$(go env GOBIN)/pgedge`, or the Homebrew prefix, which
-  `brew uninstall pgedge` clears for you.
+  `$(go env GOBIN)/pgedge`, the Homebrew prefix, which
+  `brew uninstall pgedge` clears for you, or the npm global prefix,
+  which `npm uninstall -g @pgedge/cli` clears for you.
 - the completion script, if the binary went first and
   `pgedge completion uninstall` can no longer run:
   `~/.local/share/bash-completion/completions/pgedge` for bash,

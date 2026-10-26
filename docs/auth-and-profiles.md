@@ -22,9 +22,12 @@ A profile signs in one of two ways:
   `--api-client` to be prompted for them. This is the path for CI and
   scripts, because it needs no browser and the token renews itself.
 
-A browser session lasts until the time login prints. After that,
-commands fail with exit status 5 and name the login command to run
-again. A profile holds one kind of credential, so signing in one way
+A browser session renews itself while you use it. It ends after a
+period without use, or after a fixed maximum however much you use
+it. Login keeps what renews it in the OS keychain;
+where no keychain can be used, the session lasts until the time login
+prints. Once the session ends, commands fail with exit status 5 and
+name the login command, which starts a new session. A profile holds one kind of credential, so signing in one way
 removes what the other way stored.
 
 When you belong to several tenants, login asks which one to use, or
@@ -225,8 +228,11 @@ never silently runs as a previous credential.
 `pgedge starfleet auth logout` removes the active profile's cached token
 file (and any staging file an interrupted write left beside it), and
 deletes the stored `client_id` and `client_secret` from the profile
-and the secret from the OS keychain. Other profiles' tokens and
-credentials are left alone.
+and the secret from the OS keychain. For a browser session, logout
+first asks pgEdge to end the session, then removes it from the OS
+keychain; if that request fails, logout warns and still removes the
+session from this machine. Other profiles' tokens and credentials are
+left alone.
 
 `pgedge starfleet auth status` reports the resolution state without
 making a server call, and `pgedge starfleet doctor` reports the whole

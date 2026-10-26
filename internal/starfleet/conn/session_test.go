@@ -1,15 +1,24 @@
 package conn
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/apidefaults"
 	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/config"
+	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 	"github.com/spf13/pflag"
@@ -119,6 +128,13 @@ func TestSessionExpiredOrMissing(t *testing.T) {
 			"https://other.example", "https://other.example"},
 		{"no cached token", "dev", seedProfileOnly, "",
 			"auth login --profile dev"},
+		{"refresh refused", "default",
+			seedRenewable(`{"error":"invalid_grant"}`, true), "",
+			"has expired"},
+		{"no sign-in app", "default", seedRenewable("", false), "",
+			"has expired"},
+		{"sign-in app unreachable", "default", seedRenewable("", true), "",
+			"could not renew"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, _, _ := testsupport.NewRuntime(t, "", "text")
@@ -147,11 +163,25 @@ func TestSessionWaitThatOutlivesTheTokenFailsWithTheSameMessage(t *testing.T) {
 	wantExit(t, err, ExitAuth, "has expired or is missing")
 }
 
+// TestFlagsOverASessionLeaveItsCacheAlone uses a session due for
+// renewal, so flags that touched it would renew or clear its refresh
+// token.
 func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
 	stub := newTokenStub(t, "client-tok")
+	auth0 := newTokenStub(t, "unused")
+	saved := SignInApp
+	t.Cleanup(func() { SignInApp = saved })
+	SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+		return apidefaults.Auth0App{ClientID: "cid"}, auth0.url(), true
+	}
 	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	kc := &keychain.Fake{}
+	rt.Keychain = kc
 	sess := testsupport.SeedSession(t, rt, sessionAPI, "u1",
-		time.Now().Add(time.Hour), "t-a")
+		time.Now().Add(auth.RefreshWindow/2), "t-a")
+	if err := Store(rt).SaveSessionRefreshToken("rt"); err != nil {
+		t.Fatal(err)
+	}
 	c, err := Resolve(rt, Flags{ClientID: "id", ClientSecret: "s",
 		APIURL: stub.url(), Timeout: RequestTimeout})
 	if err != nil {
@@ -164,8 +194,91 @@ func TestFlagsOverASessionLeaveItsCacheAlone(t *testing.T) {
 	if err != nil || tok.AccessToken != sess || !tok.SessionFor(sessionAPI) {
 		t.Fatalf("the session cache was overwritten: %+v, %v", tok, err)
 	}
-	if _, err := Resolve(rt, Flags{}); err != nil {
-		t.Errorf("the session no longer resolves: %v", err)
+	if v, err := Store(rt).SessionRefreshToken(); v != "rt" ||
+		kc.Sets != 1 || kc.Deletes != 0 || auth0.hits() != 0 {
+		t.Fatalf("flags touched the refresh token: %q, %v, %d sets, "+
+			"%d deletes, %d renewals", v, err, kc.Sets, kc.Deletes,
+			auth0.hits())
+	}
+	// Positive control: without flags the session does renew.
+	_, _ = Resolve(rt, Flags{})
+	if auth0.hits() != 1 {
+		t.Errorf("the session did not try to renew: %d", auth0.hits())
+	}
+}
+
+// TestConcurrentRenewalsRefreshOnce races two renewals of one session,
+// as two processes would. Sending a rotating refresh token twice counts
+// as reuse, which makes Auth0 revoke the whole session.
+func TestConcurrentRenewalsRefreshOnce(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		valid = map[string]bool{"rt-1": true}
+		calls atomic.Int32
+	)
+	auth0 := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			_ = r.ParseForm()
+			n := calls.Add(1)
+			time.Sleep(50 * time.Millisecond) // let a rival arrive
+			mu.Lock()
+			defer mu.Unlock()
+			if sent := r.PostForm.Get("refresh_token"); valid[sent] {
+				delete(valid, sent)
+			} else {
+				clear(valid)
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = io.WriteString(w, `{"error":"invalid_grant"}`)
+				return
+			}
+			next := fmt.Sprintf("rt-%d", n+1)
+			valid[next] = true
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": testsupport.SessionToken(t, "u1",
+					time.Now().Add(24*time.Hour), "t-a"),
+				"refresh_token": next,
+			})
+		}))
+	t.Cleanup(auth0.Close)
+	saved := SignInApp
+	t.Cleanup(func() { SignInApp = saved })
+	SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+		return apidefaults.Auth0App{ClientID: "cid"}, auth0.URL, true
+	}
+	rt, _, _ := testsupport.NewRuntime(t, "", "text")
+	rt.Keychain = &keychain.Fake{}
+	testsupport.SeedSession(t, rt, sessionAPI, "u1",
+		time.Now().Add(auth.RefreshWindow/2), "t-a")
+	if err := Store(rt).SaveSessionRefreshToken("rt-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	for i := range errs {
+		proc := *rt
+		proc.Stderr = &bytes.Buffer{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, errs[i] = Resolve(&proc, Flags{})
+		}()
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("renewal %d failed: %v", i, err)
+		}
+	}
+	if calls.Load() != 1 {
+		t.Errorf("Auth0 got %d refreshes, want 1", calls.Load())
+	}
+	kept, _ := Store(rt).SessionRefreshToken()
+	mu.Lock()
+	defer mu.Unlock()
+	if !valid[kept] {
+		t.Errorf("the keychain holds %q, which Auth0 no longer honours",
+			kept)
 	}
 }
 
@@ -226,6 +339,35 @@ func seedExpiring(in time.Duration) func(*testing.T, *module.Runtime) {
 	return func(t *testing.T, rt *module.Runtime) {
 		testsupport.SeedSession(t, rt, sessionAPI, "u1",
 			time.Now().Add(in), "t-a")
+	}
+}
+
+// seedRenewable seeds an expired session holding a refresh token, its
+// sign-in app answering a refresh with a 403 carrying refusal. An empty
+// refusal points the app at a closed port instead.
+func seedRenewable(refusal string, ok bool) func(*testing.T,
+	*module.Runtime) {
+	return func(t *testing.T, rt *module.Runtime) {
+		base := "http://127.0.0.1:1"
+		if refusal != "" {
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = io.WriteString(w, refusal)
+				}))
+			t.Cleanup(srv.Close)
+			base = srv.URL
+		}
+		saved := SignInApp
+		t.Cleanup(func() { SignInApp = saved })
+		SignInApp = func(string) (apidefaults.Auth0App, string, bool) {
+			return apidefaults.Auth0App{ClientID: "cid"}, base, ok
+		}
+		rt.Keychain = &keychain.Fake{}
+		seedExpiring(-time.Minute)(t, rt)
+		if err := Store(rt).SaveSessionRefreshToken("rt"); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 

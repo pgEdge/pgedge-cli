@@ -115,15 +115,12 @@ func TestRunExchangesTheCodeWithTheVerifier(t *testing.T) {
 		"response_type":         "code",
 		"client_id":             "cid",
 		"audience":              "https://api.example",
-		"scope":                 "openid profile email",
+		"scope":                 "openid profile email offline_access",
 		"code_challenge_method": "S256",
 	} {
 		if q.Get(k) != want {
 			t.Errorf("authorize %s = %q, want %q", k, q.Get(k), want)
 		}
-	}
-	if strings.Contains(q.Get("scope"), "offline_access") {
-		t.Error("step 1 must not ask for offline_access")
 	}
 	if !strings.HasPrefix(q.Get("redirect_uri"), "http://127.0.0.1:") ||
 		!strings.HasSuffix(q.Get("redirect_uri"), "/callback") {
@@ -256,5 +253,61 @@ func TestChallengeIsS256OfTheVerifier(t *testing.T) {
 	got := challengeFor("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
 	if got != "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM" {
 		t.Errorf("challenge = %q", got)
+	}
+}
+
+// TestRefreshAndRevoke checks that Auth0 gets the refresh token, the
+// rotated tokens come back, and only invalid_grant reads as a dead
+// refresh token.
+func TestRefreshAndRevoke(t *testing.T) {
+	var form url.Values
+	status, body := 0, ""
+	srv := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			_ = r.ParseForm()
+			form = r.PostForm
+			if status != 0 {
+				w.WriteHeader(status)
+			}
+			_, _ = io.WriteString(w, body)
+		}))
+	t.Cleanup(srv.Close)
+	ctx := context.Background()
+
+	body = `{"access_token":"at2","refresh_token":"rt2","expires_in":60}`
+	tok, err := Refresh(ctx, srv.Client(), srv.URL, "cid", "rt1")
+	if err != nil || tok.AccessToken != "at2" || tok.RefreshToken != "rt2" {
+		t.Fatalf("Refresh = %+v, %v", tok, err)
+	}
+	if form.Get("grant_type") != "refresh_token" ||
+		form.Get("refresh_token") != "rt1" || form.Get("client_id") != "cid" {
+		t.Errorf("refresh form = %v", form)
+	}
+
+	for _, tc := range []struct {
+		status  int
+		body    string
+		invalid bool
+	}{
+		{http.StatusForbidden, `{"error":"invalid_grant"}`, true},
+		{http.StatusForbidden, `{"error":"access_denied"}`, false},
+		{http.StatusBadGateway, `upstream down`, false},
+	} {
+		status, body = tc.status, tc.body
+		_, err := Refresh(ctx, srv.Client(), srv.URL, "cid", "rt1")
+		if err == nil || IsInvalidGrant(err) != tc.invalid {
+			t.Errorf("%d %s: err = %v, invalid_grant want %v", tc.status,
+				tc.body, err, tc.invalid)
+		}
+	}
+
+	status, body = 0, ""
+	if err := Revoke(ctx, srv.Client(), srv.URL, "cid", "rt2"); err != nil ||
+		form.Get("token") != "rt2" {
+		t.Errorf("Revoke = %v, form %v", err, form)
+	}
+	status = http.StatusInternalServerError
+	if err := Revoke(ctx, srv.Client(), srv.URL, "cid", "rt2"); err == nil {
+		t.Error("Revoke hid a failed revoke")
 	}
 }

@@ -23,10 +23,6 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/signin"
 )
 
-// auth0For finds the sign-in app for an API URL. A variable so tests
-// can sign in against a stub API.
-var auth0For = apidefaults.Auth0For
-
 // signInFlow builds the browser sign-in. A variable so tests can point
 // it at a fake Auth0 and stand in for the browser.
 var signInFlow = func(rt *module.Runtime, app apidefaults.Auth0App,
@@ -59,7 +55,7 @@ var promptIsInteractive = func(rt *module.Runtime) bool {
 func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 	apiURL := conn.ResolveAPIURL(
 		rt.Config.StarfleetProfile(rt.Profile), f.APIURL)
-	app, ok := auth0For(apiURL)
+	app, _, ok := conn.SignInApp(apiURL)
 	if !ok {
 		// Exit 5, not 2: the command is well formed, and the same line
 		// works once the API has a sign-in app.
@@ -103,18 +99,35 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 		return newExitError(fmt.Sprintf("save session: %v", err),
 			ExitAuth)
 	}
+	// A refresh token the profile will not keep is ended, not left live.
+	store := conn.Store(rt)
+	old := rt.Config.StarfleetProfile(rt.Profile)
+	if old.IsBrowserSession() {
+		if prev, err := store.SessionRefreshToken(); err == nil {
+			revokeDiscarded(rt, conn.ResolveAPIURL(old, ""), prev)
+		}
+	}
+	renews := false
+	if toks.RefreshToken != "" {
+		renews = store.SaveSessionRefreshToken(toks.RefreshToken) == nil
+		if !renews {
+			revokeDiscarded(rt, apiURL, toks.RefreshToken)
+		}
+	}
+	if !renews {
+		_ = store.ClearSessionRefreshToken()
+	}
 
 	// One profile, one kind of credential: an API client's secret goes.
 	// Saved before the secret goes, so a failed save keeps a working
 	// API client.
-	old := rt.Config.StarfleetProfile(rt.Profile)
 	rt.Config.SetStarfleetProfile(rt.Profile, &config.StarfleetProfile{
 		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID})
 	if err := rt.Config.Save(); err != nil {
 		return fmt.Errorf("save profile: %w", err)
 	}
 	if old.ClientID != "" && old.ClientSecret == "" {
-		if err := keychainDelete(conn.Store(rt)); err != nil {
+		if err := keychainDelete(store); err != nil {
 			fmt.Fprintf(rt.Stderr, "Warning: could not remove the "+
 				"previous client secret from the OS keychain: %s\n",
 				output.Sanitize(err.Error()))
@@ -123,9 +136,16 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 
 	fmt.Fprintf(rt.Stderr, "Signed in as %s.\n", output.Sanitize(user))
 	fmt.Fprintf(rt.Stderr, "Tenant: %s\n", output.Sanitize(label))
-	fmt.Fprintf(rt.Stderr, "The session lasts until %s; run 'pgedge "+
-		"starfleet auth login' again after that.\n",
-		expiresAt.Format(time.RFC3339))
+	if renews {
+		fmt.Fprintln(rt.Stderr, "The session renews itself while in use. "+
+			"It ends after a period without use, or after a fixed "+
+			"maximum however much it is used; run 'pgedge starfleet "+
+			"auth login' to start a new one.")
+	} else {
+		fmt.Fprintf(rt.Stderr, "The session lasts until %s; run 'pgedge "+
+			"starfleet auth login' again after that.\n",
+			expiresAt.Format(time.RFC3339))
+	}
 	fmt.Fprintf(rt.Stderr, "Profile %s saved to %s\n",
 		output.Sanitize(rt.Profile), output.Sanitize(rt.Config.Path()))
 	return nil

@@ -45,9 +45,11 @@ describes each one and what it needs.
 ## Running Your First Commands
 
 Sign in once per profile. Login opens your browser on the pgEdge
-sign-in page, and from then on the CLI works as you, in your tenant,
-until the session expires. Login prints when that is; run it again
-after that. It saves the profile in `~/.pgedge/cli/config.yaml`:
+sign-in page, and from then on the CLI works as you, in your tenant.
+The session renews itself while you use it, and ends after a period
+without use or after a fixed maximum; run login again to start a new
+one. Login saves the
+profile in `~/.pgedge/cli/config.yaml`:
 
     pgedge starfleet auth login --profile dev
 

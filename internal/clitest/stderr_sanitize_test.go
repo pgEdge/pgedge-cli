@@ -299,8 +299,13 @@ var stderrComposedMessages = map[string]struct {
 // 199 -> 200: `branch get` prints the display name.
 // 200 -> 211: browser sign-in's URL, tenant prompt and summary lines,
 // and whoami's `User:` line.
+// 211 -> 215: session renewal's keychain warning, and logout's revoke
+// and keychain warnings.
+// 215 -> 218: a renewal that falls back to the current token, a
+// replaced session that could not be revoked, and an API-client login
+// that could not remove the session it replaced.
 const (
-	stderrArgSites      = 211
+	stderrArgSites      = 218
 	stderrComposedSites = 22
 )
 

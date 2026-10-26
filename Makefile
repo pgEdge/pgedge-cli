@@ -16,7 +16,7 @@ CONTROLPLANE_VERSION    ?= dev
 
 LDFLAGS := -ldflags "-X $(PKG).Version=$(VERSION) -X $(PKG).Commit=$(COMMIT) -X $(PKG).BuildDate=$(DATE) -X $(PKG_STARFLEET).Version=$(STARFLEET_VERSION) -X $(PKG_CONTROLPLANE).Version=$(CONTROLPLANE_VERSION)"
 
-.PHONY: build test test-scripts test-integration test-integration-lifecycle test-inspect-live lint lint-docs clean generate docs docs-check build-all build-one notice vendor-spec vendor-spec-check
+.PHONY: build test test-evals test-scripts test-integration test-integration-lifecycle test-inspect-live lint lint-docs clean generate docs docs-check build-all build-one notice vendor-spec vendor-spec-check
 
 build:
 	go build $(LDFLAGS) -o $(BINARY) ./cmd/pgedge
@@ -29,6 +29,10 @@ build:
 test:
 	go test -race -coverprofile=coverage.raw.out ./...
 	scripts/coverage-gate.sh
+
+# The skill eval runner's grading and scoring, offline: no agents run.
+test-evals:
+	python3 -m unittest discover -s evals
 
 # Shell-script tests: shellcheck + the shell unit-test suites.
 test-scripts:

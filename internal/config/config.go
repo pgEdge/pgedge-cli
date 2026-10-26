@@ -20,10 +20,25 @@ import (
 // product means one credential: the account-level commands, byoc and
 // managed all read this section, exactly as they share one token on
 // the wire.
+//
+// A profile holds one kind of credential: an API client (ClientID and
+// a secret), or a browser session (Auth set to AuthBrowser, with the
+// user's token in the token cache).
 type StarfleetProfile struct {
 	APIURL       string `yaml:"api_url,omitempty"`
 	ClientID     string `yaml:"client_id,omitempty"`
 	ClientSecret string `yaml:"client_secret,omitempty"`
+	Auth         string `yaml:"auth,omitempty"`
+	// TenantID is the tenant a browser session acts in.
+	TenantID string `yaml:"tenant_id,omitempty"`
+}
+
+// AuthBrowser marks a profile signed in through the browser.
+const AuthBrowser = "browser"
+
+// IsBrowserSession reports whether the profile is a browser sign-in.
+func (p *StarfleetProfile) IsBrowserSession() bool {
+	return p != nil && p.Auth == AuthBrowser
 }
 
 // ControlplaneProfile holds Control Plane module settings within a profile.

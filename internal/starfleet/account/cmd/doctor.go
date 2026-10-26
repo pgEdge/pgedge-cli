@@ -13,6 +13,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
+	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
@@ -37,6 +38,10 @@ type authInfo struct {
 	// diverged; the text wording names both.
 	TokenBound bool   `json:"token_bound"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
+	// User is a browser session's email or subject.
+	User string `json:"user,omitempty"`
+	// Renews reports a browser session that can renew its own token.
+	Renews bool `json:"renews"`
 }
 
 type apiInfo struct {
@@ -75,6 +80,21 @@ type tenantInfo struct {
 	// Count makes a credential spanning more than one tenant visible
 	// rather than silently reported as its first.
 	Count int `json:"count,omitempty"`
+	// Skipped says why the tenant was not read, when doctor chose not to.
+	Skipped string `json:"skipped,omitempty"`
+	// selected: a browser session's chosen tenant, not the first.
+	selected bool
+}
+
+// selectedTenant returns the listed tenant whose ID is id, else one
+// carrying only the ID, so a report names the tenant requests use.
+func selectedTenant(tenants []api.Tenant, id string) api.Tenant {
+	for _, t := range tenants {
+		if strings.EqualFold(t.Id, id) {
+			return t
+		}
+	}
+	return api.Tenant{Id: id}
 }
 
 // accountDoctorReport is the Starfleet connection's report: credential
@@ -143,6 +163,13 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	if res.Env {
 		return info
 	}
+	if res.Session {
+		return checkSessionAuth(rt, res, f.Tenant, info)
+	}
+	if f.Tenant != "" {
+		return authInfo{Source: res.Source,
+			Problem: conn.ErrTenantWithAPIClient().Error()}
+	}
 
 	tok, err := conn.Store(rt).LoadToken()
 	if err != nil {
@@ -153,6 +180,25 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	info.TokenValid = time.Until(tok.ExpiresAt) > 0
 	info.TokenBound = tok.MintedBy(
 		res.APIURL, res.Creds.ClientID, res.Creds.ClientSecret)
+	return info
+}
+
+// checkSessionAuth fills the Auth row for a browser session the way
+// conn.Resolve reads it, without renewing it.
+func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
+	flagTenant string, info authInfo,
+) authInfo {
+	s := readSession(rt, res, flagTenant)
+	if s.tok != nil {
+		info.User = s.tok.User
+		info.ExpiresAt = s.tok.ExpiresAt.Format(time.RFC3339)
+	}
+	info.TokenValid, info.TokenBound = s.valid, s.bound
+	info.Renews = s.renews
+	if s.problem != nil {
+		info.Authenticated = false
+		info.Problem = s.problem.Error()
+	}
 	return info
 }
 
@@ -210,8 +256,9 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	if timeout <= 0 {
 		timeout = conn.RequestTimeout
 	}
-	client, err := newEphemeralAccountClient(
-		rt, f.ClientID, f.ClientSecret, f.APIURL, timeout)
+	cf := *f
+	cf.Timeout = timeout
+	client, c, err := newEphemeralAccountClient(rt, cf)
 	if err != nil {
 		return tenantInfo{}
 	}
@@ -230,11 +277,15 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	}
 
 	t := tenants[0]
+	if c.Session != nil {
+		t = selectedTenant(tenants, c.Session.TenantID)
+	}
 	info := tenantInfo{
 		Resolved: true,
 		Name:     t.Name,
 		ID:       t.Id,
 		Count:    len(tenants),
+		selected: c.Session != nil,
 	}
 	if t.Plan != nil {
 		info.Plan = *t.Plan
@@ -249,6 +300,13 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 // enterprise is a warning, not an error: the credential works, it just
 // cannot drive byoc.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
+	if info.Skipped != "" {
+		return output.CheckRow{
+			Check:   "Tenant",
+			Status:  "warning",
+			Details: "not read: " + info.Skipped,
+		}
+	}
 	if !info.Resolved {
 		return output.CheckRow{
 			Check:   "Tenant",
@@ -261,11 +319,19 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if plan == "" {
 		plan = "unknown"
 	}
-	detail := fmt.Sprintf("%s (%s, plan: %s)", info.Name, info.ID, plan)
+	name := info.Name
+	if name == "" {
+		name = "a tenant missing from the tenant list"
+	}
+	detail := fmt.Sprintf("%s (%s, plan: %s)", name, info.ID, plan)
 	if info.PlanTrial {
 		detail += " [trial]"
 	}
-	if info.Count > 1 {
+	switch {
+	case info.Count > 1 && info.selected:
+		detail += fmt.Sprintf(" — %d tenants reachable, reporting the "+
+			"selected one", info.Count)
+	case info.Count > 1:
 		detail += fmt.Sprintf(" — %d tenants visible, reporting the first",
 			info.Count)
 	}
@@ -293,8 +359,14 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	report := accountDoctorReport{
 		Auth:        checkAuth(rt, f),
 		API:         checkAPI(rt, f),
-		Tenant:      checkTenant(rt, f),
 		Environment: checkEnvironment(),
+	}
+	// Reading the tenant would need the renewal doctor must not make.
+	if a := report.Auth; a.Source == auth.SourceBrowser &&
+		a.Authenticated && !a.TokenValid {
+		report.Tenant.Skipped = "the browser session renews on next use"
+	} else {
+		report.Tenant = checkTenant(rt, f)
 	}
 
 	if rt.Output.Structured() {
@@ -310,7 +382,19 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	if report.Auth.Problem != "" {
 		authDetail = report.Auth.Problem
 	}
+	session := report.Auth.Source == auth.SourceBrowser
 	switch {
+	case session && report.Auth.Authenticated:
+		authStatus = "ok"
+		state := "expires " + report.Auth.ExpiresAt
+		switch {
+		case !report.Auth.TokenValid:
+			state = "token expired, renews on next use"
+		case report.Auth.Renews:
+			state += ", renews itself"
+		}
+		authDetail = fmt.Sprintf("signed in as %s via browser (%s)",
+			output.Sanitize(report.Auth.User), state)
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

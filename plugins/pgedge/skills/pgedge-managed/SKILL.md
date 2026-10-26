@@ -116,8 +116,10 @@ Each rule is stated in full on the page named beside it.
   list` before you choose a value.
 - **`--force` only skips the confirmation prompt.** It never deletes
   branches: `--delete-branches` does that, and branch data cannot be
-  recovered. Pass `--force` only when the user asked for an unattended
-  run.
+  recovered. A request that names the action and its target is
+  consent, so pass `--force`. That consent covers the named action
+  only: ask before any other destructive step it turns out to need,
+  such as deleting branches.
 - **Keep credentials out of the transcript.** Pass `--no-password` to
   `database connection-string` whenever the output is shown to a
   person. Otherwise write the output to a file or a variable, never to

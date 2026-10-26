@@ -28,21 +28,46 @@ Authenticate with pgEdge Starfleet
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 <!-- END GENERATED -->
 
-Takes a client ID and secret, exchanges them for an access token, and
-saves them to the active profile. The secret goes to the OS keychain,
-and the client ID and API URL go to `~/.pgedge/cli/config.yaml`. Run
-this once per profile: the credentials
-serve the whole starfleet tree, and the account-level commands, byoc and
-managed all share that one connection and one token.
+Signs the active profile in, as a user through the browser or as an
+API client. Run this once per profile: the sign-in serves the whole
+starfleet tree, and the account-level commands, byoc and managed all
+share that one connection and one token. A profile holds one kind of
+credential, so signing in one way removes what the other way stored.
 
-**This command is scriptable.** Pass both `--client-id` and
-`--client-secret` and it never reads stdin, so it works with no
-terminal attached. Omit both and it prompts for each in turn. The
-secret is never echoed in either case.
+**With no credential flags, login signs you in through the browser.**
+It opens the pgEdge sign-in page and prints the same URL on stderr,
+then waits for the browser to return. A person has to complete the
+page, so an agent asks the user to run this command. The profile
+stores `api_url`, `auth: browser` and `tenant_id`; the user's access
+token goes to the token cache and the token that renews the session
+to the OS keychain. Every later command runs as that user. The
+session renews itself while in use and ends after a period without
+use or after a fixed maximum however much it is used; where no
+keychain could hold it, it ends at the time login printed. Once it ends, a command fails at exit 5 and names the
+`auth login` command to run.
+
+A user in several tenants is asked which to use when stdin and stdout
+are a terminal. Otherwise login uses the account's default tenant and
+says so on stderr. `--tenant` takes a tenant ID or name and skips the
+question; one the user cannot reach is exit 2. Every sign-in failure
+is exit 5: a refusal from the sign-in page (its reason is printed),
+no answer from the browser, all three callback ports
+(8484-8486) in use, or an API URL that has no browser sign-in. For
+that last case, sign in with an API client instead.
+
+**With an API client, this command is scriptable.** Pass both
+`--client-id` and `--client-secret` and it never reads stdin, so it
+works with no terminal attached. `--api-client` prompts for each in
+turn instead. The secret is never echoed in either case. login
+exchanges them for an access token and saves them to the active
+profile: the secret goes to the OS keychain, and the client ID and API
+URL go to `~/.pgedge/cli/config.yaml`. `--tenant` with an API client
+is exit 2, because a client is scoped to one tenant.
 
 Passing only one of the pair is a usage error (exit 2), not a prompt
 for the other: completing a half pair from a prompt would let a
@@ -51,8 +76,8 @@ different identity. Supply both or neither.
 
 Unlike every other command, `login` does **not** fall back to the
 stored profile when the flags are absent — it is the command that
-writes that config, so it asks rather than answering "who are you
-signing in as?" from state that is already there. It ignores
+writes that config, so it signs in afresh rather than answering "who
+are you signing in as?" from state that is already there. It ignores
 `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` too, and warns on stderr
 when either is set, because every other command then uses the
 variables instead of the profile it just saved.
@@ -60,29 +85,24 @@ variables instead of the profile it just saved.
 **Where the secret goes.** When no keychain can be used, `login`
 writes the secret to the config file instead, prints a warning on
 stderr naming the cause, and still ends with exit status 0. Pass `--insecure-storage`
-to write it to the config file without trying the keychain. A later
+to write it to the config file without trying the keychain; it
+applies only to an API client, so without one it is exit 2. A later
 `login` to the keychain removes a secret the file held.
 
 **Example:**
 
 ```bash
 pgedge starfleet auth login
-pgedge starfleet auth login --api-url https://api.pgedge.com
+pgedge starfleet auth login --tenant TENANT_ID
 pgedge starfleet auth login --client-id ID --client-secret SECRET
-pgedge starfleet auth login --insecure-storage
+pgedge starfleet auth login --api-client --insecure-storage
 ```
 
-**Example output:**
-
-```
-Client ID: my-client-id
-Client Secret:
-Authenticated. Token expires 2026-12-31T23:59:59Z.
-Client secret saved to the OS keychain; client ID and API URL saved to /Users/alice/.pgedge/cli/config.yaml
-```
-
-With both flags supplied there is no prompt, and the first two lines
-are absent.
+A browser sign-in ends with four lines on stderr: who signed in
+(`Signed in as <email>.`), the tenant, whether the session renews
+itself or the time it ends, and the file the profile was saved to. An API-client sign-in ends with
+`Authenticated. Token expires <time>.` and where the secret and the
+client ID went.
 
 ---
 
@@ -96,9 +116,13 @@ Show current authentication state
 <!-- END GENERATED -->
 
 `-o json` renders `authenticated`, `source`, `problem`, `client_id`,
-`api_url`, `token_valid`, `token_bound` and `expires_at` as a single
-object, every field but `authenticated`/`token_valid`/`token_bound`
-`omitempty`. `-o yaml` carries the same eight facts under the same
+`user`, `tenant_id`, `api_url`, `token_valid`, `token_bound`,
+`expires_at` and `renews` as a single object, every field but
+`authenticated`/`token_valid`/`token_bound`/`renews` `omitempty`.
+`user`, `tenant_id` and `renews` describe a browser session and
+`client_id` an API client; `renews` is `true` when the session can
+renew its own access token, and the text form prints it as `Renews:`.
+`-o yaml` carries the same eleven facts under the same
 names and omits the same fields, so `yq '.client_id'` and
 `jq '.client_id'` are interchangeable. `client_id` is printed (an
 identifier, not a credential); the client secret's value never
@@ -108,10 +132,11 @@ rendered as. `token_bound` is `false` whenever the cached token was
 minted with a different credential *or* for a different API URL; one
 digest covers both, so it does not say which.
 
-`source` is `flags`, `env`, `keychain` or `config`. With `env`, the
-text form prints `Token:        never cached (env credentials)`, and
+`source` is `flags`, `env`, `keychain`, `config` or `browser`. With
+`env`, the text form prints `Token:        never cached (env credentials)`, and
 the token fields stay `false`, because env credentials never use the
-token cache.
+token cache. With `browser`, the text form opens with `User:` and
+carries a `Tenant:` line in place of `Client ID:`.
 
 **Exit codes:** 5 when no usable credentials resolve — the auth code,
 same as any other command that cannot authenticate. A keychain that
@@ -120,9 +145,16 @@ half-supplied `--client-id`/`--client-secret` pair or
 `PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, or `--profile` given
 while that env pair is set, because that is the command being
 malformed rather than a credential being absent (see `problem` for
-which it was). 0 whenever credentials do resolve, even
+which it was). 0 whenever an API client's credentials resolve, even
 with no cached token or an expired one, since the CLI mints a new token
-on demand the next time it is needed.
+on demand the next time it is needed. A browser session with
+`renews: true` is 0 the same way: an expired access token prints
+`Token:        expired, renews on next use`. A session that cannot
+renew itself and has expired, one with no cached token, and one
+signed in for another API URL are 5, with `authenticated: false` and
+`problem` naming the `auth login` command to run. A `--tenant`
+the session cannot reach, a profile `tenant_id` it no longer reaches,
+or `--tenant` with an API client is 2.
 This command calls no endpoint at all, so passing
 (`authenticated: true`) means credentials *resolved*, not that the
 server accepts them — a wrong secret that merely resolves reports
@@ -196,9 +228,8 @@ Show the identity the API accepts you as
 <!-- END GENERATED -->
 
 `whoami` answers the question `status` cannot: who the API accepts you
-as. It is also the CLI's answer to "who am I": the account API's user
-endpoint needs a signed-in user, and every CLI credential is an
-application's, so the CLI carries no user command. `status` resolves credentials locally and calls nothing, so it
+as. It is also the CLI's answer to "who am I", since the CLI carries
+no user command. `status` resolves credentials locally and calls nothing, so it
 reports what is CONFIGURED. `whoami` reads the API, so what it reports
 is what the server accepts. A wrong secret that merely resolves gives
 `status` an `authenticated: true` and gives `whoami` exit 5.
@@ -229,10 +260,16 @@ output appends `(trial)` to the plan rather than printing a line of
 its own.
 
 Fields, all strings but `plan_trial` (bool) and `tenant_count` (int),
-`omitempty` except `client_id` and `api_url`: `client_id`,
+`omitempty` except `api_url`: `user`, `client_id`,
 `client_name`, `client_record_id`, `client_description`, `tenant_name`,
 `tenant_id`, `plan`, `plan_trial`, `tenant_count`, `api_url`. `-o yaml`
 carries the same names, so `yq '.plan'` and `jq '.plan'` agree.
+
+For a browser session, whoami reads only the tenant list. It reports
+`user` (the signed-in email), the tenant the session acts in with its
+name and plan, and `tenant_count` when the user reaches more than one
+tenant. The client fields are absent, and the text form opens with
+`User:` in place of `Client ID:`.
 
 A client credential reaches one tenant, so `tenant_count` is normally
 absent. It carries a number only above one, so a credential spanning
@@ -270,7 +307,11 @@ Clear stored pgEdge Starfleet credentials and token
 <!-- END GENERATED -->
 
 Removes the active profile's cached token, its stored `client_id` and
-`client_secret`, and its OS keychain entry, and keeps its API URL.
+`client_secret`, and its OS keychain entry, and keeps its API URL. For
+a browser session it first asks pgEdge to end the session, then
+removes the session token, its OS keychain entry, `auth` and
+`tenant_id`. If that request fails, `logout` warns on stderr and
+still removes the session from this machine.
 When the config file holds no secret and the keychain cannot be
 reached, `logout` prints a warning on stderr and still clears the
 rest.

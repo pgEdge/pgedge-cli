@@ -44,10 +44,12 @@ describes each one and what it needs.
 
 ## Running Your First Commands
 
-Sign in once per profile. Login prompts for the client ID and secret.
-For unattended use, pass `--client-id` and `--client-secret` instead.
-Login caches a token and saves the secret in the OS keychain. It saves
-the rest of the profile in `~/.pgedge/cli/config.yaml`:
+Sign in once per profile. Login opens your browser on the pgEdge
+sign-in page, and from then on the CLI works as you, in your tenant.
+The session renews itself while you use it, and ends after a period
+without use or after a fixed maximum; run login again to start a new
+one. Login saves the
+profile in `~/.pgedge/cli/config.yaml`:
 
     pgedge starfleet auth login --profile dev
 
@@ -55,9 +57,13 @@ This login creates the `dev` profile. Login is the one command that
 accepts a new `--profile` name. Every other command accepts only a
 configured profile name, or the built-in `default`.
 
-One credential pair serves the whole `starfleet` module. That covers
-its account-level commands, byoc and managed, because all three share
-one connection and one token.
+For unattended use, such as CI, sign in with an API client instead:
+pass `--client-id` and `--client-secret`. Login then saves the secret
+in the OS keychain. [CI and automation](ci.md) covers that path.
+
+One sign-in serves the whole `starfleet` module. That covers its
+account-level commands, byoc and managed, because all three share one
+connection and one token.
 
 To check the installation and the connection, run:
 

@@ -15,6 +15,10 @@ The page leans on these terms:
 
 ## Supplying Credentials
 
+An unattended run signs in with an API client, never through the
+browser: a browser sign-in needs a person at the sign-in page, and its
+session ends after a period without use or a fixed maximum.
+
 Set `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` from your secret
 store. The CLI treats the pair as a profile that lasts one invocation.
 Each run authenticates from the secrets alone and leaves the runner's

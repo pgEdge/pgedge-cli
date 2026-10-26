@@ -106,7 +106,9 @@ Each rule is stated in full on the page named beside it.
 - **`--force` only skips the confirmation prompt.** A server-side
   waiver is its own flag, `--force-unmodifiable`, or `--force-lost` on
   `host remove`. See `database`, `database instance`, `database node`
-  and `host`.
+  and `host`. A request that names the action and its target is
+  consent for `--force`, and for that action only: ask before a
+  waiver flag or any other destructive step it turns out to need.
 - **Start every database from `database init`.** When it can reach a
   systemd Control Plane, it fills in the distinct ports each node
   needs. The CLI refuses a spec that still carries a `CHANGE-ME`

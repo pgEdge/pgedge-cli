@@ -54,7 +54,7 @@ or memory.
 
 ## Set up
 
-Confirm the binary runs, then log in and check the connection:
+Confirm the binary runs, then sign in and check the connection:
 
 ```bash
 pgedge version
@@ -62,8 +62,16 @@ pgedge starfleet auth login
 pgedge starfleet doctor
 ```
 
-`--profile <name>` selects the tenant on any command. A profile
-carries one credential, so a profile is a tenant.
+`auth login` with no flags opens the browser and signs the user in
+as themselves. Only the user can complete that page, so ask them to
+run it. For CI and unattended runs, sign in with an API client
+instead: `--client-id` and `--client-secret`, or the
+`PGEDGE_CLIENT_ID` / `PGEDGE_CLIENT_SECRET` pair.
+
+`--profile <name>` selects the profile on any command. An API client
+belongs to one tenant, so its profile is a tenant. A browser session
+acts in the profile's tenant, and `--tenant <id>` picks another of
+the user's tenants for one command.
 
 ## Find the page for your task
 
@@ -90,6 +98,10 @@ Each rule is stated in full on the page named beside it.
   variable is read. The pair ignores the profile's API URL, and
   `--profile` alongside it is exit status 2. The token cache is bound to the
   credential and the API URL together. See the index.
+- **A browser session renews itself while in use and ends after a
+  period without use or a fixed maximum.** Once it ends, every command exits 5 and names
+  the `auth login` command to run; ask the user to run it. `--tenant` with an API client is exit 2.
+  See the index.
 - **`auth status` proves only that credentials resolved.** A wrong
   secret still reports `authenticated: true`. `doctor`'s tenant check
   is the one that proves the server accepts the credential. See
@@ -99,10 +111,9 @@ Each rule is stated in full on the page named beside it.
 - **`client create` shows the new secret once.** Capture it from that
   command's output, and keep it out of the transcript. To replace a
   secret, create a client and delete the old one. See `client`.
-- **Invites are created and accepted in the Starfleet UI.** Every
-  CLI credential is an application's, and both steps need a signed-in
-  user, so they exit 5 here. Track and clean up invites from the CLI.
-  See `invite`.
+- **Invites are created and accepted in the Starfleet UI.** The CLI
+  refuses both steps with exit 5, whichever way you signed in. Track
+  and clean up invites from the CLI. See `invite`.
 - **Membership is the signal that an invite was accepted.** See
   `invite` and `membership`.
 - **Check a read's exit status before acting on an empty result.** A

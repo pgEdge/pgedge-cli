@@ -27,7 +27,9 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/errbody"
 	"github.com/pgEdge/pgedge-cli/internal/httplog"
 	"github.com/pgEdge/pgedge-cli/internal/module"
+	"github.com/pgEdge/pgedge-cli/internal/output"
 	accountapi "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/signin"
 	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/pflag"
 )
@@ -50,6 +52,25 @@ type Flags struct {
 	// Timeout bounds one HTTP exchange, defaulting to RequestTimeout;
 	// zero disables the bound, as controlplane's --timeout does.
 	Timeout time.Duration
+	// Tenant overrides a browser session's tenant for one command.
+	Tenant string
+}
+
+// ReadFlags reads the starfleet root's persistent connection flags off
+// a leaf's inherited flag set.
+func ReadFlags(fs *pflag.FlagSet) Flags {
+	var f Flags
+	f.ClientID, _ = fs.GetString("client-id")
+	f.ClientSecret, _ = fs.GetString("client-secret")
+	f.APIURL, _ = fs.GetString("api-url")
+	f.Tenant, _ = fs.GetString("tenant")
+	// A failed read keeps the default: the zero value would be an
+	// unbounded client.
+	f.Timeout = RequestTimeout
+	if v, err := fs.GetDuration("timeout"); err == nil {
+		f.Timeout = v
+	}
+	return f
 }
 
 // Exit codes reported by Starfleet commands. They are the CLI-wide
@@ -317,6 +338,12 @@ func HTTPClientFor(rt *module.Runtime, timeout time.Duration) *http.Client {
 	}
 }
 
+// SignInHTTPClient is the client for browser sign-in's code exchange,
+// which, like the client-credentials exchange, must survive a dry run.
+func SignInHTTPClient(rt *module.Runtime, timeout time.Duration) *http.Client {
+	return authHTTPClientFor(rt, timeout)
+}
+
 // authHTTPClientFor is HTTPClientFor without the dry-run layer, for the
 // token exchange: that POST would otherwise be intercepted and every dry
 // run would fail to authenticate before its first read. The exemption
@@ -500,6 +527,10 @@ type Resolved struct {
 	// Env reports env-pair credentials, which never touch the config
 	// file or the token cache.
 	Env bool
+	// Session reports a browser sign-in, where Creds is nil and the
+	// user's token lives in the cache. TenantID is the profile's.
+	Session  bool
+	TenantID string
 }
 
 // ProfileConflictError reports --profile given while the env pair is
@@ -545,6 +576,10 @@ func ResolveCredentials(rt *module.Runtime,
 		return r, nil
 	}
 	r.APIURL = ResolveAPIURL(ap, flagAPIURL)
+	if source == auth.SourceBrowser {
+		r.Session = true
+		r.TenantID = ap.TenantID
+	}
 	return r, nil
 }
 
@@ -555,30 +590,263 @@ type Conn struct {
 	Token        string
 	HTTPClient   *http.Client
 	BearerEditor func(context.Context, *http.Request) error
+	// Session is set for a browser sign-in, nil for an API client.
+	Session *Session
+}
+
+// SelectedTenantHeader picks a browser session's tenant; the gateway
+// honours it when the tenant is in the token's pgedge_tenant_ids.
+const SelectedTenantHeader = "X-pgEdge-Selected-Tenant"
+
+// Session describes a browser sign-in's cached token.
+type Session struct {
+	User string
+	// TenantID is the tenant requests act in: --tenant, else the
+	// profile's, else the token's default.
+	TenantID  string
+	TenantIDs []string
+	ExpiresAt time.Time
+}
+
+// SessionExpiredError is the exit-5 failure for a browser session
+// whose token is expired, missing, or was signed in for another API.
+func SessionExpiredError(rt *module.Runtime, apiURL string) *ExitError {
+	return NewExitError(fmt.Sprintf("the browser sign-in for %s has "+
+		"expired or is missing: run '%s' to sign in again",
+		apiURL, loginCommand(rt)), ExitAuth)
+}
+
+// SessionRefusedError is SessionExpiredError carrying the reason Auth0
+// gave for refusing a refresh, so a blocked user is told so.
+func SessionRefusedError(rt *module.Runtime, apiURL string,
+	err error) *ExitError {
+	var d *signin.DeniedError
+	if !errors.As(err, &d) || d.Description == "" {
+		return SessionExpiredError(rt, apiURL)
+	}
+	return NewExitError(fmt.Sprintf("the browser sign-in for %s could "+
+		"not be renewed: %s; run '%s' to sign in again",
+		apiURL, d.Description, loginCommand(rt)), ExitAuth)
+}
+
+// loginCommand is the auth login line for rt's profile.
+func loginCommand(rt *module.Runtime) string {
+	login := "pgedge starfleet auth login"
+	if rt.Profile != "" && rt.Profile != "default" {
+		login += " --profile " + rt.Profile
+	}
+	return login
+}
+
+// ErrTenantWithAPIClient is the exit-2 failure for --tenant alongside an
+// API client.
+func ErrTenantWithAPIClient() *ExitError {
+	return NewExitError("--tenant applies only to a browser sign-in: "+
+		"an API client is scoped to one tenant", ExitUsage)
+}
+
+// SessionTenant picks the tenant a session's requests act in: --tenant,
+// else the profile's, else the token's default. A named tenant the
+// token cannot reach is exit 2, since the gateway would refuse it.
+func SessionTenant(rt *module.Runtime, profileTenant, flagTenant string,
+	claims *auth.Claims) (string, error) {
+	switch {
+	case flagTenant != "":
+		if !claims.HasTenant(flagTenant) {
+			return "", TenantUsageError(flagTenant, claims.Tenants())
+		}
+		return flagTenant, nil
+	case profileTenant != "":
+		if !claims.HasTenant(profileTenant) {
+			return "", NewExitError(fmt.Sprintf("the profile's tenant "+
+				"%s is not one this sign-in can reach (%s): run '%s "+
+				"--tenant <id>', or pass --tenant", profileTenant,
+				strings.Join(claims.Tenants(), ", "), loginCommand(rt)),
+				ExitUsage)
+		}
+		return profileTenant, nil
+	}
+	return claims.TenantID, nil
+}
+
+// SignInApp finds the Auth0 sign-in app for an API URL and the base URL
+// of its endpoints. A variable so tests can point it at a fake Auth0.
+var SignInApp = func(apiURL string) (apidefaults.Auth0App, string, bool) {
+	app, ok := apidefaults.Auth0For(apiURL)
+	return app, "https://" + app.Domain, ok
+}
+
+// loadSession reads the profile's browser session token. One bound to
+// apiURL but near expiry is renewed with the session's refresh token
+// when policy allows; anything else unusable is SessionExpiredError.
+func loadSession(rt *module.Runtime, apiURL string, timeout time.Duration,
+	policy tokenPolicy, warn *sync.Once,
+) (*auth.CachedToken, *auth.Claims, error) {
+	tok, err := Store(rt).LoadToken()
+	if err != nil || !tok.SessionFor(apiURL) {
+		return nil, nil, SessionExpiredError(rt, apiURL)
+	}
+	if time.Until(tok.ExpiresAt) <= auth.RefreshWindow {
+		if policy == ephemeralToken {
+			return nil, nil, SessionExpiredError(rt, apiURL)
+		}
+		tok, err = renewSession(context.Background(), rt, apiURL, tok,
+			timeout, warn)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	claims, err := auth.ParseClaims(tok.AccessToken)
+	if err != nil {
+		return nil, nil, SessionExpiredError(rt, apiURL)
+	}
+	return tok, claims, nil
+}
+
+// renewSession renews cur. A failure that leaves the session alive, such
+// as a network error, falls back to cur while it is unexpired.
+func renewSession(ctx context.Context, rt *module.Runtime, apiURL string,
+	cur *auth.CachedToken, timeout time.Duration, warn *sync.Once,
+) (*auth.CachedToken, error) {
+	tok, ended, err := renewLocked(ctx, rt, apiURL, cur.User, timeout)
+	if err == nil || ended || !cur.ExpiresAt.After(now()) {
+		return tok, err
+	}
+	warn.Do(func() {
+		fmt.Fprintf(rt.Stderr, "Warning: %s; using the current sign-in "+
+			"until it expires.\n", output.Sanitize(err.Error()))
+	})
+	return cur, nil
+}
+
+// renewLocked exchanges the session's refresh token for a new access
+// token under the session lock, so concurrent processes renew once.
+// ended reports a session that can never renew again.
+func renewLocked(ctx context.Context, rt *module.Runtime, apiURL,
+	user string, timeout time.Duration,
+) (tok *auth.CachedToken, ended bool, err error) {
+	failed := func(err error) *ExitError {
+		return NewExitError(fmt.Sprintf("could not renew the browser "+
+			"sign-in for %s: %v", apiURL, err), ExitAuth)
+	}
+	store := Store(rt)
+	unlock, err := store.LockSession()
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	defer unlock()
+	// Another process may have renewed while this one waited.
+	if t, err := store.LoadToken(); err == nil && t.SessionFor(apiURL) &&
+		t.ExpiresAt.Sub(now()) > auth.RefreshWindow {
+		return t, false, nil
+	}
+	refresh, err := store.SessionRefreshToken()
+	if err != nil {
+		return nil, true, SessionExpiredError(rt, apiURL)
+	}
+	app, base, ok := SignInApp(apiURL)
+	if !ok {
+		return nil, true, SessionExpiredError(rt, apiURL)
+	}
+	// Bounded however patient --timeout is: the lock is held meanwhile.
+	if timeout <= 0 || timeout > RequestTimeout {
+		timeout = RequestTimeout
+	}
+	toks, err := signin.Refresh(ctx, SignInHTTPClient(rt, timeout), base,
+		app.ClientID, refresh)
+	if signin.IsInvalidGrant(err) {
+		// Only the token this process sent is known dead.
+		if v, _ := store.SessionRefreshToken(); v == refresh {
+			_ = store.ClearSessionRefreshToken()
+		}
+		return nil, true, SessionRefusedError(rt, apiURL, err)
+	}
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	claims, err := auth.ParseClaims(toks.AccessToken)
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	expiresAt := claims.ExpiresAt()
+	if expiresAt.IsZero() {
+		expiresAt = time.Now().Add(time.Duration(toks.ExpiresIn) *
+			time.Second)
+	}
+	// The rotated refresh token first: the one sent is now dead.
+	if toks.RefreshToken != "" {
+		if err := store.SaveSessionRefreshToken(toks.RefreshToken); err != nil {
+			_ = store.ClearSessionRefreshToken()
+			fmt.Fprintf(rt.Stderr, "Warning: could not save the renewed "+
+				"sign-in to the OS keychain (%s); run '%s' when this "+
+				"session ends.\n", output.Sanitize(err.Error()),
+				output.Sanitize(loginCommand(rt)))
+		}
+	}
+	tok, err = SaveSession(rt, apiURL, toks.AccessToken, user, expiresAt)
+	if err != nil {
+		return nil, false, failed(err)
+	}
+	return tok, false, nil
+}
+
+// RevokeSessionToken revokes a browser session's refresh token at the
+// sign-in app for apiURL.
+func RevokeSessionToken(rt *module.Runtime, apiURL, token string) error {
+	app, base, ok := SignInApp(apiURL)
+	if !ok {
+		return fmt.Errorf("no sign-in app for %s", apiURL)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
+	defer cancel()
+	return signin.Revoke(ctx, SignInHTTPClient(rt, RequestTimeout), base,
+		app.ClientID, token)
+}
+
+// SaveSession writes a browser sign-in's access token to the profile's
+// cache, bound to apiURL and the token's subject.
+func SaveSession(rt *module.Runtime, apiURL, accessToken, user string,
+	expiresAt time.Time) (*auth.CachedToken, error) {
+	claims, err := auth.ParseClaims(accessToken)
+	if err != nil {
+		return nil, err
+	}
+	if claims.Subject == "" {
+		return nil, errors.New("the access token carries no subject")
+	}
+	tok := &auth.CachedToken{
+		AccessToken: accessToken,
+		ExpiresAt:   expiresAt,
+		Fingerprint: auth.SessionFingerprint(apiURL, claims.Subject),
+		User:        user,
+	}
+	if err := Store(rt).SaveToken(tok); err != nil {
+		return nil, err
+	}
+	return tok, nil
+}
+
+// TenantUsageError is the exit-2 failure for a --tenant the token
+// cannot act in.
+func TenantUsageError(tenant string, reachable []string) *ExitError {
+	return NewExitError(fmt.Sprintf("--tenant %s is not a tenant this "+
+		"sign-in can reach; reachable tenant IDs: %s", tenant,
+		strings.Join(reachable, ", ")), ExitUsage)
 }
 
 // Resolve produces an authenticated connection for the runtime's
 // active profile, honouring per-invocation flag overrides. It reuses a
 // cached token that is more than auth.RefreshWindow from expiry and
-// otherwise exchanges credentials for a fresh one.
-func Resolve(rt *module.Runtime,
-	flagID, flagSecret, flagAPIURL string, timeout time.Duration,
-) (*Conn, error) {
-	return resolve(rt, flagID, flagSecret, flagAPIURL, timeout,
-		persistToken)
+// otherwise exchanges credentials, or a browser session's refresh
+// token, for a fresh one.
+func Resolve(rt *module.Runtime, f Flags) (*Conn, error) {
+	return resolve(rt, f, persistToken)
 }
 
 // ResolveEphemeral is Resolve for `starfleet doctor`, which must not
-// change what it reports: it reuses a valid cached token but never
-// writes one. Writing would let doctor report "token expired or missing"
-// and leave a fresh token behind, and `doctor --api-url <other>` would
-// evict the profile's working token, since a cached token is bound to
-// its API URL.
-func ResolveEphemeral(rt *module.Runtime,
-	flagID, flagSecret, flagAPIURL string, timeout time.Duration,
-) (*Conn, error) {
-	return resolve(rt, flagID, flagSecret, flagAPIURL, timeout,
-		ephemeralToken)
+// change what it reports: it never writes a token or renews a session.
+func ResolveEphemeral(rt *module.Runtime, f Flags) (*Conn, error) {
+	return resolve(rt, f, ephemeralToken)
 }
 
 // tokenPolicy says whether a freshly minted token may reach the cache.
@@ -589,19 +857,26 @@ const (
 	ephemeralToken tokenPolicy = false
 )
 
-func resolve(rt *module.Runtime,
-	flagID, flagSecret, flagAPIURL string, timeout time.Duration,
-	policy tokenPolicy,
+func resolve(rt *module.Runtime, f Flags, policy tokenPolicy,
 ) (*Conn, error) {
-	res, err := ResolveCredentials(rt, flagID, flagSecret, flagAPIURL)
+	timeout := f.Timeout
+	res, err := ResolveCredentials(rt, f.ClientID, f.ClientSecret,
+		f.APIURL)
 	if err != nil {
 		if IsUsageError(err) {
 			return nil, NewExitError(err.Error(), ExitUsage)
 		}
 		return nil, NewExitError(err.Error(), ExitAuth)
 	}
+	if res.Session {
+		return resolveSession(rt, res, f.Tenant, timeout, policy)
+	}
+	if f.Tenant != "" {
+		return nil, ErrTenantWithAPIClient()
+	}
 	store, apiURL, creds := Store(rt), res.APIURL, res.Creds
-	if res.Env {
+	// Flags over a browser session must not overwrite its cached token.
+	if res.Env || rt.Config.StarfleetProfile(rt.Profile).IsBrowserSession() {
 		store = nil
 		policy = ephemeralToken
 	}
@@ -640,6 +915,65 @@ func resolve(rt *module.Runtime,
 	}, nil
 }
 
+// resolveSession builds a browser session's connection from its cached
+// token. Every request carries SelectedTenantHeader.
+func resolveSession(rt *module.Runtime, res *Resolved, flagTenant string,
+	timeout time.Duration, policy tokenPolicy,
+) (*Conn, error) {
+	warn := &sync.Once{}
+	tok, claims, err := loadSession(rt, res.APIURL, timeout, policy, warn)
+	if err != nil {
+		return nil, err
+	}
+	tenant, err := SessionTenant(rt, res.TenantID, flagTenant, claims)
+	if err != nil {
+		return nil, err
+	}
+	sess := &Session{
+		User:      tok.User,
+		TenantID:  tenant,
+		TenantIDs: claims.Tenants(),
+		ExpiresAt: tok.ExpiresAt,
+	}
+	// A wait that outlives the token renews it as the first call would.
+	cur := tok
+	src := &tokenSource{
+		value:  tok.AccessToken,
+		expiry: tok.ExpiresAt,
+		mint: func(ctx context.Context) (string, time.Time, error) {
+			if policy == ephemeralToken {
+				return "", time.Time{}, SessionExpiredError(rt, res.APIURL)
+			}
+			t, err := renewSession(ctx, rt, res.APIURL, cur, timeout, warn)
+			if err != nil {
+				return "", time.Time{}, err
+			}
+			cur = t
+			return t.AccessToken, t.ExpiresAt, nil
+		},
+	}
+	return &Conn{
+		APIURL:     res.APIURL,
+		Token:      tok.AccessToken,
+		HTTPClient: HTTPClientFor(rt, timeout),
+		Session:    sess,
+		BearerEditor: func(ctx context.Context, req *http.Request) error {
+			v, err := src.bearer(ctx)
+			if err != nil {
+				return err
+			}
+			req.Header.Set("Authorization", "Bearer "+v)
+			if tenant != "" {
+				req.Header.Set(SelectedTenantHeader, tenant)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// now is tokenSource's clock, so a test can move past a token's expiry.
+var now = time.Now
+
 // tokenSource hands the bearer editor a token more than
 // auth.RefreshWindow from expiry, re-minting when it is not. The mutex
 // is defensive: no starfleet command is concurrent today, but the editor
@@ -655,7 +989,7 @@ type tokenSource struct {
 func (ts *tokenSource) bearer(ctx context.Context) (string, error) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	if time.Until(ts.expiry) > auth.RefreshWindow {
+	if ts.expiry.Sub(now()) > auth.RefreshWindow {
 		return ts.value, nil
 	}
 	v, expiry, err := ts.mint(ctx)

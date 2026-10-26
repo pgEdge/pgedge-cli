@@ -452,7 +452,7 @@ func TestAuthLoginThenStatus(t *testing.T) {
 	defer srv.Close()
 
 	rt, out, _ := testsupport.NewRuntime(t, "myid\nmysecret\n", "text")
-	if err := runAccount(t, rt, out, "auth", "login",
+	if err := runAccount(t, rt, out, "auth", "login", "--api-client",
 		"--api-url", srv.URL); err != nil {
 		t.Fatalf("auth login: %v", err)
 	}
@@ -610,14 +610,14 @@ func TestAuthLoginHalfFlagPairIsUsageError(t *testing.T) {
 	}
 }
 
-// TestAuthLoginStillPromptsWithoutFlags is the other direction of the
+// TestAuthLoginAPIClientPrompts is the other direction of the
 // same change: honouring the flags must not cost the interactive path.
 // It also pins that `login` does NOT fall through to config the way
 // conn.Resolve does — a complete pair is stored in the profile config
 // here, and login must still ask, because someone running `login` is
 // signing in as somebody, and answering that from ambient state would
 // silently re-save whoever is already configured.
-func TestAuthLoginStillPromptsWithoutFlags(t *testing.T) {
+func TestAuthLoginAPIClientPrompts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -632,12 +632,12 @@ func TestAuthLoginStillPromptsWithoutFlags(t *testing.T) {
 		ClientSecret: "cfg-secret",
 	})
 
-	if err := runAccount(t, rt, out, "auth", "login",
+	if err := runAccount(t, rt, out, "auth", "login", "--api-client",
 		"--api-url", srv.URL); err != nil {
 		t.Fatalf("auth login: %v", err)
 	}
 	if !strings.Contains(errb.String(), "Client ID:") {
-		t.Errorf("login should still prompt with no flags:\n%s",
+		t.Errorf("login --api-client should prompt:\n%s",
 			errb.String())
 	}
 	cp := rt.Config.StarfleetProfile("default")
@@ -658,7 +658,7 @@ func TestAuthLogout(t *testing.T) {
 	defer srv.Close()
 
 	rt, out, errb := testsupport.NewRuntime(t, "myid\nmysecret\n", "text")
-	if err := runAccount(t, rt, out, "auth", "login",
+	if err := runAccount(t, rt, out, "auth", "login", "--api-client",
 		"--api-url", srv.URL); err != nil {
 		t.Fatalf("auth login: %v", err)
 	}
@@ -712,7 +712,7 @@ func TestAuthLoginCachesUnderStarfleetModule(t *testing.T) {
 	defer srv.Close()
 
 	rt, out, _ := testsupport.NewRuntime(t, "myid\nmysecret\n", "text")
-	if err := runAccount(t, rt, out, "auth", "login",
+	if err := runAccount(t, rt, out, "auth", "login", "--api-client",
 		"--api-url", srv.URL); err != nil {
 		t.Fatalf("auth login: %v", err)
 	}

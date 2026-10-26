@@ -1,0 +1,1 @@
+List my managed databases on pgEdge Starfleet with each one's status.

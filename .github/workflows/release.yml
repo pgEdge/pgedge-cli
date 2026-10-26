@@ -185,7 +185,8 @@ jobs:
           fi
           go run ./cmd/npmpack -assets assets -version "${TAG#v}" -out npm
           tag=$(cat npm/dist-tag)
-          for dir in npm/cli-* npm/cli; do
+          # Without ./, npm reads npm/cli-x as a GitHub owner/repo.
+          for dir in ./npm/cli-* ./npm/cli; do
             spec=$(jq -r '.name + "@" + .version' "$dir/package.json")
             if npm view "$spec" version >/dev/null 2>&1; then
               echo "$spec is already published"

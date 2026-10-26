@@ -138,7 +138,7 @@ bundled Claude Code skills.
 
 ## Other Ways to Install
 
-There are six routes in all, and each one gives you something
+There are seven routes in all, and each one gives you something
 different. Only `go install` and a clone-and-build need Go. This table
 lists what each route needs:
 
@@ -146,14 +146,15 @@ lists what each route needs:
 |---|---|
 | Hand it to your AI agent | Node.js, for the agent-skills step |
 | Homebrew | Homebrew, on Linux or macOS |
+| npm, with `npm install -g @pgedge/cli@beta` | Node.js 18 or newer |
 | GitHub Actions | A Linux or macOS runner |
 | Download a release archive | `tar` and `sha256sum` or `shasum` |
 | `go install` from main | Go 1.26 or newer |
 | Clone and build | Go 1.26 or newer |
 
 On macOS, `brew install node` and `brew install go` cover those. Only
-`npx skills add` uses Node. The README's manual-copy path installs the
-skills by hand.
+`npx skills add` and the npm route use Node. The README's manual-copy
+path installs the skills by hand.
 
 To download a release archive, follow the README's
 "Downloading a Release by Hand" section. To ask a question or report a

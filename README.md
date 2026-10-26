@@ -35,6 +35,7 @@ Each install method suits a different platform and update routine:
 | [Install script](#installing-with-the-script-linux-macos) | Linux, macOS | `curl`, `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
 | [GitHub Actions](#installing-in-github-actions) | Linux and macOS runners | Nothing else | A new tag in `uses:` |
 | [Homebrew](#installing-with-homebrew-linux-macos) | Linux, macOS | Homebrew | `brew upgrade pgedge` |
+| [npm](#installing-with-npm) | Linux, macOS, Windows | Node.js 18 or newer | Re-run `npm install -g` |
 | [go install](#installing-with-go-install) | Linux, macOS, Windows | Go 1.26 or newer | Re-run `go install` |
 | [Release by hand](#downloading-a-release-by-hand) | Linux, macOS, Windows | `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
 | [Build from source](#building-from-source) | Linux, macOS | Go 1.26 or newer, `make` | `git pull && make build` |
@@ -131,6 +132,17 @@ Install from the pgEdge tap with one command:
 
     brew install pgEdge/tap/pgedge
 
+### Installing with npm
+
+The `@pgedge/cli` package installs the native binary for your platform.
+Pre-releases publish under the `beta` tag, so name the tag to install
+one:
+
+    npm install -g @pgedge/cli@beta
+
+To update, run the same command again. `pgedge self update` refuses an
+npm install, because npm owns that binary.
+
 ### Installing with go install
 
 Go builds the CLI from source at the main branch:
@@ -189,11 +201,11 @@ A downloaded release binary updates itself:
 The command checks the download against the release's Sigstore
 signature and checksum. It does this before the download touches the
 installed binary. Afterward, it regenerates an installed completion
-script. A Homebrew install or a binary inside a git checkout stays in
-place, and the command names the one to run instead:
-`brew upgrade pgedge` or `make build`. `pgedge doctor` also reports
-the latest release. [Updating the CLI](docs/updating.md) has the
-details.
+script. A Homebrew or npm install, or a binary inside a git
+checkout, stays in place, and the command names the one to run
+instead: `brew upgrade pgedge`, `npm install -g @pgedge/cli@beta` or
+`make build`. `pgedge doctor` also reports the latest release.
+[Updating the CLI](docs/updating.md) has the details.
 
 ## Setting Up Shell Completion
 

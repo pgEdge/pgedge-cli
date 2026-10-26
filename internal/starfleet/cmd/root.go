@@ -15,7 +15,7 @@ import (
 
 // NewStarfleetCmd builds the `pgedge starfleet` command tree.
 //
-// The four connection flags are declared here and nowhere else: one
+// The five connection flags are declared here and nowhere else: one
 // product means one connection, and every byoc and managed leaf reads
 // them off its inherited flag set (connFlags in each sub-tree's
 // client.go). --timeout bounds one HTTP exchange, as controlplane's
@@ -31,10 +31,12 @@ resources (API clients, tenants, invites, memberships) and the two
 infrastructure sub-trees — byoc for BYOC clusters and managed for
 Managed databases.
 
-Authenticate once with 'pgedge starfleet auth login'. Every starfleet
+Sign in once with 'pgedge starfleet auth login', which opens your
+browser, or give it an API client for unattended use. Every starfleet
 subcommand shares that one connection, taken from the active profile
 in ~/.pgedge/cli/config.yaml and overridable per invocation with
---client-id, --client-secret, and --api-url.
+--client-id, --client-secret, and --api-url. --tenant picks the tenant
+a browser sign-in acts in for one command.
 
 Example:
   pgedge starfleet auth login
@@ -68,6 +70,8 @@ Example:
 		"API client secret (overrides profile config)")
 	pf.DurationVar(&f.Timeout, "timeout", conn.RequestTimeout,
 		"Per-request timeout (Go duration; 0 disables)")
+	pf.StringVar(&f.Tenant, "tenant", "",
+		"Tenant ID a browser sign-in acts in (overrides the profile's)")
 
 	cmd.AddCommand(accountcmd.NewAuthCmd(rt, f))
 	cmd.AddCommand(accountcmd.NewDoctorCmd(rt, f))
@@ -77,11 +81,10 @@ Example:
 	cmd.AddCommand(accountcmd.NewTenantCmd(rt))
 	cmd.AddCommand(newAPICmd(rt, f))
 
-	// No `starfleet user` verbs, deliberately, although the generated
-	// client carries GetCurrentUser/UpdateCurrentUser. The API answers
-	// 401 when EITHER the tenant or the user is missing, and a
-	// client-credentials token carries a tenant but never a user.
-	// Revisit when a user-token auth flow exists.
+	// No `starfleet user` verbs yet, although the generated client
+	// carries GetCurrentUser/UpdateCurrentUser: the API answers 401 when
+	// EITHER the tenant or the user is missing, and a client-credentials
+	// token carries no user. A browser sign-in does, so they can follow.
 
 	cmd.AddCommand(byoccmd.NewByocCmd(rt))
 	cmd.AddCommand(managedcmd.NewManagedCmd(rt))

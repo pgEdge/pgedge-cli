@@ -63,6 +63,8 @@ self-hosted Control Plane).
   drift
 - `make docs-check` — report reference drift without rewriting (CI)
 - `make test-scripts` — shellcheck + the shell unit-test suites
+- `make test-evals` — unit tests for the skill eval runner's grading,
+  scoring and publishing (`evals/`); runs no agents, needs no tenant
 - `make generate` — regenerate API clients from the OpenAPI specs
   (do not regenerate casually — see CONTRIBUTING.md "OpenAPI specs
   and generated clients")
@@ -91,6 +93,19 @@ self-hosted Control Plane).
   the long-running-queries fixture
 - `make build-all` — cross-platform build matrix; `make build-one
   GOOS=... GOARCH=...` is one target of it, which CI runs one per job
+
+## Before tagging a release
+
+Score the skills at the commit the tag will point to, then hand the
+scorecard to whoever is tagging. It reports; the decision to release
+is theirs, never the script's.
+
+    python3 evals/run.py --config evals/eval.toml \
+        --release <version> --ref <sha>
+
+Setup, the config and what each scorecard column means are in
+`evals/README.md`. The run writes `evals/releases/<version>/SUMMARY.md`;
+commit it in the next PR.
 
 ## Verifying a change — the compiler is the authority
 

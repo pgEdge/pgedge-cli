@@ -34,3 +34,9 @@ REPO_READY_AUDIT.md
 # be edited without a PR. A stray copy at the root stays untracked.
 /ROADMAP.md
 NOTICE.txt.tmp
+
+# Skill evals: the tester's config and raw results stay local; only
+# evals/releases/<version>/SUMMARY.md is committed.
+/evals/eval.toml
+/evals/results/
+/evals/__pycache__/

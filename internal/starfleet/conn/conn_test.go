@@ -478,7 +478,7 @@ func TestResolveUsesCachedToken(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,7 +547,7 @@ func TestResolveRefreshesStaleToken(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -613,7 +613,7 @@ func TestResolveIgnoresCorruptCache(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -792,7 +792,7 @@ func TestResolveCredentialBinding(t *testing.T) {
 				wantURL, wantToken = other.url(), "other-host-tok"
 			}
 
-			c, err := Resolve(rt, tc.flagID, tc.flagSecret, flagAPIURL, RequestTimeout)
+			c, err := Resolve(rt, Flags{ClientID: tc.flagID, ClientSecret: tc.flagSecret, APIURL: flagAPIURL, Timeout: RequestTimeout})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -914,7 +914,7 @@ func TestResolveDoesNotReplayACachedTokenToADifferentHost(t *testing.T) {
 	}
 
 	// Step 0 — cold cache: one exchange against the profile's host.
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -928,7 +928,7 @@ func TestResolveDoesNotReplayACachedTokenToADifferentHost(t *testing.T) {
 	// Step 1 — the positive control. Nothing changed, so the cache
 	// must be reused with no exchange at all. Without this, step 2
 	// proves nothing.
-	if c, err = Resolve(rt, "", "", "", RequestTimeout); err != nil {
+	if c, err = Resolve(rt, Flags{Timeout: RequestTimeout}); err != nil {
 		t.Fatal(err)
 	}
 	if c.Token != "origin-tok" {
@@ -941,7 +941,7 @@ func TestResolveDoesNotReplayACachedTokenToADifferentHost(t *testing.T) {
 
 	// Step 2 — the bug. Same credentials, different host: the cached
 	// token must NOT be handed to the other host.
-	c, err = Resolve(rt, "", "", other.url(), RequestTimeout)
+	c, err = Resolve(rt, Flags{APIURL: other.url(), Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -966,7 +966,7 @@ func TestResolveDoesNotReplayACachedTokenToADifferentHost(t *testing.T) {
 	// Step 3 — the new cache is bound to the host that minted it, so
 	// repeating the override reuses rather than re-exchanging. This is
 	// what keeps the fix from degenerating into "never cache".
-	if c, err = Resolve(rt, "", "", other.url(), RequestTimeout); err != nil {
+	if c, err = Resolve(rt, Flags{APIURL: other.url(), Timeout: RequestTimeout}); err != nil {
 		t.Fatal(err)
 	}
 	if c.Token != "other-tok" {
@@ -979,7 +979,7 @@ func TestResolveDoesNotReplayACachedTokenToADifferentHost(t *testing.T) {
 
 	// Step 4 — and the binding is symmetric: dropping back to the
 	// profile's host must not replay the other host's token either.
-	if c, err = Resolve(rt, "", "", "", RequestTimeout); err != nil {
+	if c, err = Resolve(rt, Flags{Timeout: RequestTimeout}); err != nil {
 		t.Fatal(err)
 	}
 	if c.Token != "origin-tok" {
@@ -1026,7 +1026,7 @@ func TestResolveFlagOverrides(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "flag-id", "flag-secret", srv.URL, RequestTimeout)
+	c, err := Resolve(rt, Flags{ClientID: "flag-id", ClientSecret: "flag-secret", APIURL: srv.URL, Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1051,7 +1051,7 @@ func TestResolveNoCredentialsIsAuthExit(t *testing.T) {
 		Output:  &output.Renderer{Format: "table"},
 		Stderr:  io.Discard,
 	}
-	_, err := Resolve(rt, "", "", "", RequestTimeout)
+	_, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err == nil {
 		t.Fatal("expected an error with no credentials")
 	}
@@ -1095,7 +1095,7 @@ func TestResolveHalfSuppliedFlagPairDoesNotFallBack(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	_, err := Resolve(rt, "only-an-id", "", srv.URL, RequestTimeout)
+	_, err := Resolve(rt, Flags{ClientID: "only-an-id", APIURL: srv.URL, Timeout: RequestTimeout})
 	if err == nil {
 		t.Fatal("want an error for --client-id without --client-secret")
 	}
@@ -1142,7 +1142,7 @@ func TestResolveExchangeFailureIsAuthExit(t *testing.T) {
 		Output:  &output.Renderer{Format: "table"},
 		Stderr:  io.Discard,
 	}
-	_, err := Resolve(rt, "", "", srv.URL, RequestTimeout)
+	_, err := Resolve(rt, Flags{APIURL: srv.URL, Timeout: RequestTimeout})
 	if err == nil {
 		t.Fatal("expected an error when the exchange fails")
 	}
@@ -2128,7 +2128,7 @@ func TestBearerEditorRefreshesAcrossExpiry(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2193,7 +2193,7 @@ func TestBearerEditorReusesAHealthyToken(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2255,7 +2255,7 @@ func TestBearerEditorRefreshSettlesEphemeral(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := ResolveEphemeral(rt, "", "", "", RequestTimeout)
+	c, err := ResolveEphemeral(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2311,7 +2311,7 @@ func TestBearerEditorRefreshHonoursTheContext(t *testing.T) {
 		Stderr:  io.Discard,
 	}
 
-	c, err := Resolve(rt, "", "", "", RequestTimeout)
+	c, err := Resolve(rt, Flags{Timeout: RequestTimeout})
 	if err != nil {
 		t.Fatal(err)
 	}

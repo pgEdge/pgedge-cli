@@ -24,15 +24,15 @@ var inviteColumns = []string{
 // the empty user ID. The same reason is why `pgedge starfleet user`
 // does not exist.
 //
-// If the CLI gains an interactive user login, delete this guard.
-// TestInviteGuardPremiseStillHolds fails if the auth surface grows in
-// a way that suggests it has.
+// A browser sign-in does carry a user, but the guard stays for both
+// kinds of sign-in until invites are verified with one (a follow-up).
+// TestInviteGuardPremiseStillHolds pins that state.
 func errUserSessionRequired(verb, alternative string) error {
 	return newExitError(fmt.Sprintf(
-		"%s needs a signed-in user. The CLI authenticates with a "+
-			"client ID and secret, which identifies an application "+
-			"rather than a person, so pgEdge Starfleet rejects this "+
-			"operation whatever the credentials. %s",
+		"%s needs a signed-in user in the pgEdge Starfleet UI. An "+
+			"API client identifies an application rather than a "+
+			"person, so pgEdge Starfleet refuses it, and the CLI does "+
+			"not send this request for a browser sign-in either. %s",
 		verb, alternative), ExitAuth)
 }
 
@@ -182,10 +182,11 @@ func newInviteCreateCmd(_ *module.Runtime) *cobra.Command {
 		Short: "Create an invite (needs the web UI)",
 		Long: `create sends a team invite to an email address.
 
-This needs a signed-in user, so it cannot run with a CLI client ID
-and secret: pgEdge Starfleet identifies that as an application rather
-than a person and refuses the request. Invite teammates from the
-Team page in the pgEdge Starfleet UI instead. Exits 5.
+This needs a signed-in user in the pgEdge Starfleet UI. An API client
+identifies an application rather than a person, so pgEdge Starfleet
+refuses it, and the CLI does not send the request for a browser
+sign-in either. Invite teammates from the Team page in the pgEdge
+Starfleet UI instead. Exits 5.
 
 'invite list', 'invite get' and 'invite delete' do work here.
 
@@ -272,10 +273,10 @@ func newInviteAcceptCmd(_ *module.Runtime) *cobra.Command {
 		Short: "Accept an invite (needs the web UI)",
 		Long: `accept joins the team an invite was issued for.
 
-This needs a signed-in user, so it cannot run with a CLI client ID
-and secret: accepting an invite records which person joined, and a
-client credential names an application rather than a person. Accept
-the invite from the link in your invitation email, or in the pgEdge
+This needs a signed-in user in the pgEdge Starfleet UI: accepting an
+invite records which person joined. An API client names an
+application rather than a person, and the CLI does not send the
+request for a browser sign-in either. Accept the invite from the link in your invitation email, or in the pgEdge
 Starfleet UI. Exits 5.
 
 Example:

@@ -297,8 +297,10 @@ var stderrComposedMessages = map[string]struct {
 // 195 -> 198: byoc `node logs` prints time, level and message.
 // 198 -> 199: a branch link's `Using branch` line.
 // 199 -> 200: `branch get` prints the display name.
+// 200 -> 211: browser sign-in's URL, tenant prompt and summary lines,
+// and whoami's `User:` line.
 const (
-	stderrArgSites      = 200
+	stderrArgSites      = 211
 	stderrComposedSites = 22
 )
 

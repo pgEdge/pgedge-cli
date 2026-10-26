@@ -75,7 +75,7 @@ func TestEnvWithExplicitProfileIsAUsageError(t *testing.T) {
 		t.Fatalf("err = %v, want a usage-class ProfileConflictError", err)
 	}
 
-	_, err = Resolve(rt, "", "", "", time.Second)
+	_, err = Resolve(rt, Flags{Timeout: time.Second})
 	var ee *ExitError
 	if !errors.As(err, &ee) || ee.Code() != ExitUsage {
 		t.Fatalf("Resolve err = %v, want exit %d", err, ExitUsage)
@@ -135,7 +135,7 @@ func TestEnvCredentialsNeverTouchTheTokenCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, err := Resolve(rt, "", "", srv.URL, time.Second)
+	c, err := Resolve(rt, Flags{APIURL: srv.URL, Timeout: time.Second})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestEnvCredentialsNeverTouchTheTokenCache(t *testing.T) {
 func TestEnvCredentialsWriteNoCacheFile(t *testing.T) {
 	rt := envRuntime(t)
 	url := testsupport.NewAuthedServer(t, testsupport.JSONHandler(200, "{}"))
-	if _, err := Resolve(rt, "", "", url, time.Second); err != nil {
+	if _, err := Resolve(rt, Flags{APIURL: url, Timeout: time.Second}); err != nil {
 		t.Fatal(err)
 	}
 	current, _ := cachePaths(t)

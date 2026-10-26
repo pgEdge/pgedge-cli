@@ -58,8 +58,7 @@ Example:
 				return conn.NewExitError(fmt.Sprintf("--data: %v", err),
 					conn.ExitUsage)
 			}
-			c, err := conn.Resolve(rt, f.ClientID, f.ClientSecret,
-				f.APIURL, f.Timeout)
+			c, err := conn.Resolve(rt, *f)
 			if err != nil {
 				return err
 			}

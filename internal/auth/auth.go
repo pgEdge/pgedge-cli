@@ -49,6 +49,9 @@ const (
 	SourceEnv      = "env"
 	SourceKeychain = "keychain"
 	SourceConfig   = "config"
+	// SourceBrowser is a browser sign-in: no credentials, only the
+	// user's cached token.
+	SourceBrowser = "browser"
 )
 
 // The environment pair. Empty counts as unset.
@@ -68,6 +71,43 @@ type CachedToken struct {
 	// silent re-exchange.
 	// The name says binding because the digest covers the URL too.
 	Fingerprint string `json:"binding_fingerprint,omitempty"`
+	// User is a browser session's email, else its subject.
+	User string `json:"user,omitempty"`
+}
+
+// sessionFingerprintDomain keeps a browser session's binding apart from
+// an API client's, so neither kind of token can pass for the other.
+const sessionFingerprintDomain = "pgedge-cli/token-cache/session/v1"
+
+// SessionFingerprint binds a browser session's token to the API base URL
+// it was signed in for and the user it belongs to.
+func SessionFingerprint(apiURL, subject string) string {
+	return digest(sessionFingerprintDomain, apiURL, subject)
+}
+
+// SessionFor reports whether t is a browser session token bound to
+// apiURL. A token whose payload cannot be read is not.
+func (t *CachedToken) SessionFor(apiURL string) bool {
+	if t.Fingerprint == "" {
+		return false
+	}
+	c, err := ParseClaims(t.AccessToken)
+	if err != nil {
+		return false
+	}
+	return t.Fingerprint == SessionFingerprint(apiURL, c.Subject)
+}
+
+// digest is SHA-256 over domain and parts, each preceded by a NUL byte
+// so ("a","bc") and ("ab","c") differ.
+func digest(domain string, parts ...string) string {
+	h := sha256.New()
+	h.Write([]byte(domain))
+	for _, p := range parts {
+		h.Write([]byte{0})
+		h.Write([]byte(p))
+	}
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
 // fingerprintDomain separates the binding fingerprint from any other hash
@@ -96,15 +136,7 @@ const fingerprintDomain = "pgedge-cli/token-cache/v2"
 // connection" is one comparison in one place, not two mechanisms that
 // must agree.
 func Fingerprint(apiURL, clientID, clientSecret string) string {
-	h := sha256.New()
-	h.Write([]byte(fingerprintDomain))
-	h.Write([]byte{0})
-	h.Write([]byte(apiURL))
-	h.Write([]byte{0})
-	h.Write([]byte(clientID))
-	h.Write([]byte{0})
-	h.Write([]byte(clientSecret))
-	return "sha256:" + hex.EncodeToString(h.Sum(nil))
+	return digest(fingerprintDomain, apiURL, clientID, clientSecret)
 }
 
 // MintedBy reports whether t was minted for the given API base URL by the
@@ -234,6 +266,8 @@ var ErrNoCredentials = errors.New("no credentials found — use " +
 //
 // The profile's secret comes from the config file when it holds one,
 // else from the keychain; login writes one or the other, never both.
+// A browser-session profile resolves to SourceBrowser with nil
+// credentials.
 func (a *Auth) ResolveCredentials(ap *config.StarfleetProfile,
 	flagID, flagSecret string) (*Credentials, string, error) {
 	creds, err := FlagCredentials(flagID, flagSecret)
@@ -249,6 +283,9 @@ func (a *Auth) ResolveCredentials(ap *config.StarfleetProfile,
 	}
 	if creds != nil {
 		return creds, SourceEnv, nil
+	}
+	if ap.IsBrowserSession() {
+		return nil, SourceBrowser, nil
 	}
 	if ap == nil || ap.ClientID == "" {
 		return nil, "", ErrNoCredentials
@@ -287,7 +324,7 @@ func (a *Auth) KeychainSecret() (string, error) {
 // SaveToken writes the token to the profile+module cache file with
 // 0600 permissions. It refuses a token with no Fingerprint, so no
 // caller, including a future one, can write an unbound cache file;
-// conn.Login, the only caller, always stamps one first.
+// conn.Login and conn.SaveSession, the only callers, stamp one first.
 func (a *Auth) SaveToken(tok *CachedToken) error {
 	if tok.Fingerprint == "" {
 		return fmt.Errorf(

@@ -119,16 +119,54 @@ print_skills_command() {
     echo "  npx -y skills add 'pgEdge/pgedge-cli#$1' --global"
 }
 
+# skills_installed succeeds when the pgedge skills are already in a
+# place an agent loads them from: an npx skills install for the user or
+# for the current directory, a copy in Claude Code's skills directory,
+# or the Claude Code or Codex plugin.
+skills_installed() {
+    claude_home="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
+    codex_home="${CODEX_HOME:-${HOME}/.codex}"
+    for f in "${HOME}/.agents/skills/pgedge/SKILL.md" \
+        ".agents/skills/pgedge/SKILL.md" \
+        "${claude_home}/skills/pgedge/SKILL.md"; do
+        [ -f "$f" ] && return 0
+    done
+    for d in "${claude_home}/plugins/cache/pgedge-cli/pgedge" \
+        "${codex_home}/plugins/cache/pgedge-cli/pgedge"; do
+        [ -d "$d" ] && return 0
+    done
+    return 1
+}
+
+# detect_agents prints the names of the coding agents installed for this
+# user, comma-separated, found by the directories they create. The
+# checks match the ones the skills CLI uses, so an agent named here is
+# one it installs the skills for.
+detect_agents() {
+    found=""
+    add_agent() { found="${found:+${found}, }$1"; }
+    [ -d "${CLAUDE_CONFIG_DIR:-${HOME}/.claude}" ] && add_agent "Claude Code"
+    [ -d "${CODEX_HOME:-${HOME}/.codex}" ] && add_agent "Codex"
+    [ -d "${HOME}/.cursor" ] && add_agent "Cursor"
+    [ -d "${HOME}/.copilot" ] && add_agent "GitHub Copilot"
+    [ -d "${HOME}/.gemini" ] && add_agent "Gemini CLI"
+    [ -d "${HOME}/.codeium/windsurf" ] && add_agent "Windsurf"
+    [ -d "${XDG_CONFIG_HOME:-${HOME}/.config}/amp" ] && add_agent "Amp"
+    printf '%s\n' "$found"
+}
+
 # offer_skills asks on the terminal in $2 whether to install the skills
 # for release $1, and installs them on a yes. Under `curl | sh` stdin is
 # the script itself, so the answer and the skills CLI's own prompts are
 # read from the terminal. A failed install never fails the CLI install.
 offer_skills() {
-    if ! command -v npx >/dev/null 2>&1 \
+    agents=$(detect_agents)
+    if [ -z "$agents" ] || ! command -v npx >/dev/null 2>&1 \
         || ! (exec <"$2") 2>/dev/null; then
         print_skills_command "$1"
         return 0
     fi
+    echo "Found ${agents}."
     printf 'Install the pgedge agent skills for every project now? [Y/n] '
     answer=""
     read -r answer <"$2" || answer=n
@@ -148,9 +186,13 @@ offer_skills() {
 # skills_step offers the skills for release $1 on terminal $2, or prints
 # the command. Only a person at a terminal is asked: an agent running
 # this script captures stdout, and installs the skills its own prompt
-# chose.
+# chose. Nothing is offered when the skills are already installed: an
+# agent that runs the script from inside a pseudo-terminal passes the
+# terminal test, and would otherwise wait on a question nobody answers.
 skills_step() {
-    if [ -z "${CI:-}" ] && [ -t 1 ]; then
+    if skills_installed; then
+        echo "The pgedge agent skills are already installed."
+    elif [ -z "${CI:-}" ] && [ -t 1 ]; then
         offer_skills "$1" "$2"
     else
         print_skills_command "$1"

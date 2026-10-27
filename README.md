@@ -107,9 +107,12 @@ verifies the release's cosign signature. It installs to
 
     curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
 
-At a terminal, the script then offers to install the agent skills for
-your user, pinned to the release it installed. In CI, or when an agent
-runs the script, it prints that command instead.
+At a terminal, the script then names the coding agents it finds, such
+as Claude Code or Cursor, and offers to install the agent skills for
+your user. The skills are pinned to the release it installed. In CI,
+when an agent runs the script, or when it finds no agent, it prints
+that command instead. When the skills are already installed, it says
+so and asks nothing.
 
 To install one release instead of the newest, set `PGEDGE_VERSION`
 to its tag:
@@ -131,6 +134,9 @@ your workflow:
 Install from the pgEdge tap with one command:
 
     brew install pgEdge/tap/pgedge
+
+Homebrew then prints the command that installs the agent skills for
+this release.
 
 ### Installing with npm
 

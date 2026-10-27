@@ -13,6 +13,13 @@ PGEDGE_INSTALL_SH_LIB=1 . "$INSTALL_SH"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
+# A home with one agent in it, and a working directory with no skills,
+# so the offer is made unless a test changes either.
+unset CLAUDE_CONFIG_DIR CODEX_HOME XDG_CONFIG_HOME
+HOME="${WORK}/home"
+mkdir -p "${HOME}/.claude" "${WORK}/proj"
+cd "${WORK}/proj"
+
 fails=0
 check() { # description  actual  want
     if [ "$2" = "$3" ]; then
@@ -114,6 +121,55 @@ for ci in 1 ""; do
         "$(cat "$CALLS")" ""
     check "skills_step with CI='${ci}' prints the command" \
         "$(printf '%s\n' "$OUT" | grep -cF "$WANT_CMD")" 1
+done
+
+# The offer names the agents it found.
+run_offer y
+check "the offer names the agent it found" \
+    "$(printf '%s\n' "$OUT" | grep -c '^Found Claude Code\.$')" 1
+mkdir -p "${HOME}/.cursor" "${HOME}/.config/amp"
+run_offer y
+check "the offer names every agent it found" \
+    "$(printf '%s\n' "$OUT" | grep -c '^Found Claude Code, Cursor, Amp\.$')" 1
+rm -rf "${HOME}/.cursor" "${HOME}/.config"
+
+# With no agent installed, nothing is asked and the command is printed.
+mv "${HOME}/.claude" "${WORK}/claude-away"
+run_offer y
+mv "${WORK}/claude-away" "${HOME}/.claude"
+check "no agent installs nothing" "$(cat "$CALLS")" ""
+check "no agent does not prompt" \
+    "$(printf '%s\n' "$OUT" | grep -c 'now?')" 0
+check "no agent prints the command" \
+    "$(printf '%s\n' "$OUT" | grep -cF "$WANT_CMD")" 1
+
+# CLAUDE_CONFIG_DIR and CODEX_HOME move where the agents live.
+mv "${HOME}/.claude" "${WORK}/claude-away"
+mkdir -p "${WORK}/elsewhere/codex"
+OUT=$(CODEX_HOME="${WORK}/elsewhere/codex" detect_agents)
+check "CODEX_HOME finds Codex" "$OUT" "Codex"
+OUT=$(CLAUDE_CONFIG_DIR="${WORK}/claude-away" detect_agents)
+check "CLAUDE_CONFIG_DIR finds Claude Code" "$OUT" "Claude Code"
+mv "${WORK}/claude-away" "${HOME}/.claude"
+
+# Skills already in any place an agent loads them from are not offered
+# again, even at a terminal: skills_step prints a line and stops.
+check "no skills anywhere is not installed" \
+    "$(skills_installed && echo yes || echo no)" no
+for place in "${HOME}/.agents/skills/pgedge/SKILL.md" \
+    "${WORK}/proj/.agents/skills/pgedge/SKILL.md" \
+    "${HOME}/.claude/skills/pgedge/SKILL.md" \
+    "${HOME}/.claude/plugins/cache/pgedge-cli/pgedge/" \
+    "${HOME}/.codex/plugins/cache/pgedge-cli/pgedge/"; do
+    mkdir -p "$(dirname "$place")"
+    case "$place" in */) mkdir -p "$place" ;; *) : > "$place" ;; esac
+    : > "$CALLS"; printf 'y\n' > "$TTY"
+    OUT=$(skills_step v1.2.3 "$TTY" 2>&1 </dev/null)
+    check "skills in ${place#"$WORK"/} are not offered again" \
+        "$OUT" "The pgedge agent skills are already installed."
+    check "skills in ${place#"$WORK"/} install nothing" "$(cat "$CALLS")" ""
+    rm -rf "${HOME}/.agents" "${WORK}/proj/.agents" \
+        "${HOME}/.claude/skills" "${HOME}/.claude/plugins" "${HOME}/.codex"
 done
 
 if [ "$fails" -ne 0 ]; then

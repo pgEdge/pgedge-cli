@@ -16,8 +16,9 @@ verifies the archive's checksum. When `cosign` is installed, it also
 verifies the release signature. The script installs to `/usr/local/bin`.
 When it cannot write there, it installs to `~/.local/bin` instead.
 Then it sets up shell completion, unless the `CI` environment variable
-is set. At a terminal, it also offers to install the agent skills for
-your user. If the install directory is missing from your PATH, the script
+is set. At a terminal, it names the coding agents it finds and offers
+to install the agent skills for your user, unless they are already
+installed. If the install directory is missing from your PATH, the script
 prints the `export PATH=...` line to add.
 
 To install one release rather than the newest, set `PGEDGE_VERSION`
@@ -222,7 +223,8 @@ On Linux or macOS, install from the pgEdge tap:
 
     brew install pgEdge/tap/pgedge
 
-To update, run `brew upgrade pgedge`.
+Homebrew then prints the command that installs the agent skills for
+this release. To update, run `brew upgrade pgedge`.
 
 ### Installing with GitHub Actions
 

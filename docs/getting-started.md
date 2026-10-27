@@ -228,7 +228,7 @@ To update, run `brew upgrade pgedge`.
 
 Add the action as a step. It installs the release that its tag names:
 
-    - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.4
 
 The action verifies the release signature and checksum before it
 installs. To install another release, set the action's `version`

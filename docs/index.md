@@ -39,7 +39,7 @@ The core guides cover what every module shares, grouped by task:
 |---|---|
 | Setting up and running commands | [Authentication and profiles](auth-and-profiles.md), [Configuration and environment](configuration.md), [Exit codes](exit-codes.md), [Output formats and paging](output-and-paging.md), [Dry runs](dry-run.md) |
 | Connecting an application | [Connecting an Application to a pgEdge Starfleet Managed Database](managed/connect-an-application.md), [Connecting an Application to a pgEdge Starfleet BYOC Database](byoc/connect-an-application.md), [ORM and framework integration](orm-and-frameworks.md) |
-| Inspecting and automating | [Inspect a database](inspect-a-database.md), [AI agents](ai-agents.md), [CI and automation](ci.md) |
+| Inspecting and automating | [Inspect a database](inspect-a-database.md), [AI agents](ai-agents.md), [Agent skills](agent-skills.md), [CI and automation](ci.md) |
 | Getting help | [Troubleshooting](troubleshooting.md), [Error catalog](error-catalog.md), [Versions, uninstall and support](support-versioning-and-uninstall.md) |
 
 Each module also has its own guides:

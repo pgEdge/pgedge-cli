@@ -1,0 +1,25 @@
+{
+  "name": "pgedge",
+  "description": "Agent skills for the pgedge CLI: pgEdge Starfleet Managed and BYOC databases, Starfleet accounts, and a self-hosted pgEdge Control Plane. The skills install the CLI when it is missing.",
+  "version": "0.5.0-beta.4",
+  "author": {
+    "name": "pgEdge, Inc.",
+    "url": "https://www.pgedge.com"
+  },
+  "homepage": "https://github.com/pgEdge/pgedge-cli",
+  "repository": "https://github.com/pgEdge/pgedge-cli",
+  "license": "PostgreSQL",
+  "keywords": ["postgres", "postgresql", "pgedge", "starfleet", "database", "cli"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "pgEdge",
+    "shortDescription": "Manage pgEdge databases",
+    "longDescription": "Agent skills for the pgedge CLI. They manage pgEdge Starfleet Managed and BYOC databases, Starfleet accounts, and a self-hosted pgEdge Control Plane by running pgedge commands and reading the CLI's built-in reference. The skills install the CLI when it is missing.",
+    "developerName": "pgEdge, Inc.",
+    "category": "Coding",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://www.pgedge.com",
+    "composerIcon": "./assets/pgedge-icon.png",
+    "logo": "./assets/pgedge-icon.png"
+  }
+}

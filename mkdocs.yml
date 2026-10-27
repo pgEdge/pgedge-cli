@@ -56,6 +56,7 @@ nav:
   - ORM and framework integration: orm-and-frameworks.md
   - Networking and TLS: networking-and-tls.md
   - AI agents: ai-agents.md
+  - Agent skills: agent-skills.md
   - How the CLI behaves:
       - Configuration and environment: configuration.md
       - Exit codes: exit-codes.md

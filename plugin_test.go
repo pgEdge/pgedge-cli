@@ -17,6 +17,9 @@ type pluginManifest struct {
 	Icon        string `json:"icon"`
 	Logo        string `json:"logo"`
 	Skills      string `json:"skills"`
+	Interface   struct {
+		Logo string `json:"logo"`
+	} `json:"interface"`
 }
 
 func readJSON(t *testing.T, file string, v any) {
@@ -37,16 +40,17 @@ func mustExist(t *testing.T, what, p string) {
 	}
 }
 
-// TestPluginManifestsAgree holds the Claude and Cursor manifests to one
-// plugin, pinned to one release: the marketplace installs the skills from
+// TestPluginManifestsAgree holds the Claude, Cursor and Codex manifests to
+// one plugin, pinned to one release: the marketplace installs the skills from
 // the tag of that release, so they describe the binary users have. The
 // release workflow refuses a tag that doesn't match the version.
 func TestPluginManifestsAgree(t *testing.T) {
-	var claude, cursor pluginManifest
+	var claude, cursor, codex pluginManifest
 	readJSON(t, filepath.Join(pluginDir, ".claude-plugin", "plugin.json"), &claude)
 	readJSON(t, ".cursor-plugin/plugin.json", &cursor)
+	readJSON(t, filepath.Join(pluginDir, ".codex-plugin", "plugin.json"), &codex)
 
-	var market struct {
+	type marketplace struct {
 		Plugins []struct {
 			Name   string `json:"name"`
 			Source struct {
@@ -57,36 +61,49 @@ func TestPluginManifestsAgree(t *testing.T) {
 			} `json:"source"`
 		} `json:"plugins"`
 	}
-	readJSON(t, ".claude-plugin/marketplace.json", &market)
+	var claudeMarket, codexMarket marketplace
+	readJSON(t, ".claude-plugin/marketplace.json", &claudeMarket)
+	readJSON(t, ".agents/plugins/marketplace.json", &codexMarket)
 
-	if claude.Name != "pgedge" || cursor.Name != "pgedge" {
-		t.Errorf("plugin names are %q (Claude) and %q (Cursor), want pgedge; "+
-			"a published name must never change", claude.Name, cursor.Name)
+	if claude.Name != "pgedge" || cursor.Name != "pgedge" || codex.Name != "pgedge" {
+		t.Errorf("plugin names are %q (Claude), %q (Cursor) and %q (Codex), want pgedge; "+
+			"a published name must never change", claude.Name, cursor.Name, codex.Name)
 	}
-	if claude.Description == "" || claude.Description != cursor.Description {
-		t.Errorf("descriptions differ or are empty:\nClaude: %q\nCursor: %q",
-			claude.Description, cursor.Description)
+	if claude.Description == "" || claude.Description != cursor.Description ||
+		claude.Description != codex.Description {
+		t.Errorf("descriptions differ or are empty:\nClaude: %q\nCursor: %q\nCodex: %q",
+			claude.Description, cursor.Description, codex.Description)
 	}
-	if claude.Version == "" || claude.Version != cursor.Version {
-		t.Errorf("versions are %q (Claude) and %q (Cursor), want one release version",
-			claude.Version, cursor.Version)
+	if claude.Version == "" || claude.Version != cursor.Version || claude.Version != codex.Version {
+		t.Errorf("versions are %q (Claude), %q (Cursor) and %q (Codex), want one release version",
+			claude.Version, cursor.Version, codex.Version)
 	}
-	if len(market.Plugins) != 1 {
-		t.Fatalf("marketplace.json has %d plugins, want 1", len(market.Plugins))
-	}
-	entry := market.Plugins[0]
-	if entry.Name != claude.Name || entry.Source.Source != "git-subdir" ||
-		entry.Source.URL != "https://github.com/pgEdge/pgedge-cli.git" || entry.Source.Path != pluginDir ||
-		entry.Source.Ref != "v"+claude.Version {
-		t.Errorf("marketplace.json entry = %+v, want %q from git-subdir "+
-			"https://github.com/pgEdge/pgedge-cli.git path %s ref v%s",
-			entry, claude.Name, pluginDir, claude.Version)
+	for file, m := range map[string]marketplace{
+		".claude-plugin/marketplace.json":  claudeMarket,
+		".agents/plugins/marketplace.json": codexMarket,
+	} {
+		if len(m.Plugins) != 1 {
+			t.Errorf("%s has %d plugins, want 1", file, len(m.Plugins))
+			continue
+		}
+		entry := m.Plugins[0]
+		if entry.Name != claude.Name || entry.Source.Source != "git-subdir" ||
+			entry.Source.URL != "https://github.com/pgEdge/pgedge-cli.git" ||
+			path.Clean(entry.Source.Path) != pluginDir || entry.Source.Ref != "v"+claude.Version {
+			t.Errorf("%s entry = %+v, want %q from git-subdir "+
+				"https://github.com/pgEdge/pgedge-cli.git path %s ref v%s",
+				file, entry, claude.Name, pluginDir, claude.Version)
+		}
 	}
 
 	// Claude resolves the icon from the plugin folder, Cursor resolves its
 	// paths from the repository root.
 	mustExist(t, "Claude icon", filepath.Join(pluginDir, claude.Icon))
 	mustExist(t, "Cursor logo", cursor.Logo)
+	mustExist(t, "Codex logo", filepath.Join(pluginDir, codex.Interface.Logo))
+	if path.Clean(codex.Skills) != "skills" {
+		t.Errorf("Codex skills = %q, want ./skills/", codex.Skills)
+	}
 	if path.Clean(cursor.Skills) != pluginDir+"/skills" {
 		t.Errorf("Cursor skills = %q, want ./%s/skills", cursor.Skills, pluginDir)
 	}

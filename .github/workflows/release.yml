@@ -44,18 +44,20 @@ jobs:
       - name: Check the plugin is pinned to this tag
         run: |
           want="${GITHUB_REF_NAME#v}"
-          for f in plugins/pgedge/.claude-plugin/plugin.json .cursor-plugin/plugin.json; do
+          for f in plugins/pgedge/.claude-plugin/plugin.json .cursor-plugin/plugin.json plugins/pgedge/.codex-plugin/plugin.json; do
             got=$(jq -r .version "$f")
             if [ "$got" != "$want" ]; then
               echo "::error::$f has version $got; the tag needs $want"
               exit 1
             fi
           done
-          ref=$(jq -r '.plugins[0].source.ref' .claude-plugin/marketplace.json)
-          if [ "$ref" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::marketplace.json pins $ref; the tag is $GITHUB_REF_NAME"
-            exit 1
-          fi
+          for f in .claude-plugin/marketplace.json .agents/plugins/marketplace.json; do
+            ref=$(jq -r '.plugins[0].source.ref' "$f")
+            if [ "$ref" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::$f pins $ref; the tag is $GITHUB_REF_NAME"
+              exit 1
+            fi
+          done
       - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
         with:
           # Pinned because cmd/caskpatch is tested against this

@@ -104,7 +104,7 @@ To remove completion after either route, run
 ## Setting Up Your AI Agent
 
 Install the pgedge skills for your user, so every project has them.
-Claude Code, Cursor, Copilot, Amp and a dozen others read the same
+Claude Code, Codex, Cursor, Copilot, Amp and a dozen others read the same
 location:
 
     npx skills add pgEdge/pgedge-cli --global
@@ -114,11 +114,9 @@ installed the binary with `go install` or from a release archive. An
 agent session that is already running loads the skills after a
 restart, or after `/reload-plugins` in Claude Code.
 
-To share the setup with teammates and cloud agents, run the command
-without `--global` from the repository. The README's
-"Installing the AI-Agent Skills" section covers updating and removing
-the skills. It also covers the manual-copy path for agents without
-Node.
+[Installing the Agent Skills](agent-skills.md) covers sharing the
+skills with teammates, the Claude Code and Codex plugins, and copying
+the skills by hand for agents without Node.js.
 
 ## Reading the AI-Agent Reference
 
@@ -153,8 +151,7 @@ lists what each route needs:
 | Clone and build | Go 1.26 or newer |
 
 On macOS, `brew install node` and `brew install go` cover those. Only
-`npx skills add` and the npm route use Node. The README's manual-copy
-path installs the skills by hand.
+`npx skills add` and the npm route use Node.
 
 To download a release archive, follow the README's
 "Downloading a Release by Hand" section. To ask a question or report a

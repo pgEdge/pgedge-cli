@@ -32,8 +32,14 @@ In Claude Code:
 
     /plugin install pgedge --marketplace pgEdge/pgedge-cli
 
-The [repository README](https://github.com/pgEdge/pgedge-cli#installing-the-ai-agent-skills)
-covers other agents, which install with `npx skills add pgEdge/pgedge-cli`.
+In Codex:
+
+    codex plugin marketplace add pgEdge/pgedge-cli
+    codex plugin add pgedge@pgedge-cli
+
+Other agents install with `npx skills add pgEdge/pgedge-cli`.
+[Installing the Agent Skills](https://github.com/pgEdge/pgedge-cli/blob/main/docs/agent-skills.md)
+covers every route.
 
 ## License
 

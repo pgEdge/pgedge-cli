@@ -77,7 +77,9 @@ Remove whichever of the remaining pieces your install has:
   for a global install) with a `skills-lock.json` beside them, and
   `npx skills remove pgedge pgedge-starfleet pgedge-byoc pgedge-managed
   pgedge-controlplane` takes them out again. A copy placed by hand
-  under `~/.claude/skills/` is deleted by hand.
+  under `~/.claude/skills/` is deleted by hand. A plugin install is
+  removed with `claude plugin uninstall pgedge@pgedge-cli` in Claude
+  Code, or `codex plugin remove pgedge@pgedge-cli` in Codex.
 - `~/.pgedge/cli`, which holds the config file and the cached tokens.
   Deleting the directory signs you out and drops every profile.
 

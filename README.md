@@ -260,67 +260,26 @@ prefer to wire it up by hand.
 
 ## Installing the AI-Agent Skills
 
-pgEdge ships agent skills in the `plugins/pgedge/skills/` directory
-of this repository. Each skill is a SKILL.md file in the Agent Skills
-open standard. The directory holds five skills:
-
-- `pgedge`: an orientation to the pgedge CLI, and which module to
-  choose
-- `pgedge-starfleet`: pgEdge Starfleet authentication, invites and
-  team memberships
-- `pgedge-byoc`: pgEdge Starfleet BYOC resources
-- `pgedge-managed`: pgEdge Starfleet Managed databases, which pgEdge
-  hosts
-- `pgedge-controlplane`: pgEdge Control Plane resources
-
-Skills are a layer above the CLI, so they install separately. The
-install script offers to install them when it runs at a terminal.
-When an agent finds no `pgedge` on the PATH, the skills tell it to
-install the CLI first.
-
-On a single-user machine, install all five for your user, so every
-project has them. The command detects your agent:
+pgEdge ships five agent skills in `plugins/pgedge/skills/`. They teach
+a coding agent to run `pgedge` correctly. The install script offers to
+install them when it runs at a terminal. To install them yourself, for
+your user, run:
 
     npx skills add pgEdge/pgedge-cli --global
 
-The command writes to `.agents/skills/` in your home directory, the
-shared location that supporting agents read. For agents with their own
-convention, it adds a symlink. That way Claude Code, Cursor, Copilot,
-Amp, Antigravity and a dozen others pick up the skills from a single
-install.
-
-To share the setup with teammates and cloud agents, run the command
-without `--global` from the repository. The skills then land in that
-project, and `skills-lock.json` pins each one by content hash. Commit
-both.
-
-To match the skills to an installed release, name its tag:
-
-    npx skills add 'pgEdge/pgedge-cli#<release-tag>' --global
-
-An agent session that is already running loads new skills after a
-restart, or after `/reload-plugins` in Claude Code. Afterward,
-`npx skills list`, `update` and `remove` manage the skills.
-
-In Claude Code, the repository is also a plugin marketplace. One
-command installs all five skills as the `pgedge` plugin, and
-`claude plugin update` refreshes them:
+That one command serves Claude Code, Codex, Cursor, Copilot, Amp,
+Antigravity and a dozen others. The repository is also a plugin
+marketplace. In Claude Code, install the `pgedge` plugin:
 
     /plugin install pgedge --marketplace pgEdge/pgedge-cli
 
-To install a single skill:
+In Codex, add the marketplace, then install the plugin:
 
-    npx skills add pgEdge/pgedge-cli --skill pgedge-managed
+    codex plugin marketplace add pgEdge/pgedge-cli
+    codex plugin add pgedge@pgedge-cli
 
-To install without Node.js, copy the skills by hand. This works with
-any agent:
-
-    git clone https://github.com/pgEdge/pgedge-cli
-    mkdir -p .agents/skills
-    cp -r pgedge-cli/plugins/pgedge/skills/* .agents/skills/
-
-To install for Claude Code alone, use `~/.claude/skills/` in place of
-`.agents/skills/`.
+[Installing the Agent Skills](docs/agent-skills.md) covers every
+route, pinning the skills to a release, and installing without Node.js.
 
 ## Running the Quickstart
 

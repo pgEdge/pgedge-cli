@@ -61,52 +61,15 @@ because it describes the binary that is installed.
 
 ### Installing the Agent Skills
 
-pgEdge ships five agent skills in the `plugins/pgedge/skills/`
-directory of the repository. They follow the Agent Skills open
-standard. The following table describes what each one covers:
-
-| Skill | Covers |
-|---|---|
-| `pgedge` | CLI orientation, choosing a module, profiles and installation. |
-| `pgedge-starfleet` | pgEdge Starfleet authentication, API clients, team invites and memberships. |
-| `pgedge-byoc` | BYOC clusters, databases, services, ingresses, backups and SSH keys. |
-| `pgedge-managed` | Managed databases, their services and their backups. |
-| `pgedge-controlplane` | A self-hosted Control Plane: cluster formation, databases, backups and failover. |
-
-One command installs all five for your user and detects your agent:
+pgEdge ships five agent skills, one for orientation and one for each
+product area. They follow the Agent Skills open standard. One command
+installs them for your user and detects your agent:
 
     npx skills add pgEdge/pgedge-cli --global
 
-The installer writes to `.agents/skills/` in your home directory, the
-shared location that supporting agents read. For agents with a
-convention of their own, it adds a symlink to that location. As a
-result, Claude Code, Cursor, Copilot, Amp, Antigravity and a dozen
-others pick up the skills from one install.
-
-Without `--global`, the skills land in the repository you run the
-command from, so teammates and cloud agents share the setup. After the
-install, the same tool's `list`, `update` and `remove` commands
-manage the skills. A project install writes `skills-lock.json`, which
-pins each skill by content hash.
-
-In Claude Code, the repository is also a plugin marketplace, and one
-command installs all five skills as the `pgedge` plugin:
-
-    /plugin install pgedge --marketplace pgEdge/pgedge-cli
-
-Skills are a layer above the CLI, so you install them separately from
-the `pgedge` binary. When an agent finds no `pgedge` on the PATH, the
-skills tell it to install the CLI first. The README's "Installing the
-AI-Agent Skills" section covers three more cases:
-
-- installing a single skill
-- pinning the skills to an installed release
-- copying the skills by hand for an agent without Node
-
-Some agents read neither `.agents/skills/` nor a convention the
-installer links. For such an agent, copy the directories under
-`plugins/pgedge/skills/` to the place that agent reads. Confirm that
-place in the agent's own documentation. The rest of the setup stays the same.
+[Installing the Agent Skills](agent-skills.md) covers the Claude Code
+and Codex plugins, pinning the skills to a release, and copying them
+by hand.
 
 ### Parsing Command Output
 

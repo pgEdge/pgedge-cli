@@ -122,7 +122,7 @@ On Linux and macOS runners, the action installs the release that its
 own tag names, and verifies that release's signature. Add this step to
 your workflow:
 
-    - uses: pgEdge/pgedge-cli@v0.5.0-beta.3
+    - uses: pgEdge/pgedge-cli@v0.5.0-beta.4
 
 [CI and automation](docs/ci.md) shows a full pipeline.
 

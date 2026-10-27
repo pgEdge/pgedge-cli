@@ -189,10 +189,12 @@ func TestRunStagesEveryPlatform(t *testing.T) {
 
 func TestRunDistTag(t *testing.T) {
 	tests := []struct {
-		version, tag, spec string
+		version, tag, spec, skills string
 	}{
-		{"0.5.0-beta.2", "beta", "npm install -g @pgedge/cli@beta\n"},
-		{"1.0.0", "latest", "npm install -g @pgedge/cli\n"},
+		{"0.5.0-beta.2", "beta", "npm install -g @pgedge/cli@beta\n",
+			"npx -y skills add 'pgEdge/pgedge-cli#v0.5.0-beta.2' --global\n"},
+		{"1.0.0", "latest", "npm install -g @pgedge/cli\n",
+			"npx -y skills add 'pgEdge/pgedge-cli#v1.0.0' --global\n"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.version, func(t *testing.T) {
@@ -205,8 +207,9 @@ func TestRunDistTag(t *testing.T) {
 				t.Errorf("dist-tag = %q, want %q", tag, tt.tag)
 			}
 			page, _ := os.ReadFile(filepath.Join(out, "cli", "README.md"))
-			if !strings.Contains(string(page), tt.spec) || strings.Contains(string(page), "{{") {
-				t.Errorf("README does not carry %q:\n%s", tt.spec, page)
+			if !strings.Contains(string(page), tt.spec) || !strings.Contains(string(page), tt.skills) ||
+				strings.Contains(string(page), "{{") {
+				t.Errorf("README does not carry %q and %q:\n%s", tt.spec, tt.skills, page)
 			}
 		})
 	}

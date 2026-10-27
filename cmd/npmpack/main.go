@@ -181,7 +181,7 @@ func run(assets, version, out string) error {
 	if tag != "latest" {
 		spec += "@" + tag
 	}
-	page := strings.ReplaceAll(string(readme), "{{spec}}", spec)
+	page := strings.NewReplacer("{{spec}}", spec, "{{release}}", "v"+version).Replace(string(readme))
 	if err := writeFile(filepath.Join(dir, "README.md"), []byte(page), 0o644); err != nil {
 		return err
 	}

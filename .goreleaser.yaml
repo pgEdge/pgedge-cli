@@ -67,6 +67,10 @@ homebrew_casks:
     skip_upload: true
     homepage: https://github.com/pgEdge/pgedge-cli
     description: Unified CLI for the pgEdge product suite
+    # One line: goreleaser writes each line as its own string in a
+    # caveats block, and Homebrew shows only the block's last value.
+    # Pinned to the tag, as install.sh pins it.
+    caveats: "To give your AI agent the pgedge skills in every project, run: npx -y skills add 'pgEdge/pgedge-cli#{{ .Tag }}' --global"
     completions:
       bash: completions/pgedge.bash
       zsh: completions/pgedge.zsh

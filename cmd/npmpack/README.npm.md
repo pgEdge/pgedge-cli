@@ -15,5 +15,12 @@ npx {{spec}} --help
 Update it through npm the same way you installed it; `pgedge self
 update` refuses an npm install.
 
+To give your AI agent the pgedge skills in every project, install them
+for the release this package carries:
+
+```sh
+npx -y skills add 'pgEdge/pgedge-cli#{{release}}' --global
+```
+
 The documentation, the other install routes and the source are at
 [github.com/pgEdge/pgedge-cli](https://github.com/pgEdge/pgedge-cli).

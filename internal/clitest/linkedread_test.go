@@ -20,6 +20,7 @@ var linkedReads = []string{
 	"pgedge starfleet managed database get",
 	"pgedge starfleet managed database inspect",
 	"pgedge starfleet managed database logs",
+	"pgedge starfleet managed database mcp connection",
 	"pgedge starfleet managed database metrics",
 }
 

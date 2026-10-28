@@ -306,10 +306,11 @@ var stderrComposedMessages = map[string]struct {
 // 215 -> 218: a renewal that falls back to the current token, a
 // replaced session that could not be revoked, and an API-client login
 // that could not remove the session it replaced.
-// 218 -> 220, 22 -> 23: client create --secret-file's path lines and
-// its stderr fallback for the secret.
+// 218 -> 222, 22 -> 23: client create --secret-file's path lines and
+// its stderr fallback for the secret; `mcp connection` prints the URI
+// and token lines.
 const (
-	stderrArgSites      = 220
+	stderrArgSites      = 222
 	stderrComposedSites = 23
 )
 

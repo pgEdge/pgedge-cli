@@ -177,6 +177,7 @@ when you leave out its ID:
 - `database metrics`
 - `database allowlist get`
 - `database branch list`
+- `database mcp connection`
 
 Each one prints `Using database <db-id> from <path>` on stderr, so you
 can see which database answered. Run this in a linked folder to print

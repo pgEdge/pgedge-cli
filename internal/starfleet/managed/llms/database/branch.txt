@@ -94,8 +94,9 @@ Shows one branch's detail row. `--user-type` picks which role's
 credentials come back in the connection block, admin, app (the
 default) or app_read_only; the connection is present only while the branch is
 connectable. An MCP service on a branch has its own `uri` and its own
-bearer token in `mcp_config.init_tokens`, both read from this GET; the
-source's token is refused with 401 at the branch's endpoint.
+bearer token in `mcp_config.init_tokens`, both read from this GET or
+printed alone by `mcp connection <database_id> --branch <branch_id>`;
+the source's token is refused with 401 at the branch's endpoint.
 
 **Example:**
 

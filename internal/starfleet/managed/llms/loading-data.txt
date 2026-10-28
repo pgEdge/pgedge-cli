@@ -23,8 +23,12 @@ once admin has handed it over:
 
 1. Connected as admin, run `CREATE DATABASE <name>`.
 2. Still as admin, run `ALTER DATABASE <name> OWNER TO app`.
-3. Connected as admin to `<name>`, run `REASSIGN OWNED BY admin TO
-   app`.
+3. Create tables and load data in `<name>` as app, so app owns them.
+
+If admin has already created objects in `<name>`, connect to `<name>`
+as admin and run `REASSIGN OWNED BY admin TO app`. That statement also
+hands app every other database admin owns, so run it only when each of
+them should belong to app.
 
 `--dbname <name>` on `database connection-string`, `database env pull`
 and `database inspect` swaps only the database name in the URI the

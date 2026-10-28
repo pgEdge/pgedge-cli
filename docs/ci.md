@@ -173,7 +173,8 @@ explains why the record is the signal. The complete workflow:
               set -euo pipefail
               pgedge starfleet managed backup create \
                   --database-id "$DB_ID" --kind hot \
-                  --wait --timeout 60s -o json > backup.json
+                  --wait --wait-timeout 1800 --timeout 60s \
+                  -o json > backup.json
 
 The `pgEdge/pgedge-cli` action installs the release its tag names, so
 every run installs the same binary until you change the tag. The

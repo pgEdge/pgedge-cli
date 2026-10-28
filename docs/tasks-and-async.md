@@ -54,13 +54,12 @@ And on the Control Plane a task can also end `canceled`, a third
 terminal outcome that exits 1 like a failure everywhere except
 `task cancel` itself, where reaching it is the point.
 
-On managed, a wait does not stop at the task. When the task succeeds,
-`--wait` and `--follow` read the resource until it reaches its end
-status, within the same `--wait-timeout`. A database must be
-`available`, a deleted database or branch must answer not found, and a
-new branch must be `available`. A resource that settles on another
-status, such as `degraded`, ends the wait at exit status 1, naming
-that status. `database wait
+On managed, a wait does not stop at the task. When the task succeeds, `--wait`
+and `--follow` read the resource until it reaches its end status, within the
+same `--wait-timeout`. A database must be `available`, a deleted database or
+branch must answer not found or read status `deleted`, and a new branch must be
+`available`. A resource that settles on another status, such as `degraded`,
+ends the wait at exit status 1, naming that status. `database wait
 <database-id>` applies the same rule without a write.
 
 Exit 3 does not mean the command is safe to repeat. The write already
@@ -120,7 +119,7 @@ honestly for each managed write:
 | Write | Signal to trust |
 |---|---|
 | `database create` | `--wait`, which ends at exit status 0 when the database is `available`. |
-| `database delete` | `--wait`, which ends at exit status 0 when `database get` answers not found. |
+| `database delete` | `--wait`, which ends at exit status 0 when `database get` answers not found or reads status `deleted`. |
 | `database resize` | `--wait`. The status moves to `modifying`, and a `degraded` end is exit status 1. |
 | `database rotate-password` | `--wait`, with the timeout caveat below. |
 | Any services write | `--wait`, then ask the service itself, because `state` is not readiness (see below). |

@@ -233,8 +233,8 @@ change, as on `update`, and the LLM API keys may be omitted.
 
 `--allow`, `--my-ip` and `--open` set a new service's allowlist, as on
 `deploy`. On a deployed service they are exit status 2 with nothing
-sent, and
-the error names `database allowlist add <database_id> --service rag`
+sent, and the error names `database allowlist add <database_id>
+--service rag`
 as the command for its rules.
 
 **Example:**

@@ -149,9 +149,9 @@ resource until it reaches its end status, all within one
 
 | Command | End status |
 |---|---|
-| `database delete` | `database get` answers not found |
+| `database delete` | `database get` answers not found, or reads status `deleted` |
 | `database branch create` | the branch is `available` |
-| `database branch delete` | `branch get` answers not found |
+| `database branch delete` | `branch get` reads status `deleted`, or answers not found |
 | `backup create` | the backup record is `completed`; no task is read |
 | Every other write | the database is `available` |
 

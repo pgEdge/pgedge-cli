@@ -257,7 +257,7 @@ Deploy or update the MCP server on a database
 
 ###### pgedge starfleet managed database mcp apply
 
-Deploy a MCP server when the database has none, and update the
+Deploy an MCP server when the database has none, and update the
 deployed one otherwise, in one command with one exit status. Use it
 wherever a script would otherwise choose between `deploy` and
 `update`.
@@ -274,9 +274,8 @@ omitting it deploys a read-only server.
 
 `--allow`, `--my-ip` and `--open` set a new service's allowlist, as on
 `deploy`. On a deployed service they are exit status 2 with nothing
-sent, and
-the error names `database allowlist add <database_id> --service mcp`
-as the command for its rules.
+sent, and the error names `database allowlist add <database_id>
+--service mcp` as the command for its rules.
 
 **Example:**
 

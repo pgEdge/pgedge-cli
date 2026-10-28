@@ -74,13 +74,14 @@ takes on its schedule.
     --database-id <db-id>` reads the same record and returns up to 100
     backups, newest first.
 
-With `--wait`, `backup create` reads the backup record until it is
-`completed`, exit status 0, or `failed`, exit status 1. When
-`--wait-timeout` passes first, the exit status is 3. The command also spawns a
-`backup-managed` task, which reaches `succeeded` while the backup
-record is still `pending`, so never wait on that task. `backup create`
-also never moves the database's status, so reading `database get`
-during a backup proves nothing.
+With `--wait`, `backup create` reads the backup record until it is `completed`,
+exit status 0, or `failed`, exit status 1. When `--wait-timeout` passes first,
+the exit status is 3. Without `--wait`, poll `backup get` until the backup is
+`completed` or `failed`, because waiting for `completed` alone never ends on a
+failed backup. The command also spawns a `backup-managed` task, which reaches
+`succeeded` while the backup record is still `pending`, so never wait on that
+task. `backup create` also never moves the database's status, so reading
+`database get` during a backup proves nothing.
 
 ## Choosing a Backup Tier
 

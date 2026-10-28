@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Managed `--wait` and `--follow` wait for the database or branch to
+  reach its end state, not only for the task, and exit 1 naming any
+  other status it settles on. `starfleet managed database wait` waits
+  on its own.
+- `managed backup create --wait` waits for the backup itself to
+  complete.
+- `managed database mcp apply` and `rag apply` deploy a service, or
+  update the one already there.
+- `managed database mcp deploy` and `rag deploy` take `--allow`,
+  `--my-ip` and `--open`, so a new service starts with its allowlist.
+- `--dbname` on `managed database connection-string`, `env pull` and
+  `inspect` reaches another database inside the same managed database.
 - `starfleet client create --secret-file <path>` writes the new
   secret to a file only you can read, and prints the client without
   it.

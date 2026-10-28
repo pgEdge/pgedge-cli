@@ -14,7 +14,8 @@ import (
 )
 
 // settleGone is the end state a delete waits for: the read answering
-// 404.
+// 404, or a status of "deleted", which is what a deleted branch's read
+// returns (measured 2026-10-28; branches are soft-deleted).
 const settleGone = "deleted"
 
 // subjectStatuses is the documented status vocabulary (the "Database

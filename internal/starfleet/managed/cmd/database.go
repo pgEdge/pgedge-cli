@@ -875,7 +875,7 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Database %s deleted.\n", id)
+			fmt.Fprintf(rt.Stderr, "Database %s deletion requested.\n", id)
 			return trackMutation(rt, client, id.String(), base,
 				databaseSettle(client, id.String(), settleGone))
 		},

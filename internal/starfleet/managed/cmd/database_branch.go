@@ -421,7 +421,7 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Branch %s deleted.\n", branchID)
+			fmt.Fprintf(rt.Stderr, "Branch %s deletion requested.\n", branchID)
 			return trackMutation(rt, client, branchID.String(), base,
 				branchSettle(client, databaseID.String(),
 					branchID.String(), settleGone))

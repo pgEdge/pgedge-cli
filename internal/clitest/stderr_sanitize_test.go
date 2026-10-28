@@ -81,6 +81,11 @@ var stderrSafeArgs = map[string]struct {
 	why   string
 	files map[string]bool
 }{
+	"shellQuote(output.Sanitize(path))": {
+		"Sanitize runs first, and quoting adds only ' and \\, so no " +
+			"control character reaches the verb",
+		map[string]bool{"../dotenv/git.go": true},
+	},
 	"id": {
 		"a UUID type: %s renders hex via String(), so no " +
 			"server byte reaches the verb",

@@ -379,7 +379,7 @@ Create a cluster
 | `--instance-type string` | No |  | Instance type for all nodes (shorthand for --node; creates one node per region) |
 | `--name string` | Yes |  | Cluster name |
 | `--network stringArray` | No |  | Network settings (repeatable, one per region). Keys: region, cidr, public-subnets, private-subnets, subnets, external, external-id, name. AWS and Azure use public-subnets and private-subnets; GCP uses subnets. e.g. region=us-east-1,cidr=10.4.0.0/16,public-subnets=10.4.1.0/24,private-subnets=10.4.128.0/24 |
-| `--node stringArray` | No |  | Node settings (repeatable). e.g. name=n1,region=us-east-1,instance-type=r7g.medium,volume-size=30 |
+| `--node stringArray` | No |  | Node settings (repeatable). Keys: name, region, instance-type, volume-size, volume-iops, volume-type, availability-zone. e.g. name=n1,region=us-east-1,instance-type=r7g.medium,volume-size=30 |
 | `--node-location string` | Yes |  | Node location: private or public |
 | `--regions strings` | Yes |  | Comma-separated list of regions |
 | `--volume-size int` | No |  | Volume size in GB for all nodes, 1 or more (shorthand for --node; creates one node per region) |
@@ -660,7 +660,7 @@ pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-4567890
 pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
   --node n2 --no-password
 pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
-  --node n1 --internal --format env > .env
+  --node n1 --internal --format env
 ```
 
 #### pgedge starfleet byoc database create
@@ -713,6 +713,41 @@ Delete a database
 pgedge starfleet byoc database delete f6a7b8c9-d0e1-2345-fabc-456789012345
 pgedge starfleet byoc database delete f6a7b8c9-d0e1-2345-fabc-456789012345 \
   --force --wait
+```
+
+#### pgedge starfleet byoc database env
+
+**Usage:** `pgedge starfleet byoc database env <command>`
+
+Write a database's connection into a .env file
+
+**Example:**
+
+```
+pgedge starfleet byoc database env pull f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+##### pgedge starfleet byoc database env pull
+
+**Usage:** `pgedge starfleet byoc database env pull <database_id> [flags]`
+
+Write DATABASE_URL for a database node into .env
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--file string` | No | `.env` | File to write |
+| `--internal` | No |  | Use the node's internal_host, for a client inside the cluster |
+| `--node string` | No |  | Node whose connection to write (required with several nodes) |
+| `--var string` | No | `DATABASE_URL` | Variable name to set |
+
+**Example:**
+
+```
+pgedge starfleet byoc database env pull f6a7b8c9-d0e1-2345-fabc-456789012345
+pgedge starfleet byoc database env pull f6a7b8c9-d0e1-2345-fabc-456789012345 \
+  --node n1 --internal --file .env.local
 ```
 
 #### pgedge starfleet byoc database get

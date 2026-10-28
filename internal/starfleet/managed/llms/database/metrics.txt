@@ -63,8 +63,8 @@ for three minutes or more. A metric with no value anywhere in the window
 is omitted from the response rather than shown blank, so a narrow window
 returns fewer rows at exit 0, and text output notes a one-sample window
 on stderr because that is the shape in which metrics vanish. Widen the
-window, which has returned the full column set from two minutes to two
-days, and read `-o json` to see which metrics the API sent.
+window, which has returned the full column set up to two days, and read
+`-o json` to see which metrics the API sent.
 
 **Example:**
 

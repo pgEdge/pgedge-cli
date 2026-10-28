@@ -120,6 +120,7 @@ Create an API client
 | `--description string` | Yes |  | What this client is for |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--name string` | Yes |  | Name for the new API client |
+| `--secret-file string` | No |  | Write the client secret to this new file instead of stdout |
 
 <!-- END GENERATED -->
 
@@ -148,9 +149,23 @@ non-pointer fields — the API rejects a request that omits either.
   **`auth0_secret`**, so `yq '.auth0_secret'` and
   `jq '.auth0_secret'` both return the secret.
 
+**Write the secret to a file instead.** `--secret-file <path>` writes
+the secret, followed by a newline, to a new file with mode 0600, and
+the secret appears on neither stdout nor stderr. stdout then carries
+the client without the secret: the `client get` table under
+`-o text`, and the object without `auth0_secret` under `-o json` and
+`-o yaml`. Pass that file to `auth login --client-secret-file` to sign
+in as the new client. A path that already exists is exit status 2,
+refused before any request, so no client is created. If the command
+fails before the client is created, the file is removed. If the
+client is created but the file cannot be written, the secret is
+printed on stderr instead, with exit status 1.
+
 **Example:**
 
 ```bash
+pgedge starfleet client create --name ci --description "CI runner" \
+    --secret-file ci.secret
 pgedge starfleet client create --name ci --description "CI runner"
 pgedge starfleet client create --name ci --description "CI runner" \
     -o json

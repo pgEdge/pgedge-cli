@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -50,7 +51,8 @@ Example:
 }
 
 func newAuthLoginCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	var insecureStorage, apiClient bool
+	var insecureStorage, apiClient, secretStdin bool
+	var secretFile string
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate with pgEdge Starfleet",
@@ -75,7 +77,11 @@ login fails with exit 5 and asks for an API client.
 
 An API client is the unattended path, for CI and scripts. Supply
 --client-id and --client-secret, or --api-client to be prompted for
-them; the secret is never echoed. login exchanges them for an access
+them; the secret is never echoed. In place of --client-secret,
+--client-secret-stdin reads the secret from standard input and
+--client-secret-file reads it from a file, which keeps it out of the
+process list and shell history; one trailing newline is dropped. The
+three secret flags are mutually exclusive (exit 2). login exchanges them for an access
 token and saves them to the profile. The secret goes to the OS
 keychain (Keychain on macOS, the Secret Service on Linux, Credential
 Manager on Windows); the client ID and API URL go to
@@ -99,17 +105,23 @@ the profile until they are unset.
 Example:
   pgedge starfleet auth login
   pgedge starfleet auth login --tenant TENANT_ID
-  pgedge starfleet auth login --client-id ID --client-secret SECRET
+  pgedge starfleet auth login --client-id ID --client-secret-file FILE
+  pgedge starfleet auth login --client-id ID --client-secret-stdin < FILE
   pgedge starfleet auth login --api-client --insecure-storage`,
 		Annotations: map[string]string{
 			cli.AnnotationProfileExempt: "creates the named profile, " +
 				"so a new name is the point rather than a typo",
 		},
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(c *cobra.Command, _ []string) error {
+			secret, err := loginSecret(rt, c, f.ClientSecret,
+				secretStdin, secretFile)
+			if err != nil {
+				return err
+			}
 			// Flags only, not the full resolution chain; see
 			// auth.FlagCredentials for why.
-			creds, err := auth.FlagCredentials(f.ClientID, f.ClientSecret)
+			creds, err := auth.FlagCredentials(f.ClientID, secret)
 			if err != nil {
 				// Half a pair is a typo, the code conn.Resolve returns.
 				return newExitError(err.Error(), ExitUsage)
@@ -119,7 +131,9 @@ Example:
 				if insecureStorage {
 					return newExitError("--insecure-storage stores an "+
 						"API client's secret: add --api-client or "+
-						"--client-id and --client-secret", ExitUsage)
+						"--client-id with --client-secret, "+
+						"--client-secret-stdin or "+
+						"--client-secret-file", ExitUsage)
 				}
 				if err := browserLogin(rt, f); err != nil {
 					return err
@@ -224,7 +238,61 @@ Example:
 		"store the client secret in the config file, not the OS keychain")
 	cmd.Flags().BoolVar(&apiClient, "api-client", false,
 		"sign in with an API client, prompting for its ID and secret")
+	cmd.Flags().BoolVar(&secretStdin, "client-secret-stdin", false,
+		"read the API client secret from standard input")
+	cmd.Flags().StringVar(&secretFile, "client-secret-file", "",
+		"read the API client secret from this file")
 	return cmd
+}
+
+// loginSecret returns the client secret from whichever of the three
+// secret flags was given, or "" when none was.
+func loginSecret(rt *module.Runtime, c *cobra.Command, flagSecret string,
+	fromStdin bool, file string,
+) (string, error) {
+	var given []string
+	for _, name := range []string{
+		"client-secret", "client-secret-stdin", "client-secret-file",
+	} {
+		if c.Flags().Changed(name) {
+			given = append(given, "--"+name)
+		}
+	}
+	if len(given) > 1 {
+		return "", newExitError(strings.Join(given, " and ")+
+			" are mutually exclusive: supply the secret one way",
+			ExitUsage)
+	}
+	if !fromStdin && file == "" {
+		return flagSecret, nil
+	}
+	name := "--client-secret-stdin"
+	if file != "" {
+		name = "--client-secret-file"
+	}
+	// Checked before reading, so a missing --client-id does not first
+	// wait on a terminal's stdin.
+	if id, _ := c.Flags().GetString("client-id"); id == "" {
+		return "", newExitError(name+" given without --client-id: "+
+			"supply both or neither", ExitUsage)
+	}
+	var raw []byte
+	var err error
+	if file != "" {
+		raw, err = os.ReadFile(file) //nolint:gosec // G304: the caller's --client-secret-file
+	} else {
+		raw, err = io.ReadAll(rt.Stdin)
+	}
+	if err != nil {
+		return "", newExitError(fmt.Sprintf("%s: %v", name, err),
+			ExitUsage)
+	}
+	s := strings.TrimSuffix(string(raw), "\n")
+	s = strings.TrimSuffix(s, "\r")
+	if s == "" {
+		return "", newExitError(name+": the secret is empty", ExitUsage)
+	}
+	return s, nil
 }
 
 // warnEnvPair warns that the env pair outranks the profile just saved.
@@ -305,8 +373,9 @@ with exit 0, since the CLI mints a new one on demand the next time it
 is needed. A browser session that renews itself does the same, so an
 expired access token is exit 0 and renews on next use; one that
 cannot renew itself exits 5 once it expires, and 'pgedge starfleet
-auth login' starts a new session. Run
-status to confirm you are signed in before using resource commands.
+auth login' starts a new session. status calls no endpoint, so
+"authenticated" means credentials resolved, not that the server
+accepts them; 'pgedge starfleet doctor' checks that.
 
 Example:
   pgedge starfleet auth status

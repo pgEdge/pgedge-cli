@@ -61,7 +61,10 @@ into a document, a ticket or a log.
 `--format env` prints one shell assignment per line instead of a URI:
 `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` and
 `PGSSLMODE`, each single-quoted for a POSIX shell. Under
-`--no-password` the `PGPASSWORD` line is absent, not empty.
+`--no-password` the `PGPASSWORD` line is absent, not empty. To write
+the connection into a project's `.env` file, use `database env pull`
+instead of redirecting this output: it sets `DATABASE_URL` and
+creates a missing file readable only by you.
 
 Under `-o json` or `-o yaml` the output is an object carrying `uri`,
 `node`, `host`, `port`, `database`, `username`, `password` and
@@ -76,7 +79,4 @@ should pass `--node` rather than read that array.
 pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345
 pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
     --node n2 --no-password
-umask 077
-pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
-    --node n1 --internal --format env > .env
 ```

@@ -91,6 +91,8 @@ Authenticate with pgEdge Starfleet
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
+| `--client-secret-file string` | No |  | read the API client secret from this file |
+| `--client-secret-stdin` | No |  | read the API client secret from standard input |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 **Example:**
@@ -98,7 +100,8 @@ Authenticate with pgEdge Starfleet
 ```
 pgedge starfleet auth login
 pgedge starfleet auth login --tenant TENANT_ID
-pgedge starfleet auth login --client-id ID --client-secret SECRET
+pgedge starfleet auth login --client-id ID --client-secret-file FILE
+pgedge starfleet auth login --client-id ID --client-secret-stdin < FILE
 pgedge starfleet auth login --api-client --insecure-storage
 ```
 
@@ -166,11 +169,14 @@ Create an API client
 | `--description string` | Yes |  | What this client is for |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--name string` | Yes |  | Name for the new API client |
+| `--secret-file string` | No |  | Write the client secret to this new file instead of stdout |
 
 **Example:**
 
 ```
 pgedge starfleet client create --name ci --description "CI runner"
+pgedge starfleet client create --name ci --description "CI runner" \
+  --secret-file ci.secret
 pgedge starfleet client create --name ci --description "CI runner" \
   -o json
 ```

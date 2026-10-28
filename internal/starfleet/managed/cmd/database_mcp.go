@@ -54,11 +54,13 @@ database: the endpoint that lets an LLM query the database.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is.
+update fails if none is. connection prints the endpoint URL and
+bearer token a client needs.
 
 Example:
   pgedge starfleet managed database mcp deploy <database_id>
-  pgedge starfleet managed database mcp update <database_id> --allow-writes`,
+  pgedge starfleet managed database mcp update <database_id> --allow-writes
+  pgedge starfleet managed database mcp connection <database_id>`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
@@ -67,6 +69,7 @@ Example:
 	cmd.AddCommand(
 		newDatabaseMCPDeployCmd(rt),
 		newDatabaseMCPUpdateCmd(rt),
+		newDatabaseMCPConnectionCmd(rt),
 	)
 	return cmd
 }
@@ -154,7 +157,7 @@ func bindMCPFlags(cmd *cobra.Command, opts *mcpServiceOpts) {
 		"Embedding provider: openai or voyage")
 	f.StringVar(&opts.embeddingModel, "embedding-model", "",
 		"Embedding model identifier "+
-			"(required when --embedding-provider is set)")
+			"(the API requires it when --embedding-provider is set)")
 	f.StringVar(&opts.embeddingAPIKey, "embedding-api-key", "",
 		"API key for the embedding provider "+
 			"(required when --embedding-provider is set on deploy; "+

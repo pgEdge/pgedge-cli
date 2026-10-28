@@ -65,8 +65,10 @@ pgedge starfleet doctor
 `auth login` with no flags opens the browser and signs the user in
 as themselves. Only the user can complete that page, so ask them to
 run it. For CI and unattended runs, sign in with an API client
-instead: `--client-id` and `--client-secret`, or the
-`PGEDGE_CLIENT_ID` / `PGEDGE_CLIENT_SECRET` pair.
+instead: `--client-id` with `--client-secret-file <path>` or
+`--client-secret-stdin`, or the `PGEDGE_CLIENT_ID` /
+`PGEDGE_CLIENT_SECRET` pair. `--client-secret` still works, but it
+puts the secret in the process list and shell history.
 
 `--profile <name>` selects the profile on any command. An API client
 belongs to one tenant, so its profile is a tenant. A browser session
@@ -108,8 +110,9 @@ Each rule is stated in full on the page named beside it.
   `auth` and `doctor`.
 - **Read `doctor -o json`, not its exit status.** `doctor` exits 0
   even when authentication is broken. See `doctor`.
-- **`client create` shows the new secret once.** Capture it from that
-  command's output, and keep it out of the transcript. To replace a
+- **`client create` shows the new secret once.** Pass
+  `--secret-file <path>` to write it to a new file instead of the
+  output, which keeps it out of the transcript. To replace a
   secret, create a client and delete the old one. See `client`.
 - **Invites are created and accepted in the Starfleet UI.** The CLI
   refuses both steps with exit 5, whichever way you signed in. Track

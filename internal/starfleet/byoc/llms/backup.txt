@@ -16,8 +16,11 @@ Manage pgEdge BYOC backups
 #### backup
 
 Take an on-demand backup of a BYOC database. `create` is the only verb.
-Nothing in this CLI lists or reads back a BYOC backup. A BYOC backup
-runs through the Control Plane, so it creates no BYOC task either. On a
+A backup just created has no task or ID to follow: the API answers
+with an empty body, and a BYOC backup runs through the Control Plane,
+so it creates no BYOC task either. To read a database's backups, find
+its repository with `backup-repository list --database-id <db-id>`
+and list them with `backup-repository get`. On a
 self-hosted control plane, `pgedge controlplane database node backup`
 takes one and `pgedge controlplane task` follows the work.
 

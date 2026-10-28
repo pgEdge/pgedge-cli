@@ -43,8 +43,8 @@ func TestDatabaseRotatePasswordRunAcceptsEitherSuccessShape(t *testing.T) {
 				rotateArgs("app")...); err != nil {
 				t.Fatalf("rotate-password: %v", err)
 			}
-			if !strings.Contains(errb.String(), "rotated") {
-				t.Errorf("missing rotated message: %q", errb.String())
+			if !strings.Contains(errb.String(), "rotation requested") {
+				t.Errorf("missing rotation-requested message: %q", errb.String())
 			}
 		})
 	}

@@ -42,7 +42,9 @@ A config file suits a host that needs several profiles. Write it to
 
 Per-invocation flags (`--client-id`, `--client-secret`, `--api-url`)
 also work. On a shared host, though, `ps` shows every argument list,
-so prefer the environment variables or the file.
+so prefer the environment variables or the file. To save a profile
+with `auth login`, pass the secret with `--client-secret-stdin` or
+`--client-secret-file <path>` instead of `--client-secret`.
 [Configuration and environment](configuration.md) covers the file's
 layout. It also covers `HOME` and `XDG_CONFIG_HOME`, the two variables
 a container run cares about.

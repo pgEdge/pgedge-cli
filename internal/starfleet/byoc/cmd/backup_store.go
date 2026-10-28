@@ -355,7 +355,7 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Backup store %s deleted.\n", id)
+			fmt.Fprintf(rt.Stderr, "Backup store %s deletion requested.\n", id)
 			return trackMutation(rt, client, id.String(), priorTaskID)
 		},
 	}

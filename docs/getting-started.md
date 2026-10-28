@@ -59,7 +59,8 @@ accepts a new `--profile` name. Every other command accepts only a
 configured profile name, or the built-in `default`.
 
 For unattended use, such as CI, sign in with an API client instead:
-pass `--client-id` and `--client-secret`. Login then saves the secret
+pass `--client-id` and `--client-secret-file <path>`, which reads the
+secret from a file. Login then saves the secret
 in the OS keychain. [CI and automation](ci.md) covers that path.
 
 One sign-in serves the whole `starfleet` module. That covers its

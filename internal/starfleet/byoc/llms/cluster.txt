@@ -108,7 +108,7 @@ Create a cluster
 | `--instance-type string` | No |  | Instance type for all nodes (shorthand for --node; creates one node per region) |
 | `--name string` | Yes |  | Cluster name |
 | `--network stringArray` | No |  | Network settings (repeatable, one per region). Keys: region, cidr, public-subnets, private-subnets, subnets, external, external-id, name. AWS and Azure use public-subnets and private-subnets; GCP uses subnets. e.g. region=us-east-1,cidr=10.4.0.0/16,public-subnets=10.4.1.0/24,private-subnets=10.4.128.0/24 |
-| `--node stringArray` | No |  | Node settings (repeatable). e.g. name=n1,region=us-east-1,instance-type=r7g.medium,volume-size=30 |
+| `--node stringArray` | No |  | Node settings (repeatable). Keys: name, region, instance-type, volume-size, volume-iops, volume-type, availability-zone. e.g. name=n1,region=us-east-1,instance-type=r7g.medium,volume-size=30 |
 | `--node-location string` | Yes |  | Node location: private or public |
 | `--regions strings` | Yes |  | Comma-separated list of regions |
 | `--volume-size int` | No |  | Volume size in GB for all nodes, 1 or more (shorthand for --node; creates one node per region) |
@@ -125,8 +125,10 @@ firewall rules, and backup stores included.
 Structured flags (`--firewall-rule`, `--network`, `--node`) take
 comma-separated key=value pairs; repeat a list-valued key (sources,
 public-subnets, private-subnets, subnets) to add elements. On
-single-region clusters the `region=` key may be omitted. `--node` and
-the `--instance-type`/`--volume-size` shorthand are mutually exclusive.
+single-region clusters the `region=` key may be omitted. `--node`
+takes the keys name, region, instance-type, volume-size, volume-iops,
+volume-type and availability-zone. `--node` and the
+`--instance-type`/`--volume-size` shorthand are mutually exclusive.
 
 A malformed structured-flag value is a usage error: exit 2, with
 nothing sent.
@@ -325,7 +327,7 @@ pgedge starfleet byoc cluster delete a1b2c3d4-e5f6-7890-abcd-ef1234567890 --forc
 **Example output (table):**
 
 ```
-Cluster a1b2c3d4-e5f6-7890-abcd-ef1234567890 deleted.
+Cluster a1b2c3d4-e5f6-7890-abcd-ef1234567890 deletion requested.
 Monitor with: pgedge starfleet byoc task list --subject-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 

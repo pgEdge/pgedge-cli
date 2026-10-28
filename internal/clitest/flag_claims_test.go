@@ -122,8 +122,9 @@ var externalToolFlags = map[string]struct {
 		map[string]bool{"../../docs/ci.md": true}},
 	"--cached": {"git rm",
 		map[string]bool{
-			"../../docs/managed/link-a-project.md": true,
-			"../../internal/starfleet/managed":     true,
+			"../../docs/managed/link-a-project.md":                true,
+			"../../internal/starfleet/managed":                    true,
+			"../../internal/starfleet/byoc/llms/database/env.txt": true,
 		}},
 	"--jq": {"the gh CLI (gh api)",
 		map[string]bool{"../../llms.txt": true}},

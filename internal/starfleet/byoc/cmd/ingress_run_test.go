@@ -109,8 +109,8 @@ func TestIngressDeleteRun(t *testing.T) {
 			"ingress", "delete", testIngressID, "--force"); err != nil {
 			t.Fatalf("ingress delete: %v", err)
 		}
-		if !strings.Contains(errb.String(), "deleted") {
-			t.Errorf("missing deleted message: %q", errb.String())
+		if !strings.Contains(errb.String(), "deletion requested") {
+			t.Errorf("missing deletion notice: %q", errb.String())
 		}
 	})
 

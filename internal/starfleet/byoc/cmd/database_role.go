@@ -61,9 +61,10 @@ given.
 Both the database and its cluster must be in the available state;
 the API refuses the rotation otherwise.
 
-The new password is not printed. Read it back with
-'database get <id>', which returns the role's current credentials
-in the connection block.
+The new password is not printed. Read it back from the connection
+block with 'database connection-string <id>', or write it into .env
+with 'database env pull <id>'. 'database get -o json' prints every
+node's password.
 
 The argument takes a full UUID.
 
@@ -124,7 +125,7 @@ Example:
 			}
 
 			fmt.Fprintf(rt.Stderr,
-				"Password rotated for role %q on database %s.\n",
+				"Password rotation requested for role %q on database %s.\n",
 				role, output.Sanitize(args[0]))
 			return trackMutation(rt, client, id.String(), priorTaskID)
 		},

@@ -253,7 +253,7 @@ table lists where each one appears.
 
 | Field | Service | Returned by |
 |---|---|---|
-| `mcp_config.init_tokens` | MCP | The single-database GET, so `database get`, `service get` or `service list` under `-o json`. |
+| `mcp_config.init_tokens` | MCP | The single-database GET, so `database get`, `service get` or `service list` under `-o json`, and `mcp connection`. |
 | `mcp_config.init_users` | MCP | As above. |
 | `mcp_config.embedding_api_key` | MCP | As above. |
 | The RAG LLM API keys | RAG | Nothing. Both are write-only. |
@@ -262,7 +262,8 @@ table lists where each one appears.
 arrives with its secrets blank. That blank looks the same as a service
 that has none set. Read a single database before building a
 configuration from one. A secret appears only under `-o json` or
-`-o yaml`, so a working MCP call reads one of those.
+`-o yaml`, or in the output of `mcp connection`, so a working MCP call
+reads one of those.
 
 ## The endpoint to dial
 
@@ -298,25 +299,17 @@ because a cold `tools/list` is a lifecycle violation.
 The server may answer with an `Mcp-Session-Id` header, which later
 requests on the same session echo back.
 
-This reads the endpoint and the token, stops if either read fails,
-then opens a session:
+This reads the endpoint and the token, stops if the read fails, then
+opens a session:
 
-    if ! pgedge starfleet managed database get <database-id> -o json \
-        > mydb.json
-    then
-        echo "database get failed; mydb.json holds nothing" >&2
-        exit 1
+    mcp=$(pgedge starfleet managed database mcp connection \
+        <database-id> -o json)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        exit "$rc"
     fi
-    uri=$(jq -r '.services[] | select(.service_type=="mcp") | .uri' \
-        mydb.json)
-    token=$(jq -r '.services[] | select(.service_type=="mcp") |
-        .mcp_config.init_tokens' mydb.json)
-    if [ -z "$uri" ] || [ "$uri" = null ] ||
-       [ -z "$token" ] || [ "$token" = null ]
-    then
-        echo "mydb.json carries no MCP uri or token" >&2
-        exit 1
-    fi
+    uri=$(printf '%s' "$mcp" | jq -r .uri)
+    token=$(printf '%s' "$mcp" | jq -r .token)
     curl -sS --fail "$uri" \
         -H "Authorization: Bearer $token" \
         -H "Content-Type: application/json" \
@@ -328,14 +321,10 @@ then opens a session:
 
 `--fail` makes this a readiness check. Without `--fail`, `curl` exits
 0 on the 503 a starting server returns, and a retry loop would stop on
-the first attempt. The redirection truncates the file before the
-command runs, so a failed read leaves an empty file that `jq` reads
-happily. A service with no token yields the four characters `null`
-instead. `curl` would send that string as the bearer token. Re-run the
-read instead of reusing the file later. A file written for another
-database produces a successful call against the wrong server, with
-nothing to notice. `notifications/initialized` and `tools/list` follow
-on the same session when `initialize` succeeds.
+the first attempt. `mcp connection` exits with status 1 when the
+database has no MCP service or no token, so the script stops before
+`curl` runs. `notifications/initialized` and `tools/list` follow on the
+same session when `initialize` succeeds.
 
 ## MCP query limits
 

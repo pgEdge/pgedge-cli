@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"os"
 
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -165,7 +168,7 @@ Example:
 // alone goes to stdout, so `secret=$(pgedge starfleet client create
 // ...)` captures exactly it.
 func newAPIClientCreateCmd(rt *module.Runtime) *cobra.Command {
-	var name, description string
+	var name, description, secretFile string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an API client",
@@ -177,14 +180,48 @@ the only thing written to stdout (everything else goes to stderr), so
 it can be captured or redirected; under -o json and -o yaml the whole
 client object is written, secret included.
 
+--secret-file writes the secret to a new file, readable only by you,
+and prints the client without it: a table under -o text, the object
+without auth0_secret under -o json and -o yaml. The file must not
+exist, and a path that cannot be created is refused before any
+request. If the client is created but the
+file cannot be written, the secret is printed on stderr instead and
+create exits 1.
+
 Both --name and --description are required by the API.
 
 Example:
   pgedge starfleet client create --name ci --description "CI runner"
   pgedge starfleet client create --name ci --description "CI runner" \
+    --secret-file ci.secret
+  pgedge starfleet client create --name ci --description "CI runner" \
     -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Opened before any request, so a bad path fails before a
+			// client exists. Removed on every path but a full write.
+			var sf *os.File
+			kept := false
+			if secretFile != "" {
+				var err error
+				sf, err = os.OpenFile(secretFile, //nolint:gosec // G304: the caller's --secret-file
+					os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+				if errors.Is(err, fs.ErrExist) {
+					return newExitError(fmt.Sprintf("--secret-file %s "+
+						"already exists: choose a new path", secretFile),
+						ExitUsage)
+				}
+				if err != nil {
+					return fmt.Errorf("--secret-file: %w", err)
+				}
+				defer func() {
+					if !kept {
+						_ = sf.Close()
+						_ = os.Remove(secretFile)
+					}
+				}()
+			}
+
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
@@ -217,6 +254,36 @@ Example:
 			}
 
 			noSecret := ac.Auth0Secret == nil || *ac.Auth0Secret == ""
+			if sf != nil {
+				if noSecret {
+					warnNoClientSecret(rt)
+				} else {
+					if err := writeSecretFile(sf,
+						*ac.Auth0Secret); err != nil {
+						fmt.Fprintf(rt.Stderr, "The client was created "+
+							"but its secret could not be written to %s, "+
+							"so it is shown here once instead.\n"+
+							"Client secret: ", output.Sanitize(secretFile))
+						fmt.Fprintln(rt.Stderr, *ac.Auth0Secret)
+						return newExitError(fmt.Sprintf(
+							"write --secret-file: %v", err), ExitGeneral)
+					}
+					kept = true
+					fmt.Fprintf(rt.Stderr, "Client secret written to "+
+						"%s.\n", output.Sanitize(secretFile))
+				}
+				// ApiClient has no secret field to leak.
+				safe := api.ApiClient{
+					Id: ac.Id, Name: ac.Name, Description: ac.Description,
+					Auth0Id: ac.Auth0Id, CreatedAt: ac.CreatedAt,
+					UpdatedAt: ac.UpdatedAt,
+				}
+				if rt.Output.Structured() {
+					return rt.Output.Print(safe, nil)
+				}
+				return rt.Output.Print(
+					[]output.Row{apiClientRowFrom(safe)}, apiClientColumns)
+			}
 			if rt.Output.Structured() {
 				if noSecret {
 					warnNoClientSecret(rt)
@@ -244,11 +311,22 @@ Example:
 	f.StringVar(&name, "name", "", "Name for the new API client")
 	f.StringVar(&description, "description", "",
 		"What this client is for")
+	f.StringVar(&secretFile, "secret-file", "",
+		"Write the client secret to this new file instead of stdout")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("description")
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// writeSecretFile writes secret and a newline to f and closes it.
+func writeSecretFile(f *os.File, secret string) error {
+	_, err := f.WriteString(secret + "\n")
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // warnNoClientSecret reports a created-but-secretless client: it

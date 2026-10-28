@@ -185,40 +185,23 @@ Table views leave out every secret, in any format. Read the token with
 leaves it out. The token sits in the `services` entry whose
 `service_type` is `mcp`, under that entry's `mcp_config` block.
 
-The following script reads both values for a managed database and stops
-if either read fails. The file holds a working bearer token, so the
-script creates it under a restrictive umask. You remove it when the
-client has the values:
+On Managed, `mcp connection` prints both values and nothing else from
+the database. It exits with status 1 when the database has no MCP
+service or no token, so a script stops on its exit status. The
+following script reads both values for a managed database:
 
-    umask 077
-    if ! pgedge starfleet managed database get <database-id> -o json \
-        > mydb.json
-    then
-        echo "database get failed; mydb.json holds nothing" >&2
-        exit 1
+    mcp=$(pgedge starfleet managed database mcp connection \
+        <database-id> -o json)
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        exit "$rc"
     fi
-    uri=$(jq -r '.services[] | select(.service_type=="mcp") | .uri' \
-        mydb.json)
-    token=$(jq -r '.services[] | select(.service_type=="mcp") |
-        .mcp_config.init_tokens' mydb.json)
-    if [ -z "$uri" ] || [ "$uri" = null ] ||
-       [ -z "$token" ] || [ "$token" = null ]
-    then
-        echo "mydb.json carries no MCP uri or token" >&2
-        exit 1
-    fi
+    uri=$(printf '%s' "$mcp" | jq -r .uri)
+    token=$(printf '%s' "$mcp" | jq -r .token)
 
-The script checks both cases for a reason. The redirection empties the
-file before the command runs, so a failed read leaves an empty file,
-and `jq` reads it happily. A service with no token yields the four
-characters `null`. A client would then send `null` as its bearer token.
-
-Re-run the read each time, and avoid reusing the file later. A file
-written for another database makes a successful call against the wrong
-server, and the call looks correct. When the client has the values,
-delete the file:
-
-    rm -f mydb.json
+The values stay in shell variables, so no file holds the token. Run
+the command again each time, instead of keeping the values for a later
+session.
 
 ### Configuring the MCP Client
 

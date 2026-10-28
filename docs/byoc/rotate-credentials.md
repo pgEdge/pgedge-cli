@@ -24,11 +24,17 @@ available.
     started the work, not that the running database is using the new
     password.
 
-2. Read the new password back. It is not printed by the rotation, and
-   it comes back from a plain `database get`, which has no
+2. Read the new password back with `connection-string`. It is not
+   printed by the rotation, and `connection-string` has no
    `--user-type`:
 
-        pgedge starfleet byoc database get <db-id> -o json
+        pgedge starfleet byoc database connection-string <db-id> \
+            --node <node-name>
+
+    `database get -o json` also returns the password, but prints every
+    node's.
+    Without `--node`, a database with several nodes lists them and
+    ends with exit status 2.
 
 ## Next steps
 

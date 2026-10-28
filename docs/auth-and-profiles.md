@@ -18,9 +18,12 @@ A profile signs in one of two ways:
   when no browser starts. The CLI then calls pgEdge Starfleet as you,
   with the same access as the console, and creates nothing on the
   server.
-- **As an API client.** Pass `--client-id` and `--client-secret`, or
+- **As an API client.** Pass `--client-id` with
+  `--client-secret-file <path>` or `--client-secret-stdin`, or
   `--api-client` to be prompted for them. This is the path for CI and
   scripts, because it needs no browser and the token renews itself.
+  `--client-secret` also works, but it puts the secret in the process
+  list and shell history.
 
 A browser session renews itself while you use it. It ends after a
 period without use, or after a fixed maximum however much you use

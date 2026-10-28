@@ -29,6 +29,8 @@ Authenticate with pgEdge Starfleet
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
+| `--client-secret-file string` | No |  | read the API client secret from this file |
+| `--client-secret-stdin` | No |  | read the API client secret from standard input |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 <!-- END GENERATED -->
@@ -74,6 +76,15 @@ for the other: completing a half pair from a prompt would let a
 mistyped `--client-id` sign you in and store credentials under a
 different identity. Supply both or neither.
 
+**Keep the secret out of argv.** A value passed to `--client-secret`
+shows in the process list and in shell history. Pass
+`--client-secret-file <path>` to read the secret from a file, or
+`--client-secret-stdin` to read it from standard input. Either one
+drops one trailing newline, and either one still needs
+`--client-id`. `--client-secret` still works. Supplying more than one
+of the three secret flags is exit status 2, and so is an empty
+secret.
+
 Unlike every other command, `login` does **not** fall back to the
 stored profile when the flags are absent — it is the command that
 writes that config, so it signs in afresh rather than answering "who
@@ -94,7 +105,7 @@ applies only to an API client, so without one it is exit 2. A later
 ```bash
 pgedge starfleet auth login
 pgedge starfleet auth login --tenant TENANT_ID
-pgedge starfleet auth login --client-id ID --client-secret SECRET
+pgedge starfleet auth login --client-id ID --client-secret-file FILE
 pgedge starfleet auth login --api-client --insecure-storage
 ```
 

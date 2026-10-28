@@ -90,6 +90,15 @@ on the output format:
   including the client ID, to `stderr`.
 - `-o json` and `-o yaml` write the whole client object to `stdout`,
   keyed `auth0_secret`.
+- `--secret-file <path>` writes the secret to a new file that only
+  you can read, in any format. `stdout` then carries the client
+  without the secret. A path that already exists fails with exit
+  status 2 before any request, so no client is created.
+
+To keep the secret out of your terminal, write it to a file:
+
+    pgedge starfleet client create --name ci \
+        --description "CI runner" --secret-file ci.secret
 
 `list`, `get` and `update` cannot render a secret in any format,
 because the read and update responses carry no such field. A create

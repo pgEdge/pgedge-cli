@@ -9,17 +9,20 @@ fetch it again. Rotation is therefore replacement:
 1. Create the replacement client:
 
         pgedge starfleet client create --name ci-2026 \
-            --description "CI credential" -o json
+            --description "CI credential" --secret-file <secret-file>
 
-    Under `-o json` the whole client object goes to stdout with the
-    secret under `auth0_secret`. In text mode the secret alone goes
-    to stdout and every label goes to stderr, so redirecting stdout
-    captures exactly the secret.
+    `--secret-file` writes the secret to a new file that only you can
+    read, and the path must not exist yet. stdout shows the client
+    without the secret. Its AUTH0 ID column is the new client ID.
+    Without `--secret-file`, under `-o json` the whole client object
+    goes to stdout with the secret under `auth0_secret`. In text mode
+    the secret alone goes to stdout and every label goes to stderr, so
+    redirecting stdout captures exactly the secret.
 
 2. Sign the profile in with the new pair:
 
         pgedge starfleet auth login --profile <name> \
-            --client-id <new-id> --client-secret <new-secret>
+            --client-id <new-id> --client-secret-file <secret-file>
 
     The cached token is bound to the credential that minted it, so
     the next command exchanges a fresh token, and nothing keeps

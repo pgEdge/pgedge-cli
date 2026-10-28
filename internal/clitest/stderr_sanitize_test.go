@@ -229,7 +229,9 @@ var stderrComposedMessages = map[string]struct {
 		"would corrupt the credential the user is saving -- a \\n " +
 		"written into a secret is a different secret. The prose " +
 		"around it goes to stderr, and the sibling Auth0Id IS escaped " +
-		"because it is interpolated into a line",
+		"because it is interpolated into a line. When --secret-file " +
+		"cannot be written it goes to stderr on its own line instead, " +
+		"verbatim for the same reason",
 		map[string]bool{"../starfleet/account/cmd/apiclient.go": true}},
 	"text": {"auth status: joined from the resolved client id, the " +
 		"literal source word, the API URL and a time.Time through a " +
@@ -304,9 +306,11 @@ var stderrComposedMessages = map[string]struct {
 // 215 -> 218: a renewal that falls back to the current token, a
 // replaced session that could not be revoked, and an API-client login
 // that could not remove the session it replaced.
+// 218 -> 220, 22 -> 23: client create --secret-file's path lines and
+// its stderr fallback for the secret.
 const (
-	stderrArgSites      = 218
-	stderrComposedSites = 22
+	stderrArgSites      = 220
+	stderrComposedSites = 23
 )
 
 var stderrArgIndexRe = regexp.MustCompile(`%\[\d`)

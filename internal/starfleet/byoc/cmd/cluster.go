@@ -339,7 +339,9 @@ Example:
 			"e.g. region=us-east-1,cidr=10.4.0.0/16,"+
 			"public-subnets=10.4.1.0/24,private-subnets=10.4.128.0/24")
 	f.StringArrayVar(&opts.nodes, "node", nil,
-		"Node settings (repeatable). "+
+		"Node settings (repeatable). Keys: name, region, "+
+			"instance-type, volume-size, volume-iops, volume-type, "+
+			"availability-zone. "+
 			"e.g. name=n1,region=us-east-1,instance-type=r7g.medium,"+
 			"volume-size=30")
 	f.StringVar(&opts.instanceType, "instance-type", "",
@@ -531,7 +533,7 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Cluster %s deleted.\n", id)
+			fmt.Fprintf(rt.Stderr, "Cluster %s deletion requested.\n", id)
 			return trackMutation(rt, client, id.String(), priorTaskID)
 		},
 	}

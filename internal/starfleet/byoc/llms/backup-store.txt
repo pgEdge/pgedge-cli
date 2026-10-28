@@ -171,7 +171,7 @@ pgedge starfleet byoc backup-store delete f2a3b4c5-d6e7-8901-fabc-012345678901 \
 **Example output (table):**
 
 ```
-Backup store f2a3b4c5-d6e7-8901-fabc-012345678901 deleted.
+Backup store f2a3b4c5-d6e7-8901-fabc-012345678901 deletion requested.
 Monitor with: pgedge starfleet byoc task list --subject-id f2a3b4c5-d6e7-8901-fabc-012345678901
 ```
 

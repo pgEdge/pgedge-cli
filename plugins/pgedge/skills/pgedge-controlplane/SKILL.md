@@ -109,6 +109,11 @@ Each rule is stated in full on the page named beside it.
   and `host`. A request that names the action and its target is
   consent for `--force`, and for that action only: ask before a
   waiver flag or any other destructive step it turns out to need.
+- **Every write accepts `--dry-run`.** It runs the client-side checks,
+  stops before sending the write, and prints the request it would have
+  sent. Checks that read the server still run. The server validates
+  nothing until the real write, so a clean dry run does not prove the
+  real call succeeds. See "Dry Runs" in `pgedge llms`.
 - **Start every database from `database init`.** When it can reach a
   systemd Control Plane, it fills in the distinct ports each node
   needs. The CLI refuses a spec that still carries a `CHANGE-ME`

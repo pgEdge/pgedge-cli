@@ -171,7 +171,7 @@ pgedge starfleet byoc ingress delete c5d6e7f8-a9b0-1234-cdef-345678901234 --forc
 **Example output (table):**
 
 ```
-Ingress c5d6e7f8-a9b0-1234-cdef-345678901234 deleted.
+Ingress c5d6e7f8-a9b0-1234-cdef-345678901234 deletion requested.
 Monitor with: pgedge starfleet byoc task list --subject-id c5d6e7f8-a9b0-1234-cdef-345678901234
 ```
 

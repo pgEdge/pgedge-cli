@@ -237,10 +237,7 @@ func followTask(rt *module.Runtime, src taskSource) error {
 		if isTerminal(string(log.TaskStatus)) {
 			switch string(log.TaskStatus) {
 			case "failed":
-				return &ExitError{
-					msg:  fmt.Sprintf("task %s failed", src.taskID),
-					code: ExitGeneral,
-				}
+				return followFailure(rt, src)
 			case "canceled":
 				if src.canceledOK {
 					fmt.Fprintf(rt.Stderr, "Task %s canceled.\n",
@@ -255,5 +252,22 @@ func followTask(rt *module.Runtime, src taskSource) error {
 			return nil
 		}
 		time.Sleep(2 * time.Second)
+	}
+}
+
+// followFailure reads the task for its error, which the log does not
+// carry. A read that fails still reports the failure, without it.
+func followFailure(rt *module.Runtime, src taskSource) error {
+	ctx, cancel := context.WithTimeout(
+		context.Background(), followPollTimeout)
+	defer cancel()
+	task, status, body, err := src.getTask(ctx)
+	if err == nil && checkResponse(status, body) == nil &&
+		task != nil && string(task.Status) == "failed" {
+		return terminalResult(rt, task)
+	}
+	return &ExitError{
+		msg:  fmt.Sprintf("task %s failed", src.taskID),
+		code: ExitGeneral,
 	}
 }

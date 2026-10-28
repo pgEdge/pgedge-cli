@@ -291,7 +291,7 @@ pgedge starfleet byoc database delete f6a7b8c9-d0e1-2345-fabc-456789012345 --for
 **Example output (table):**
 
 ```
-Database f6a7b8c9-d0e1-2345-fabc-456789012345 deleted.
+Database f6a7b8c9-d0e1-2345-fabc-456789012345 deletion requested.
 Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
 ```
 
@@ -341,7 +341,9 @@ A refusal naming the **cluster** rather than the database
 (`cluster is not in available status`) is a different condition with a
 different remedy, and is passed through as a bad request unchanged.
 
-The new password is not printed. Read it back with `database get`.
+The new password is not printed. Read it back with `database
+connection-string`, or write it into `.env` with `database env pull`.
+`database get` prints every node's password.
 
 **Example:**
 
@@ -483,6 +485,7 @@ Each resource below has its own page. Read only the one you need.
 | Page | Read | Covers |
 |------|------|--------|
 | `connection-string` | `pgedge llms starfleet byoc database connection-string` | Print a connection string for one node of a database |
+| `env` | `pgedge llms starfleet byoc database env` | Write a database's connection into a .env file |
 | `logs` | `pgedge llms starfleet byoc database logs` | Read a database component's logs |
 | `mcp` | `pgedge llms starfleet byoc database mcp` | Manage the MCP server on a database |
 | `metrics` | `pgedge llms starfleet byoc database metrics` | Read a database's metrics |

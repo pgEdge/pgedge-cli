@@ -304,8 +304,9 @@ var stderrComposedMessages = map[string]struct {
 // 215 -> 218: a renewal that falls back to the current token, a
 // replaced session that could not be revoked, and an API-client login
 // that could not remove the session it replaced.
+// 218 -> 223: byoc `database env pull`'s `Set` line.
 const (
-	stderrArgSites      = 218
+	stderrArgSites      = 223
 	stderrComposedSites = 22
 )
 

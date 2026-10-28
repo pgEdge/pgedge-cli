@@ -54,7 +54,8 @@ username and password are percent-encoded, so a password holding @,
 postgresql://user:password@host:port/database?sslmode=require. env
 prints one PG* variable per line (PGHOST, PGPORT, PGDATABASE, PGUSER,
 PGPASSWORD, PGSSLMODE), each single-quoted for a POSIX shell, so the
-output can be sourced or written to an env file. Under -o json or
+output can be sourced. 'database env pull' writes DATABASE_URL into
+a .env file instead. Under -o json or
 -o yaml the URI is returned alongside the parts it was built from,
 and the node it belongs to; the several-nodes-no-flag listing is an
 array of node rows in that format, still at exit 2.
@@ -64,7 +65,7 @@ Example:
   pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
     --node n2 --no-password
   pgedge starfleet byoc database connection-string f6a7b8c9-d0e1-2345-fabc-456789012345 \
-    --node n1 --internal --format env > .env`,
+    --node n1 --internal --format env`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := connstr.ValidateFormat(format); err != nil {

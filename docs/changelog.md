@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- `starfleet client create --secret-file <path>` writes the new
+  secret to a file only you can read, and prints the client without
+  it.
+- `starfleet auth login` reads the secret from `--client-secret-stdin`
+  or `--client-secret-file`, so it stays out of the command line.
+- `starfleet managed database mcp connection` prints a database's MCP
+  endpoint and token, and nothing else.
+- `starfleet byoc database env pull` writes a node's `DATABASE_URL`
+  into `.env`.
+- `byoc database service remove` refuses a service type the database
+  does not have.
+- `controlplane --follow` prints a failed task's error.
+- Asynchronous deletes and password rotations report that the request
+  was accepted, rather than that the work is done.
+
 ## 0.5.0-beta.3
 
 - `brew install pgEdge/tap/pgedge` installs the CLI.

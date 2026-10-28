@@ -125,7 +125,7 @@ Example:
 			}
 
 			fmt.Fprintf(rt.Stderr,
-				"Password rotated for role %q on database %s.\n",
+				"Password rotation requested for role %q on database %s.\n",
 				role, output.Sanitize(args[0]))
 			return trackMutation(rt, client, id.String(), priorTaskID)
 		},

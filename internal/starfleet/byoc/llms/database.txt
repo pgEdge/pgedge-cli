@@ -354,7 +354,7 @@ pgedge starfleet byoc database rotate-password f6a7b8c9-d0e1-2345-fabc-456789012
 **Example output (table):**
 
 ```
-Password rotated for role "app" on database 11111111-2222-4333-8444-555555555501.
+Password rotation requested for role "app" on database 11111111-2222-4333-8444-555555555501.
 Tracking task 11111111-2222-4333-8444-555555555502...
 Task 11111111-2222-4333-8444-555555555502: running...
 Task 11111111-2222-4333-8444-555555555502: succeeded.

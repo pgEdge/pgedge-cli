@@ -263,12 +263,16 @@ func loginSecret(rt *module.Runtime, c *cobra.Command, flagSecret string,
 			" are mutually exclusive: supply the secret one way",
 			ExitUsage)
 	}
-	if !fromStdin && file == "" {
+	fileGiven := c.Flags().Changed("client-secret-file")
+	if !fromStdin && !fileGiven {
 		return flagSecret, nil
 	}
 	name := "--client-secret-stdin"
-	if file != "" {
+	if fileGiven {
 		name = "--client-secret-file"
+	}
+	if fileGiven && file == "" {
+		return "", newExitError(name+" needs a path", ExitUsage)
 	}
 	// Checked before reading, so a missing --client-id does not first
 	// wait on a terminal's stdin.
@@ -278,7 +282,7 @@ func loginSecret(rt *module.Runtime, c *cobra.Command, flagSecret string,
 	}
 	var raw []byte
 	var err error
-	if file != "" {
+	if fileGiven {
 		raw, err = os.ReadFile(file) //nolint:gosec // G304: the caller's --client-secret-file
 	} else {
 		raw, err = io.ReadAll(rt.Stdin)

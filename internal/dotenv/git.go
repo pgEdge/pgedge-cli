@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -28,8 +29,8 @@ func WarnIfCommittable(rt *module.Runtime, path string) {
 	switch gitIgnoreState(path) {
 	case tracked:
 		fmt.Fprintf(rt.Stderr, "Warning: git tracks %s, which now holds a "+
-			"password. Run 'git rm --cached %s', then add it to .gitignore.\n",
-			output.Sanitize(path), output.Sanitize(filepath.Base(path)))
+			"password. Run git rm --cached %s, then add it to .gitignore.\n",
+			output.Sanitize(path), output.Sanitize(shellQuote(path)))
 	case notIgnored:
 		fmt.Fprintf(rt.Stderr, "Warning: git does not ignore %s, which now "+
 			"holds a password. Add %s to .gitignore.\n",
@@ -79,4 +80,23 @@ func gitExit(dir string, args ...string) int {
 	default:
 		return -1
 	}
+}
+
+// shellQuote returns path as one shell word. The path stays as given,
+// relative to where the command ran, because a bare file name would
+// untrack a different file from anywhere but that file's directory.
+func shellQuote(path string) string {
+	safe := path != ""
+	for _, r := range path {
+		word := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' ||
+			r >= '0' && r <= '9' || strings.ContainsRune("._/-", r)
+		if !word {
+			safe = false
+			break
+		}
+	}
+	if safe {
+		return path
+	}
+	return "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
 }

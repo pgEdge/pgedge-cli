@@ -309,8 +309,10 @@ var stderrComposedMessages = map[string]struct {
 // 218 -> 227, 22 -> 23: client create --secret-file's path lines and
 // its stderr fallback for the secret; `mcp connection` prints the URI
 // and token lines; byoc `database env pull`'s `Set` line.
+// 227 -> 236: managed --wait's status lines after the task, and
+// `backup create --wait`'s backup status lines.
 const (
-	stderrArgSites      = 227
+	stderrArgSites      = 236
 	stderrComposedSites = 23
 )
 

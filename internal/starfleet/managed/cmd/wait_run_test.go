@@ -22,7 +22,7 @@ import (
 // stub cannot drive that.
 func waitFlowHandler(terminalStatus, taskError string) http.HandlerFunc {
 	var mu sync.Mutex
-	mutated := false
+	mutated, deleted := false, false
 
 	errField := ""
 	if taskError != "" {
@@ -56,6 +56,7 @@ func waitFlowHandler(terminalStatus, taskError string) http.HandlerFunc {
 		case r.Method != http.MethodGet:
 			mu.Lock()
 			mutated = true
+			deleted = r.Method == http.MethodDelete
 			mu.Unlock()
 			_, _ = w.Write([]byte(databaseJSON(testDatabaseID, "")))
 
@@ -64,6 +65,14 @@ func waitFlowHandler(terminalStatus, taskError string) http.HandlerFunc {
 				"[" + databaseJSON(testDatabaseID, "") + "]"))
 
 		default:
+			mu.Lock()
+			gone := deleted
+			mu.Unlock()
+			if gone {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"code":404,"message":"not found"}`))
+				return
+			}
 			_, _ = w.Write([]byte(databaseJSON(testDatabaseID, "")))
 		}
 	}
@@ -273,6 +282,13 @@ func TestPriorTaskIsCapturedBeforeTheMutation(t *testing.T) {
 						mutated = true
 						mu.Unlock()
 						_, _ = w.Write([]byte(`{}`))
+					case tc.name == "delete" && func() bool {
+						mu.Lock()
+						defer mu.Unlock()
+						return mutated
+					}():
+						w.WriteHeader(http.StatusNotFound)
+						_, _ = w.Write([]byte(`{"code":404}`))
 					default:
 						_, _ = w.Write([]byte(
 							databaseJSON(testDatabaseID, "")))

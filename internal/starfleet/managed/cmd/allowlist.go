@@ -228,7 +228,8 @@ func applyAllowlist(
 	}
 	fmt.Fprintf(rt.Stderr, "%s on database %s.\n",
 		output.Sanitize(what), output.Sanitize(dbID))
-	return trackMutation(rt, client, db.Id, base)
+	return trackMutation(rt, client, db.Id, base,
+		databaseSettle(client, db.Id, "available"))
 }
 
 // warnIfOpen prints the open warning when rules carry the open CIDR.

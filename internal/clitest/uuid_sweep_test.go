@@ -252,8 +252,10 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 	// `<database_id>` each.
 	// 97 -> 99: `managed database mcp connection` and byoc `database
 	// env pull` take one each.
-	if checked != 99 {
-		t.Errorf("%d ID positionals swept, want exactly 99. Adding or "+
+	// 99 -> 102: `managed database wait`, `mcp apply` and `rag apply`
+	// take one each.
+	if checked != 102 {
+		t.Errorf("%d ID positionals swept, want exactly 102. Adding or "+
 			"removing one is a deliberate edit here.", checked)
 	}
 }

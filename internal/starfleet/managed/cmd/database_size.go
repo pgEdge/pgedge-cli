@@ -110,7 +110,8 @@ Example:
 			fmt.Fprintf(rt.Stderr,
 				"Resize to %q requested for database %s.\n",
 				size, id)
-			return trackMutation(rt, client, id.String(), base)
+			return trackMutation(rt, client, id.String(), base,
+				databaseSettle(client, id.String(), "available"))
 		},
 	}
 	addWaitFlags(cmd)

@@ -18,6 +18,7 @@ func newDatabaseConnectionStringCmd(rt *module.Runtime) *cobra.Command {
 		userType   string
 		format     string
 		noPassword bool
+		dbname     string
 	)
 	cmd := &cobra.Command{
 		Use:   "connection-string [<database_id>]",
@@ -47,6 +48,9 @@ output can be sourced or written to an env file.
 does; omit it and app's credentials come back. Under -o json or
 -o yaml the URI is returned alongside the parts it was built from.
 
+--dbname swaps the database name for another Postgres database
+created inside the managed database; everything else is unchanged.
+
 A database whose connection block carries no host yet, which is the
 case while it is still being created, is reported on stderr with
 exit 1 rather than printed as a string with a hole in it.
@@ -60,6 +64,9 @@ Example:
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := connstr.ValidateFormat(format); err != nil {
+				return err
+			}
+			if err := validateDBName(cmd, dbname); err != nil {
 				return err
 			}
 			var wireUserType api.GetManagedDatabaseParamsUserType
@@ -98,6 +105,7 @@ Example:
 			if err != nil {
 				return err
 			}
+			cs = withDBName(cs, dbname, !noPassword)
 
 			// Before the format branch: a live password on a terminal
 			// is the same exposure under -o json as under text.
@@ -122,6 +130,7 @@ Example:
 		"Shape of the text output: uri or env")
 	cmd.Flags().BoolVar(&noPassword, "no-password", false,
 		"Leave the password out of the string")
+	addDBNameFlag(cmd, &dbname)
 	_ = cmd.RegisterFlagCompletionFunc("format",
 		func(*cobra.Command, []string, string) (
 			[]string, cobra.ShellCompDirective,

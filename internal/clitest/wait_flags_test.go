@@ -36,14 +36,13 @@ import (
 //
 // The set is spelled out rather than inferred from "is this verb
 // mutating", because the two are not the same question.
-// `backup create` is mutating, asynchronous, and correctly has NO
-// wait flags — its backup-managed task reaches succeeded while the
-// backup record is still pending (measured), so a task wait would
-// report success over a backup still in progress; the reference
-// documents polling `backup get` to a terminal status instead.
 var managedWaitVerbs = []string{
 	// Pre-existing.
 	"starfleet managed backup restore",
+	// Waits on the backup record through awaitBackupRecord, not on the
+	// task: its backup-managed task reaches succeeded while the record
+	// is still pending (measured).
+	"starfleet managed backup create",
 	"starfleet managed database create",
 	"starfleet managed database delete",
 	"starfleet managed database resize",
@@ -56,6 +55,8 @@ var managedWaitVerbs = []string{
 	// without declaring the flag it names.
 	"starfleet managed database mcp deploy",
 	"starfleet managed database mcp update",
+	"starfleet managed database mcp apply",
+	"starfleet managed database rag apply",
 	"starfleet managed database rag deploy",
 	"starfleet managed database rag update",
 	"starfleet managed database postgrest deploy",
@@ -92,6 +93,9 @@ var partialWaitFlagsExempt = map[string]string{
 	"starfleet managed task wait": "waiting IS the verb, so there is no " +
 		"--wait to declare. It takes --follow, --wait-timeout and " +
 		"--wait-interval with the polling meaning.",
+	"starfleet managed database wait": "waiting IS the verb, so there " +
+		"is no --wait to declare. It takes --wait-timeout and " +
+		"--wait-interval with the polling meaning.",
 }
 
 func TestManagedWaitFlagsAreExactlyThisSet(t *testing.T) {
@@ -116,10 +120,17 @@ func TestManagedWaitFlagsAreExactlyThisSet(t *testing.T) {
 				// The REASON is asserted, not just recorded. An
 				// exemption whose stated grounds nothing checks is a
 				// sentence, and a future change could gut it silently.
+				for _, want := range []string{
+					"wait-timeout", "wait-interval",
+				} {
+					if c.Flags().Lookup(want) == nil {
+						t.Errorf("%s: exempt because waiting IS "+
+							"the verb, which presumes it still "+
+							"carries --%s", path, want)
+					}
+				}
 				if path == "starfleet managed task wait" {
-					for _, want := range []string{
-						"follow", "wait-timeout", "wait-interval",
-					} {
+					for _, want := range []string{"follow"} {
 						if c.Flags().Lookup(want) == nil {
 							t.Errorf("%s: exempt because waiting IS "+
 								"the verb, which presumes it still "+
@@ -387,7 +398,9 @@ func TestManagedWaitFlagsFollowTheCode(t *testing.T) {
 	// Both sentinels must exist. Without them the two sets are empty,
 	// every comparison holds, and the gate passes while every verb in
 	// the module has lost its flags.
-	for _, sentinel := range []string{"trackMutation", "addWaitFlags"} {
+	for _, sentinel := range []string{
+		"trackMutation", "awaitBackupRecord", "addWaitFlags",
+	} {
 		if !src.funcs[sentinel] {
 			t.Fatalf("%s is not a func in %s — this gate is built on it "+
 				"being the only one of its kind, so a rename or an "+
@@ -406,7 +419,10 @@ func TestManagedWaitFlagsFollowTheCode(t *testing.T) {
 	var declarers []string
 	for _, name := range sortedCtors(src.ctors) {
 		where := src.ctors[name]
-		tracks := reachesFn(src, name, "trackMutation")
+		// awaitBackupRecord is backup create's wait: it follows the
+		// record, whose task succeeds early.
+		tracks := reachesFn(src, name, "trackMutation") ||
+			reachesFn(src, name, "awaitBackupRecord")
 		waits := reachesFn(src, name, "addWaitFlags")
 		if waits {
 			declarers = append(declarers, name)

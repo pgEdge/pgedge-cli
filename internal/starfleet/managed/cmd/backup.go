@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -83,10 +84,12 @@ alongside whatever the platform's own schedule has taken.
 slower to restore.
 
 The backup runs in the background: the API accepts it and returns
-the new backup, already listable and gettable by its id. Poll
-'backup get <id>' or 'backup list --database-id <id>' to watch it
-reach a terminal state — this verb reports acceptance, not
-completion.
+the new backup, already listable and gettable by its id. Without
+--wait this verb reports acceptance, not completion. --wait (or
+--follow, which reports the same) polls the backup record until it
+is completed, exit 0, or failed, exit 1; --wait-timeout passing
+first is exit 3. It follows the record rather than the backup's
+task, which can succeed while the record is still pending.
 
 --database-id takes a full UUID.
 
@@ -94,7 +97,8 @@ Example:
   pgedge starfleet managed backup create \
     --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind hot
   pgedge starfleet managed backup create \
-    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable`,
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable \
+    --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !slices.Contains(backupKinds, kind) {
@@ -129,27 +133,43 @@ Example:
 				return err
 			}
 
-			if rt.Output.Structured() {
-				return rt.Output.Print(resp.JSON202, nil)
-			}
+			b := resp.JSON202
+			switch {
+			case rt.Output.Structured():
+				if err := rt.Output.Print(b, nil); err != nil {
+					return err
+				}
 			// The 202 carries the backup, not the database. The two
 			// schemas share id, name, status and created_at, so take
 			// each id from the field that names it: DatabaseId for the
 			// database, Id for the backup.
-			if b := resp.JSON202; b != nil {
+			case b != nil:
 				fmt.Fprintf(rt.Stderr,
 					"%s backup started on database %s "+
 						"(backup id: %s, status: %s).\n",
 					output.Sanitize(kind),
 					output.Sanitize(b.DatabaseId),
 					output.Sanitize(b.Id), output.Sanitize(b.Status))
-			} else {
+			default:
 				fmt.Fprintf(rt.Stderr,
 					"%s backup started on database %s.\n", output.Sanitize(kind), id)
 			}
-			return nil
+			if !waitFlag && !followFlag {
+				return nil
+			}
+			if b == nil {
+				return newExitError("the API accepted the backup but "+
+					"returned no backup to wait on", ExitGeneral)
+			}
+			return awaitBackupRecord(rt, client, b.Id,
+				waitTimeoutFlag, waitIntervalFlag)
 		},
 	}
+	addWaitFlags(cmd)
+	cmd.Flags().Lookup("wait").Usage =
+		"Wait for the backup to be completed or failed"
+	cmd.Flags().Lookup("follow").Usage = "Same as --wait"
+
 	f := cmd.Flags()
 	f.StringVar(&databaseID, "database-id", "",
 		"Database to back up (full UUID)")
@@ -470,7 +490,8 @@ Example:
 					"Restore of backup %s started on database %s.\n",
 					output.Sanitize(b.Id), output.Sanitize(b.DatabaseId))
 			}
-			return trackMutation(rt, client, b.DatabaseId, base)
+			return trackMutation(rt, client, b.DatabaseId, base,
+				databaseSettle(client, b.DatabaseId, "available"))
 		},
 	}
 	addWaitFlags(cmd)
@@ -483,6 +504,63 @@ Example:
 
 // --- helpers ---
 
+// awaitBackupRecord polls a backup until it is completed (nil) or
+// failed (ExitGeneral), or the timeout passes (ExitTimeout).
+func awaitBackupRecord(
+	rt *module.Runtime, client *api.ClientWithResponses,
+	backupID string, timeout, interval int,
+) error {
+	id, err := uuid.Parse(backupID)
+	if err != nil {
+		return newExitError(fmt.Sprintf(
+			"invalid backup ID %q: %v", backupID, err), ExitGeneral)
+	}
+	deadline := time.Now().Add(time.Duration(timeout) * time.Second)
+	iv := time.Duration(max(interval, 1)) * time.Second
+	timedOut := func(last string) error {
+		return newExitError(fmt.Sprintf(
+			"timed out after %ds waiting for backup %s (last status: %s)",
+			timeout, backupID, output.Sanitize(last)), ExitTimeout)
+	}
+	last := ""
+	for {
+		if last != "" && time.Now().After(deadline) {
+			return timedOut(last)
+		}
+		pollDeadline := deadline
+		if floor := time.Now().Add(requestBound()); floor.After(deadline) {
+			pollDeadline = floor
+		}
+		ctx, cancel := context.WithDeadline(
+			context.Background(), pollDeadline)
+		b, err := fetchBackupCtx(ctx, client, id)
+		cancel()
+		switch {
+		case err != nil && errors.Is(err, context.DeadlineExceeded) &&
+			time.Now().After(deadline):
+			return timedOut(last)
+		case err != nil:
+			return err
+		case b == nil:
+			return newExitError(fmt.Sprintf(
+				"backup %s not found", backupID), ExitNotFound)
+		}
+		switch b.Status {
+		case "completed":
+			fmt.Fprintf(rt.Stderr, "Backup %s: completed.\n",
+				output.Sanitize(backupID))
+			return nil
+		case "failed":
+			return newExitError(fmt.Sprintf("backup %s failed",
+				output.Sanitize(backupID)), ExitGeneral)
+		}
+		fmt.Fprintf(rt.Stderr, "Backup %s: %s...\n",
+			output.Sanitize(backupID), output.Sanitize(b.Status))
+		last = b.Status
+		time.Sleep(iv)
+	}
+}
+
 // parseTimeFlag parses an RFC3339 flag value, turning a bad format
 // into a usage error that names the flag and the expected shape.
 func parseTimeFlag(flag, value string) (time.Time, error) {
@@ -494,7 +572,13 @@ func parseTimeFlag(flag, value string) (time.Time, error) {
 func fetchBackupWith(
 	client *api.ClientWithResponses, id uuid.UUID,
 ) (*api.Backup, error) {
-	resp, err := client.GetBackupWithResponse(context.Background(), id)
+	return fetchBackupCtx(context.Background(), client, id)
+}
+
+func fetchBackupCtx(
+	ctx context.Context, client *api.ClientWithResponses, id uuid.UUID,
+) (*api.Backup, error) {
+	resp, err := client.GetBackupWithResponse(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get backup: %w", err)
 	}

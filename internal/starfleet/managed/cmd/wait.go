@@ -47,9 +47,9 @@ var (
 // the bare status polls.
 func addWaitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&waitFlag, "wait", false,
-		"Wait for the operation's task to reach a terminal state")
+		"Wait for the task, then for the resource's end status")
 	cmd.Flags().BoolVar(&followFlag, "follow", false,
-		"Stream the task's step messages until it reaches a terminal state")
+		"Wait as --wait does, streaming the task's step messages")
 	cmd.Flags().IntVar(&waitTimeoutFlag, "wait-timeout", 600,
 		"Max seconds to wait when --wait/--follow is set")
 	cmd.Flags().IntVar(&waitIntervalFlag, "wait-interval", 5,
@@ -424,10 +424,12 @@ func timeoutError(
 
 // trackMutation handles the asynchronous tail of a resource command.
 // With --wait it blocks until the spawned task reaches a terminal
-// state; --follow does the same while streaming the task's step
-// messages instead of bare status polls. Otherwise, in table/text
-// output, it prints how to monitor the task; in machine output it
-// stays silent so stdout stays parseable.
+// state and then until end reaches its end state, both within one
+// --wait-timeout: a succeeded task sets the status, it does not prove
+// it. --follow does the same while streaming the task's step messages
+// instead of bare status polls. Otherwise, in table/text output, it
+// prints how to monitor the task; in machine output it stays silent so
+// stdout stays parseable.
 //
 // base must be what captureTaskBaseline recorded before the mutation,
 // and is only meaningful when waiting. For a freshly created database
@@ -436,13 +438,19 @@ func timeoutError(
 func trackMutation(
 	rt *module.Runtime,
 	client *api.ClientWithResponses,
-	subjectID string, base taskBaseline,
+	subjectID string, base taskBaseline, end settleTarget,
 ) error {
 	if waitFlag || followFlag {
-		return waitForSubjectTask(
+		deadline := time.Now().Add(
+			time.Duration(waitTimeoutFlag) * time.Second)
+		if err := waitForSubjectTask(
 			rt, client, subjectID, base,
 			waitTimeoutFlag, waitIntervalFlag, followFlag,
-		)
+		); err != nil {
+			return err
+		}
+		return awaitSettled(rt, end, deadline, waitTimeoutFlag,
+			time.Duration(max(waitIntervalFlag, 1))*time.Second)
 	}
 	if !rt.Output.Structured() {
 		fmt.Fprintf(rt.Stderr,

@@ -721,6 +721,29 @@ Manage the MCP server on a database
 ```
 pgedge starfleet managed database mcp deploy <database_id>
 pgedge starfleet managed database mcp update <database_id> --allow-writes
+pgedge starfleet managed database mcp connection <database_id>
+```
+
+##### pgedge starfleet managed database mcp connection
+
+**Usage:** `pgedge starfleet managed database mcp connection [<database_id>] [flags]`
+
+Print the MCP endpoint and its bearer token
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--branch string` | No |  | Branch ID whose MCP server to print instead of the database's |
+| `--no-token` | No |  | Print the URL without the bearer token |
+
+**Example:**
+
+```
+pgedge starfleet managed database mcp connection e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database mcp connection e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --branch 6f1c8b2a-2e3d-4c5b-9a1f-7d8e9c0b1a2d -o json
+pgedge starfleet managed database mcp connection --no-token
 ```
 
 ##### pgedge starfleet managed database mcp deploy
@@ -736,7 +759,7 @@ Deploy an MCP server on a database
 | `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
-| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
@@ -768,7 +791,7 @@ Update the MCP server on a database
 | `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
-| `--embedding-model string` | No |  | Embedding model identifier (required when --embedding-provider is set) |
+| `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |

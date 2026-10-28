@@ -304,8 +304,9 @@ var stderrComposedMessages = map[string]struct {
 // 215 -> 218: a renewal that falls back to the current token, a
 // replaced session that could not be revoked, and an API-client login
 // that could not remove the session it replaced.
+// 218 -> 220: `mcp connection` prints the URI and token lines.
 const (
-	stderrArgSites      = 218
+	stderrArgSites      = 220
 	stderrComposedSites = 22
 )
 

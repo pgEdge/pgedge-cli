@@ -371,9 +371,9 @@ given.
 
 A hot backup of the current state is taken first, so a restore run
 by mistake can be undone by restoring that backup. It appears in
-"backup list" within about a minute, looking like any other hot
-backup, so identify it by when it was created. No retention is
-published for it.
+"backup list" when the platform's backup mirror next sweeps, not at
+once, and its PURPOSE is prerestore. No retention is published for
+it.
 
 The API accepts the restore and recovers in the background; the
 database reports status "modifying" until the cutover completes.

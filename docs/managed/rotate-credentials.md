@@ -94,7 +94,8 @@ the rotation, not when the running database uses the new password.
     finished from not started.
 
     As soon as the API accepts the rotation, before `--wait` begins, the
-    command writes `Password rotated for role "<role>" on database <id>.`
+    command writes
+    `Password rotation requested for role "<role>" on database <id>.`
     to stderr. That line appears even when the task then fails or times
     out, so read the exit status for the outcome. Stdout stays empty in
     text, JSON and YAML output.

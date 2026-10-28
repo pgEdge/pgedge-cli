@@ -485,14 +485,16 @@ With no ID in a terminal, it asks a person to choose the database,
 then a branch, and offers to write `.env`. `--branch` without the
 database ID is exit 2.
 
-Below a linked folder, eight read verbs take the linked database when
+Below a linked folder, nine read verbs take the linked database when
 the ID is left out, and print `Using database <id> from <path>` on
 stderr when they do: `get`, `connection-string`, `inspect`, `logs`,
-`metrics`, `allowlist get`, `branch list` and `env pull`. Every verb
+`metrics`, `allowlist get`, `branch list`, `mcp connection` and `env
+pull`. Every verb
 that changes anything still requires its ID, so a script whose ID
 variable is unset fails rather than writing to the linked database.
-With a branch link, `connection-string`, `inspect` and `env pull` use
-the branch's connection, and the other five read the source database.
+With a branch link, `connection-string`, `inspect`, `mcp connection`
+and `env pull` read the branch, and the other five read the source
+database.
 The folder search stops at the first folder holding `.git`, and never
 reads `~/.pgedge`.
 

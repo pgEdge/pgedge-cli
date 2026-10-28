@@ -106,16 +106,15 @@ A branch copies the source's MCP server with its own address and
 bearer token. The source's token never works on the branch, so a
 client set up for the source fails there with status 401:
 
-1. Read the branch's MCP address and token as JSON:
+1. Read the branch's MCP address and token:
 
-        pgedge starfleet managed database branch get \
-            <db-id> <branch-id> -o json
+        pgedge starfleet managed database mcp connection \
+            <db-id> --branch <branch-id>
 
-    In the `services` entry whose `service_type` is `mcp`, `uri` is the
-    address and `mcp_config.init_tokens` is the token.
+    The `URI` line is the address and the `Token` line is the token.
 
-2. Point your MCP client at `uri`, and send the branch's token as its
-   bearer token.
+2. Point your MCP client at that address, and send the branch's token
+   as its bearer token.
 
     The endpoint returns status 503 for a short time while the server
     starts, so retry until it answers.

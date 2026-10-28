@@ -69,6 +69,8 @@ var managedCmdCases = []managedCmdCase{
 		[]string{"database", "service", "get", testDatabaseID, "mcp"}},
 	{"database service remove", []string{"database", "service",
 		"remove", testDatabaseID, "mcp", "--force"}},
+	{"database mcp connection", []string{"database", "mcp", "connection",
+		testDatabaseID}},
 	{"database mcp deploy",
 		[]string{"database", "mcp", "deploy", testDatabaseID}},
 	{"database mcp update", []string{"database", "mcp", "update",

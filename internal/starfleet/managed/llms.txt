@@ -143,8 +143,25 @@ A command whose flags table declares `--wait` exits 0 when the API
 accepts the request, not when the work finishes: a create that fails
 to provision still exits 0. In anything scripted, pass `--wait`
 (bounded by `--wait-timeout`) or `--follow` (which also streams the
-task's steps to stderr). Both exit 0 on success, 1 on failure with the
-task's error, and 3 on timeout. **A `rotate-password` timeout means
+task's steps to stderr). Both wait for the task, then read the
+resource until it reaches its end status, all within one
+`--wait-timeout`:
+
+| Command | End status |
+|---|---|
+| `database delete` | `database get` answers not found |
+| `database branch create` | the branch is `available` |
+| `database branch delete` | `branch get` answers not found |
+| `backup create` | the backup record is `completed`; no task is read |
+| Every other write | the database is `available` |
+
+`--wait` and `--follow` end at exit status 0 when the end status is
+reached. A failed task is exit status 1 with the task's error. A
+resource that settles on another status, such as `degraded` or
+`failed`, is exit status 1 naming it. While the status is `creating`,
+`modifying`, `deleting`, `suspending` or `resuming`, the wait reads it
+again. A timeout is exit status 3.
+Each status read prints on stderr. **A `rotate-password` timeout means
 the outcome is unknown**: read the `task` page before rotating again.
 
 No command returns its task's ID, so the CLI finds the task by
@@ -175,12 +192,14 @@ platform uses:
 
 Wait for `available`, and compare against it rather than against "not
 `creating`": `failed` and `degraded` never pass through `creating`
-again. A `degraded` database carries no reason; find the task with
+again. A `degraded` database carries no reason. Find the task with
 `task list --subject-id <database_id>` and read it with `task get`.
 
 **A succeeded task means the status is set, not that the database is
-usable.** Read `database get`'s status after `--wait`. After a delete,
-`database get` exiting 4 is the confirmation.
+usable.** `--wait` reads the status after the task, as "Asynchronous
+verbs" describes. To wait without a write, run `database wait
+<database_id>`, which ends at exit status 0 when the database is
+`available`.
 
 **Every write except `database delete` and a metadata-only `database
 update` requires `available`**, and is refused in any other status,
@@ -195,9 +214,9 @@ Run writes one at a time:
 - A services write: pass `--wait`, which exits 1 with the task's
   error, then read the service's own `state`. A failure confined to a
   service leaves the database `available` with that service `failed`.
-- `backup create` never changes the database's status. Poll `backup
-  get <backup_id>` until it reaches `completed` or `failed`, and let it
-  finish before a `backup restore`, which takes its own pre-restore
+- `backup create` never changes the database's status. Pass `--wait`,
+  which follows the backup record to `completed` or `failed`, and let
+  it finish before a `backup restore`, which takes its own pre-restore
   backup.
 
 **`database delete` works from every status but `deleting`** and does

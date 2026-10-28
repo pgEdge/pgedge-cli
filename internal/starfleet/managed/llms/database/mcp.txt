@@ -49,8 +49,9 @@ update the stored key is reused when the flag is omitted.
 **Example:**
 
 ```bash
-pgedge starfleet managed database mcp deploy <database_id>
+pgedge starfleet managed database mcp deploy <database_id> --my-ip
 pgedge starfleet managed database mcp update <database_id> --allow-writes
+pgedge starfleet managed database mcp apply <database_id> --wait
 pgedge starfleet managed database mcp connection <database_id>
 ```
 
@@ -111,15 +112,18 @@ Deploy an MCP server on a database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
 | `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
 | `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
 | `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -141,6 +145,12 @@ API generates one.
 Without it the server connects as app_read_only, and the database
 refuses every write it attempts. With it the server connects as app.
 
+**A new service's endpoint is closed.** `--allow <cidr>`
+(repeatable), `--my-ip` and `--open` set its allowlist in the deploy
+request itself, as the `allowlist` page describes. With none of them
+the service starts closed, and `database allowlist add <database_id>
+--service mcp` admits an address afterward.
+
 Exit 0 means the API accepted the deploy, not that the server is
 serving. The endpoint returns 503 while it starts, and the service
 `state` already reads `running` at that point. Run `POST <uri>` with
@@ -152,7 +162,7 @@ signal there is.
 ```bash
 pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456
 pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
-    --allow-writes
+    --allow-writes --allow 203.0.113.0/24
 pgedge starfleet managed database mcp deploy e5f6a7b8-c9d0-1234-efab-567890123456 \
   --embedding-provider openai \
   --embedding-model text-embedding-3-small \
@@ -175,10 +185,10 @@ Update the MCP server on a database
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
 | `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
 | `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -211,8 +221,68 @@ pgedge starfleet managed database mcp update e5f6a7b8-c9d0-1234-efab-56789012345
     --embedding-model text-embedding-3-large
 ```
 
-**`--wait` proves the task finished, not that the running MCP server
+**`--wait` proves the write finished, not that the running MCP server
 has picked the change up.** The `update-managed` task settles before
 the running server does, so even with `--wait` a script that updates
 and immediately queries the server should tolerate briefly seeing the
 old configuration.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database mcp apply -->
+###### pgedge starfleet managed database mcp apply
+
+**Usage:** `pgedge starfleet managed database mcp apply <database_id> [flags]`
+
+Deploy or update the MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
+| `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database mcp apply
+
+Deploy a MCP server when the database has none, and update the
+deployed one otherwise, in one command with one exit status. Use it
+wherever a script would otherwise choose between `deploy` and
+`update`.
+
+`apply` reads the database first. A read that fails ends the command
+with that read's exit status and sends no write, so an authentication
+failure, a network error or an unknown database ID never becomes a
+deploy.
+
+`apply` takes `deploy`'s and `update`'s flags. On a deployed service
+only the flags you pass change, as on `update`, so omitting
+`--allow-writes` leaves the access level alone. On a new service,
+omitting it deploys a read-only server.
+
+`--allow`, `--my-ip` and `--open` set a new service's allowlist, as on
+`deploy`. On a deployed service they are exit status 2 with nothing
+sent, and
+the error names `database allowlist add <database_id> --service mcp`
+as the command for its rules.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database mcp apply e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --my-ip --wait
+pgedge starfleet managed database mcp apply e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --allow-writes --wait
+```

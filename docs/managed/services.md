@@ -36,6 +36,8 @@ The following table lists the service commands.
 | `database mcp update <db>` | Reconfigures the deployed MCP service. |
 | `database rag deploy <db>` | Creates the RAG service. |
 | `database rag update <db>` | Reconfigures the deployed RAG service. |
+| `database mcp apply <db>` | Creates the MCP service, or reconfigures the deployed one. |
+| `database rag apply <db>` | Creates the RAG service, or reconfigures the deployed one. |
 
 Every write above is asynchronous and takes `--wait`, `--follow`,
 `--wait-timeout` and `--wait-interval`. An unknown type, or a malformed database identifier, is refused at
@@ -58,24 +60,24 @@ sends no write. `deploy` exits at exit status 1, naming `update` as
 the fix, and `update` exits at exit status 1, appending the `deploy`
 command to run instead.
 
-A second `deploy` therefore fails. A caller may want one command to
-do either job. That caller branches on `service get`, which exits at
-exit status 4 when the type is absent:
+A second `deploy` therefore fails. To do either job in one command,
+run `apply`, which deploys when the database has no service of that
+type and updates the deployed one otherwise:
 
-    pgedge starfleet managed database service get "$DB" mcp \
-        >/dev/null 2>&1
-    case $? in
-      0) pgedge starfleet managed database mcp update "$DB" \
-             --allow-writes ;;
-      4) pgedge starfleet managed database mcp deploy "$DB" \
-             --allow-writes ;;
-      *) echo "service get failed; deploying nothing" >&2; exit 1 ;;
-    esac
+    pgedge starfleet managed database mcp apply <db-id> \
+        --allow-writes --wait
 
-Branch on exit status 4 alone, never on "non-zero". A plain
-`if pgedge ...; then update; else deploy; fi` reads an authentication
-failure, a network error or a mistyped identifier as "absent". That
-command then deploys a second service off a read that never ran.
+`apply` reads the database first. A read that fails ends the command
+with that read's exit status and sends no write, so an authentication
+failure or a network error never becomes a deploy. On a deployed
+service only the flags you pass change, as with `update`. A new RAG
+service needs every flag `rag deploy` requires.
+
+A new service's endpoint is closed. On `deploy`, and on an `apply`
+that deploys, `--allow <cidr>`, `--my-ip` and `--open` set its
+allowlist in the same request, as they do for `database create`. On a
+deployed service `apply` refuses them at exit status 2. Change its
+rules with `database allowlist add <db-id> --service <type>`.
 
 `service remove` on an absent type also exits at exit status 4. Its
 message and `update`'s open with the same words, so read the exit

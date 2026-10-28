@@ -54,6 +54,15 @@ And on the Control Plane a task can also end `canceled`, a third
 terminal outcome that exits 1 like a failure everywhere except
 `task cancel` itself, where reaching it is the point.
 
+On managed, a wait does not stop at the task. When the task succeeds,
+`--wait` and `--follow` read the resource until it reaches its end
+status, within the same `--wait-timeout`. A database must be
+`available`, a deleted database or branch must answer not found, and a
+new branch must be `available`. A resource that settles on another
+status, such as `degraded`, ends the wait at exit status 1, naming
+that status. `database wait
+<database-id>` applies the same rule without a write.
+
 Exit 3 does not mean the command is safe to repeat. The write already
 reached the server, and the task is probably still running. Read the
 resource, or the task, before retrying anything.
@@ -88,18 +97,19 @@ The asynchronous commands in each module:
 | Module | Asynchronous commands |
 |---|---|
 | byoc | `cluster create/update/delete`, `database create/delete/restore/rotate-password`, `database mcp/rag/postgrest deploy` and `update`, `database service remove`, `ingress create/delete`, `backup-store create/delete` |
-| managed | `database create/delete/resize/rotate-password`, `backup restore`, `database mcp/rag/postgrest deploy` and `update`, `database service remove` |
+| managed | `database create/delete/resize/rotate-password`, `backup create/restore`, `database branch create/delete`, `database allowlist add/remove/set/open/clear`, `database mcp/rag/postgrest deploy` and `update`, `database mcp/rag apply`, `database service remove` |
 | controlplane | `database create/update/delete/restore/upgrade`, `database node backup/switchover/failover`, `database instance start/stop/restart`, `host remove`, `task cancel` |
 
-Two writes look asynchronous and are not served by a wait flag:
+byoc `backup create` looks asynchronous and is not served by a wait
+flag. It spawns no task the API exposes: the work runs through the
+Control Plane, the response carries no body, and there is nothing to
+poll from this CLI.
 
-- byoc `backup create` takes no wait flag and spawns no task the API
-  exposes. The work runs through the Control Plane, the response
-  carries no body, and there is nothing to poll from this CLI.
-- managed `backup create` takes no wait flag either, for a sharper
-  reason. The write does spawn a task, but that task reaches its
-  terminal state seconds before the backup record leaves `pending`, so
-  waiting on it would report success over a backup still running.
+managed `backup create` waits on the backup record, not on a task.
+The write does spawn a task, but that task reaches its terminal state
+seconds before the backup record leaves `pending`. Its `--wait`
+therefore reads the record until it is `completed`, exit status 0, or
+`failed`, exit status 1.
 
 ## Picking the right signal
 
@@ -109,33 +119,31 @@ honestly for each managed write:
 
 | Write | Signal to trust |
 |---|---|
-| `database create` | `--wait`, then `database get` for the status it produced. |
-| `database delete` | `--wait`, then `database get` answering exit 4 as the confirmation. |
-| `database resize` | `--wait`. The database's own status moves to `modifying`, then settles to `available` or `degraded`. |
+| `database create` | `--wait`, which ends at exit status 0 when the database is `available`. |
+| `database delete` | `--wait`, which ends at exit status 0 when `database get` answers not found. |
+| `database resize` | `--wait`. The status moves to `modifying`, and a `degraded` end is exit status 1. |
 | `database rotate-password` | `--wait`, with the timeout caveat below. |
-| Any services write | `--wait`, which reports the write's task and not the database's status (see below). Then ask the service itself, because `state` is not readiness. |
-| `backup create` | `backup get <id>` polled to a terminal state. Nothing else. |
-| `backup restore` | `--wait`, `--follow` or `task get`. Never the status. |
+| Any services write | `--wait`, then ask the service itself, because `state` is not readiness (see below). |
+| `backup create` | `--wait`, which reads the backup record, not the task. |
+| `backup restore` | `--wait`, `--follow` or `task get`. |
 
-A succeeded task does mean the database's status has been set: the
-task record and the database row commit together, so no caller sees a
-succeeded task beside a status the operation had not applied. What the
-task does not say is which status resulted, so branch on `database
-get` when that is the question.
+A succeeded task does not say which status resulted, so a managed
+`--wait` reads the status after the task. It ends at exit status 1
+unless that status is the end status the write aims for.
 
-A restore is the case where status cannot help at all. The API answers
-by putting the database into `modifying` before the work starts, and
-the mandatory pre-restore backup can refuse the whole restore after
-that point. That refusal arrives on the task, not as an error from the
-command, so a script sees it only through `--wait`, `--follow` or
-`task get`.
+A restore is the case where the task carries the answer. The API
+answers by putting the database into `modifying` before the work
+starts, and the mandatory pre-restore backup can refuse the whole
+restore after that point. That refusal arrives on the task, not as an
+error from the command, so a script sees it only through `--wait`,
+`--follow` or `task get`.
 
-What `--wait` reports on a services write is that write's task, found
-by subject the way every byoc and managed wait finds one, and not the
-database's `status`. The status reaches a terminal value either way,
-so a poll does stop, but it stops on the wrong question. A failure
-that touched only the service leaves the database `available`, which
-is the same status a clean write produces. On managed a service that
+What `--wait` reports first on a services write is that write's task,
+found by subject the way every byoc and managed wait finds one. On
+managed it then waits for the database to be `available`, but that
+status is the wrong question on its own. A failure that touched only
+the service leaves the database `available`, which is the same status
+a clean write produces. On managed a service that
 failed to roll out then reads `state: failed`. On BYOC a failed
 deploy records no `state` at all, so the entry keeps whatever an
 earlier write stored, or none. A failure that reached wider leaves
@@ -153,8 +161,9 @@ a deployed service is ready, ask the service, and retry until it
 answers.
 
 `backup create` on managed never moves the database's status, so
-polling the status after one proves nothing at all: it reads
-`available` immediately and always.
+polling the database's status after one proves nothing at all: it
+reads `available` immediately and always. Its `--wait` reads the
+backup record instead.
 
 byoc and the Control Plane are simpler. Every asynchronous command in
 both takes `--wait` and `--follow`, and the task is the signal for all

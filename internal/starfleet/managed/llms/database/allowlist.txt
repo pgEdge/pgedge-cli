@@ -50,6 +50,28 @@ database carries no reason. The task carries it. Postgres is not
 restarted and its open sessions are not cut: the rules govern new
 connections.
 
+**Setting the rules when an endpoint is created.** `database create`
+sets the Postgres allowlist, and `database mcp deploy`, `database rag
+deploy` and an `apply` that deploys set the new service's, from three
+optional flags:
+
+- `--my-ip` allows the address the API sees this command arriving
+  from. Pass it when the endpoint must accept connections from the
+  machine running the CLI. The caveat that this is not necessarily the
+  address your client connects from prints on stderr every time, and
+  when the API reports no address, or an IPv6 one, the exit status is
+  1 and nothing is sent.
+- `--allow <cidr>` allows one IPv4 address or CIDR block, repeated for
+  more than one, and combines with `--my-ip`. No label can be set at
+  create time, so use `allowlist add --label` afterward.
+- `--open` admits every address with the single rule 0.0.0.0/0, cannot
+  be combined with the other two, and is never the default. It prints
+  the warning the `allowlist open` command prints.
+
+An `apply` on a service that already exists refuses all three at exit
+status 2 and sends nothing; change its rules with `allowlist add
+--service`.
+
 `allowlists` is accepted as a plural alias.
 
 **Example:**
@@ -104,11 +126,11 @@ Allow addresses to reach an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--label string` | No |  | Note stored on each rule added by this call, at most 64 characters |
 | `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -149,10 +171,10 @@ Stop addresses reaching an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt when removing the last rule |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -186,10 +208,10 @@ Replace an endpoint's allowlist
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--label string` | No |  | Note stored on every rule set by this call, at most 64 characters |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -221,9 +243,9 @@ Let every address reach an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -257,10 +279,10 @@ Close an endpoint to every address
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 

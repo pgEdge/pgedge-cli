@@ -157,16 +157,33 @@ func TestFollowDatabaseTaskTerminal(t *testing.T) {
 	}
 }
 
+// The log carries no error field, so --follow must read the task to
+// report why it failed, as --wait does.
 func TestFollowDatabaseTaskFailed(t *testing.T) {
 	rt, _, _ := newTestRuntime(t, "", "text")
-	client := newRawClient(t, jsonHandler(200,
+	logBody := jsonHandler(200,
 		`{"task_id":"`+taskUUID+`","entity_id":"db1","scope":"database",`+
 			`"task_status":"failed","entries":[`+
-			`{"timestamp":"2025-06-18T00:00:01Z","message":"kaboom"}]}`))
+			`{"timestamp":"2025-06-18T00:00:01Z","message":"kaboom"}]}`)
+	taskBody := jsonHandler(200,
+		`{"task_id":"`+taskUUID+`","status":"failed","type":"create",`+
+			`"scope":"database","entity_id":"db1","error":"disk full",`+
+			`"created_at":"2025-06-18T00:00:00Z"}`)
+	client := newRawClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/log") {
+			logBody(w, r)
+			return
+		}
+		taskBody(w, r)
+	})
 	tid := uuid.MustParse(taskUUID)
 	err := followTask(rt, databaseTaskSource(client, "db1", tid))
-	if err == nil || !strings.Contains(err.Error(), "failed") {
-		t.Fatalf("want failed error, got %v", err)
+	if err == nil || err.Error() != "task "+taskUUID+" failed: disk full" {
+		t.Fatalf("want the task's error, got %v", err)
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) || ee.Code() != ExitGeneral {
+		t.Errorf("want ExitGeneral, got %v", err)
 	}
 }
 

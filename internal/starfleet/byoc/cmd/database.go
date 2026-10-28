@@ -133,6 +133,7 @@ Example:
 		newDatabaseListCmd(rt),
 		newDatabaseGetCmd(rt),
 		newDatabaseConnectionStringCmd(rt),
+		newDatabaseEnvCmd(rt),
 		newDatabaseInspectCmd(rt),
 		newDatabaseCreateCmd(rt),
 		newDatabaseUpdateCmd(rt),
@@ -561,7 +562,7 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Database %s deleted.\n", id)
+			fmt.Fprintf(rt.Stderr, "Database %s deletion requested.\n", id)
 			return trackMutation(rt, client, id.String(), priorTaskID)
 		},
 	}

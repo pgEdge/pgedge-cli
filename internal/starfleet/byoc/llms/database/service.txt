@@ -112,7 +112,9 @@ Remove a service type (mcp, rag or postgrest) from a database.
 Irrecoverable: the service's configuration and credentials are
 discarded. It prompts for confirmation and is asynchronous, as the
 index's "Destructive operations" and "Asynchronous operations"
-sections describe (`pgedge llms starfleet byoc`).
+sections describe (`pgedge llms starfleet byoc`). A type that is not
+deployed on the database ends with exit status 1, naming `service
+list`, and no write is sent.
 
 **Example:**
 

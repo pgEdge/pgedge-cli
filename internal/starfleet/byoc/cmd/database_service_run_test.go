@@ -182,3 +182,21 @@ func TestSvcToConfigPreservesPostgREST(t *testing.T) {
 			cfg.PostgrestConfig.DbAnonRole)
 	}
 }
+
+// remove builds its write from the list without the named type, so a
+// type that is not deployed would resend the list unchanged and report
+// a removal.
+func TestServiceRemoveUndeployedTypeSendsNothing(t *testing.T) {
+	rec := &capturedApply{}
+	url := testsupport.NewAuthedServer(t, rec.handler(postgrestOnlyDBBody))
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	err := runAuthed(t, rt, out, url, "database", "service", "remove",
+		testDatabaseID, "mcp", "--force")
+	requireExitOne(t, err)
+	if !strings.Contains(err.Error(), "service list") {
+		t.Errorf("error does not name service list: %v", err)
+	}
+	if rec.callCount() != 0 {
+		t.Errorf("calls = %d, want no write", rec.callCount())
+	}
+}

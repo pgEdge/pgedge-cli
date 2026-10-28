@@ -38,8 +38,8 @@ A service id is an 8-character hex string the platform assigns, not a
 UUID. Every other identifier on this page is a UUID, and the service
 id is the exception. Read the service id from the SERVICE ID column,
 or from `service_id` under `-o json`. `get` takes a service id, and
-`remove` takes a type. A service id passed to `remove` removes nothing
-and still exits at exit status 0.
+`remove` takes a type. A service id passed to `remove` ends with exit
+status 1, and nothing is sent.
 
 Every write above is asynchronous and takes `--wait`, `--follow`,
 `--wait-timeout` and `--wait-interval`.
@@ -457,11 +457,9 @@ given. The other services on the database survive:
 
     pgedge starfleet byoc database service remove <db-id> mcp --wait
 
-`remove` accepts any type string. It reads the database, sends back every service whose type does
-not match the string you typed, and reports success. A misspelt type,
-or a type that was never deployed, therefore removes nothing and still
-exits 0. Confirm a removal with `service list`, not with the exit
-code. Managed refuses both cases outright.
+`remove` reads the database before it prompts. A misspelt type, or a
+type that is not deployed, ends with exit status 1 and a message
+naming `service list`, and nothing is sent.
 
 The prompt needs a terminal on `stdin`. In a script, a CI job or an
 agent, the command fails with a usage error asking for `--force`.

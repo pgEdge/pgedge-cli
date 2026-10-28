@@ -167,7 +167,8 @@ from a database.
 Removal is destructive — the service's configuration and
 credentials are unrecoverable — so it prompts for confirmation
 unless --force is given. Pass --wait to block until the change
-finishes.
+finishes. A type not deployed on the database is refused with exit 1
+before the prompt, and nothing is sent.
 
 Example:
   pgedge starfleet byoc database service remove <database_id> mcp
@@ -184,14 +185,6 @@ Example:
 				return err
 			}
 
-			prompt := fmt.Sprintf(
-				"Remove %q service from database %s? This cannot be "+
-					"undone; its configuration and credentials are "+
-					"unrecoverable.", svcType, id)
-			if err := cli.Confirm(rt, prompt, force); err != nil {
-				return err
-			}
-
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
@@ -199,6 +192,24 @@ Example:
 
 			db, err := fetchDatabaseWith(rt, client, id)
 			if err != nil {
+				return err
+			}
+			// Without this the write below resends the list unchanged
+			// and is reported as a removal.
+			if findService(db, api.ServiceServiceType(svcType)) == nil {
+				return newExitError(fmt.Sprintf(
+					`no %q service deployed on database %s; run %q to `+
+						`see what is deployed`, svcType, id,
+					fmt.Sprintf("%s list %s", cmd.Parent().CommandPath(),
+						id)), ExitGeneral)
+			}
+			rt.DryRun.Pass("a %q service exists to remove", svcType)
+
+			prompt := fmt.Sprintf(
+				"Remove %q service from database %s? This cannot be "+
+					"undone; its configuration and credentials are "+
+					"unrecoverable.", svcType, id)
+			if err := cli.Confirm(rt, prompt, force); err != nil {
 				return err
 			}
 

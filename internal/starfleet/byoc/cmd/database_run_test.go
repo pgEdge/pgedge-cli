@@ -236,8 +236,8 @@ func TestDatabaseDeleteRun(t *testing.T) {
 			"database", "delete", testDatabaseID, "--force"); err != nil {
 			t.Fatalf("database delete: %v", err)
 		}
-		if !strings.Contains(errb.String(), "deleted") {
-			t.Errorf("missing deleted message: %q", errb.String())
+		if !strings.Contains(errb.String(), "deletion requested") {
+			t.Errorf("missing deletion notice: %q", errb.String())
 		}
 	})
 

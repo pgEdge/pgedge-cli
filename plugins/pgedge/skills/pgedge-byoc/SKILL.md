@@ -82,6 +82,7 @@ Each page prints with `pgedge llms starfleet byoc <page>`:
 | Create, list, read, update or delete a database | `database` |
 | Rotate a built-in role's password, or restore a database | `database` |
 | Print a connection string | `database connection-string` |
+| Write a connection into a .env file | `database env` |
 | Read Postgres logs | `database logs` |
 | Read database metrics | `database metrics` |
 | Deploy or update an MCP server | `database mcp` |
@@ -126,8 +127,12 @@ Each rule is stated in full on the page named beside it.
   `postgrest deploy --db-anon-role`, and do not carry a byoc data-load
   recipe to a managed database. See the index's "Built-in roles" and
   `database postgrest`.
-- **Keep credentials out of the transcript.** Pass `--no-password` to
-  `database connection-string` whenever the output is shown to a
-  person. See `database connection-string`.
-- **A backup cannot be read back.** `backup create` is the only backup
-  verb, so do not suggest `backup list` or `backup get`. See `backup`.
+- **Keep credentials out of the transcript.** `database get` prints
+  every node's password, so read a password with `database
+  connection-string`, or write it to a file with `database env pull`.
+  Pass `--no-password` to `database connection-string` whenever the
+  output is shown to a person. See `database connection-string`.
+- **A new backup has no task or ID to follow.** `backup create` is
+  the only `backup` verb, so do not suggest `backup list` or `backup
+  get`. List a database's backups with `backup-repository get`. See
+  `backup` and `backup-repository`.

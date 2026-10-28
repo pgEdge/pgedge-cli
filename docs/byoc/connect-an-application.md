@@ -69,6 +69,12 @@ takes psql, and the
 [ORM and framework integration](../orm-and-frameworks.md) guide
 describes that check.
 
+Where the application reads `DATABASE_URL` from a `.env` file, write
+the string there directly. A missing file is created readable only by
+you:
+
+    pgedge starfleet byoc database env pull <db-id> --node <node-name>
+
 The role name and the password are percent-encoded into the URI. A
 password containing `@`, `:`, `/` or `?` therefore reaches the server
 unchanged. Reading a password out of the URI by eye gives you the

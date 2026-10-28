@@ -29,8 +29,9 @@ func WarnIfCommittable(rt *module.Runtime, path string) {
 	switch gitIgnoreState(path) {
 	case tracked:
 		fmt.Fprintf(rt.Stderr, "Warning: git tracks %s, which now holds a "+
-			"password. Run git rm --cached %s, then add it to .gitignore.\n",
-			output.Sanitize(path), output.Sanitize(shellQuote(path)))
+			"password. Run git --literal-pathspecs rm --cached -- %s, then "+
+			"add it to .gitignore.\n",
+			output.Sanitize(path), shellQuote(output.Sanitize(path)))
 	case notIgnored:
 		fmt.Fprintf(rt.Stderr, "Warning: git does not ignore %s, which now "+
 			"holds a password. Add %s to .gitignore.\n",

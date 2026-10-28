@@ -31,7 +31,8 @@ available.
         pgedge starfleet byoc database connection-string <db-id> \
             --node <node-name>
 
-    `database get` also returns the password, but prints every node's.
+    `database get -o json` also returns the password, but prints every
+    node's.
     Without `--node`, a database with several nodes lists them and
     ends with exit status 2.
 

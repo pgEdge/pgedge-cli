@@ -109,8 +109,8 @@ committed for everyone who clones the project.
 Inside a linked folder, and any folder below it, 'pgedge env pull'
 writes the database's DATABASE_URL into .env, and the read verbs
 (get, connection-string, inspect, logs, metrics, allowlist get,
-branch list and mcp connection) take the linked database when the ID is left out. A
-verb that changes a database always needs its ID.
+branch list and mcp connection) take the linked database when the
+ID is left out. A verb that changes a database always needs its ID.
 
 With no ID, in a terminal, link lists the account's databases to
 choose from, then the chosen database's branches when it has any

@@ -343,7 +343,7 @@ different remedy, and is passed through as a bad request unchanged.
 
 The new password is not printed. Read it back with `database
 connection-string`, or write it into `.env` with `database env pull`.
-`database get` prints every node's password.
+`database get -o json` prints every node's password.
 
 **Example:**
 

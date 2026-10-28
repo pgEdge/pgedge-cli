@@ -127,8 +127,8 @@ Each rule is stated in full on the page named beside it.
   `postgrest deploy --db-anon-role`, and do not carry a byoc data-load
   recipe to a managed database. See the index's "Built-in roles" and
   `database postgrest`.
-- **Keep credentials out of the transcript.** `database get` prints
-  every node's password, so read a password with `database
+- **Keep credentials out of the transcript.** `database get -o json`
+  prints every node's password, so read a password with `database
   connection-string`, or write it to a file with `database env pull`.
   Pass `--no-password` to `database connection-string` whenever the
   output is shown to a person. See `database connection-string`.

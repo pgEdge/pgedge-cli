@@ -363,6 +363,7 @@ the event stream. The first request on a connection must be
 This reads the domain and the token, and stops if either read fails.
 The recipe then opens a session:
 
+    umask 077
     if ! pgedge starfleet byoc database get "$DB" -o json > mydb.json
     then
         echo "database get failed; mydb.json holds nothing" >&2
@@ -459,7 +460,7 @@ given. The other services on the database survive:
 
 `remove` reads the database before it prompts. A misspelt type, or a
 type that is not deployed, ends with exit status 1 and a message
-naming `service list`, and nothing is sent.
+naming `service list`, and no write is sent.
 
 The prompt needs a terminal on `stdin`. In a script, a CI job or an
 agent, the command fails with a usage error asking for `--force`.

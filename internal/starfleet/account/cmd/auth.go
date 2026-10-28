@@ -131,7 +131,9 @@ Example:
 				if insecureStorage {
 					return newExitError("--insecure-storage stores an "+
 						"API client's secret: add --api-client or "+
-						"--client-id and --client-secret", ExitUsage)
+						"--client-id with --client-secret, "+
+						"--client-secret-stdin or "+
+						"--client-secret-file", ExitUsage)
 				}
 				if err := browserLogin(rt, f); err != nil {
 					return err

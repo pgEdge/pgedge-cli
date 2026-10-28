@@ -183,7 +183,8 @@ client object is written, secret included.
 --secret-file writes the secret to a new file, readable only by you,
 and prints the client without it: a table under -o text, the object
 without auth0_secret under -o json and -o yaml. The file must not
-exist (exit 2, before any request). If the client is created but the
+exist, and a path that cannot be created is refused before any
+request. If the client is created but the
 file cannot be written, the secret is printed on stderr instead and
 create exits 1.
 

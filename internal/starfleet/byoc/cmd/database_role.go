@@ -63,8 +63,8 @@ the API refuses the rotation otherwise.
 
 The new password is not printed. Read it back from the connection
 block with 'database connection-string <id>', or write it into .env
-with 'database env pull <id>'. 'database get' prints every node's
-password.
+with 'database env pull <id>'. 'database get -o json' prints every
+node's password.
 
 The argument takes a full UUID.
 

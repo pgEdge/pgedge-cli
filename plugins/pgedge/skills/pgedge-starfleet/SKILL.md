@@ -112,7 +112,8 @@ Each rule is stated in full on the page named beside it.
   even when authentication is broken. See `doctor`.
 - **`client create` shows the new secret once.** Pass
   `--secret-file <path>` to write it to a new file instead of the
-  output, which keeps it out of the transcript. To replace a
+  output, which keeps it out of the transcript. If that write fails
+  after the client exists, the secret goes to stderr once. To replace a
   secret, create a client and delete the old one. See `client`.
 - **Invites are created and accepted in the Starfleet UI.** The CLI
   refuses both steps with exit 5, whichever way you signed in. Track

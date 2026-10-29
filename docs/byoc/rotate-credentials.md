@@ -18,21 +18,22 @@ available.
 1. Rotate, and wait for the outcome rather than the acceptance:
 
         pgedge starfleet byoc database rotate-password <db-id> \
-            --role app --force --wait
+            --role admin --force --wait
 
     Without `--wait`, exit 0 means the API accepted the rotation and
     started the work, not that the running database is using the new
     password.
 
-2. Read the new password back with `connection-string`. It is not
-   printed by the rotation, and `connection-string` has no
-   `--user-type`:
+2. Read the new password back with `connection-string`. The rotation
+   does not print it. Each node's connection block carries the `admin`
+   role's credentials, and the API returns no password for any other
+   role:
 
         pgedge starfleet byoc database connection-string <db-id> \
             --node <node-name>
 
     `database get -o json` also returns the password, but prints every
-    node's.
+    node's connection block.
     Without `--node`, a database with several nodes lists them and
     ends with exit status 2.
 

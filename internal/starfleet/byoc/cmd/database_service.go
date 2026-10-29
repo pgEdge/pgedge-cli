@@ -168,7 +168,7 @@ Removal is destructive — the service's configuration and
 credentials are unrecoverable — so it prompts for confirmation
 unless --force is given. Pass --wait to block until the change
 finishes. A type not deployed on the database is refused with exit 1
-before the prompt, and nothing is sent.
+before the prompt, and no write is sent.
 
 Example:
   pgedge starfleet byoc database service remove <database_id> mcp
@@ -190,18 +190,24 @@ Example:
 				return err
 			}
 
-			db, err := fetchDatabaseWith(rt, client, id)
-			if err != nil {
-				return err
+			// Without the check the write below resends the list
+			// unchanged and is reported as a removal.
+			readDeployed := func() (*api.Database, error) {
+				db, err := fetchDatabaseWith(rt, client, id)
+				if err != nil {
+					return nil, err
+				}
+				if findService(db, api.ServiceServiceType(svcType)) == nil {
+					return nil, newExitError(fmt.Sprintf(
+						`no %q service deployed on database %s; run %q to `+
+							`see what is deployed`, svcType, id,
+						fmt.Sprintf("%s list %s",
+							cmd.Parent().CommandPath(), id)), ExitGeneral)
+				}
+				return db, nil
 			}
-			// Without this the write below resends the list unchanged
-			// and is reported as a removal.
-			if findService(db, api.ServiceServiceType(svcType)) == nil {
-				return newExitError(fmt.Sprintf(
-					`no %q service deployed on database %s; run %q to `+
-						`see what is deployed`, svcType, id,
-					fmt.Sprintf("%s list %s", cmd.Parent().CommandPath(),
-						id)), ExitGeneral)
+			if _, err := readDeployed(); err != nil {
+				return err
 			}
 			rt.DryRun.Pass("a %q service exists to remove", svcType)
 
@@ -210,6 +216,13 @@ Example:
 					"undone; its configuration and credentials are "+
 					"unrecoverable.", svcType, id)
 			if err := cli.Confirm(rt, prompt, force); err != nil {
+				return err
+			}
+			// The write replaces the whole list, so it must be read
+			// after the prompt: a service deployed while the prompt
+			// was open would otherwise be removed with this one.
+			db, err := readDeployed()
+			if err != nil {
 				return err
 			}
 

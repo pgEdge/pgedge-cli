@@ -341,9 +341,11 @@ A refusal naming the **cluster** rather than the database
 (`cluster is not in available status`) is a different condition with a
 different remedy, and is passed through as a bad request unchanged.
 
-The new password is not printed. Read it back with `database
-connection-string`, or write it into `.env` with `database env pull`.
-`database get -o json` prints every node's password.
+The new password is not printed. Each node's connection block carries
+the `admin` role's credentials, so after rotating `admin`, read the new
+password with `database connection-string` or write it into `.env` with
+`database env pull`. The API returns no password for any other role.
+`database get -o json` prints every node's connection block.
 
 **Example:**
 

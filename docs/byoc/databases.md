@@ -239,8 +239,8 @@ The database-level `connection` block is optional, so read a node's.
 Only `username`, `password`, `port` and `database` are guaranteed on
 the connection object. The connection object also has `host` or
 `internal_host`, and `external_ip_address` and `internal_ip_address`,
-when the API has them. Read `connection.username` instead of assuming
-which role you were handed.
+when the API has them. Each node's block carries the `admin` role's
+credentials, and the `roles` entries carry no password.
 
 There is no `--user-type` flag here. That flag belongs to managed,
 where `database get` selects one role's credentials. The byoc `get`
@@ -253,11 +253,12 @@ into a libpq URI, or `PG*` assignments under `--format env`. The
 [Connecting an Application to a pgEdge Starfleet BYOC Database](connect-an-application.md)
 guide covers choosing the node and the network.
 
-`rotate-password` does not print the new password. Rotate the
-password, then read it back:
+`rotate-password` does not print the new password. After rotating
+`admin`, read it back from a node's connection block. The API returns
+no password for any other role:
 
     pgedge starfleet byoc database rotate-password <db-id> \
-        --role app --force --wait
+        --role admin --force --wait
 
 `--role` is required, and takes admin, app or app_read_only. `--role`
 also accepts application and application_read_only as long-form

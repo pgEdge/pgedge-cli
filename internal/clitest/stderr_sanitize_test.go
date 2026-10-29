@@ -85,6 +85,11 @@ var stderrSafeArgs = map[string]struct {
 		"returns one of four fixed sentences; typ only selects which",
 		map[string]bool{"../starfleet/managed/cmd/allowlist.go": true},
 	},
+	"shellQuote(output.Sanitize(path))": {
+		"Sanitize runs first, and quoting adds only ' and \\, so no " +
+			"control character reaches the verb",
+		map[string]bool{"../dotenv/git.go": true},
+	},
 	"id": {
 		"a UUID type: %s renders hex via String(), so no " +
 			"server byte reaches the verb",

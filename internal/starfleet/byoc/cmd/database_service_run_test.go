@@ -200,3 +200,47 @@ func TestServiceRemoveUndeployedTypeSendsNothing(t *testing.T) {
 		t.Errorf("calls = %d, want no write", rec.callCount())
 	}
 }
+
+// The write replaces the whole service list, so it must be built from a
+// read taken after the prompt. A service deployed between the first read
+// and the write must survive the removal.
+func TestServiceRemoveRereadsAfterPrompt(t *testing.T) {
+	later := `{"id":"` + testDatabaseID + `","name":"mydb",` +
+		`"status":"available","pg_version":"16","cluster_id":"` +
+		testClusterID + `","created_at":"2024-03-15T10:30:00Z",` +
+		`"services":[{"service_id":"svc-1","service_type":"mcp",` +
+		`"state":"available"},{"service_id":"svc-2",` +
+		`"service_type":"postgrest","state":"available",` +
+		`"postgrest_config":{"db_schemas":"public",` +
+		`"db_anon_role":"web_anon"}}]}`
+	gets := 0
+	rec := &capturedApply{}
+	url := testsupport.NewAuthedServer(t,
+		func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				gets++
+				body := dbWithServiceBody
+				if gets > 1 {
+					body = later
+				}
+				testsupport.JSONHandler(200, body)(w, r)
+				return
+			}
+			rec.handler(later)(w, r)
+		})
+	rt, out, _ := testsupport.NewRuntime(t, "", "text")
+	if err := runAuthed(t, rt, out, url, "database", "service", "remove",
+		testDatabaseID, "mcp", "--force"); err != nil {
+		t.Fatalf("service remove: %v", err)
+	}
+	if rec.callCount() != 1 {
+		t.Fatalf("writes = %d, want 1", rec.callCount())
+	}
+	if !strings.Contains(string(rec.body), `"postgrest"`) {
+		t.Errorf("write dropped the service deployed after the first "+
+			"read: %s", rec.body)
+	}
+	if strings.Contains(string(rec.body), `"mcp"`) {
+		t.Errorf("write kept the removed service: %s", rec.body)
+	}
+}

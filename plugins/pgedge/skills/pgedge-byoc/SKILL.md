@@ -130,6 +130,9 @@ Each rule is stated in full on the page named beside it.
 - **Keep credentials out of the transcript.** `database get -o json`
   prints every node's password, so read a password with `database
   connection-string`, or write it to a file with `database env pull`.
+  Both carry the `admin` role's credentials. The API returns no
+  password for another role, so a rotated `app` password cannot be
+  read back.
   Pass `--no-password` to `database connection-string` whenever the
   output is shown to a person. See `database connection-string`.
 - **A new backup has no task or ID to follow.** `backup create` is

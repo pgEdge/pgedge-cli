@@ -127,6 +127,7 @@ func TestAuthLoginSecretSources(t *testing.T) {
 		args       []string
 		wantSecret string
 		wantUsage  bool
+		noID       bool
 	}{
 		{name: "stdin drops one newline", stdin: "s3cret\n\n",
 			args:       []string{"--client-secret-stdin"},
@@ -148,6 +149,10 @@ func TestAuthLoginSecretSources(t *testing.T) {
 		{name: "stdin and file", stdin: "s3cret\n", fileBody: "s3cret",
 			args: []string{"--client-secret-stdin",
 				"--client-secret-file", "FILE"}, wantUsage: true},
+		// Without --client-id an empty path once fell through to
+		// browser sign-in.
+		{name: "empty file path", noID: true,
+			args: []string{"--client-secret-file", ""}, wantUsage: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -165,8 +170,11 @@ func TestAuthLoginSecretSources(t *testing.T) {
 				0o600); err != nil {
 				t.Fatal(err)
 			}
-			args := []string{"auth", "login", "--client-id", "id",
+			args := []string{"auth", "login",
 				"--api-url", srv.URL, "--insecure-storage"}
+			if !tc.noID {
+				args = append(args, "--client-id", "id")
+			}
 			for _, a := range tc.args {
 				if a == "FILE" {
 					a = file

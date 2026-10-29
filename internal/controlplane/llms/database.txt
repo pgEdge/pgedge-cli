@@ -53,6 +53,7 @@ Show database details
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--failure` | No |  | Show the latest task's error if that task failed |
 | `--upgrades` | No |  | Also list the newer images this database can upgrade to |
 
 <!-- END GENERATED -->
@@ -120,6 +121,15 @@ what `database upgrade --image` takes. Asked and none: a sentence on
 stderr and no table. Without the flag the field is not requested and
 no section appears.
 
+`--failure` answers "why did this database fail" without a task ID.
+It reads the database and its latest task. When that task failed, it
+prints the database's summary row, the task's row under **Latest
+task**, and the task's error under **Error**; `-o json`/`-o yaml`
+print one object with `database_id`, `state` and `task`. When the
+latest task did not fail, or there is none, stdout is empty, a
+sentence on stderr names the state and the task's status, and the
+exit status is 0. `--failure` with `--upgrades` is exit 2.
+
 An "Instance errors" or "Service errors" section follows its table
 whenever something has a reason attached, and is omitted entirely
 otherwise. Messages are flattened onto one line so they cannot break the
@@ -142,9 +152,8 @@ Those sections report runtime health, not provisioning failures:
   there can read `available`, so decide on the database's `state`,
   not an instance's. **The
   reason for that class of failure lives on the task**, so use
-  `pgedge controlplane task get --database <database_id> <task_id>` — the scope
-  flag is not optional there, and without it the command exits 2
-  instead of showing the task. `database create --wait` also prints
+  `pgedge controlplane database get <database_id> --failure`, which
+  reads the latest task for you. `database create --wait` also prints
   the reason on the way out.
 
 ---

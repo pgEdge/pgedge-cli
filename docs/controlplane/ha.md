@@ -18,15 +18,16 @@ when a server reports a version below that floor.
 
 ## Reading Instance IDs Before You Act
 
-The commands below take either a node name or an instance ID, and
-each command accepts only one of the two. `node switchover` and
-`node failover` name a node, such as `n1`. The three instance
-commands name an instance, and so does `--candidate` on both node
-commands.
+`node switchover` and `node failover` name a node, such as `n1`, and
+their `--candidate` takes an instance ID. The three instance commands
+take an instance ID or a node name. The CLI looks a node name up with
+`database get` before it prompts. A node with one instance resolves
+to it, a node with several is a usage error at exit 2 that lists
+every instance ID with its host, and a node with none exits 4.
 
 The server generates each instance ID as `<database>-<node>-<suffix>`
-with a random suffix. Read the IDs from the fleet instead of building
-them from a database and a node name:
+with a random suffix. To choose among several, read the IDs from the
+fleet instead of building them from a database and a node name:
 
     pgedge controlplane database instance list --database storefront
 
@@ -52,16 +53,17 @@ The following command promotes a named replica and blocks until the
 task finishes:
 
     pgedge controlplane database node switchover storefront n1 \
-        --candidate storefront-n2-9ptayhma --wait
+        --candidate storefront-n1-9ptayhma --wait
 
 The command asks you to confirm, and you type `y` to proceed:
 
     Switch over node n1 in database storefront? This drops the connections the current leader is holding. [y/N]: y
 
-`--candidate` chooses which replica the Control Plane promotes. The
-CLI sends the value exactly as you typed it. A wrong or misspelled
-instance ID therefore surfaces from the server after the call, not as
-a usage error before it. Take the value from `instance list`. Omit the
+`--candidate` chooses which replica the Control Plane promotes, and
+must be an instance of the node you switch over. The CLI sends the
+value exactly as you typed it, so a wrong or misspelled instance ID
+surfaces from the server after the call, not as a usage error before
+it. Omit the
 flag to leave the choice to the Control Plane.
 
 `--scheduled-at` defers the change to an RFC3339 time. The CLI parses
@@ -90,8 +92,8 @@ The Control Plane runs health checks that block a failover on a
 healthy cluster, and `--skip-validation` bypasses them. Reach for that
 flag only when you know the leader is gone and the checks disagree.
 
-Failover sends every value to the server unchecked. As on switchover,
-the CLI passes `--candidate` through as typed. Failover takes no
+Failover sends every value to the server unchecked. As on
+switchover, the CLI passes `--candidate` through as typed. Failover takes no
 `--scheduled-at`, so every rejection comes from the server or from
 inside the task. Like switchover, it always prompts.
 

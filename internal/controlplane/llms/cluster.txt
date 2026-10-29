@@ -105,34 +105,47 @@ Join this host to a cluster
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--server-url stringArray` | No |  | Existing cluster member to contact (repeatable, at least one required) |
-| `--token string` | No |  | Cluster join token (required) |
+| `--from string` | No |  | Existing member URL to read the join token from |
+| `--server-url stringArray` | No |  | Existing cluster member to contact (repeatable; required unless --from) |
+| `--token string` | No |  | Cluster join token |
+| `--token-file string` | No |  | Read the join token from this file |
+| `--wait` | No |  | Wait until the joining host reports healthy |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set |
 
 <!-- END GENERATED -->
 
 Join THIS host (the one --base-url points at, which must be a new,
-uninitialized control-plane) to an existing cluster. --token comes
-from `cluster init` or `cluster join-token` on an existing member;
---server-url (repeatable) lists existing cluster members to
-contact.
+uninitialized control-plane) to an existing cluster.
 
-`--token` and at least one `--server-url` are enforced at run time,
-and omitting either is a usage error. The Required column above reads
-No for both.
+**Use `--from <member-url>`.** It reads the join token and server
+URLs from that existing member and joins in one step, so the token
+never passes through your context, an argument or the output. Do not
+run `cluster join-token` and paste its token into `--token`.
+`--token-file` reads the token from a file instead, dropping one
+trailing newline; `--token` takes it as a value.
+
+Exactly one of `--from`, `--token-file` and `--token` is required:
+none, or more than one, is exit 2. With `--token-file` or `--token`,
+at least one `--server-url` is required (exit 2 without); with
+`--from` it defaults to the member's own server URLs. An empty token
+file, or one holding more than one line, is exit 2. The Required
+column above reads No for all of these.
 
 **Example:**
 
 ```bash
 pgedge controlplane cluster join --base-url http://new-host:3000 \
-  --token PGEDGE-abc --server-url http://existing-1:3000
+  --from http://existing-1:3000 --wait
 ```
 
-Expected: confirmation message ("Join request accepted.") to
-stderr.
+Expected: confirmation message ("Join request accepted.") to stderr,
+and nothing on stdout.
 
 The join request returns only after the host has joined, so exit
-status 0 means the join took effect. There is no task and no --wait.
-To confirm from another member, run `pgedge controlplane host list`:
-the new host is listed, and its STATE starts at `healthy`.
+status 0 means the join took effect. `--wait` then polls the host
+list on an existing member (`--from`, or the first `--server-url`)
+until the joining host's state is `healthy`, printing each state to
+stderr. `--wait-timeout` running out is exit 3.
 
 ---

@@ -165,29 +165,27 @@ as an organization admin.
 **Step 2: Track it from the CLI**
 
 ```bash
-pgedge starfleet invite list
-pgedge starfleet invite get <invite-id> -o json
+pgedge starfleet invite get --email <addr> -o json
 ```
 
 An invite has no `status` field, and `token`/`accept_url` are not on
-every invite. **Check the exit code before the absence**: a failed read
-and an empty list both leave stdout empty. On a non-zero exit the
-invite is UNVERIFIED, so relay the error. On exit 0 with no match, read
-again later before reporting it missing.
+every invite. Exit 0 prints the matching invites, exit 4 means none
+exists for that address, and any other non-zero exit means the read
+failed: the invite is UNVERIFIED, so relay the error.
 
 **Step 3: The member accepts**, from the invitation email or the UI.
 
 **Step 4: Verify membership**
 
 ```bash
-pgedge starfleet membership list
+pgedge starfleet membership list --email <addr>
 ```
 
-The new member's email appears in the `USER EMAIL` column. **Check the
-exit code before the absence**: a failed read also shows no email. On a
-non-zero exit the membership is UNVERIFIED, so relay the error and
-delete nothing. On exit 0 with no email, the member has not accepted
-yet; take Step 5 only if the address itself was wrong.
+Exit 0 prints the member. Exit 4 means no current member has that
+address: the invite may not be accepted yet, or the person joined with
+another address. Take Step 5 only if the address itself was wrong. Any other
+non-zero exit means the read failed: the membership is UNVERIFIED, so
+relay the error and delete nothing.
 
 **Step 5: Tidy up, if the invite went to the wrong address**
 
@@ -202,7 +200,7 @@ pgedge starfleet invite delete <invite-id> --force
 | 0 | Success | Continue to next step |
 | 1 | General error (validation, expired invite, bad `--email`) | Read stderr; re-create the invite if needed |
 | 3 | A request timed out, or the server answered 408/504 | Check connectivity, or raise `--timeout` on a slow link |
-| 4 | Invite not found | Verify the invite ID with `pgedge starfleet invite list` |
+| 4 | No invite or member matches the ID or `--email` | Verify the ID with `pgedge starfleet invite list`; for `--email`, read again later |
 | 5 | From `invite create` or `invite accept`: a fixed refusal, whichever way you signed in | Create or accept the invite in the pgEdge Starfleet UI. `auth login` does not change this |
 | 5 | From any other step: authentication or authorization failure | Confirm the org admin role; run `pgedge starfleet auth login` if needed |
 

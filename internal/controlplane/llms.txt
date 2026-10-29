@@ -59,8 +59,8 @@ mode writes nothing to stdout.
 `task list` is the only paged verb. Omit `--limit` to take the
 server's default; `--limit 0` or a negative value is exit 2 with
 nothing sent. There is no `--offset` and no enforced maximum. **A full
-`task list` page may be truncated.** Narrow the read with
-`--database`, `--host` or `--scope` until a page comes back short.
+`task list` page may be truncated.** Pass `--all` with `--database`,
+`--host`, or `--scope` and `--entity-id` to read every page.
 
 ### Getting a Control Plane
 

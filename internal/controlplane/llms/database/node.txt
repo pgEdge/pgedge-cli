@@ -115,7 +115,8 @@ Switch over a database node
 <!-- END GENERATED -->
 
 Perform a graceful, planned role change on a node, promoting a
-replica to leader. --candidate targets a specific replica;
+replica to leader. --candidate takes the instance ID of a replica
+of the same node; the server refuses an instance from another node.
 --scheduled-at defers the change to an RFC3339 time.
 
 Without --candidate, the Control Plane promotes the first of the
@@ -129,7 +130,7 @@ node, the task fails.
 ```bash
 pgedge controlplane database node switchover storefront n1
 pgedge controlplane database node switchover storefront n1 \
-  --candidate storefront-n2-9ptayhma --wait
+  --candidate storefront-n1-9ptayhma --wait
 ```
 
 Expected: confirmation message ("Switchover task <id> accepted

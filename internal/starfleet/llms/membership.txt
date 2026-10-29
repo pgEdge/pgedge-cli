@@ -30,16 +30,27 @@ from everyone else and says nothing about what anyone else may do.
 <!-- BEGIN GENERATED: pgedge starfleet membership list -->
 #### pgedge starfleet membership list
 
-**Usage:** `pgedge starfleet membership list`
+**Usage:** `pgedge starfleet membership list [flags]`
 
 List team memberships
 
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--email string` | No |  | Show only the members with this email address |
+
 <!-- END GENERATED -->
+
+`--email <addr>` keeps only the members with that address, compared
+without regard to case. It exits 4 when none matches; any other
+non-zero exit is a failed read, not an absent member.
 
 **Example:**
 
 ```bash
 pgedge starfleet membership list
+pgedge starfleet membership list --email teammate@example.com
 ```
 
 **Example output (table):**

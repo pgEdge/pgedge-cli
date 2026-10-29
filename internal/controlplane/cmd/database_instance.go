@@ -23,6 +23,11 @@ database). stop and restart interrupt service, so both prompt for
 confirmation; --force skips the prompt, and nothing else. start does
 not interrupt anything and does not prompt.
 
+start, stop and restart take an instance ID or a node name such as
+n1. A node name is looked up with 'database get': a node with one
+instance resolves to it, a node with several is exit 2 listing every
+instance ID, and a node with none is exit 4.
+
 Example:
   pgedge controlplane database instance list
   pgedge controlplane database instance restart storefront storefront-n1-689qacsi`,
@@ -43,7 +48,7 @@ Example:
 func newInstanceStartCmd(rt *module.Runtime) *cobra.Command {
 	var forceUnmodifiable bool
 	cmd := &cobra.Command{
-		Use:   "start <database_id> <instance_id>",
+		Use:   "start <database_id> <instance_id_or_node>",
 		Short: "Start a database instance",
 		Long: `start brings a stopped instance back online. It interrupts
 nothing, so it does not prompt. --force-unmodifiable starts the
@@ -59,6 +64,10 @@ Example:
 	cmd.Flags().BoolVar(&forceUnmodifiable, "force-unmodifiable", false,
 		"Start even if the database is in an unmodifiable state")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		inst, err := resolveInstanceArg(rt, cmd, args[0], args[1])
+		if err != nil {
+			return err
+		}
 		client, err := clientFromCmd(rt, cmd)
 		if err != nil {
 			return err
@@ -69,7 +78,7 @@ Example:
 			params.Force = &f
 		}
 		resp, err := client.StartInstanceWithResponse(
-			context.Background(), args[0], args[1], params)
+			context.Background(), args[0], inst, params)
 		if err != nil {
 			return networkError("start instance", err)
 		}
@@ -92,7 +101,7 @@ Example:
 func newInstanceStopCmd(rt *module.Runtime) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "stop <database_id> <instance_id>",
+		Use:   "stop <database_id> <instance_id_or_node>",
 		Short: "Stop a database instance",
 		Long: `stop takes an instance offline, removing it from the
 database until restarted. Disruptive; prompts for confirmation (use
@@ -113,8 +122,12 @@ Example:
 	cmd.Flags().BoolVar(&forceUnmodifiable, "force-unmodifiable", false,
 		"Stop even if the database is in an unmodifiable state")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		inst, err := resolveInstanceArg(rt, cmd, args[0], args[1])
+		if err != nil {
+			return err
+		}
 		if err := cli.Confirm(rt, fmt.Sprintf(
-			"Stop instance %s in database %s?", args[1], args[0]),
+			"Stop instance %s in database %s?", inst, args[0]),
 			force); err != nil {
 			return err
 		}
@@ -128,7 +141,7 @@ Example:
 			params.Force = &f
 		}
 		resp, err := client.StopInstanceWithResponse(
-			context.Background(), args[0], args[1], params)
+			context.Background(), args[0], inst, params)
 		if err != nil {
 			return networkError("stop instance", err)
 		}
@@ -152,7 +165,7 @@ func newInstanceRestartCmd(rt *module.Runtime) *cobra.Command {
 	var scheduledAt string
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "restart <database_id> <instance_id>",
+		Use:   "restart <database_id> <instance_id_or_node>",
 		Short: "Restart a database instance",
 		Long: `restart bounces an instance's Postgres process, dropping
 its connections. Disruptive; prompts for confirmation (use --force to
@@ -180,9 +193,13 @@ Example:
 		if err != nil {
 			return err
 		}
+		inst, err := resolveInstanceArg(rt, cmd, args[0], args[1])
+		if err != nil {
+			return err
+		}
 		if err := cli.Confirm(rt, fmt.Sprintf(
 			"Restart instance %s in database %s? This drops its "+
-				"connections.", args[1], args[0]), force); err != nil {
+				"connections.", inst, args[0]), force); err != nil {
 			return err
 		}
 		client, err := clientFromCmd(rt, cmd)
@@ -194,7 +211,7 @@ Example:
 			body.ScheduledAt = when
 		}
 		resp, err := client.RestartInstanceWithResponse(
-			context.Background(), args[0], args[1], body)
+			context.Background(), args[0], inst, body)
 		if err != nil {
 			return networkError("restart instance", err)
 		}

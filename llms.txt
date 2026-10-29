@@ -348,13 +348,17 @@ Four deliberate exceptions:
 
 - `pgedge starfleet doctor` exits **0** even when authentication is
   broken, because it is meant to be safe to run when auth is the
-  suspected problem. Read `auth.authenticated` in `-o json`, not `$?`.
+  suspected problem. `--strict` exits non-zero unless `verdict` is
+  `ready`.
 - `pgedge controlplane doctor` exits **0** for the same reason,
   including when the Control Plane is **unreachable**, has no cluster,
-  or the active profile carries a field that will not parse. Read
-  `reachable` and `cluster_initialized` in `-o json`, not `$?`.
+  or the active profile carries a field that will not parse, unless
+  `--require` names conditions that must hold: `--require
+  reachable,cluster` exits 1 unless `reachable` and
+  `cluster_initialized` are both true.
   <!-- doc-gate: correct-for controlplane cluster_initialized — a key controlplane doctor
-  builds into its own json map, not a field of any generated struct --> So `pgedge controlplane doctor && <next step>` is not a gate,
+  builds into its own json map, not a field of any generated struct --> Without
+  `--require`, `pgedge controlplane doctor && <next step>` is not a gate,
   and `reachable` alone is not readiness either.
 - `pgedge controlplane config view` exits **0** on a profile it cannot
   fully resolve, and reports the offending value as a `problem` row.
@@ -389,8 +393,7 @@ page comes back full, so `managed task list --limit 500` returning 100 rows
 says so. The API reports no total, so the hint means more rows MIGHT exist:
 page with `--offset` to find out. `managed database list` applies no default
 page, so only a `--limit` you set can cut it short. A full `controlplane task
-list` page may be truncated, and `pgedge llms controlplane` says how to narrow
-it. A verb without `--limit`, such as `managed size list` or `database service
+list` page may be truncated, and its `--all` flag reads every page. A verb without `--limit`, such as `managed size list` or `database service
 list`, returns everything. Check a verb's `--help` to see whether it is paged.
 
 ## Diagnostics

@@ -48,12 +48,20 @@ pgedge controlplane database instance restart storefront storefront-n1-689qacsi 
   --force
 ```
 
-**Instance IDs are server-generated and cannot be constructed.** The
-Control Plane names an instance `<database>-<node>-<suffix>`, where the
-suffix is random — `storefront-n1-689qacsi`. Read one from
-`pgedge controlplane database instance list`, or from the ID column of
-`pgedge controlplane database get <database_id>`. The same value is what
-`node switchover --candidate` and `node failover --candidate` take.
+**Pass a node name or an instance ID.** `start`, `stop` and `restart`
+take either. A node name such as `n1` is looked up with `database
+get` before any prompt:
+
+- A node with one instance resolves to it, and stderr names the
+  instance ID.
+- A node with several instances is exit 2, and the message lists
+  every instance ID with its host. Pass the one you want.
+- A node with no instance is exit 4.
+
+Any other value is sent as typed. `node switchover --candidate` and
+`node failover --candidate` take an instance ID only. Never build an
+instance ID: the Control Plane names one `<database>-<node>-<suffix>`
+with a random suffix, such as `storefront-n1-689qacsi`.
 
 ---
 
@@ -97,7 +105,7 @@ each instance as the API object plus a `database_id` key.
 <!-- BEGIN GENERATED: pgedge controlplane database instance start -->
 ##### pgedge controlplane database instance start
 
-**Usage:** `pgedge controlplane database instance start <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance start <database_id> <instance_id_or_node> [flags]`
 
 Start a database instance
 
@@ -136,7 +144,7 @@ stdout — the task is under `task`.
 <!-- BEGIN GENERATED: pgedge controlplane database instance stop -->
 ##### pgedge controlplane database instance stop
 
-**Usage:** `pgedge controlplane database instance stop <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance stop <database_id> <instance_id_or_node> [flags]`
 
 Stop a database instance
 
@@ -176,7 +184,7 @@ stdout — the task is under `task`.
 <!-- BEGIN GENERATED: pgedge controlplane database instance restart -->
 ##### pgedge controlplane database instance restart
 
-**Usage:** `pgedge controlplane database instance restart <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance restart <database_id> <instance_id_or_node> [flags]`
 
 Restart a database instance
 

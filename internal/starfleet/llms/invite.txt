@@ -92,37 +92,34 @@ pgedge starfleet invite get --email teammate@example.com -o json
 
 **Usage:** `pgedge starfleet invite create [flags]`
 
-Create an invite (needs the web UI)
+Create an invite
 
 **Flags:**
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--email string` | No |  | Email address to invite |
+| `--email string` | Yes |  | Email address to invite |
 | `--expiration int` | No |  | Invite expiration in hours (optional) |
 
 <!-- END GENERATED -->
 
-**This does not run from the CLI.** Issuing an invite needs a
-signed-in user in the Starfleet UI. An API client identifies an
-application rather than a person, and Starfleet answers it with
-`400 cannot create invites from an api client`. A browser sign-in is
-a user, but the CLI does not send the request for one either. So the
-CLI refuses before making the request, whichever way it signed in,
-and exits **5**. The flags
-stay declared so the operation's shape is documented, and none is
-marked required, so the refusal is the error you see rather than
-"required flag not set".
+**Needs a browser sign-in** (`pgedge starfleet auth login` with no
+credential flags). With an API client, including the
+`PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, it sends nothing and
+exits **5** with `invite create needs a browser sign-in`; sign in
+through the browser, or invite from the Team page in the Starfleet
+UI. A blank `--email` exits 2.
 
-Invite teammates from the Team page in the Starfleet UI. `invite
-list`, `get` and `delete` all work normally from the CLI.
+On success it prints the new invite with `invite list`'s columns. The
+invite's `token` and `accept_url` let anyone holding them join the
+team: the table omits them, and `-o json` or `-o yaml` prints them.
 
-The refusal on stderr opens with `invite create needs a signed-in
-user` and ends by pointing at the Team page.
+**Example:**
 
-No `-o` value changes this. The refusal happens before the request is
-made, so stdout is empty and the exit code is 5 in every format.
+```bash
+pgedge starfleet invite create --email teammate@example.com
+```
 
 ---
 
@@ -172,12 +169,11 @@ Accept an invite (needs the web UI)
 
 <!-- END GENERATED -->
 
-**This does not run from the CLI**, for the same reason as
-`invite create`: accepting an invite records *which person* joined,
-and an API client names no person. Starfleet derives identity
-from the token's claims, where a user token sets `X-User-ID` and a
-client token sets `X-Client-ID` but never both, and answers 401 on an
-empty user ID. The CLI does not send the request for a browser
+**This does not run from the CLI.** Accepting an invite records
+*which person* joined, and an API client names no person. Starfleet
+derives identity from the token's claims, where a user token sets
+`X-User-ID` and a client token sets `X-Client-ID` but never both, and
+answers 401 on an empty user ID. The CLI does not send the request for a browser
 sign-in either, so it refuses before making the request, whichever
 way it signed in, and exits **5**.
 

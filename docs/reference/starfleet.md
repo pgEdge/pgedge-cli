@@ -313,20 +313,21 @@ pgedge starfleet invite list
 
 **Usage:** `pgedge starfleet invite create [flags]`
 
-Create an invite (needs the web UI)
+Create an invite
 
 **Flags:**
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--email string` | No |  | Email address to invite |
+| `--email string` | Yes |  | Email address to invite |
 | `--expiration int` | No |  | Invite expiration in hours (optional) |
 
 **Example:**
 
 ```
-pgedge starfleet invite list
+pgedge starfleet invite create --email teammate@example.com
+pgedge starfleet invite create --email teammate@example.com --expiration 48
 ```
 
 #### pgedge starfleet invite delete

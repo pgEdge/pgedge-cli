@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `starfleet invite create --email <addr>` creates an invite with a
+  browser sign-in. The table omits the invite's token and accept URL;
+  `-o json` and `-o yaml` print them. An API client still exits 5.
 - byoc `--wait` and `--follow` wait for the cluster, database or
   backup store to reach its end state, not only for the task, and exit
   1 naming any other status it settles on. `starfleet byoc database

@@ -38,8 +38,8 @@ for. --query adds key=value parameters, --data sends a JSON body
 than Authorization, which the module sets.
 
 A non-2xx status maps to the same exit code the module's verbs give
-it: 5 for an authentication or entitlement refusal, 4 for a 404 with a
-resource in it, 3 for a timeout, 1 otherwise. A 2xx with a JSON body
+it: 5 for an authentication or entitlement refusal, 4 for a 404 whose
+JSON body carries a "code" field, 3 for a timeout, 1 otherwise. A 2xx with a JSON body
 prints it indented in text and byte for byte under -o json; -o yaml
 re-encodes it, keeping every digit. A 2xx with no body prints nothing
 on stdout and a sentence on stderr. Any

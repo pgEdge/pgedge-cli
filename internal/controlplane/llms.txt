@@ -35,9 +35,11 @@ a multi-`--base-url` failover print the warning to stderr.
 - A request that outlives `--timeout` is exit 3, and the message names
   `--timeout`. A connection that could not be made at all is exit 1.
 - Under `--wait` or `--follow`, a task that ends `failed` or
-  `canceled` is exit 1 with the task's error. `--wait-timeout` running
-  out is exit 3, and so is a single poll that hangs, which ends the
-  wait. `--follow` has no overall bound. The message names the bound
+  `canceled` is exit 1. The message carries a failed task's error, and
+  reads `task <task-id> was canceled` for a canceled one. Under `task
+  cancel`, a canceled task is exit status 0 instead. `--wait-timeout`
+  running out is exit 3, and so is a single poll that hangs, which ends
+  the wait. `--follow` has no overall bound. The message names the bound
   that ran out.
 - A router 404 (`404 page not found`) is exit 1 with "this server does
   not serve an endpoint this command needs": usually an older Control

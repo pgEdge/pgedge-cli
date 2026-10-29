@@ -165,7 +165,8 @@ On a ready verdict, the BYOC row (JSON byoc) reads:
   entitled      the tenant can use BYOC
   not-entitled  the tenant cannot use BYOC; a byoc command prints
                 an empty list or exits 5
-  unknown       the check failed; run any byoc list to see why
+  unknown       the check failed for another reason; to see why,
+                run 'pgedge starfleet byoc cloud-account list'
 
 For the install itself — version, config file, shell — run
 'pgedge doctor'.

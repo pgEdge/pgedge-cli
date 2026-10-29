@@ -35,9 +35,8 @@ var accountEmptyBodySuccess = []string{
 var accountEmptyBodyExempt = map[string]string{
 	// AcceptInvite does answer 204 with an empty body, so it belonged
 	// here until the verb stopped calling it. It now refuses locally
-	// with ExitAuth because the operation needs a signed-in user and
-	// the CLI only ever holds a client credential — see
-	// errUserSessionRequired in invite.go. With no request issued there
+	// with ExitAuth for every sign-in — see errUserSessionRequired in
+	// invite.go. With no request issued there
 	// is no response for this contract to check; driving it through the
 	// 204 stub would only re-test the guard, which
 	// TestInviteVerbsNeedingUserSession already covers.

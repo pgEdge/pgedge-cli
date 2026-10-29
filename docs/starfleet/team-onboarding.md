@@ -6,7 +6,7 @@ the CLI.
 
 ## Commands available from the CLI
 
-Each invite and membership command runs under a CLI credential,
+Each invite and membership command runs under either kind of sign-in,
 except for two:
 
 | Command | Runs from the CLI |
@@ -22,7 +22,8 @@ except for two:
 `invite create` needs a browser sign-in, from `pgedge starfleet auth
 login` with no credential flags. With an API client it exits 5
 before sending anything; invite from the Team page in the Starfleet
-UI instead. `invite accept` exits 5 however you signed in.
+UI instead. If `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` are set,
+unset both before signing in, because they outrank every profile. `invite accept` exits 5 however you signed in.
 
 ## Invite a teammate
 

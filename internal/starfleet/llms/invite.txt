@@ -105,11 +105,12 @@ Create an invite
 <!-- END GENERATED -->
 
 **Needs a browser sign-in** (`pgedge starfleet auth login` with no
-credential flags). With an API client, including the
-`PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, it sends nothing and
-exits **5** with `invite create needs a browser sign-in`; sign in
-through the browser, or invite from the Team page in the Starfleet
-UI. A blank `--email` exits 2.
+credential flags). With an API client it sends nothing and exits **5**
+with `invite create needs a browser sign-in`. If the credential came
+from `PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET`, unset both before
+signing in, since they outrank every profile. Otherwise run the
+`auth login` line the message prints, or invite from the Team page in
+the Starfleet UI. A blank `--email` exits 2.
 
 On success it prints the new invite with `invite list`'s columns. The
 invite's `token` and `accept_url` let anyone holding them join the
@@ -173,9 +174,9 @@ Accept an invite (needs the web UI)
 *which person* joined, and an API client names no person. Starfleet
 derives identity from the token's claims, where a user token sets
 `X-User-ID` and a client token sets `X-Client-ID` but never both, and
-answers 401 on an empty user ID. The CLI does not send the request for a browser
-sign-in either, so it refuses before making the request, whichever
-way it signed in, and exits **5**.
+answers 401 on an empty user ID. The CLI does not send the request
+for a browser sign-in either, so it refuses before making the
+request, whichever way it signed in, and exits **5**.
 
 The operation is excluded from the published public API contract.
 

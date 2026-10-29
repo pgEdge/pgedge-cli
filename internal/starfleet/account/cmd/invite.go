@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
@@ -32,13 +33,20 @@ func errUserSessionRequired(verb, alternative string) error {
 
 // errInviteCreateNeedsSession is `invite create` refused locally for an
 // API client, which the API answers with `400 cannot create invites
-// from an api client`.
-func errInviteCreateNeedsSession() error {
-	return newExitError("invite create needs a browser sign-in: run "+
-		"'pgedge starfleet auth login' with no credential flags, or "+
-		"invite teammates from the Team page in the pgEdge Starfleet "+
-		"UI. An API client identifies an application rather than a "+
-		"person, so pgEdge Starfleet refuses it.", ExitAuth)
+// from an api client`. The env pair outranks every profile, so a login
+// cannot help until it is unset.
+func errInviteCreateNeedsSession(rt *module.Runtime, env bool) error {
+	fix := fmt.Sprintf("run '%s' with no credential flags",
+		conn.LoginCommand(rt))
+	if env {
+		fix = fmt.Sprintf("unset %s and %s, then sign in with "+
+			"'pgedge starfleet auth login'", auth.EnvClientID,
+			auth.EnvClientSecret)
+	}
+	return newExitError("invite create needs a browser sign-in: "+fix+
+		", or invite teammates from the Team page in the pgEdge "+
+		"Starfleet UI. An API client identifies an application rather "+
+		"than a person, so pgEdge Starfleet refuses it.", ExitAuth)
 }
 
 // NewInviteCmd builds the `pgedge starfleet invite` command group. The
@@ -243,10 +251,10 @@ func newInviteCreateCmd(rt *module.Runtime) *cobra.Command {
 invite.
 
 It needs a browser sign-in ('pgedge starfleet auth login' with no
-credential flags). With an API client, including the
-PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET pair, it exits 5 without
-sending the request; invite from the Team page in the pgEdge
-Starfleet UI instead.
+credential flags; unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET
+first, since they outrank every profile). With an API client it exits
+5 without sending the request; invite from the Team page in the
+pgEdge Starfleet UI instead.
 
 The token and accept URL let anyone holding them join the team. The
 table omits them; -o json and -o yaml print them.
@@ -262,10 +270,6 @@ Example:
 			}
 			body := api.CreateInviteJSONRequestBody{Email: addr}
 			if cmd.Flags().Changed("expiration") {
-				if expiration < 1 {
-					return newExitError("--expiration must be at "+
-						"least 1 hour", ExitUsage)
-				}
 				body.Expiration = &expiration
 			}
 
@@ -280,7 +284,7 @@ Example:
 				return newExitError(err.Error(), code)
 			}
 			if !res.Session {
-				return errInviteCreateNeedsSession()
+				return errInviteCreateNeedsSession(rt, res.Env)
 			}
 
 			client, err := clientFromCmd(rt, cmd)

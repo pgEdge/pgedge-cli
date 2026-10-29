@@ -205,7 +205,7 @@ pgedge starfleet invite delete <invite-id> --force
 | 1 | General error (validation, expired invite, bad `--email`) | Read stderr; re-create the invite if needed |
 | 3 | A request timed out, or the server answered 408/504 | Check connectivity, or raise `--timeout` on a slow link |
 | 4 | No invite or member matches the ID or `--email` | Verify the ID with `pgedge starfleet invite list`; for `--email`, read again later |
-| 5 | From `invite create` with an API client | Run `pgedge starfleet auth login` with no credential flags, or create the invite in the pgEdge Starfleet UI |
+| 5 | From `invite create` with an API client | If `PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` are set, unset both first. Then run the `auth login` line the message prints, or create the invite in the pgEdge Starfleet UI |
 | 5 | From `invite accept`: a fixed refusal, whichever way you signed in | Accept the invite from the invitation email or the pgEdge Starfleet UI |
 | 5 | From any other step: authentication or authorization failure | Confirm the org admin role; run `pgedge starfleet auth login` if needed |
 

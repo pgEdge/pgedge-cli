@@ -179,6 +179,7 @@ func TestInviteCreateRun(t *testing.T) {
 		flagPair
 		envPair // set over a session profile
 		savedClient
+		flagsOverEnv
 	)
 	tests := []struct {
 		name     string
@@ -218,6 +219,10 @@ func TestInviteCreateRun(t *testing.T) {
 		{name: "env pair over a session", format: "text", cred: envPair,
 			status: 200, args: email, wantCode: ExitAuth,
 			wantMsg: "unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET"},
+		{name: "flags over the env pair", format: "text",
+			cred: flagsOverEnv, status: 200, args: email,
+			wantCode: ExitAuth,
+			wantMsg:  "unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET"},
 		{name: "blank email", format: "text", status: 200,
 			args: []string{"--email", "  "}, wantCode: ExitUsage},
 		{name: "server 400", format: "text", status: 400, args: email,
@@ -260,7 +265,11 @@ func TestInviteCreateRun(t *testing.T) {
 					t.Setenv("PGEDGE_CLIENT_SECRET", "secret")
 					args = append(args, "--api-url", url)
 				}
-			case flagPair:
+			case flagPair, flagsOverEnv:
+				if tt.cred == flagsOverEnv {
+					t.Setenv("PGEDGE_CLIENT_ID", "env-id")
+					t.Setenv("PGEDGE_CLIENT_SECRET", "env-secret")
+				}
 				args = append(args, "--client-id", "id",
 					"--client-secret", "secret", "--api-url", url)
 			case savedClient:

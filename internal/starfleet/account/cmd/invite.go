@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
@@ -34,11 +35,12 @@ func errUserSessionRequired(verb, alternative string) error {
 // errInviteCreateNeedsSession is `invite create` refused locally for an
 // API client, which the API answers with `400 cannot create invites
 // from an api client`. The env pair outranks every profile, so a login
-// cannot help until it is unset.
-func errInviteCreateNeedsSession(rt *module.Runtime, env bool) error {
+// cannot help until it is unset, even when flags won this time.
+func errInviteCreateNeedsSession(rt *module.Runtime) error {
 	fix := fmt.Sprintf("run '%s' with no credential flags",
 		conn.LoginCommand(rt))
-	if env {
+	if os.Getenv(auth.EnvClientID) != "" ||
+		os.Getenv(auth.EnvClientSecret) != "" {
 		fix = fmt.Sprintf("unset %s and %s, then sign in with "+
 			"'pgedge starfleet auth login'", auth.EnvClientID,
 			auth.EnvClientSecret)
@@ -284,7 +286,7 @@ Example:
 				return newExitError(err.Error(), code)
 			}
 			if !res.Session {
-				return errInviteCreateNeedsSession(rt, res.Env)
+				return errInviteCreateNeedsSession(rt)
 			}
 
 			client, err := clientFromCmd(rt, cmd)

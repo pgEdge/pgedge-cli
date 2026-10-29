@@ -129,12 +129,12 @@ func NewDoctorCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
 		Long: `doctor reports which credential source is in effect, whether
 the cached token is still valid, whether the resolved API base URL is
 reachable, which tenant the credential authenticates as, and whether
-that tenant's plan includes BYOC. It never fails on missing
+that tenant can use BYOC. It never fails on missing
 credentials, so it is safe to run precisely when authentication is
 broken.
 
 It changes nothing. Reading the tenant needs a token, so doctor may
-exchange one, but that token is used for the single call and never
+exchange one, but that token is used for doctor's reads and never
 written to the token cache — including when --api-url points somewhere
 other than the profile's own host. Whatever a later command would have
 used, it still will.
@@ -158,14 +158,14 @@ The verdict sums the report up in one word:
 
 doctor exits 0 whatever the verdict. With --strict it exits with the
 code shown when the verdict is not ready. The tenant's plan does not
-affect the verdict; read tenant.plan for that.
+affect the verdict; read byoc before byoc work.
 
 On a ready verdict, the BYOC row (JSON byoc) reads:
 
-  entitled      the plan includes BYOC
-  not-entitled  the plan does not include BYOC; a byoc command
-                prints an empty list or exits 5
-  unknown       the check failed; run it again
+  entitled      the tenant can use BYOC
+  not-entitled  the tenant cannot use BYOC; a byoc command prints
+                an empty list or exits 5
+  unknown       the check failed; run any byoc list to see why
 
 For the install itself — version, config file, shell — run
 'pgedge doctor'.
@@ -434,8 +434,8 @@ func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 }
 
 // tenantCheckRow renders the Tenant check. A plan that is not
-// enterprise is a warning, not an error: the credential works, it just
-// cannot drive byoc.
+// enterprise is a warning, not an error: the credential works, and the
+// BYOC row says whether byoc does.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if info.Skipped != "" {
 		return output.CheckRow{
@@ -476,8 +476,6 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 	status := "ok"
 	if plan != enterprisePlan {
 		status = "warning"
-		detail += fmt.Sprintf(
-			"; byoc verbs are entitlement-denied on a %s plan", plan)
 	}
 	return output.CheckRow{Check: "Tenant", Status: status, Details: detail}
 }

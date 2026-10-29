@@ -32,8 +32,8 @@ broken. For the install itself — version, config file, shell — run
 |-------|-----------------|
 | Auth | Which credential source resolved (flags, env, keychain, config), whether a token is cached, and whether it is still valid. `error` if no credentials are found; `warning` if credentials resolve but the token is expired or absent, or if a cached, unexpired token was minted for a different connection than the one now configured — a different credential, or a different API base URL (`auth.token_bound` is `false` in the JSON; the table row says "the cached token was minted with a different credential or API URL"). A cache with no recorded binding reports the same mismatch warning rather than being trusted. This is where token state is reported. When resolution failed for a reason more specific than "nothing configured", the JSON carries `auth.problem` naming it and the table row prints it instead of "not authenticated". Those reasons are a half-supplied flag or `PGEDGE_CLIENT_ID`/`PGEDGE_CLIENT_SECRET` pair, `--profile` given while that pair is set, and a keychain that cannot be read. With env credentials the row is `ok` and says tokens are never cached. |
 | API connectivity | HTTP GET to the resolved API base URL; records status and latency. |
-| Tenant | Names the tenant the active credential authenticates as, and its **plan**. `ok` only for an `enterprise` plan; `warning` for any other, naming it — because a profile carries one Starfleet credential that byoc and managed both borrow, so a profile IS a tenant and the plan decides which modules work. On a non-enterprise plan the byoc verbs are entitlement-denied server-side, and the symptom is otherwise an empty list or a `plan does not allow ...` error far from its cause. `warning` with "could not resolve tenant" when the credential cannot read one, and with "not read" (JSON `tenant.skipped` names why) when a browser session must renew first, which doctor leaves to the next command. Without `--strict` the command still exits 0. |
-| BYOC | Present only when the verdict is `ready`. `entitled` (`ok`) when the tenant's plan includes BYOC; `not-entitled` (`warning`) when it does not, so a byoc command prints `[]` or exits 5; `unknown` (`warning`) when the check failed. JSON `byoc`. Never changes the verdict. |
+| Tenant | Names the tenant the active credential authenticates as, and its **plan**. `ok` only for an `enterprise` plan; `warning` for any other, naming it — because a profile carries one Starfleet credential that byoc and managed both borrow, so a profile IS a tenant and the plan decides which modules work. The BYOC row says whether the tenant can use byoc. `warning` with "could not resolve tenant" when the credential cannot read one, and with "not read" (JSON `tenant.skipped` names why) when a browser session must renew first, which doctor leaves to the next command. Without `--strict` the command still exits 0. |
+| BYOC | Present only when the verdict is `ready`. `entitled` (`ok`) when the tenant can use BYOC; `not-entitled` (`warning`) when it cannot, so a byoc command prints `[]` or exits 5; `unknown` (`warning`) when the check failed: run any byoc list to see why. JSON `byoc`. Never changes the verdict. |
 | Environment | Reports OS/arch and whether `NO_COLOR` is set. Env credentials appear on the Auth row instead. |
 | Verdict | The report in one word, below. `ok` only for `ready`. |
 
@@ -75,12 +75,13 @@ Environment       ok      darwin/arm64
 Verdict           ok      ready
 ```
 
-On a plan that cannot drive byoc, the Tenant row says so rather than
+On a tenant that cannot use byoc, the BYOC row says so rather than
 leaving an empty `pgedge starfleet byoc cluster list` to be misread as "no
 clusters yet":
 
 ```
-Tenant            warning  acme (a1b2c3d4-..., plan: managed); byoc verbs are entitlement-denied on a managed plan
+Tenant            warning  acme (a1b2c3d4-..., plan: managed)
+BYOC              warning  not-entitled
 ```
 
 With `NO_COLOR` exported, the Environment row adds it:

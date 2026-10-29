@@ -690,10 +690,8 @@ func TestTenantCheckRow(t *testing.T) {
 				Plan: "managed", Count: 1,
 			},
 			wantStatus: "warning",
-			wantHas: []string{
-				"plan: managed",
-				"byoc verbs are entitlement-denied on a managed plan",
-			},
+			wantHas:    []string{"plan: managed"},
+			wantLacks:  []string{"entitlement-denied"},
 		},
 		{
 			name: "developer also warns",
@@ -702,7 +700,7 @@ func TestTenantCheckRow(t *testing.T) {
 				Plan: "developer", Count: 1,
 			},
 			wantStatus: "warning",
-			wantHas:    []string{"entitlement-denied on a developer plan"},
+			wantHas:    []string{"plan: developer"},
 		},
 		{
 			name: "a resolved tenant with no plan says unknown",

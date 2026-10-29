@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -444,6 +445,12 @@ func TestDoctorBYOCEntitlement(t *testing.T) {
 			byocNotEntitled, 1, ExitOK},
 		{"server error", 200, 503, `{"code":503,"message":"x"}`,
 			verdictReady, byocUnknown, 1, ExitOK},
+		{"probe 401", 200, 401, `{"code":401,"message":"no"}`,
+			verdictReady, byocUnknown, 1, ExitOK},
+		{"probe 403", 200, 403, `{"code":403,"message":"no"}`,
+			verdictReady, byocUnknown, 1, ExitOK},
+		{"other 400", 200, 400, `{"code":400,"message":"bad request"}`,
+			verdictReady, byocUnknown, 1, ExitOK},
 		{"not ready sends no probe", 401, 200, `[]`,
 			verdictCredentialRejected, "", 0, ExitAuth},
 	}
@@ -485,6 +492,42 @@ func TestDoctorBYOCEntitlement(t *testing.T) {
 			}
 			if probes != tc.wantProbes {
 				t.Errorf("probes = %d, want %d", probes, tc.wantProbes)
+			}
+		})
+	}
+}
+
+func TestDoctorBYOCRowText(t *testing.T) {
+	cases := []struct {
+		status int
+		body   string
+		want   string
+	}{
+		{200, `[]`, `(?m)^BYOC\s+ok\s+entitled\s*$`},
+		{400, `{"code":400,"message":"plan does not allow creating ` +
+			`cloud account read"}`, `(?m)^BYOC\s+warning\s+not-entitled\s*$`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.want, func(t *testing.T) {
+			rt, out, _ := testsupport.NewRuntime(t, "", "text")
+			url := testsupport.NewAuthedServer(t,
+				func(w http.ResponseWriter, r *http.Request) {
+					switch r.URL.Path {
+					case "/account/v1/tenants":
+						testsupport.JSONHandler(200,
+							verdictTenantsBody)(w, r)
+					case "/byoc/v1/cloud-accounts":
+						testsupport.JSONHandler(tc.status, tc.body)(w, r)
+					default:
+						w.WriteHeader(http.StatusOK)
+					}
+				})
+			if err := runAuthedAccount(t, rt, out, url,
+				"doctor"); err != nil {
+				t.Fatalf("doctor: %v", err)
+			}
+			if !regexp.MustCompile(tc.want).MatchString(out.String()) {
+				t.Errorf("output lacks %s:\n%s", tc.want, out.String())
 			}
 		})
 	}

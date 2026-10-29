@@ -123,8 +123,9 @@ var stderrSafeArgs = map[string]struct {
 		"a UUID type: %s renders hex via String(), so no " +
 			"server byte reaches the verb",
 		map[string]bool{
-			"../controlplane/cmd/database_ops.go": true,
-			"../controlplane/cmd/wait.go":         true,
+			"../controlplane/cmd/database_failure.go": true,
+			"../controlplane/cmd/database_ops.go":     true,
+			"../controlplane/cmd/wait.go":             true,
 		}},
 	"resp.JSON200.Task.TaskId": {
 		"a UUID type: %s renders hex via String(), so no " +
@@ -321,8 +322,10 @@ var stderrComposedMessages = map[string]struct {
 // 227 -> 236: managed --wait's status lines after the task, and
 // `backup create --wait`'s backup status lines.
 // 236 -> 237: the open warning names each service's own guard.
+// 237 -> 247: controlplane join --wait.s host lines, the node-name
+// resolution line, and database get --failure.s no-failure sentences.
 const (
-	stderrArgSites      = 237
+	stderrArgSites      = 247
 	stderrComposedSites = 23
 )
 

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -12,7 +13,8 @@ import (
 
 // newDoctorCmd builds `pgedge controlplane doctor`.
 func newDoctorCmd(rt *module.Runtime) *cobra.Command {
-	return &cobra.Command{
+	var require []string
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose the Control Plane connection",
 		Long: `doctor shows the resolved connection and probes each
@@ -37,10 +39,14 @@ the offending value named, and -o json carries the same as problem.
 doctor reports it rather than refusing to run, because a profile you
 cannot resolve is the thing you came here to diagnose.
 
-doctor exits 0 whatever it finds, including an unreachable server or
-one with no cluster, so it is safe to run when the thing it diagnoses
-is broken. That means it is NOT a gate: read reachable and
-cluster_initialized from -o json rather than testing $?.
+Without --require, doctor exits 0 whatever it finds, including an
+unreachable server or one with no cluster, so it is safe to run when
+the thing it diagnoses is broken. --require makes it a gate: it
+prints the same report, then exits 1 unless every named condition
+holds. The conditions are reachable (some server answered), cluster
+(cluster_initialized is true; unknown or disagreeing servers fail)
+and supported (some server answered and none that answered is below
+the supported floor). An unknown condition is exit 2.
 
 This CLI supports Control Plane >= ` + SupportFloor + `. A reachable
 server below that floor reports as a warning naming both versions,
@@ -48,9 +54,14 @@ not as an error.
 
 Example:
   pgedge controlplane doctor
-  pgedge controlplane doctor -o json`,
+  pgedge controlplane doctor -o json
+  pgedge controlplane doctor --require reachable,cluster`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			required, err := parseRequire(require)
+			if err != nil {
+				return err
+			}
 			// Not propagated: doctor is what to run when a command
 			// cannot connect, so a profile field that will not parse
 			// is reported as a row instead.
@@ -141,6 +152,32 @@ Example:
 				}
 			}
 
+			verdict := doctorVerdict{
+				reachable: anyReachable,
+				cluster: clusterKnown && clusterAgrees &&
+					clusterInitialized,
+				supported: anyReachable,
+			}
+			for _, p := range probes {
+				if p.reachable && p.warning != "" {
+					verdict.supported = false
+				}
+			}
+			gate := func(printErr error) error {
+				if printErr != nil {
+					return printErr
+				}
+				unmet := unmetConditions(required, verdict)
+				if len(unmet) == 0 {
+					return nil
+				}
+				return &ExitError{
+					msg: "doctor: required condition not met: " +
+						strings.Join(unmet, ", "),
+					code: ExitGeneral,
+				}
+			}
+
 			if rt.Output.Structured() {
 				servers := make([]map[string]any, len(probes))
 				for i, p := range probes {
@@ -171,7 +208,7 @@ Example:
 				if clusterKnown && clusterAgrees {
 					out["cluster_initialized"] = clusterInitialized
 				}
-				return rt.Output.Print(out, nil)
+				return gate(rt.Output.Print(out, nil))
 			}
 			mtls := "disabled"
 			if c.caCert != "" || c.clientCert != "" {
@@ -220,7 +257,11 @@ Example:
 					Check: "Cluster", Status: status, Details: detail,
 				})
 			}
-			return rt.Output.Print(rows, output.CheckHeaders())
+			return gate(rt.Output.Print(rows, output.CheckHeaders()))
 		},
 	}
+	cmd.Flags().StringSliceVar(&require, "require", nil,
+		"Exit 1 unless every named condition holds: reachable, "+
+			"cluster, supported (comma-separated)")
+	return cmd
 }

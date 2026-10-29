@@ -98,6 +98,7 @@ Example:
 func newTaskListCmd(rt *module.Runtime) *cobra.Command {
 	var scope, entity, database, host string
 	var limit int
+	var all bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List tasks",
@@ -105,9 +106,16 @@ func newTaskListCmd(rt *module.Runtime) *cobra.Command {
 list by --scope (database or host) and --entity-id, or list a single
 resource's tasks with --database or --host. Cap with --limit.
 
+--all follows the server's cursor page by page until a page comes
+back short, so the result is every task rather than one page. --limit
+then sets the page size (default 100). It needs --database, --host,
+or --scope with --entity-id: the cursor pages one database's or one
+host's tasks.
+
 Example:
   pgedge controlplane task list
   pgedge controlplane task list --database my-db
+  pgedge controlplane task list --database my-db --all
   pgedge controlplane task list --scope host --limit 20`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -125,6 +133,15 @@ Example:
 					code: ExitUsage,
 				}
 			}
+			if all && database == "" && host == "" &&
+				(scope == "" || entity == "") {
+				return &ExitError{
+					msg: "--all needs --database, --host, or --scope " +
+						"with --entity-id: the Control Plane's cursor " +
+						"pages one database's or one host's tasks",
+					code: ExitUsage,
+				}
+			}
 			// control-plane.json declares no bounds on any of its
 			// five limit parameters.
 			limit, sendLimit, err := cli.OptionalIntFlagInRange(
@@ -137,73 +154,37 @@ Example:
 			if err != nil {
 				return err
 			}
-			jsonMode := rt.Output.Structured()
 			var limitPtr *int64
 			if sendLimit {
 				l := int64(limit)
 				limitPtr = &l
 			}
+			fetch := taskPageFetcher(client, database, host, scope, entity)
+
 			var tasks []api.Task
-			switch {
-			case database != "":
-				resp, err := client.ListDatabaseTasksWithResponse(
-					context.Background(), database,
-					&api.ListDatabaseTasksParams{Limit: limitPtr})
-				if err != nil {
-					return networkError("list database tasks", err)
+			if all {
+				pageSize := int64(defaultTaskPageSize)
+				if limitPtr != nil {
+					pageSize = *limitPtr
 				}
-				if err := checkResponse(resp.StatusCode(),
-					string(resp.Body)); err != nil {
+				tasks, err = collectAllTasks(fetch, pageSize)
+				if err != nil {
 					return err
 				}
-				if jsonMode {
-					return rt.Output.Print(resp.JSON200, nil)
+				if rt.Output.Structured() {
+					return rt.Output.Print(taskListDoc{
+						Tasks: append([]api.Task{}, tasks...),
+					}, nil)
 				}
-				if resp.JSON200 != nil {
-					tasks = resp.JSON200.Tasks
-				}
-			case host != "":
-				resp, err := client.ListHostTasksWithResponse(
-					context.Background(), host,
-					&api.ListHostTasksParams{Limit: limitPtr})
+			} else {
+				page, raw, err := fetch(nil, limitPtr)
 				if err != nil {
-					return networkError("list host tasks", err)
-				}
-				if err := checkResponse(resp.StatusCode(),
-					string(resp.Body)); err != nil {
 					return err
 				}
-				if jsonMode {
-					return rt.Output.Print(resp.JSON200, nil)
+				if rt.Output.Structured() {
+					return rt.Output.Print(raw, nil)
 				}
-				if resp.JSON200 != nil {
-					tasks = resp.JSON200.Tasks
-				}
-			default:
-				params := &api.ListTasksParams{}
-				if scope != "" {
-					s := api.ListTasksParamsScope(scope)
-					params.Scope = &s
-				}
-				if entity != "" {
-					params.EntityId = &entity
-				}
-				params.Limit = limitPtr
-				resp, err := client.ListTasksWithResponse(
-					context.Background(), params)
-				if err != nil {
-					return networkError("list tasks", err)
-				}
-				if err := checkResponse(resp.StatusCode(),
-					string(resp.Body)); err != nil {
-					return err
-				}
-				if jsonMode {
-					return rt.Output.Print(resp.JSON200, nil)
-				}
-				if resp.JSON200 != nil {
-					tasks = resp.JSON200.Tasks
-				}
+				tasks = page
 			}
 			if len(tasks) == 0 {
 				fmt.Fprintln(rt.Stderr, "No tasks found.")
@@ -224,8 +205,123 @@ Example:
 		"List tasks for a single database")
 	cmd.Flags().StringVar(&host, "host", "",
 		"List tasks for a single host")
-	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum tasks to return")
+	cmd.Flags().IntVar(&limit, "limit", 0,
+		"Maximum tasks to return (the page size with --all)")
+	cmd.Flags().BoolVar(&all, "all", false,
+		"Follow the cursor until a page comes back short")
 	return cmd
+}
+
+// defaultTaskPageSize is --all's page size when --limit is absent.
+const defaultTaskPageSize = 100
+
+// taskListDoc is --all's -o json/yaml document, the shape of one page.
+type taskListDoc struct {
+	Tasks []api.Task `json:"tasks"`
+}
+
+// taskPage fetches one page after the given task; raw is the API's
+// response, printed as-is under -o json for a single page.
+type taskPage func(after *uuid.UUID, limit *int64) (
+	tasks []api.Task, raw any, err error)
+
+func taskPageFetcher(
+	client *api.ClientWithResponses,
+	database, host, scope, entity string,
+) taskPage {
+	ctx := context.Background()
+	return func(after *uuid.UUID, limit *int64) ([]api.Task, any, error) {
+		switch {
+		case database != "":
+			resp, err := client.ListDatabaseTasksWithResponse(
+				ctx, database, &api.ListDatabaseTasksParams{
+					Limit: limit, AfterTaskId: after,
+				})
+			if err != nil {
+				return nil, nil, networkError("list database tasks", err)
+			}
+			if err := checkResponse(resp.StatusCode(),
+				string(resp.Body)); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 == nil {
+				return nil, nil, nil
+			}
+			return resp.JSON200.Tasks, resp.JSON200, nil
+		case host != "":
+			resp, err := client.ListHostTasksWithResponse(
+				ctx, host, &api.ListHostTasksParams{
+					Limit: limit, AfterTaskId: after,
+				})
+			if err != nil {
+				return nil, nil, networkError("list host tasks", err)
+			}
+			if err := checkResponse(resp.StatusCode(),
+				string(resp.Body)); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 == nil {
+				return nil, nil, nil
+			}
+			return resp.JSON200.Tasks, resp.JSON200, nil
+		default:
+			params := &api.ListTasksParams{
+				Limit: limit, AfterTaskId: after,
+			}
+			if scope != "" {
+				s := api.ListTasksParamsScope(scope)
+				params.Scope = &s
+			}
+			if entity != "" {
+				params.EntityId = &entity
+			}
+			resp, err := client.ListTasksWithResponse(ctx, params)
+			if err != nil {
+				return nil, nil, networkError("list tasks", err)
+			}
+			if err := checkResponse(resp.StatusCode(),
+				string(resp.Body)); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 == nil {
+				return nil, nil, nil
+			}
+			return resp.JSON200.Tasks, resp.JSON200, nil
+		}
+	}
+}
+
+// collectAllTasks follows after_task_id until a page comes back
+// shorter than pageSize. A task seen twice means the server ignored
+// the cursor, and looping on it would never end.
+func collectAllTasks(fetch taskPage, pageSize int64) ([]api.Task, error) {
+	var all []api.Task
+	seen := map[uuid.UUID]bool{}
+	var after *uuid.UUID
+	for {
+		page, _, err := fetch(after, &pageSize)
+		if err != nil {
+			return nil, err
+		}
+		for _, t := range page {
+			if seen[t.TaskId] {
+				return nil, &ExitError{
+					msg: fmt.Sprintf("the server returned task %s "+
+						"twice while paging; it did not honor "+
+						"after_task_id, so --all cannot list every "+
+						"task", t.TaskId),
+					code: ExitGeneral,
+				}
+			}
+			seen[t.TaskId] = true
+			all = append(all, t)
+		}
+		if int64(len(page)) < pageSize {
+			return all, nil
+		}
+		last := page[len(page)-1].TaskId
+		after = &last
+	}
 }
 
 func newTaskGetCmd(rt *module.Runtime) *cobra.Command {

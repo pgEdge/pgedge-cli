@@ -674,7 +674,7 @@ func TestTenantCheckRow(t *testing.T) {
 			wantLacks: []string{"plan:", "entitlement-denied"},
 		},
 		{
-			name: "enterprise is the only clean plan",
+			name: "enterprise",
 			info: tenantInfo{
 				Resolved: true, Name: "acme", ID: "t-1",
 				Plan: "enterprise", Count: 1,
@@ -684,22 +684,22 @@ func TestTenantCheckRow(t *testing.T) {
 			wantLacks:  []string{"entitlement-denied", "trial"},
 		},
 		{
-			name: "managed warns about byoc",
+			name: "managed is ok; the BYOC row judges byoc",
 			info: tenantInfo{
 				Resolved: true, Name: "acme-corp", ID: "t-2",
 				Plan: "managed", Count: 1,
 			},
-			wantStatus: "warning",
+			wantStatus: "ok",
 			wantHas:    []string{"plan: managed"},
 			wantLacks:  []string{"entitlement-denied"},
 		},
 		{
-			name: "developer also warns",
+			name: "developer is ok",
 			info: tenantInfo{
 				Resolved: true, Name: "old", ID: "t-3",
 				Plan: "developer", Count: 1,
 			},
-			wantStatus: "warning",
+			wantStatus: "ok",
 			wantHas:    []string{"plan: developer"},
 		},
 		{
@@ -707,7 +707,7 @@ func TestTenantCheckRow(t *testing.T) {
 			info: tenantInfo{
 				Resolved: true, Name: "nop", ID: "t-4", Count: 1,
 			},
-			wantStatus: "warning",
+			wantStatus: "ok",
 			wantHas:    []string{"plan: unknown"},
 		},
 		{

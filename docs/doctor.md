@@ -84,7 +84,7 @@ The following table describes each row and what a warning means:
 |---|---|---|
 | Auth | Which credential source resolved, whether a token is cached, and whether that token is still valid. | Credentials resolve but the token is expired or absent, or a valid cached token was minted for a different connection. It reports `error` when no credentials resolve at all. |
 | API connectivity | An unauthenticated GET against the resolved base URL, with the status and latency. | Never. An unreachable endpoint is reported as `error`. |
-| Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, the tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
+| Tenant | The tenant the credential authenticates as, its ID and its plan. | The tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
 | BYOC | Whether the tenant can use BYOC: `entitled`, `not-entitled` or `unknown`, the `byoc` field in JSON. Printed only on a `ready` verdict. | The value is `not-entitled` or `unknown`. A failed check reads `unknown`; run any byoc list to see why. |
 | Environment | The operating system, architecture, and whether `NO_COLOR` is set. | Never. |
 | Verdict | The report in one word, the `verdict` field in JSON. | Never. Any verdict but `ready` is reported as `error`. |

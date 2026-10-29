@@ -281,11 +281,6 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 	return info
 }
 
-// enterprisePlan is the only plan whose entitlements admit byoc. The
-// API denies its capabilities (clusters, cloud accounts, backup stores,
-// ssh keys) on every other plan.
-const enterprisePlan = "enterprise"
-
 // checkTenant reads the tenant the active credential authenticates as.
 //
 // Every failure is reported as unresolved rather than returned:
@@ -433,9 +428,8 @@ func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 	return verdictReady, ExitOK
 }
 
-// tenantCheckRow renders the Tenant check. A plan that is not
-// enterprise is a warning, not an error: the credential works, and the
-// BYOC row says whether byoc does.
+// tenantCheckRow renders the Tenant check. The plan is reported, not
+// judged: the BYOC row measures what the plan allows.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if info.Skipped != "" {
 		return output.CheckRow{
@@ -473,11 +467,7 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 			info.Count)
 	}
 
-	status := "ok"
-	if plan != enterprisePlan {
-		status = "warning"
-	}
-	return output.CheckRow{Check: "Tenant", Status: status, Details: detail}
+	return output.CheckRow{Check: "Tenant", Status: "ok", Details: detail}
 }
 
 func checkEnvironment() environmentInfo {

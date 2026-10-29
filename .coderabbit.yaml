@@ -3,9 +3,14 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-  path_instructions:
-    - path: "internal/starfleet/byoc/api/**"
-      instructions: "This is generated code from oapi-codegen. Do not review for style."
+  # Generated clients and vendored specs: `make generate` and
+  # `make vendor-spec` own them, so a hand edit is never the fix.
+  path_filters:
+    - "!internal/**/api/client.gen.go"
+    - "!openapi/account.yaml"
+    - "!openapi/byoc.yaml"
+    - "!openapi/managed.yaml"
+    - "!openapi/control-plane.json"
   tools:
     golangci-lint:
       enabled: true

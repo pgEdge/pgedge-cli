@@ -3,7 +3,7 @@
 Four rules govern how a result reaches you: three output formats, a
 guarantee that binds two of them together, successes that print
 nothing at all, and the `--limit` and `--offset` contract on the
-eleven commands that page.
+commands that page.
 
 ## Choosing a format
 
@@ -147,7 +147,7 @@ publishes a bound the CLI enforces it and the error names the
 number. Where the API publishes none the CLI enforces none, even on
 an endpoint the server is known to clamp, because refusing a value
 the contract permits would be wrong the day the cap moves. Only
-`managed` declares any maximum, on two operations.
+`managed` declares any maximum.
 
 The CLI refuses this request before sending anything, because
 `/managed/v1/databases` declares a maximum of 1000:

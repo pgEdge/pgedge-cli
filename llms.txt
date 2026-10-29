@@ -384,8 +384,8 @@ Writing `--limit "$N"` with `N` unset is the usual way that happens.
 **Any maximum is per ENDPOINT, not per flag name.** Where the API
 publishes a bound the CLI enforces it and the error names it. Where it
 publishes none the CLI enforces none, even where the server is known
-to clamp. Only managed declares any maximum, on two operations, and
-`--offset` has none anywhere.
+to clamp. Only managed declares any maximum, and `--offset` has none
+anywhere.
 
 **A server-side clamp is reported.** Every byoc and managed list verb that
 takes `--limit` prints a `Showing first N results...` hint to stderr when a

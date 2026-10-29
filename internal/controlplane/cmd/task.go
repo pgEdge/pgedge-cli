@@ -108,7 +108,7 @@ resource's tasks with --database or --host. Cap with --limit.
 
 --all follows the server's cursor page by page until a page comes
 back short, so the result is every task rather than one page. --limit
-then sets the page size (default 100). It needs --database, --host,
+then sets the page size, 100 when it is unset. It needs --database, --host,
 or --scope with --entity-id: the cursor pages one database's or one
 host's tasks.
 
@@ -231,39 +231,36 @@ func taskPageFetcher(
 ) taskPage {
 	ctx := context.Background()
 	return func(after *uuid.UUID, limit *int64) ([]api.Task, any, error) {
+		var (
+			status int
+			body   []byte
+			raw    any
+			tasks  []api.Task
+			err    error
+		)
 		switch {
 		case database != "":
-			resp, err := client.ListDatabaseTasksWithResponse(
+			resp, rerr := client.ListDatabaseTasksWithResponse(
 				ctx, database, &api.ListDatabaseTasksParams{
 					Limit: limit, AfterTaskId: after,
 				})
-			if err != nil {
-				return nil, nil, networkError("list database tasks", err)
+			if err = rerr; rerr == nil {
+				status, body = resp.StatusCode(), resp.Body
+				if resp.JSON200 != nil {
+					raw, tasks = resp.JSON200, resp.JSON200.Tasks
+				}
 			}
-			if err := checkResponse(resp.StatusCode(),
-				string(resp.Body)); err != nil {
-				return nil, nil, err
-			}
-			if resp.JSON200 == nil {
-				return nil, nil, nil
-			}
-			return resp.JSON200.Tasks, resp.JSON200, nil
 		case host != "":
-			resp, err := client.ListHostTasksWithResponse(
+			resp, rerr := client.ListHostTasksWithResponse(
 				ctx, host, &api.ListHostTasksParams{
 					Limit: limit, AfterTaskId: after,
 				})
-			if err != nil {
-				return nil, nil, networkError("list host tasks", err)
+			if err = rerr; rerr == nil {
+				status, body = resp.StatusCode(), resp.Body
+				if resp.JSON200 != nil {
+					raw, tasks = resp.JSON200, resp.JSON200.Tasks
+				}
 			}
-			if err := checkResponse(resp.StatusCode(),
-				string(resp.Body)); err != nil {
-				return nil, nil, err
-			}
-			if resp.JSON200 == nil {
-				return nil, nil, nil
-			}
-			return resp.JSON200.Tasks, resp.JSON200, nil
 		default:
 			params := &api.ListTasksParams{
 				Limit: limit, AfterTaskId: after,
@@ -275,19 +272,21 @@ func taskPageFetcher(
 			if entity != "" {
 				params.EntityId = &entity
 			}
-			resp, err := client.ListTasksWithResponse(ctx, params)
-			if err != nil {
-				return nil, nil, networkError("list tasks", err)
+			resp, rerr := client.ListTasksWithResponse(ctx, params)
+			if err = rerr; rerr == nil {
+				status, body = resp.StatusCode(), resp.Body
+				if resp.JSON200 != nil {
+					raw, tasks = resp.JSON200, resp.JSON200.Tasks
+				}
 			}
-			if err := checkResponse(resp.StatusCode(),
-				string(resp.Body)); err != nil {
-				return nil, nil, err
-			}
-			if resp.JSON200 == nil {
-				return nil, nil, nil
-			}
-			return resp.JSON200.Tasks, resp.JSON200, nil
 		}
+		if err != nil {
+			return nil, nil, networkError("list tasks", err)
+		}
+		if err := checkResponse(status, string(body)); err != nil {
+			return nil, nil, err
+		}
+		return tasks, raw, nil
 	}
 }
 

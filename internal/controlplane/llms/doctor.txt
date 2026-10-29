@@ -7,9 +7,15 @@
 <!-- BEGIN GENERATED: pgedge controlplane doctor -->
 ### pgedge controlplane doctor
 
-**Usage:** `pgedge controlplane doctor`
+**Usage:** `pgedge controlplane doctor [flags]`
 
 Diagnose the Control Plane connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--require strings` | No |  | Exit 1 unless every named condition holds: reachable, cluster, supported (comma-separated) |
 
 <!-- END GENERATED -->
 
@@ -51,35 +57,29 @@ outcome to avoid. A verdict over the servers that answered can
 miss a cluster held by one that did not, so read `servers[]`
 before acting on it.
 
-**doctor exits 0 whatever it finds**, including an UNREACHABLE
-Control Plane, which prints a `Reachable` row reading `error`
-and still exits 0. `starfleet doctor` behaves the same way. So
-`pgedge controlplane doctor && <next step>` reads as a safe gate
-and is not one. Read `reachable` from `-o json` instead:
+**Without `--require`, doctor exits 0 whatever it finds**,
+including an UNREACHABLE Control Plane. To gate on its verdict, pass
+`--require` with the conditions that must hold. doctor prints the
+same report, then exits 1 unless every one holds:
+
+| Condition | Holds when |
+|---|---|
+| `reachable` | some server answered `/v1/version` (the top-level `reachable`) |
+| `cluster` | the top-level `cluster_initialized` is `true`; absent, unknown or disagreeing servers fail |
+| `supported` | some server answered, and none that answered is below the supported floor |
+
+An unknown condition is exit 2, before any server is probed.
 
 ```bash
-if ! pgedge controlplane doctor -o json > doctor.json
+if ! pgedge controlplane doctor --require reachable,cluster
 then
-    echo "controlplane doctor itself failed" >&2
-    exit 1
-fi
-if [ "$(jq -r .reachable doctor.json)" != true ]
-then
-    echo "no Control Plane reachable" >&2
-    exit 1
-fi
-# reachable is NOT readiness. An uninitialized Control Plane is
-# reachable and on a supported version, and every verb after this
-# point would answer 409. Absent counts as not-ready: the key is
-# omitted when the state is unknown or the servers disagree, and
-# jq prints "null" for it.
-if [ "$(jq -r .cluster_initialized doctor.json)" != true ]
-then
-    echo "cluster not confirmed ready: no cluster, unknown, or the" >&2
-    echo "servers disagree — read doctor.json before acting" >&2
+    echo "Control Plane not ready" >&2
     exit 1
 fi
 ```
+
+A failed `cluster` condition does not mean "needs init": read the
+report before running `cluster init`.
 
 **Example:**
 

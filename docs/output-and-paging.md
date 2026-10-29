@@ -132,7 +132,7 @@ Every other list command in every module has neither flag, so an
 `unknown flag` error there means the flag does not exist rather than
 this contract refusing a value. `controlplane task list` is the only
 Control Plane command with a paging flag at all, and it takes
-`--limit` without `--offset`.
+`--limit` and `--all` without `--offset`.
 
 Omitting a flag is how you ask for the server's default. A value the
 flag cannot mean is refused locally at exit 2 with no request sent:
@@ -174,8 +174,10 @@ Two paged commands print no hint, for different reasons:
 
 The CLI neither pre-empts a clamp on Control Plane's `limit` nor
 reports one afterward, and there is no `--offset` to page past a full
-page. Treat a full page as possibly truncated and narrow the read with
-`--database`, `--host` or `--scope` instead.
+page. Treat a full page as possibly truncated. `--all` follows the
+server's cursor until a page comes back short, using `--limit` as the
+page size, and needs `--database`, `--host`, or `--scope` with
+`--entity-id`.
 
 ## Next steps
 

@@ -271,8 +271,8 @@ Narrow it with `--scope` and `--entity-id`, or list one resource's
 tasks with `--database` or `--host`, which are mutually exclusive with
 each other and with the `--scope` pair. `--limit` caps the count and
 has no ceiling of its own, though zero and negative values are refused
-at exit 2. There is no `--offset`, so narrow with the filters rather
-than paging. The
+at exit 2. There is no `--offset`. `--all` reads every page of one
+database's or one host's tasks. The
 [output formats and paging guide](output-and-paging.md) has the paging
 contract for every module.
 
@@ -286,8 +286,9 @@ task. The Control Plane records no reason on any instance of a failed
 create. A spec that fails during planning never creates an instance
 at all, so `database get` shows a failed database with nothing
 underneath it, and a failure after the instances exist leaves the
-database at `failed` with its instance rows still present. `task get`
-prints the reason under an Error heading, and `task logs` carries the
+database at `failed` with its instance rows still present. `database
+get <database-id> --failure` prints the latest task's reason under an
+Error heading without a task ID, and `task logs` carries the
 step-by-step trace.
 
 `controlplane task cancel` is the only cancel command in the CLI. It

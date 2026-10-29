@@ -285,8 +285,9 @@ covers both.
 
 ## The Control Plane itself
 
-`controlplane doctor` exits 0 whatever it finds, so a script reads
-its JSON. When the server cannot be reached the document carries
+A script gates on `controlplane doctor --require reachable,cluster`,
+which exits 1 unless both hold. Without `--require`, doctor exits 0
+whatever it finds, and a script reads its JSON. When the server cannot be reached the document carries
 `reachable` as false and nothing about the cluster, and when it can,
 a second key saying whether a cluster exists appears beside it. The
 [health checks guide](../doctor.md) documents every key. Every other

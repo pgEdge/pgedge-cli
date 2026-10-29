@@ -103,7 +103,7 @@ Switch over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID of the replica candidate to promote |
+| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |
@@ -115,8 +115,9 @@ Switch over a database node
 <!-- END GENERATED -->
 
 Perform a graceful, planned role change on a node, promoting a
-replica to leader. --candidate targets a specific replica;
---scheduled-at defers the change to an RFC3339 time.
+replica to leader. --candidate targets a specific replica, by
+instance ID or by node name (resolved as `database instance`
+describes); --scheduled-at defers the change to an RFC3339 time.
 
 Without --candidate, the Control Plane promotes the first of the
 node's other instances that it is monitoring, and otherwise the first
@@ -150,7 +151,7 @@ Fail over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID of the replica to promote |
+| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |

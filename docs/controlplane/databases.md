@@ -53,8 +53,8 @@ only the global flags. `task list --limit` is the module's only paging
 flag, and `--offset` exists on no command. byoc and managed print a
 line beginning `Showing first` to `stderr` when a page comes back full.
 controlplane prints that line on no read, so a full page may or may not
-be the whole result. To narrow `task list`, pass `--database`, `--host`
-or `--scope`. [Output formats and paging](../output-and-paging.md) has
+be the whole result. To read every page of `task list`, pass `--all`
+with `--database`, `--host`, or `--scope` and `--entity-id`. [Output formats and paging](../output-and-paging.md) has
 the contract for every module.
 
 An Instance errors or Service errors section follows its table whenever
@@ -306,16 +306,19 @@ prompt, and the server still runs every check.
 
 ## Diagnosing a Failed Create
 
-Read the task to find out why a create failed. `database get` on a
-failed create shows the failed state with no reason, in every output
-format. The task carries both the reason and the trace. List the
-database's tasks, newest first, then read the one you want:
+Read the task to find out why a create failed. Plain `database get`
+on a failed create shows the failed state with no reason, in every
+output format. The latest task carries the reason, and `--failure`
+reads it for you:
 
-    pgedge controlplane task list --database storefront
-    pgedge controlplane task get --database storefront <task-id>
+    pgedge controlplane database get storefront --failure
 
-`task get` prints the reason under an Error heading. `task logs` takes
-the same arguments and prints the step-by-step trace. Both require a
+It prints the database's state, the latest task and that task's error
+under an Error heading. Under `-o json` it prints one object with
+`database_id`, `state` and `task`. When the latest task did not fail,
+it prints nothing to `stdout`, names the state and the task's status
+on `stderr`, and exits 0. For the step-by-step trace, run `task logs`
+with the task ID from that output. Both require a
 scope, `--database` or `--host`, naming the value in the ENTITY column
 of `task list`. Omitting both is a usage error at exit status 2, raised
 before any request.

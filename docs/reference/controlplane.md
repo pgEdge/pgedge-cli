@@ -119,14 +119,21 @@ Join this host to a cluster
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--server-url stringArray` | No |  | Existing cluster member to contact (repeatable, at least one required) |
-| `--token string` | No |  | Cluster join token (required) |
+| `--from string` | No |  | Existing member URL to read the join token from |
+| `--server-url stringArray` | No |  | Existing cluster member to contact (repeatable; required unless --from) |
+| `--token string` | No |  | Cluster join token |
+| `--token-file string` | No |  | Read the join token from this file |
+| `--wait` | No |  | Wait until the joining host reports healthy |
+| `--wait-interval int` | No | `3` | Polling interval in seconds when --wait is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait is set |
 
 **Example:**
 
 ```
 pgedge controlplane cluster join --base-url http://new-host:3000 \
-  --token PGEDGE-abc --server-url http://existing-1:3000
+  --from http://existing-1:3000 --wait
+pgedge controlplane cluster join --base-url http://new-host:3000 \
+  --token-file join-token.txt --server-url http://existing-1:3000
 ```
 
 #### pgedge controlplane cluster join-token
@@ -255,12 +262,14 @@ Show database details
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--failure` | No |  | Show the latest task's error if that task failed |
 | `--upgrades` | No |  | Also list the newer images this database can upgrade to |
 
 **Example:**
 
 ```
 pgedge controlplane database get storefront
+pgedge controlplane database get storefront --failure
 pgedge controlplane database get storefront --upgrades
 pgedge controlplane database get storefront -o yaml > spec.yaml
 ```
@@ -321,7 +330,7 @@ pgedge controlplane database instance list -o json
 
 ##### pgedge controlplane database instance restart
 
-**Usage:** `pgedge controlplane database instance restart <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance restart <database_id> <instance_id_or_node> [flags]`
 
 Restart a database instance
 
@@ -347,7 +356,7 @@ pgedge controlplane database instance restart storefront storefront-n1-689qacsi 
 
 ##### pgedge controlplane database instance start
 
-**Usage:** `pgedge controlplane database instance start <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance start <database_id> <instance_id_or_node> [flags]`
 
 Start a database instance
 
@@ -371,7 +380,7 @@ pgedge controlplane database instance start storefront storefront-n1-689qacsi --
 
 ##### pgedge controlplane database instance stop
 
-**Usage:** `pgedge controlplane database instance stop <database_id> <instance_id> [flags]`
+**Usage:** `pgedge controlplane database instance stop <database_id> <instance_id_or_node> [flags]`
 
 Stop a database instance
 
@@ -456,7 +465,7 @@ Fail over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID of the replica to promote |
+| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |
@@ -482,7 +491,7 @@ Switch over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID of the replica candidate to promote |
+| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |
@@ -598,15 +607,22 @@ pgedge controlplane database upgrade storefront --image pgedge/pgedge:16.4-1 \
 
 ### pgedge controlplane doctor
 
-**Usage:** `pgedge controlplane doctor`
+**Usage:** `pgedge controlplane doctor [flags]`
 
 Diagnose the Control Plane connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--require strings` | No |  | Exit 1 unless every named condition holds: reachable, cluster, supported (comma-separated) |
 
 **Example:**
 
 ```
 pgedge controlplane doctor
 pgedge controlplane doctor -o json
+pgedge controlplane doctor --require reachable,cluster
 ```
 
 ### pgedge controlplane host
@@ -744,10 +760,11 @@ List tasks
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--all` | No |  | Follow the cursor until a page comes back short |
 | `--database string` | No |  | List tasks for a single database |
 | `--entity-id string` | No |  | Filter the global list by entity (database_id or host_id) |
 | `--host string` | No |  | List tasks for a single host |
-| `--limit int` | No |  | Maximum tasks to return |
+| `--limit int` | No |  | Maximum tasks to return (the page size with --all) |
 | `--scope string` | No |  | Filter the global list by scope: database or host |
 
 **Example:**
@@ -755,6 +772,7 @@ List tasks
 ```
 pgedge controlplane task list
 pgedge controlplane task list --database my-db
+pgedge controlplane task list --database my-db --all
 pgedge controlplane task list --scope host --limit 20
 ```
 

@@ -3,11 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/spf13/cobra"
 )
 
@@ -16,17 +19,10 @@ var inviteColumns = []string{
 	"ID", "EMAIL", "INVITED BY", "TEAM", "EXPIRES", "CREATED",
 }
 
-// errUserSessionRequired is what `invite create` and `invite accept`
-// return instead of a request. Both need to know which *user* is
-// acting, and the CLI's client-credentials token names a tenant and a
-// client, never a user. Measured live: CreateInvite answers `400 cannot
-// create invites from an api client`, and AcceptInvite answers 401 on
-// the empty user ID. The same reason is why `pgedge starfleet user`
-// does not exist.
-//
-// A browser sign-in does carry a user, but the guard stays for both
-// kinds of sign-in until invites are verified with one (a follow-up).
-// TestInviteGuardPremiseStillHolds pins that state.
+// errUserSessionRequired is what `invite accept` returns instead of a
+// request. Accepting records which user joined, and the public spec
+// declares no accept operation, so the CLI has nothing to send for any
+// sign-in. Measured live: AcceptInvite answers 401 on an API client.
 func errUserSessionRequired(verb, alternative string) error {
 	return newExitError(fmt.Sprintf(
 		"%s needs a signed-in user in the pgEdge Starfleet UI. An "+
@@ -34,6 +30,25 @@ func errUserSessionRequired(verb, alternative string) error {
 			"person, so pgEdge Starfleet refuses it, and the CLI does "+
 			"not send this request for a browser sign-in either. %s",
 		verb, alternative), ExitAuth)
+}
+
+// errInviteCreateNeedsSession is `invite create` refused locally for an
+// API client, which the API answers with `400 cannot create invites
+// from an api client`. The env pair outranks every profile, so a login
+// cannot help until it is unset, even when flags won this time.
+func errInviteCreateNeedsSession(rt *module.Runtime) error {
+	fix := fmt.Sprintf("run '%s' with no credential flags",
+		conn.LoginCommand(rt))
+	if os.Getenv(auth.EnvClientID) != "" ||
+		os.Getenv(auth.EnvClientSecret) != "" {
+		fix = fmt.Sprintf("unset %s and %s, then sign in with "+
+			"'pgedge starfleet auth login'", auth.EnvClientID,
+			auth.EnvClientSecret)
+	}
+	return newExitError("invite create needs a browser sign-in: "+fix+
+		", or invite teammates from the Team page in the pgEdge "+
+		"Starfleet UI. An API client identifies an application rather "+
+		"than a person, so pgEdge Starfleet refuses it.", ExitAuth)
 }
 
 // NewInviteCmd builds the `pgedge starfleet invite` command group. The
@@ -226,38 +241,82 @@ func inviteGetByEmail(
 
 // --- create ---
 
-// newInviteCreateCmd builds `invite create`, which cannot succeed with
-// the credentials the CLI supports; see errUserSessionRequired. The
-// flags stay declared so the help shows what the operation takes.
-func newInviteCreateCmd(_ *module.Runtime) *cobra.Command {
+func newInviteCreateCmd(rt *module.Runtime) *cobra.Command {
 	var (
 		email      string
 		expiration int
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an invite (needs the web UI)",
-		Long: `create sends a team invite to an email address.
+		Short: "Create an invite",
+		Long: `create sends a team invite to an email address and prints the
+invite.
 
-This needs a signed-in user in the pgEdge Starfleet UI. An API client
-identifies an application rather than a person, so pgEdge Starfleet
-refuses it, and the CLI does not send the request for a browser
-sign-in either. Invite teammates from the Team page in the pgEdge
-Starfleet UI instead. Exits 5.
+It needs a browser sign-in ('pgedge starfleet auth login' with no
+credential flags; unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET
+first, since they outrank every profile). With an API client it exits
+5 without sending the request; invite from the Team page in the
+pgEdge Starfleet UI instead.
 
-'invite list', 'invite get' and 'invite delete' do work here.
+The token and accept URL let anyone holding them join the team. The
+table omits them; -o json and -o yaml print them.
 
 Example:
-  pgedge starfleet invite list`,
+  pgedge starfleet invite create --email teammate@example.com
+  pgedge starfleet invite create --email teammate@example.com --expiration 48`,
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return errUserSessionRequired("invite create",
-				"Invite teammates from the Team page in the pgEdge "+
-					"Starfleet UI.")
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			addr, err := emailArg(email)
+			if err != nil {
+				return err
+			}
+			body := api.CreateInviteJSONRequestBody{Email: addr}
+			if cmd.Flags().Changed("expiration") {
+				body.Expiration = &expiration
+			}
+
+			f := conn.ReadFlags(cmd.Flags())
+			res, err := conn.ResolveCredentials(
+				rt, f.ClientID, f.ClientSecret, f.APIURL)
+			if err != nil {
+				code := ExitAuth
+				if conn.IsUsageError(err) {
+					code = ExitUsage
+				}
+				return newExitError(err.Error(), code)
+			}
+			if !res.Session {
+				return errInviteCreateNeedsSession(rt)
+			}
+
+			client, err := clientFromCmd(rt, cmd)
+			if err != nil {
+				return err
+			}
+			resp, err := client.CreateInviteWithResponse(
+				context.Background(), body)
+			if err != nil {
+				return fmt.Errorf("create invite: %w", err)
+			}
+			if err := checkResponse(resp.StatusCode(),
+				string(resp.Body)); err != nil {
+				return err
+			}
+
+			if rt.Output.Structured() {
+				return rt.Output.Print(resp.JSON200, nil)
+			}
+			if resp.JSON200 == nil {
+				fmt.Fprintln(rt.Stderr, "No invite data returned.")
+				return nil
+			}
+			return rt.Output.Print(
+				[]output.Row{inviteRowFrom(*resp.JSON200)}, inviteColumns)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&email, "email", "", "Email address to invite")
+	_ = cmd.MarkFlagRequired("email")
 	f.IntVar(&expiration, "expiration", 0,
 		"Invite expiration in hours (optional)")
 	cli.MarkMutating(cmd)
@@ -321,8 +380,6 @@ Example:
 
 // --- accept ---
 
-// newInviteAcceptCmd builds `invite accept`, which cannot succeed with
-// the credentials the CLI supports; see errUserSessionRequired.
 func newInviteAcceptCmd(_ *module.Runtime) *cobra.Command {
 	var token string
 	cmd := &cobra.Command{

@@ -116,9 +116,9 @@ Each rule is stated in full on the page named beside it.
   output, which keeps it out of the transcript. If that write fails
   after the client exists, the secret goes to stderr once. To replace a
   secret, create a client and delete the old one. See `client`.
-- **Invites are created and accepted in the Starfleet UI.** The CLI
-  refuses both steps with exit 5, whichever way you signed in. Track
-  and clean up invites from the CLI. See `invite`.
+- **`invite create` needs a browser sign-in.** With an API client it
+  exits 5 without sending anything. `invite accept` always exits 5;
+  the member accepts from the invitation email. See `invite`.
 - **Membership is the signal that an invite was accepted.** Look a
   person up with `membership list --email <addr>` or
   `invite get --email <addr>`: exit 4 means no match, and any other

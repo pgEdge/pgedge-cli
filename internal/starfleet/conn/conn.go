@@ -670,7 +670,7 @@ type Session struct {
 func SessionExpiredError(rt *module.Runtime, apiURL string) *ExitError {
 	e := NewExitError(fmt.Sprintf("the browser sign-in for %s has "+
 		"expired or is missing: run '%s' to sign in again",
-		apiURL, loginCommand(rt)), ExitAuth)
+		apiURL, LoginCommand(rt)), ExitAuth)
 	e.rejected = true
 	return e
 }
@@ -685,13 +685,13 @@ func SessionRefusedError(rt *module.Runtime, apiURL string,
 	}
 	e := NewExitError(fmt.Sprintf("the browser sign-in for %s could "+
 		"not be renewed: %s; run '%s' to sign in again",
-		apiURL, d.Description, loginCommand(rt)), ExitAuth)
+		apiURL, d.Description, LoginCommand(rt)), ExitAuth)
 	e.rejected = true
 	return e
 }
 
-// loginCommand is the auth login line for rt's profile.
-func loginCommand(rt *module.Runtime) string {
+// LoginCommand is the auth login line for rt's profile.
+func LoginCommand(rt *module.Runtime) string {
 	login := "pgedge starfleet auth login"
 	if rt.Profile != "" && rt.Profile != "default" {
 		login += " --profile " + rt.Profile
@@ -722,7 +722,7 @@ func SessionTenant(rt *module.Runtime, profileTenant, flagTenant string,
 			return "", NewExitError(fmt.Sprintf("the profile's tenant "+
 				"%s is not one this sign-in can reach (%s): run '%s "+
 				"--tenant <id>', or pass --tenant", profileTenant,
-				strings.Join(claims.Tenants(), ", "), loginCommand(rt)),
+				strings.Join(claims.Tenants(), ", "), LoginCommand(rt)),
 				ExitUsage)
 		}
 		return profileTenant, nil
@@ -841,7 +841,7 @@ func renewLocked(ctx context.Context, rt *module.Runtime, apiURL,
 			fmt.Fprintf(rt.Stderr, "Warning: could not save the renewed "+
 				"sign-in to the OS keychain (%s); run '%s' when this "+
 				"session ends.\n", output.Sanitize(err.Error()),
-				output.Sanitize(loginCommand(rt)))
+				output.Sanitize(LoginCommand(rt)))
 		}
 	}
 	tok, err = SaveSession(rt, apiURL, toks.AccessToken, user, expiresAt)

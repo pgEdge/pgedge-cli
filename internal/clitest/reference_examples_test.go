@@ -52,19 +52,14 @@ func TestEveryLeafCarriesAnExtractableExample(t *testing.T) {
 }
 
 // exemptSelfInvocation names the leaves whose example deliberately
-// shows a DIFFERENT command, because the documented one cannot
-// succeed with the credentials the CLI supports and always exits 5.
-// Both call errUserSessionRequired (internal/starfleet/account/cmd/
-// invite.go): accepting an invite has to record which user joined,
-// and a machine credential names no user. An example demonstrating
-// either would be an example of a guaranteed failure, so each shows
-// `invite list` instead.
+// shows a DIFFERENT command, because the documented one always exits
+// 5: `invite accept` calls errUserSessionRequired (internal/starfleet/
+// account/cmd/invite.go), so its example shows `invite list` instead.
 //
 // The map is checked for staleness below: an entry naming a path that
 // no longer exists, or one whose example has since started invoking
 // its own command, fails rather than lingering.
 var exemptSelfInvocation = map[string]string{
-	"pgedge starfleet invite create": "needs a signed-in user",
 	"pgedge starfleet invite accept": "needs a signed-in user",
 }
 
@@ -76,8 +71,7 @@ var exemptSelfInvocation = map[string]string{
 // that every line does. Several examples open with a related command
 // that sets the scene, and those are the better examples for it:
 // `controlplane database update` shows the `database get` that writes
-// the spec file first, and both `invite` writes show the `invite
-// list` that finds the id.
+// the spec file first.
 func TestExtractedExamplesInvokeTheCommandTheyDocument(t *testing.T) {
 	root, err := FullTree()
 	if err != nil {

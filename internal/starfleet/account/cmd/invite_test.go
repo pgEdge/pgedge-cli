@@ -44,26 +44,14 @@ func TestNewInviteCmd(t *testing.T) {
 	}
 }
 
-// TestInviteVerbsNeedingUserSession covers both verbs that cannot work
-// with a client credential, whatever arguments they are given. Measured
-// live before the guard existed: create answered `400 cannot create
-// invites from an api client` and accept answered 401.
-//
-// The flags are deliberately no longer marked required. cobra validates
-// required flags before RunE, so marking them would replace this
-// explanation with "required flag(s) \"email\" not set" — technically
-// true and completely unhelpful, since supplying it changes nothing.
-// The "with flags supplied" cases below are what pin that.
+// TestInviteVerbsNeedingUserSession covers accept, which refuses
+// whatever arguments it is given. --token is deliberately not marked
+// required: cobra would report the missing flag instead of the refusal.
 func TestInviteVerbsNeedingUserSession(t *testing.T) {
 	tests := []struct {
 		name string
 		args []string
 	}{
-		{name: "create bare", args: []string{"invite", "create"}},
-		{name: "create with email", args: []string{"invite", "create",
-			"--email", "teammate@example.com"}},
-		{name: "create with every flag", args: []string{"invite", "create",
-			"--email", "teammate@example.com", "--expiration", "48"}},
 		{name: "accept bare", args: []string{"invite", "accept",
 			testInviteID}},
 		{name: "accept with token", args: []string{"invite", "accept",
@@ -100,13 +88,10 @@ func TestInviteVerbsNeedingUserSession(t *testing.T) {
 	}
 }
 
-// TestInviteGuardedVerbsIssueNoRequest is the half that matters for a
-// destructive-adjacent verb: the guard must refuse before any network
-// call, not after one that fails. The server fails the test if reached,
-// so a guard that regressed into a post-request check would be caught.
+// TestInviteGuardedVerbsIssueNoRequest: the guard must refuse before
+// any network call, not after one that fails.
 func TestInviteGuardedVerbsIssueNoRequest(t *testing.T) {
 	for _, args := range [][]string{
-		{"invite", "create", "--email", "teammate@example.com"},
 		{"invite", "accept", testInviteID, "--token", "tok"},
 	} {
 		t.Run(strings.Join(args[:2], " "), func(t *testing.T) {
@@ -133,11 +118,10 @@ func TestInviteGuardedVerbsIssueNoRequest(t *testing.T) {
 	}
 }
 
-// TestInviteGuardPremiseStillHolds is the tripwire. Browser sign-in
-// gives the CLI a user, yet both verbs still refuse it until invites
-// are verified with a session. It fails on a new auth verb, on a new
-// persistent flag, and on the guard no longer refusing a session, so
-// that lifting the guard is a decision the test has to be told about.
+// TestInviteGuardPremiseStillHolds is the tripwire. create sends its
+// request only for a browser sign-in and accept refuses every sign-in.
+// It fails on a new auth verb or persistent flag, which could add a
+// credential kind the create guard has not classified.
 func TestInviteGuardPremiseStillHolds(t *testing.T) {
 	rt, _, _ := testsupport.NewRuntime(t, "", "table")
 	// Reached through the real tree rather than newAuthCmd directly, so
@@ -147,21 +131,16 @@ func TestInviteGuardPremiseStillHolds(t *testing.T) {
 		t.Fatalf("starfleet auth not found: %v", err)
 	}
 
-	// whoami is listed here having been checked against the premise
-	// rather than waved through. It reads the client and tenant lists
-	// with the same client credential and mints no user session, and
-	// the API's own current-user route refuses that credential with 401
-	// on every profile tried, dev and prod alike, because a client
-	// principal carries no user id. That refusal is evidence FOR the
-	// premise, not against it.
+	// None of these adds a kind of sign-in: login writes either a
+	// browser session or an API client.
 	wantVerbs := map[string]bool{"login": true, "status": true,
 		"whoami": true, "logout": true}
 	for _, sub := range auth.Commands() {
 		name := strings.Fields(sub.Use)[0]
 		if !wantVerbs[name] {
-			t.Errorf("new `starfleet auth %s` verb: if it signs a *user* "+
-				"in, the invite guard's premise no longer holds — "+
-				"revisit errUserSessionRequired", name)
+			t.Errorf("new `starfleet auth %s` verb: if it adds a kind "+
+				"of sign-in, check invite create's session guard "+
+				"classifies it", name)
 		}
 		delete(wantVerbs, name)
 	}
@@ -170,30 +149,31 @@ func TestInviteGuardPremiseStillHolds(t *testing.T) {
 			"watching the wrong surface", name)
 	}
 
-	// A browser session carries a user, and the guard must still refuse
-	// it before any request.
-	hits := 0
-	srv := httptest.NewServer(http.HandlerFunc(
-		func(w http.ResponseWriter, _ *http.Request) { hits++ }))
-	defer srv.Close()
-	for _, args := range [][]string{
-		{"invite", "create", "--email", "teammate@example.com"},
-		{"invite", "accept", testInviteID, "--token", "tok"},
+	// A browser session reaches the API for create and not for accept.
+	for _, tc := range []struct {
+		args     []string
+		wantHits int
+	}{
+		{[]string{"invite", "create", "--email", "teammate@example.com"}, 1},
+		{[]string{"invite", "accept", testInviteID, "--token", "tok"}, 0},
 	} {
+		hits := 0
+		srv := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				hits++
+				testsupport.JSONHandler(200, inviteBody)(w, r)
+			}))
 		srt, _, _ := testsupport.NewRuntime(t, "", "text")
 		testsupport.SeedSession(t, srt, srv.URL, "u1",
 			time.Now().Add(time.Hour), "t-a")
-		err := runAccount(t, srt, &bytes.Buffer{}, args...)
-		if err == nil || !strings.Contains(err.Error(),
-			"needs a signed-in user") {
-			t.Errorf("%v with a browser session: err = %v. If invites "+
-				"now work with a session, that is the follow-up "+
-				"landing: update this tripwire, the invite help and "+
-				"invite.txt together", args, err)
+		err := runAccount(t, srt, &bytes.Buffer{}, tc.args...)
+		srv.Close()
+		if hits != tc.wantHits {
+			t.Errorf("%v with a browser session: %d request(s), want "+
+				"%d (err = %v); update this tripwire, the invite help "+
+				"and invite.txt together", tc.args, hits, tc.wantHits,
+				err)
 		}
-	}
-	if hits != 0 {
-		t.Errorf("a guarded invite verb reached the API %d time(s)", hits)
 	}
 
 	// The credentials themselves are persistent flags on the starfleet
@@ -205,9 +185,8 @@ func TestInviteGuardPremiseStillHolds(t *testing.T) {
 	newStarfleetRoot(rt).PersistentFlags().VisitAll(func(f *pflag.Flag) {
 		if !wantFlags[f.Name] {
 			t.Errorf("new persistent `cloud --%s` flag: if it "+
-				"authenticates a *user*, revisit "+
-				"errUserSessionRequired and the two guarded invite "+
-				"verbs", f.Name)
+				"carries a credential, check that invite create "+
+				"still refuses every non-session one", f.Name)
 		}
 		delete(wantFlags, f.Name)
 	})

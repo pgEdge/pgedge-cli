@@ -1,38 +1,41 @@
 # Onboard a teammate
 
 Four steps add someone to your pgEdge Starfleet team and confirm they
-joined, and two of them happen in the Starfleet UI rather than the
-CLI.
+joined. The new member accepts from the invitation email rather than
+the CLI.
 
 ## Commands available from the CLI
 
-Each invite and membership command either runs under a CLI credential or
-refuses outright:
+Each invite and membership command runs under either kind of sign-in,
+except for two:
 
 | Command | Runs from the CLI |
 |---|---|
 | `invite list` | Yes |
 | `invite get <invite_id>`, `invite get --email <addr>` | Yes |
 | `invite delete <invite_id>` | Yes |
-| `invite create` | No, exits 5 |
+| `invite create --email <addr>` | With a browser sign-in only |
 | `invite accept <invite_id>` | No, exits 5 |
 | `membership list`, `membership list --email <addr>` | Yes |
 | `membership delete <membership_id>` | Yes |
 
-`invite create` and `invite accept` both need a signed-in user in the
-pgEdge Starfleet UI. An API client names an application rather than a
-person, so Starfleet refuses it those two operations, and the CLI
-does not send them for a browser sign-in either. Both commands exit 5
-before sending anything, with a message pointing at the UI. No `-o`
-value changes it, and a retry cannot help, because the 5 is a
-property of the operation rather than of your credentials.
+`invite create` needs a browser sign-in, from `pgedge starfleet auth
+login` with no credential flags. With an API client it exits 5
+before sending anything; invite from the Team page in the Starfleet
+UI instead. If `PGEDGE_CLIENT_ID` and `PGEDGE_CLIENT_SECRET` are set,
+unset both before signing in, because they outrank every profile. `invite accept` exits 5 however you signed in.
 
 ## Invite a teammate
 
 Work through these steps in order.
 
-1. Invite the person from the Team page in the Starfleet UI. This is
-   the first of the two steps the CLI cannot do.
+1. Invite the person, signed in through the browser:
+
+        pgedge starfleet invite create --email teammate@example.com
+
+    The table omits the invite's token and accept URL, because anyone
+    holding them can join the team; `-o json` prints them. With an
+    API client, invite from the Team page in the Starfleet UI instead.
 
 2. Confirm from the CLI that the invite exists:
 
@@ -43,8 +46,7 @@ Work through these steps in order.
     timestamp columns show the date alone.
 
 3. Ask the new member to accept from the link in their invitation
-   email, or in the Starfleet UI. This is the other step the CLI
-   cannot do.
+   email, or in the Starfleet UI.
 
 4. Verify the membership:
 

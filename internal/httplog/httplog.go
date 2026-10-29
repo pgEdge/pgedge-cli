@@ -112,8 +112,8 @@ var secretFieldNames = []string{
 	// Service configs: MCP, RAG and PostgREST.
 	"init_tokens", "init_users", "embedding_api_key", "api_key",
 	"jwt_secret",
-	// Invite and cluster-join tokens.
-	"token",
+	// Invite and cluster-join tokens; an invite's accept_url embeds one.
+	"token", "accept_url",
 }
 
 // Wrap returns base wrapped so that traffic through it is rendered to

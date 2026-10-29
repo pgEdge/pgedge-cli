@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/config"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
@@ -153,16 +159,179 @@ func TestInviteGetRun(t *testing.T) {
 	})
 }
 
-// invite create has no success path to exercise: the API refuses it
-// for any client credential, so the CLI refuses it before the request.
-// Its behaviour is covered by TestInviteVerbsNeedingUserSession and
-// TestInviteGuardedVerbsIssueNoRequest in invite_test.go, which assert
-// the exit code, the message and that no request is issued.
-//
-// Deliberately not a stub-server test that "passes" on any error — the
-// previous "server error" case would now pass without the server being
-// reached at all, which is the kind of test that looks like coverage
-// and proves nothing.
+// TestInviteCreateRun drives create against a stub that counts every
+// request, the token exchange included.
+func TestInviteCreateRun(t *testing.T) {
+	const secretToken = "tok-secret-123"
+	const acceptURL = "https://app.example.com/invites/accept?t=" +
+		secretToken
+	created := `{"id":"` + testInviteID + `",` +
+		`"email":"teammate@example.com","team_name":"team",` +
+		`"token":"` + secretToken + `","accept_url":"` + acceptURL + `",` +
+		`"expires_at":"2024-04-15T10:30:00Z",` +
+		`"created_at":"2024-03-15T10:30:00Z",` +
+		`"updated_at":"2024-03-15T10:30:00Z"}`
+	email := []string{"--email", "teammate@example.com"}
+
+	// cred picks how the credential arrives.
+	const (
+		session = iota
+		flagPair
+		envPair // set over a session profile
+		savedClient
+		flagsOverEnv
+	)
+	tests := []struct {
+		name     string
+		format   string
+		cred     int
+		debug    bool
+		status   int
+		args     []string
+		wantCode int // 0 means success
+		wantHits int
+		wantBody string
+		wantOut  []string
+		denyOut  []string
+		wantMsg  string
+	}{
+		{name: "session text omits token", format: "text", status: 200,
+			args: []string{"--email", "teammate@example.com",
+				"--expiration", "48"},
+			wantHits: 1,
+			wantBody: `{"email":"teammate@example.com","expiration":48}`,
+			wantOut:  []string{testInviteID, "teammate@example.com"},
+			denyOut:  []string{secretToken, "accept"}},
+		{name: "session json carries token", format: "json", status: 200,
+			args: email, wantHits: 1,
+			wantBody: `{"email":"teammate@example.com"}`,
+			wantOut:  []string{secretToken, "accept_url"}},
+		{name: "debug log redacts token and accept url", format: "json",
+			debug: true, status: 200, args: email, wantHits: 1,
+			wantBody: `{"email":"teammate@example.com"}`},
+		{name: "api client flags", format: "text", cred: flagPair,
+			status: 200, args: email, wantCode: ExitAuth,
+			wantMsg: "run 'pgedge starfleet auth login --profile work'"},
+		{name: "saved api client profile", format: "text",
+			cred: savedClient, status: 200, args: email,
+			wantCode: ExitAuth,
+			wantMsg:  "run 'pgedge starfleet auth login --profile work'"},
+		{name: "env pair over a session", format: "text", cred: envPair,
+			status: 200, args: email, wantCode: ExitAuth,
+			wantMsg: "unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET"},
+		{name: "flags over the env pair", format: "text",
+			cred: flagsOverEnv, status: 200, args: email,
+			wantCode: ExitAuth,
+			wantMsg:  "unset PGEDGE_CLIENT_ID and PGEDGE_CLIENT_SECRET"},
+		{name: "blank email", format: "text", status: 200,
+			args: []string{"--email", "  "}, wantCode: ExitUsage},
+		{name: "server 400", format: "text", status: 400, args: email,
+			wantCode: ExitGeneral, wantHits: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rt, out, errb := testsupport.NewRuntime(t, "", tt.format)
+			rt.Profile = "work"
+			rt.Debug = tt.debug
+			var hits int
+			var gotMethod, gotPath, gotBody string
+			srv := httptest.NewServer(http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					hits++
+					if r.URL.Path == testsupport.TokenPath {
+						testsupport.JSONHandler(200,
+							testsupport.TokenBody)(w, r)
+						return
+					}
+					gotMethod, gotPath = r.Method, r.URL.Path
+					raw, _ := io.ReadAll(r.Body)
+					gotBody = string(raw)
+					body := created
+					if tt.status != 200 {
+						body = `{"code":400,"message":"bad email"}`
+					}
+					testsupport.JSONHandler(tt.status, body)(w, r)
+				}))
+			t.Cleanup(srv.Close)
+			url := srv.URL
+
+			args := append([]string{"invite", "create"}, tt.args...)
+			switch tt.cred {
+			case session, envPair:
+				testsupport.SeedSession(t, rt, url, "u1",
+					time.Now().Add(time.Hour), "t-a")
+				if tt.cred == envPair {
+					t.Setenv("PGEDGE_CLIENT_ID", "id")
+					t.Setenv("PGEDGE_CLIENT_SECRET", "secret")
+					args = append(args, "--api-url", url)
+				}
+			case flagPair, flagsOverEnv:
+				if tt.cred == flagsOverEnv {
+					t.Setenv("PGEDGE_CLIENT_ID", "env-id")
+					t.Setenv("PGEDGE_CLIENT_SECRET", "env-secret")
+				}
+				args = append(args, "--client-id", "id",
+					"--client-secret", "secret", "--api-url", url)
+			case savedClient:
+				rt.Config.SetStarfleetProfile(rt.Profile,
+					&config.StarfleetProfile{APIURL: url,
+						ClientID: "id", ClientSecret: "secret"})
+				if err := rt.Config.Save(); err != nil {
+					t.Fatalf("save config: %v", err)
+				}
+			}
+			err := runAccount(t, rt, &bytes.Buffer{}, args...)
+
+			if hits != tt.wantHits {
+				t.Errorf("requests = %d, want %d", hits, tt.wantHits)
+			}
+			if tt.wantCode != 0 {
+				var ee *ExitError
+				if !errors.As(err, &ee) || ee.Code() != tt.wantCode {
+					t.Fatalf("err = %v, want exit %d", err, tt.wantCode)
+				}
+				if !strings.Contains(err.Error(), tt.wantMsg) {
+					t.Errorf("refusal %q does not say %q",
+						err.Error(), tt.wantMsg)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("invite create: %v", err)
+			}
+			if gotMethod != http.MethodPost ||
+				gotPath != "/account/v1/invites" {
+				t.Errorf("request = %s %s, want POST /account/v1/invites",
+					gotMethod, gotPath)
+			}
+			if strings.TrimSpace(gotBody) != tt.wantBody {
+				t.Errorf("body = %s, want %s", gotBody, tt.wantBody)
+			}
+			for _, want := range tt.wantOut {
+				if !strings.Contains(out.String(), want) {
+					t.Errorf("stdout missing %q:\n%s", want, out.String())
+				}
+			}
+			for _, deny := range tt.denyOut {
+				if strings.Contains(out.String(), deny) {
+					t.Errorf("stdout carries %q:\n%s", deny, out.String())
+				}
+			}
+			if tt.debug {
+				if !strings.Contains(errb.String(), "/account/v1/invites") {
+					t.Fatalf("no debug log on stderr:\n%s", errb.String())
+				}
+				for _, deny := range []string{secretToken, acceptURL,
+					"app.example.com"} {
+					if strings.Contains(errb.String(), deny) {
+						t.Errorf("debug log carries %q:\n%s", deny,
+							errb.String())
+					}
+				}
+			}
+		})
+	}
+}
 
 func TestInviteDeleteRun(t *testing.T) {
 	t.Run("force success", func(t *testing.T) {
@@ -196,8 +365,7 @@ func TestInviteDeleteRun(t *testing.T) {
 	})
 }
 
-// invite accept, like invite create, has no reachable success path —
-// see the note above TestInviteDeleteRun's neighbour. Covered by
+// invite accept has no reachable success path. Covered by
 // TestInviteVerbsNeedingUserSession.
 //
 // Note the guard also removes the invite-ID validation that used to

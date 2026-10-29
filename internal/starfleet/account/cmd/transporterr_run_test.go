@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
@@ -17,12 +19,26 @@ func TestTransportErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, out, _ := testsupport.NewRuntime(t, "", "text")
 			url := testsupport.NewAuthedServer(t, testsupport.BrokenHandler())
-			if err := runAuthedAccount(t, rt, out, url, tc.args...); err == nil {
-				t.Fatalf("%s: expected transport error", tc.name)
+			if !sessionOnlyCases[tc.name] {
+				if err := runAuthedAccount(t, rt, out, url, tc.args...); err == nil {
+					t.Fatalf("%s: expected transport error", tc.name)
+				}
+				return
+			}
+			testsupport.SeedSession(t, rt, url, "u1",
+				time.Now().Add(time.Hour), "t-a")
+			err := runAccount(t, rt, out, tc.args...)
+			var ee *ExitError
+			if err == nil || (errors.As(err, &ee) && ee.Code() == ExitAuth) {
+				t.Fatalf("%s: err = %v, want a transport error", tc.name, err)
 			}
 		})
 	}
 }
+
+// sessionOnlyCases refuse an API client before any request, so only a
+// browser session reaches their transport branch.
+var sessionOnlyCases = map[string]bool{"invite create": true}
 
 // TestNoCredentials drives the `client, err := clientFromCmd(...); if
 // err != nil { return err }` branch present in every

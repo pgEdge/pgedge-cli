@@ -22,7 +22,7 @@ var doctorConditions = []string{"reachable", "cluster", "supported"}
 
 // parseRequire validates --require before any probe, so a typo is a
 // usage error rather than a failed gate.
-func parseRequire(vals []string) ([]string, error) {
+func parseRequire(vals []string, given bool) ([]string, error) {
 	out := make([]string, 0, len(vals))
 	for _, v := range vals {
 		v = strings.TrimSpace(v)
@@ -46,7 +46,9 @@ func parseRequire(vals []string) ([]string, error) {
 		}
 		out = append(out, v)
 	}
-	if len(vals) > 0 && len(out) == 0 {
+	// pflag turns --require "" into an empty slice, so emptiness alone
+	// cannot tell an unset variable from an omitted flag.
+	if given && len(out) == 0 {
 		return nil, &ExitError{
 			msg: "--require names no condition: want one or more of " +
 				strings.Join(doctorConditions, ", "),

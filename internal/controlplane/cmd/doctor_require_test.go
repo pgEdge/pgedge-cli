@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -94,11 +95,13 @@ func TestDoctorRequire(t *testing.T) {
 		}
 	})
 
-	t.Run("no condition at all", func(t *testing.T) {
-		rt, out, _ := newTestRuntime(t, "", "text")
-		requireUsageError(t, runControlplane(t, rt, out,
-			newServer(t, cluster), "doctor", "--require", ","))
-	})
+	for _, empty := range []string{",", ""} {
+		t.Run("no condition: "+strconv.Quote(empty), func(t *testing.T) {
+			rt, out, _ := newTestRuntime(t, "", "text")
+			requireUsageError(t, runControlplane(t, rt, out,
+				newServer(t, cluster), "doctor", "--require", empty))
+		})
+	}
 
 	t.Run("unreachable", func(t *testing.T) {
 		rt, out, _ := newTestRuntime(t, "", "text")

@@ -318,7 +318,7 @@ under an Error heading. Under `-o json` it prints one object with
 `database_id`, `state` and `task`. When the latest task did not fail,
 it prints nothing to `stdout`, names the state and the task's status
 on `stderr`, and exits 0. For the step-by-step trace, run `task logs`
-with the task ID from that output. Both require a
+with the task ID from that output. `task logs` requires a
 scope, `--database` or `--host`, naming the value in the ENTITY column
 of `task list`. Omitting both is a usage error at exit status 2, raised
 before any request.

@@ -66,7 +66,7 @@ same report, then exits 1 unless every one holds:
 |---|---|
 | `reachable` | some server answered `/v1/version` (the top-level `reachable`) |
 | `cluster` | the top-level `cluster_initialized` is `true`; absent, unknown or disagreeing servers fail |
-| `supported` | some server answered, and none that answered is below the supported floor |
+| `supported` | some server answered, and every one that answered reports a version at or above the supported floor; a version that cannot be read fails |
 
 An unknown condition is exit 2, before any server is probed.
 

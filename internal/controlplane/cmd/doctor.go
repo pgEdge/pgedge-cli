@@ -45,8 +45,9 @@ the thing it diagnoses is broken. --require makes it a gate: it
 prints the same report, then exits 1 unless every named condition
 holds. The conditions are reachable (some server answered), cluster
 (cluster_initialized is true; unknown or disagreeing servers fail)
-and supported (some server answered and none that answered is below
-the supported floor). An unknown condition is exit 2.
+and supported (some server answered, and every one that answered
+reports a version at or above the supported floor; a version that
+cannot be read fails). An unknown or empty condition list is exit 2.
 
 This CLI supports Control Plane >= ` + SupportFloor + `. A reachable
 server below that floor reports as a warning naming both versions,
@@ -58,7 +59,8 @@ Example:
   pgedge controlplane doctor --require reachable,cluster`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			required, err := parseRequire(require)
+			required, err := parseRequire(require,
+				cmd.Flags().Changed("require"))
 			if err != nil {
 				return err
 			}

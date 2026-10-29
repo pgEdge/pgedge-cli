@@ -184,10 +184,12 @@ key rather than its value in both cases.
 
 `--require` turns the report into a gate. It takes `reachable` (some
 server answered), `cluster` (the servers that answered agree a
-cluster exists) and `supported` (some server answered and none that answered is
-below the floor), comma-separated. doctor prints the same report,
-then exits 1 unless every named condition holds. An unknown condition
-is a usage error at exit 2, raised before any server is probed:
+cluster exists) and `supported` (some server answered, and every one
+that answered reports a version at or above the floor; a version that
+cannot be read fails), comma-separated. doctor prints the same report,
+then exits 1 unless every named condition holds. An unknown or empty
+condition list is a usage error at exit 2, raised before any server
+is probed:
 
     pgedge controlplane doctor --require reachable,cluster
 

@@ -12,7 +12,8 @@ should wait.
 Four flags appear on every asynchronous command in all three modules:
 
 - `--wait` blocks until the operation's task reaches a terminal state,
-  printing one status line per poll to `stderr`.
+  printing one status line per poll to `stderr`. In byoc and managed
+  it then reads the resource until it reaches the write's end status.
 - `--follow` blocks the same way but streams the task's step messages
   instead of bare status lines, one line per step transition.
 - `--wait-timeout` bounds the wait, in seconds.
@@ -126,8 +127,8 @@ honestly for each managed write:
 | `backup create` | `--wait`, which reads the backup record, not the task. |
 | `backup restore` | `--wait`, `--follow` or `task get`. |
 
-A succeeded task does not say which status resulted, so a managed
-`--wait` reads the status after the task. It ends at exit status 1
+A succeeded task does not say which status resulted, so a byoc or
+managed `--wait` reads the status after the task. It ends at exit status 1
 unless that status is the end status the write aims for.
 
 A restore is the case where the task carries the answer. The API
@@ -138,8 +139,8 @@ error from the command, so a script sees it only through `--wait`,
 `--follow` or `task get`.
 
 What `--wait` reports first on a services write is that write's task,
-found by subject the way every byoc and managed wait finds one. On
-managed it then waits for the database to be `available`, but that
+found by subject the way every byoc and managed wait finds one. It
+then waits for the database to be `available`, but that
 status is the wrong question on its own. A failure that touched only
 the service leaves the database `available`, which is the same status
 a clean write produces. On managed a service that
@@ -164,10 +165,15 @@ polling the database's status after one proves nothing at all: it
 reads `available` immediately and always. Its `--wait` reads the
 backup record instead.
 
-byoc and the Control Plane are simpler. Every asynchronous command in
-both takes `--wait` and `--follow`, and the task is the signal for all
-of them. The one byoc write with no task at all is `backup create`,
-above.
+byoc's `--wait` ends on the resource's status as managed's does: a
+create, update, restore or rotation at `available`, a delete when the
+resource answers not found, and any other settled status at exit
+status 1 naming it. Its ingress `create` and `delete` are the
+exception, where the task is the signal. The one byoc write with no
+task at all is `backup create`, above.
+
+The Control Plane is simpler. Every asynchronous command takes
+`--wait` and `--follow`, and the task is the signal for all of them.
 
 ## How a wait finds its task
 

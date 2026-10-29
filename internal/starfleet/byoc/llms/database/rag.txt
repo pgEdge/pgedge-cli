@@ -31,12 +31,12 @@ Deploy a RAG server on a database
 | `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | Yes |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
 | `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -163,12 +163,12 @@ Update the RAG server on a database
 | `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
 | `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -206,6 +206,55 @@ pgedge starfleet byoc database rag update f6a7b8c9-d0e1-2345-fabc-456789012345 \
 ```
 RAG service applied to database f6a7b8c9-d0e1-2345-fabc-456789012345.
 Monitor with: pgedge starfleet byoc task list --subject-id f6a7b8c9-d0e1-2345-fabc-456789012345
+```
+
+---
+
+<!-- BEGIN GENERATED: pgedge starfleet byoc database rag apply -->
+###### pgedge starfleet byoc database rag apply
+
+**Usage:** `pgedge starfleet byoc database rag apply <database_id> [flags]`
+
+Deploy or update the RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | No |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | No |  | Completion LLM provider: openai or anthropic |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
+| `--target-nodes strings` | No |  | Node names to deploy on (e.g. n1,n2). Auto-selects if cluster has one node |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+Deploy a RAG server when the database has none, and update the
+deployed one otherwise, in one command with one exit status.
+
+`apply` reads the database first. A read that fails ends the command
+with that read's exit status and sends no write.
+
+A new service needs every flag `deploy` requires, and a missing one is
+exit 2 with nothing sent. On a deployed service only the flags you
+pass change, as on `update`, and the LLM API keys must be passed again
+whenever you change the provider or model they belong to.
+
+**Example:**
+
+```bash
+pgedge starfleet byoc database rag apply f6a7b8c9-d0e1-2345-fabc-456789012345 \
+    --top-n 10 --wait
 ```
 
 ---

@@ -38,11 +38,12 @@ the endpoint that lets an LLM query the database.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is.
+update fails if none is. apply does whichever the database needs.
 
 Example:
   pgedge starfleet byoc database mcp deploy <database_id>
-  pgedge starfleet byoc database mcp update <database_id> --allow-writes`,
+  pgedge starfleet byoc database mcp update <database_id> --allow-writes
+  pgedge starfleet byoc database mcp apply <database_id> --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			return c.Help()
@@ -51,6 +52,7 @@ Example:
 	cmd.AddCommand(
 		newDatabaseMCPDeployCmd(rt),
 		newDatabaseMCPUpdateCmd(rt),
+		newDatabaseMCPApplyCmd(rt),
 	)
 	return cmd
 }
@@ -122,6 +124,40 @@ Example:
 	return cmd
 }
 
+// --- apply ---
+
+func newDatabaseMCPApplyCmd(rt *module.Runtime) *cobra.Command {
+	opts := &mcpServiceOpts{}
+	cmd := &cobra.Command{
+		Use:   "apply <database_id>",
+		Short: "Deploy or update the MCP server on a database",
+		Long: `apply deploys an MCP server on a database that has none, and
+otherwise updates the deployed one, so a script needs one command and
+one exit status for both.
+
+It takes deploy's and update's flags. On a deployed service only the
+flags you pass change, as with update: omitting --allow-writes leaves
+the access level alone, and a new service starts read-only.
+
+The database is read first. A read that fails ends the command with
+that read's exit status, and nothing is deployed.
+
+Example:
+  pgedge starfleet byoc database mcp apply <database_id> --wait
+  pgedge starfleet byoc database mcp apply <database_id> \
+    --allow-writes --wait`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return applyMCPService(rt, cmd, args[0], opts, intentApply)
+		},
+	}
+	bindMCPFlags(cmd, opts)
+	addWaitFlags(cmd)
+	cli.MarkMutating(cmd)
+
+	return cmd
+}
+
 // bindMCPFlags registers the MCP service flags, shared by deploy and
 // update.
 func bindMCPFlags(cmd *cobra.Command, opts *mcpServiceOpts) {
@@ -172,6 +208,7 @@ func applyMCPService(
 		return err
 	}
 
+	intent = resolveApplyIntent(db, api.ServiceServiceTypeMcp, intent)
 	if err := guardServiceIntent(rt, db, api.ServiceServiceTypeMcp, intent,
 		cmd.Parent().CommandPath()); err != nil {
 		return err
@@ -222,7 +259,8 @@ func applyMCPService(
 	}
 	if err := checkResponse(resp.StatusCode(),
 		string(resp.Body)); err != nil {
-		return err
+		return withSubjectStatus(err,
+			databaseSettle(client, dbID, ""))
 	}
 
 	if err := printUpdatedDatabase(rt, resp.JSON200); err != nil {
@@ -230,7 +268,8 @@ func applyMCPService(
 	}
 	fmt.Fprintf(rt.Stderr, "MCP service applied to database %s.\n",
 		output.Sanitize(dbID))
-	return trackMutation(rt, client, dbID, priorTaskID)
+	return trackMutation(rt, client, dbID, priorTaskID,
+		endState(databaseSettle(client, dbID, "available")))
 }
 
 // existingMCPConfig returns a copy of the MCP configuration already

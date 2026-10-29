@@ -11,9 +11,10 @@ password, so it prompts unless `--force` is given.
 The database and its cluster must both be `available` before a
 rotation is accepted, and a rotation attempted while a previous one
 is still running is refused as a busy resource: exit 1 with a message
-saying to wait and retry. Run `database get` before retrying, because
-a `failed` database returns the same message and never becomes
-available.
+saying to wait and retry. A `failed` database, which never becomes
+available, returns the same message, so the CLI reads the database
+once and names its status in the error. Retry only when that status
+is one the database passes through, such as `modifying`.
 
 1. Rotate, and wait for the outcome rather than the acceptance:
 

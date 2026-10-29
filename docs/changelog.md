@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- byoc `--wait` and `--follow` wait for the cluster, database or
+  backup store to reach its end state, not only for the task, and exit
+  1 naming any other status it settles on. `starfleet byoc database
+  wait` waits on its own.
+- byoc `database mcp apply`, `rag apply` and `postgrest apply` deploy
+  a service, or update the one already there.
+- A byoc write refused because the database is busy names the
+  database's current status.
+- byoc `ingress create --database-id` takes the cluster and region
+  from the database, and `ingress service register --service` reads
+  the service ID from it.
 - Managed `--wait` and `--follow` wait for the database or branch to
   reach its end state, not only for the task, and exit 1 naming any
   other status it settles on. `starfleet managed database wait` waits

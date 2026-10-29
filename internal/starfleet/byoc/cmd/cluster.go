@@ -312,7 +312,8 @@ Example:
 					"Cluster %q created (id: %s, status: %s).\n",
 					c.Name, output.Sanitize(c.Id), output.Sanitize(c.Status))
 			}
-			return trackMutation(rt, client, c.Id, "")
+			return trackMutation(rt, client, c.Id, "",
+				endState(clusterSettle(client, c.Id, "available")))
 		},
 	}
 
@@ -530,11 +531,13 @@ Example:
 			}
 			if err := checkEmptyBodyResponse(
 				resp, "delete cluster"); err != nil {
-				return err
+				return withSubjectStatus(err,
+					clusterSettle(client, id.String(), ""))
 			}
 
 			fmt.Fprintf(rt.Stderr, "Cluster %s deletion requested.\n", id)
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(clusterSettle(client, id.String(), settleGone)))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false,
@@ -682,7 +685,8 @@ Example:
 			}
 			if err := checkResponse(resp.StatusCode(),
 				string(resp.Body)); err != nil {
-				return err
+				return withSubjectStatus(err,
+					clusterSettle(client, id.String(), ""))
 			}
 
 			if rt.Output.Structured() &&
@@ -692,7 +696,8 @@ Example:
 				}
 			}
 			fmt.Fprintf(rt.Stderr, "Cluster %s updated.\n", id)
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(clusterSettle(client, id.String(), "available")))
 		},
 	}
 	cmd.Flags().StringArrayVar(&firewallRules, "firewall-rule", nil,

@@ -143,13 +143,23 @@ Operations that spawn a background task accept `--wait` and `--follow`:
 `create` and `delete` for clusters, databases, ingresses and backup
 stores, plus `cluster update`, `database restore`,
 `database rotate-password` and the database service writes (`mcp`,
-`postgrest` and `rag` `deploy`/`update`, and `service remove`). Without
-either flag the command returns once the request is accepted, not when
-the work completes. `--wait` blocks until the task reaches a terminal
-state, and `--follow` also streams the task's step messages. Both exit 0
-when the task succeeded, 1 when it failed and 3 on timeout. Metadata
-commands (ssh-key, cloud-account, cluster share) are synchronous and
-have neither flag.
+`postgrest` and `rag` `deploy`/`update`/`apply`, and `service remove`).
+Without either flag the command returns once the request is accepted,
+not when the work completes. `--wait` blocks until the task succeeds
+and then until the resource reaches its end status, `--follow` also
+streams the task's step messages, and both share one `--wait-timeout`.
+
+| Write | End status |
+|---|---|
+| cluster, database or backup-store `create`; `cluster update`; `database restore`, `rotate-password` and the service writes | the resource is `available` (a service write reads its database) |
+| cluster, database or backup-store `delete` | the resource answers 404 |
+| ingress `create` and `delete` | the task succeeded; the resource is not read |
+
+Both exit 0 at the end status, 1 when the task failed or the resource
+settled on another status (the error names it, `degraded` and `failed`
+included), and 3 on timeout. Metadata commands (ssh-key, cloud-account,
+cluster share) are synchronous and have neither flag. `database wait
+<database_id>` waits for a status after a write made without `--wait`.
 
 **There is no `task_id` in any byoc response.** A create returns the
 resource itself, and a service write returns the updated database, so
@@ -158,10 +168,9 @@ subject: `task list --subject-id <id>`, then `task wait <task_id>`.
 <!-- doc-gate: deliberately-wrong task_id — this sentence documents
 the field's absence -->
 
-**A succeeded task means the work finished, not that the resource is
-usable.** Confirm with the resource's own `get` and its `status`. For a
-service write, read `database service list <database_id> -o json`: a
-`state` of `failed` names a service that did not come up.
+For a service write, `--wait` reads the database, not the service:
+read `database service list <database_id> -o json`, where a `state` of
+`failed` names a service that did not come up.
 
 ### Resource status
 
@@ -192,10 +201,11 @@ and `database rag` pages say why.
 **A database accepts one change at a time.** A services write, a
 `database update` or a restore against a database that is neither
 `available` nor `degraded` is refused with 400 `database in
-unmodifiable state: <status>`, exit 1. Wait for `available` between
-writes, and read `database get` rather than retrying blind:
-`rotate-password` has its own refusal, described on the `database`
-page.
+unmodifiable state: <status>`, exit 1. Pass `--wait` on each write, or
+run `database wait <database_id>` between them. When a write is refused
+as busy, the error also names the resource's status, read once: retry a
+transitional one after it settles, and read the last task (`task list
+--subject-id <id>`) for any other.
 
 ### Built-in roles
 

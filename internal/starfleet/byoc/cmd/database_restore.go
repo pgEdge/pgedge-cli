@@ -142,12 +142,14 @@ Example:
 			}
 			if err := checkEmptyBodyResponse(
 				resp, "restore database"); err != nil {
-				return err
+				return withSubjectStatus(err,
+					databaseSettle(client, id.String(), ""))
 			}
 
 			fmt.Fprintf(rt.Stderr,
 				"Restore started for database %s.\n", output.Sanitize(args[0]))
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(databaseSettle(client, id.String(), "available")))
 		},
 	}
 	f := cmd.Flags()

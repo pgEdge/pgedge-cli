@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
@@ -105,6 +107,7 @@ func newIngressServiceRegisterCmd(rt *module.Runtime) *cobra.Command {
 	var (
 		databaseID string
 		serviceID  string
+		svcType    string
 	)
 	cmd := &cobra.Command{
 		Use:   "register <ingress_id>",
@@ -112,10 +115,16 @@ func newIngressServiceRegisterCmd(rt *module.Runtime) *cobra.Command {
 		Long: `register exposes a database service through an ingress.
 
 Use it to make a running service reachable at the ingress's
-domain. The argument is the ingress's UUID; both --database-id and
---service-id are required.
+domain. The argument is the ingress's UUID, and --database-id is
+required.
+
+Name the service with --service (mcp, rag or postgrest), and the
+service ID is read from the database, or with --service-id. Given
+both, they must name the same service, or the command exits 2.
 
 Example:
+  pgedge starfleet byoc ingress service register <ingress_id> \
+    --database-id <id> --service mcp
   pgedge starfleet byoc ingress service register <ingress_id> \
     --database-id <id> --service-id <id>`,
 		Args: cobra.ExactArgs(1),
@@ -130,9 +139,42 @@ Example:
 				return err
 			}
 
+			f := cmd.Flags()
+			byType := f.Changed("service")
+			if !byType && !f.Changed("service-id") {
+				return newExitError(
+					"one of --service or --service-id is required",
+					ExitUsage)
+			}
+			if byType && !slices.Contains(serviceTypes, svcType) {
+				return newExitError(fmt.Sprintf(
+					"unknown service %q (expected one of: %s)", svcType,
+					strings.Join(serviceTypes, ", ")), ExitUsage)
+			}
+
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
+			}
+
+			if byType {
+				db, err := fetchDatabaseWith(rt, client, dbID)
+				if err != nil {
+					return err
+				}
+				resolved, err := serviceIDOfType(db, svcType)
+				if err != nil {
+					return err
+				}
+				if f.Changed("service-id") && serviceID != resolved {
+					return newExitError(fmt.Sprintf(
+						"--service-id %q is not database %s's %s "+
+							"service (%s)", serviceID, dbID, svcType,
+						output.Sanitize(resolved)), ExitUsage)
+				}
+				serviceID = resolved
+				rt.DryRun.Pass("%s service %s found on database %s",
+					svcType, output.Sanitize(serviceID), dbID)
 			}
 
 			body := api.CreateIngressServiceJSONRequestBody{
@@ -169,11 +211,47 @@ Example:
 	f.StringVar(&databaseID, "database-id", "",
 		"Database to register (full UUID)")
 	f.StringVar(&serviceID, "service-id", "", "Service ID to expose")
+	f.StringVar(&svcType, "service", "",
+		"Service type to expose, read from the database: "+
+			strings.Join(serviceTypes, ", "))
 	_ = cmd.MarkFlagRequired("database-id")
-	_ = cmd.MarkFlagRequired("service-id")
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// serviceTypes is the spec's Service.service_type enum.
+var serviceTypes = []string{
+	string(api.ServiceServiceTypeMcp),
+	string(api.ServiceServiceTypeRag),
+	string(api.ServiceServiceTypePostgrest),
+}
+
+// serviceIDOfType returns the ID of the database's service of type t.
+// The database lists one entry per service instance, so a service on
+// several hosts repeats its ID; only distinct IDs are ambiguous.
+func serviceIDOfType(db *api.Database, t string) (string, error) {
+	var ids []string
+	if db.Services != nil {
+		for _, svc := range *db.Services {
+			if string(svc.ServiceType) == t &&
+				!slices.Contains(ids, svc.ServiceId) {
+				ids = append(ids, svc.ServiceId)
+			}
+		}
+	}
+	switch len(ids) {
+	case 0:
+		return "", newExitError(fmt.Sprintf(
+			"no %q service deployed on database %s", t, db.Id),
+			ExitGeneral)
+	case 1:
+		return ids[0], nil
+	}
+	return "", newExitError(fmt.Sprintf(
+		"database %s has %d %q services (%s); pass --service-id",
+		db.Id, len(ids), t, output.Sanitize(strings.Join(ids, ", "))),
+		ExitUsage)
 }
 
 // --- deregister ---

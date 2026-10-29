@@ -95,6 +95,7 @@ const (
 type ExitError struct {
 	msg  string
 	code int
+	busy bool
 }
 
 // NewExitError builds an ExitError with the given message and code.
@@ -106,6 +107,10 @@ func (e *ExitError) Error() string { return e.msg }
 
 // Code returns the process exit code associated with the error.
 func (e *ExitError) Code() int { return e.code }
+
+// Busy reports whether the error is busyResourceError's "wait and
+// retry", which a caller may sharpen by reading the resource's status.
+func (e *ExitError) Busy() bool { return e.busy }
 
 // isRouteMiss reports whether a 404 came from a router rather than a
 // handler: it is a route miss unless the body parses as a JSON object
@@ -186,6 +191,7 @@ func busyResourceError(status int, excerpt string) *ExitError {
 				"(server said (%d): %s)",
 			status, excerpt),
 		code: ExitGeneral,
+		busy: true,
 	}
 }
 

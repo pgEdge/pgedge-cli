@@ -75,7 +75,7 @@ func TestTrackMutation_NonWaitHint(t *testing.T) {
 
 	t.Run("table prints monitor hint", func(t *testing.T) {
 		rt, _, stderr := testsupport.NewRuntime(t, "", "table")
-		if err := trackMutation(rt, nil, "subj-1", ""); err != nil {
+		if err := trackMutation(rt, nil, "subj-1", "", nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if !strings.Contains(stderr.String(),
@@ -86,7 +86,7 @@ func TestTrackMutation_NonWaitHint(t *testing.T) {
 
 	t.Run("json output stays silent", func(t *testing.T) {
 		rt, _, stderr := testsupport.NewRuntime(t, "", "json")
-		if err := trackMutation(rt, nil, "subj-1", ""); err != nil {
+		if err := trackMutation(rt, nil, "subj-1", "", nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if stderr.String() != "" {

@@ -62,13 +62,13 @@ when you finish.
     private clusters alike. The API rejects `private_subnets` on a
     Google cluster, and its response names `subnets` instead.
 
-5. Confirm the cluster is ready, whether you waited or not:
+5. If you did not pass `--wait`, confirm the cluster is ready:
 
         pgedge starfleet byoc cluster get <cluster-id> -o json
 
-    Expect `"status": "available"`. Passing `--wait` reports the
-    task reaching a terminal state. This read confirms the cluster
-    itself.
+    Expect `"status": "available"`. With `--wait`, the create exits 0
+    only once it is, and exits 1 naming any other status the cluster
+    settles on.
 
 6. Create the database on the cluster, again with `--wait`:
 
@@ -78,11 +78,13 @@ when you finish.
             --wait \
             -o json
 
-7. Confirm the database:
+7. If you did not pass `--wait`, wait for the database before the
+    next step:
 
-        pgedge starfleet byoc database get <db-id> -o json
+        pgedge starfleet byoc database wait <db-id>
 
-    Expect `"status": "available"`.
+    It exits 0 once the database is `available`, and 1 naming any
+    other status it settles on.
 
 The cluster flags above are the short form. The
 [Manage BYOC clusters](clusters.md) guide covers node location, the

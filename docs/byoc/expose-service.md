@@ -8,28 +8,13 @@ reachable from outside the cluster.
 You need the database's full UUID and at least one service already
 deployed on the database.
 
-## Collect the two IDs first
+## What the CLI reads for you
 
-A registration names a database and a service. The ID the platform
-assigns identifies the service, not its type. Read the service ID
-from the database's service list:
-
-    pgedge starfleet byoc database service list <db-id> -o json
-
-Read `service_id` from the output. A service ID is 8 characters of
-hex, so it is one of the byoc tree's few non-UUID inputs. The CLI
-does not check the service ID's shape before sending it.
-
-An ingress belongs to a cluster, not to a database, so read the
-database record for the cluster behind it:
-
-    pgedge starfleet byoc database get <db-id> -o json
-
-Read `cluster_id` from the output. The database record does not hold
-a region of its own, and the ingress needs one, so read the cluster
-for the regions it spans:
-
-    pgedge starfleet byoc cluster get <cluster-id>
+An ingress belongs to a cluster and a region, and a registration names
+a service by the 8-character hex ID the platform assigns, not by its
+type. You need neither: `ingress create --database-id` reads the
+cluster and region from the database, and `ingress service register
+--service` reads the service ID from it.
 
 ## Create the ingress
 
@@ -47,15 +32,17 @@ difference in either format. This branch provisions a regional load
 balancer, so on any non-zero exit, stop and fix the failure instead
 of creating one.
 
-Creating an ingress requires all three of `--name`, `--cluster-id`
-and `--region`, and the call provisions cloud infrastructure. Pass
-`--wait` when you want the command to block until provisioning
-finishes:
+Creating an ingress requires `--name`, and the call provisions cloud
+infrastructure. `--database-id` takes the cluster and its region from
+the database. A cluster in several regions needs `--region` to choose
+one, and a `--cluster-id` or `--region` that disagrees with the
+database is exit 2 with nothing created. Without `--database-id`,
+pass `--cluster-id` and `--region` yourself. Pass `--wait` when you
+want the command to block until provisioning finishes:
 
     pgedge starfleet byoc ingress create \
         --name prod-ingress \
-        --cluster-id <cluster-id> \
-        --region us-east-1 --wait
+        --database-id <db-id> --wait
 
 Without `--wait` or `--follow` the command returns as soon as the API
 accepts the request. That return happens well before the load
@@ -89,7 +76,12 @@ service as flags:
 
     pgedge starfleet byoc ingress service register <ingress-id> \
         --database-id <db-id> \
-        --service-id <service-id>
+        --service mcp
+
+`--service` takes `mcp`, `rag` or `postgrest`, and a type not deployed
+on the database is exit 1. `--service-id` names the service by its ID
+instead. Given both, they must name the same service, or the command
+exits 2.
 
 Repeat the command once per service you want reachable. Registration
 is synchronous. There is no `--wait` and no task, because the API
@@ -164,9 +156,9 @@ what to do about each:
 |---|---|---|
 | 0 | The call succeeded | Continue |
 | 1 | The API refused the request, or the awaited task failed | Read stderr, then check the resource's state |
-| 2 | The command line was wrong: an unknown flag, a missing required flag, or a malformed UUID | Fix the command line and rerun |
+| 2 | The command line was wrong: an unknown flag, a missing required flag, a malformed UUID, or a flag that disagrees with the database | Fix the command line and rerun |
 | 3 | A deadline expired: the request bound, a wait, or a 408 or 504 from the server | Check what actually happened before retrying |
-| 4 | The ingress, database or service was not found | Confirm the IDs against the lists above |
+| 4 | The ingress, database or service was not found | Confirm the IDs with `ingress list` and `database list` |
 | 5 | Authentication failed, or the tenant's plan does not cover the capability | Run `pgedge starfleet doctor` |
 
 The [Exit codes](../exit-codes.md) guide covers the contract in full,

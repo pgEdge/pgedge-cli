@@ -3,7 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
@@ -203,9 +206,10 @@ Example:
 
 func newIngressCreateCmd(rt *module.Runtime) *cobra.Command {
 	var (
-		name      string
-		clusterID string
-		region    string
+		name       string
+		clusterID  string
+		region     string
+		databaseID string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -215,27 +219,56 @@ func newIngressCreateCmd(rt *module.Runtime) *cobra.Command {
 Use it to expose a cluster's databases to the network. Pass --wait
 to block until provisioning finishes.
 
+--database-id takes the cluster and region from that database: its
+cluster, and the cluster's region. A cluster in several regions needs
+--region to choose one. --cluster-id or --region given with
+--database-id must match the database's, or the command exits 2.
+Without --database-id, --cluster-id and --region are required.
+
 Example:
-  pgedge starfleet byoc ingress create --name web --cluster-id <id> \
-    --region us-east-1
+  pgedge starfleet byoc ingress create --name web \
+    --database-id f6a7b8c9-d0e1-2345-fabc-456789012345 --wait
   pgedge starfleet byoc ingress create --name web --cluster-id <id> \
     --region us-east-1 --wait`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// cluster_id is a bare string in the contract, so an
-			// unchecked ID prefix fails naming the cluster, not the ID.
-			cluster, err := parseUUIDArg(clusterID, "cluster ID")
-			if err != nil {
-				return err
+			f := cmd.Flags()
+			fromDB := f.Changed("database-id")
+			if !fromDB && (!f.Changed("cluster-id") || !f.Changed("region")) {
+				return newExitError("--cluster-id and --region are "+
+					"required unless --database-id is given", ExitUsage)
 			}
-			// Recorded so a dry run does not report "no client-side
-			// checks" for this verb. Most parseUUIDArg sites record
-			// nothing; uneven coverage is a smaller fault than a false
-			// report.
-			rt.DryRun.Pass("cluster ID %s well-formed", cluster)
+			var dbID, cluster uuid.UUID
+			var err error
+			if fromDB {
+				if dbID, err = parseUUIDArg(databaseID,
+					"database ID"); err != nil {
+					return err
+				}
+			}
+			if f.Changed("cluster-id") {
+				// cluster_id is a bare string in the contract, so an
+				// unchecked ID prefix fails naming the cluster, not
+				// the ID.
+				if cluster, err = parseUUIDArg(clusterID,
+					"cluster ID"); err != nil {
+					return err
+				}
+				// Recorded so a dry run does not report "no
+				// client-side checks" for this verb.
+				rt.DryRun.Pass("cluster ID %s well-formed", cluster)
+			}
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
+			}
+			if fromDB {
+				cluster, region, err = ingressPlacement(rt, client, dbID,
+					f.Changed("cluster-id"), cluster,
+					f.Changed("region"), region)
+				if err != nil {
+					return err
+				}
 			}
 
 			body := api.CreateIngressJSONRequestBody{
@@ -271,7 +304,7 @@ Example:
 					"Ingress %q created (id: %s, status: %s).\n",
 					ing.Name, output.Sanitize(ing.Id), output.Sanitize(ing.Status))
 			}
-			return trackMutation(rt, client, ing.Id, "")
+			return trackMutation(rt, client, ing.Id, "", nil)
 		},
 	}
 	f := cmd.Flags()
@@ -279,13 +312,71 @@ Example:
 	f.StringVar(&clusterID, "cluster-id", "",
 		"Cluster to associate with the ingress (full UUID)")
 	f.StringVar(&region, "region", "", "Cloud region for the ingress")
+	f.StringVar(&databaseID, "database-id", "",
+		"Take the cluster and region from this database (full UUID)")
 	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("cluster-id")
-	_ = cmd.MarkFlagRequired("region")
 	addWaitFlags(cmd)
+	taskOnlyWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// ingressPlacement returns the database's cluster and, of that
+// cluster's regions, the one the ingress goes in. An explicit
+// --cluster-id or --region wins only where it agrees with the
+// database; a disagreement is exit 2.
+func ingressPlacement(
+	rt *module.Runtime, client *api.ClientWithResponses, dbID uuid.UUID,
+	haveCluster bool, cluster uuid.UUID, haveRegion bool, region string,
+) (uuid.UUID, string, error) {
+	db, err := fetchDatabaseWith(rt, client, dbID)
+	if err != nil {
+		return uuid.Nil, "", err
+	}
+	dbCluster, err := uuid.Parse(db.ClusterId)
+	if err != nil {
+		return uuid.Nil, "", newExitError(fmt.Sprintf(
+			"invalid cluster ID %q on database: %v",
+			output.Sanitize(db.ClusterId), err), ExitGeneral)
+	}
+	if haveCluster && cluster != dbCluster {
+		return uuid.Nil, "", newExitError(fmt.Sprintf(
+			"--cluster-id %s is not database %s's cluster (%s)",
+			cluster, dbID, dbCluster), ExitUsage)
+	}
+
+	resp, err := client.GetClusterWithResponse(
+		context.Background(), dbCluster)
+	if err != nil {
+		return uuid.Nil, "", fmt.Errorf("get cluster: %w", err)
+	}
+	if err := checkResponse(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return uuid.Nil, "", err
+	}
+	if resp.JSON200 == nil {
+		return uuid.Nil, "", newExitError(fmt.Sprintf(
+			"get cluster: HTTP %d carried no readable cluster",
+			resp.StatusCode()), ExitGeneral)
+	}
+	regions := resp.JSON200.Regions
+	list := output.Sanitize(strings.Join(regions, ", "))
+	switch {
+	case haveRegion && !slices.Contains(regions, region):
+		return uuid.Nil, "", newExitError(fmt.Sprintf(
+			"--region %q is not a region of database %s's cluster "+
+				"(%s)", region, dbID, list), ExitUsage)
+	case !haveRegion && len(regions) != 1:
+		return uuid.Nil, "", newExitError(fmt.Sprintf(
+			"database %s's cluster has regions (%s); pass --region "+
+				"to choose one", dbID, list), ExitUsage)
+	case !haveRegion:
+		region = regions[0]
+	}
+	rt.DryRun.Pass("cluster %s and region %q from database %s",
+		dbCluster, region, dbID)
+	return dbCluster, region, nil
 }
 
 // --- delete ---
@@ -343,12 +434,13 @@ Example:
 			}
 
 			fmt.Fprintf(rt.Stderr, "Ingress %s deletion requested.\n", id)
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID, nil)
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Skip the confirmation prompt")
 	addWaitFlags(cmd)
+	taskOnlyWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
 	return cmd

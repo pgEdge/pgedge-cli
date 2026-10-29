@@ -333,7 +333,8 @@ Tear down a managed database. It is destructive, so it prompts unless
 once the API accepts the request. With `--wait` it ends at exit
 status 0 when `database get` answers not found. A database with
 deletion protection on is refused with `400 deletion protection is
-enabled for this database`. Run `database update --deletion-protection=false` first.
+enabled for this database`. Run `database update
+--deletion-protection=false` first.
 
 A database that still has branches is refused with 409 `the database
 has <n> branches; delete them first or repeat with force=true to delete

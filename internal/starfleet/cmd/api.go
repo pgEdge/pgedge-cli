@@ -39,13 +39,13 @@ than Authorization, which the module sets.
 
 A non-2xx status maps to the same exit code the module's verbs give
 it: 5 for an authentication or entitlement refusal, 4 for a 404 whose
-JSON body carries a "code" field, 3 for a timeout, 1 otherwise. A 2xx with a JSON body
-prints it indented in text and byte for byte under -o json; -o yaml
-re-encodes it, keeping every digit. A 2xx with no body prints nothing
-on stdout and a sentence on stderr. Any
-method but GET is a write, so --dry-run reports the request it would
-have sent instead of sending it, and -i/--include prints the status
-and response headers on stderr.
+JSON body carries a "code" field, 3 for a timeout, 1 otherwise. A 2xx
+with a JSON body prints it indented in text and byte for byte under
+-o json; -o yaml re-encodes it, keeping every digit. A 2xx with no body
+prints nothing on stdout and a sentence on stderr. Any method but GET
+is a write, so --dry-run reports the request it would have sent
+instead of sending it, and -i/--include prints the status and response
+headers on stderr.
 
 Example:
   pgedge starfleet api GET /byoc/v1/clusters

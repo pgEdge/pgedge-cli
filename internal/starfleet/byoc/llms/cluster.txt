@@ -104,7 +104,7 @@ Create a cluster
 | `--cloud-account-id string` | Yes |  | Cloud account UUID; checked to exist before the cluster is created |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--firewall-rule stringArray` | No |  | Firewall rule (repeatable). name must be one of http, https, postgres, ssh. e.g. name=https,port=443,sources=0.0.0.0/0 |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--instance-type string` | No |  | Instance type for all nodes (shorthand for --node; creates one node per region) |
 | `--name string` | Yes |  | Cluster name |
 | `--network stringArray` | No |  | Network settings (repeatable, one per region). Keys: region, cidr, public-subnets, private-subnets, subnets, external, external-id, name. AWS and Azure use public-subnets and private-subnets; GCP uses subnets. e.g. region=us-east-1,cidr=10.4.0.0/16,public-subnets=10.4.1.0/24,private-subnets=10.4.128.0/24 |
@@ -112,7 +112,7 @@ Create a cluster
 | `--node-location string` | Yes |  | Node location: private or public |
 | `--regions strings` | Yes |  | Comma-separated list of regions |
 | `--volume-size int` | No |  | Volume size in GB for all nodes, 1 or more (shorthand for --node; creates one node per region) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -255,9 +255,9 @@ Update a cluster's firewall rules or stores
 | `--backup-store-id strings` | No |  | Backup store ID to attach (repeatable) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--firewall-rule stringArray` | No |  | Firewall rule to append (repeatable). name must be one of http, https, postgres, ssh. e.g. name=https,port=443,sources=0.0.0.0/0 |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--regions strings` | No |  | Replace the cluster's regions (refused if it would strand a node or network) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -310,9 +310,9 @@ Delete a cluster
 |------|----------|---------|-------------|
 | `--cascade` | No |  | Also delete all databases and cloud infrastructure, bypassing status and database-existence checks |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 

@@ -67,34 +67,16 @@ client-side, over the read the command has already made, so a refusal
 sends no write. `deploy` exits 1 naming `update` as the fix,
 and `update` exits 1 naming `deploy`.
 
-A second `deploy` therefore fails. A caller that wants one command
-to do either job branches on the read:
+A second `deploy` therefore fails. When one command should do either
+job, use `apply`, which deploys the service if the database has none
+and updates it otherwise:
 
-    if ! pgedge starfleet byoc database service list "$DB" -o json \
-        > svc.json
-    then
-        echo "service list failed; deploying nothing" >&2
-        exit 1
-    fi
-    if jq -e '.[] | select(.service_type=="mcp")' svc.json >/dev/null
-    then
-        pgedge starfleet byoc database mcp update "$DB" --allow-writes
-    else
-        pgedge starfleet byoc database mcp deploy "$DB" --allow-writes
-    fi
+    pgedge starfleet byoc database mcp apply "$DB" --allow-writes --wait
 
-Test the read's own exit code before the filter. A pipeline reports
-its last command's status, so `pgedge ... | jq -e` reports `jq`'s.
-`jq -e` exits 1 both when nothing matches and when the read failed and
-printed nothing. Without the first check, a 404, an expired credential
-or a network error picks the `else` branch. The branch then deploys a
-second service off a read that never ran.
-
-`service get` addresses a service by its generated id, so checking
-for a type before it has an id means filtering `service list`. Managed
-`service get` takes a type, which is why the
-[Deploy managed services](../managed/services.md) guide branches on an
-exit code instead.
+`mcp apply`, `rag apply` and `postgrest apply` read the database
+first. A read that fails ends the command with that read's exit
+status, and nothing is written. `--allow-writes` is never inferred, so
+a new MCP service starts read-only unless you pass it.
 
 ## One change at a time
 

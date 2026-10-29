@@ -95,6 +95,7 @@ const (
 type ExitError struct {
 	msg  string
 	code int
+	busy bool
 	// rejected: the server refused the credential itself, as opposed to
 	// failing to answer. Both are ExitAuth to an ordinary command.
 	rejected bool
@@ -111,6 +112,10 @@ func (e *ExitError) Error() string { return e.msg }
 
 // Code returns the process exit code associated with the error.
 func (e *ExitError) Code() int { return e.code }
+
+// Busy reports whether the error is busyResourceError's "wait and
+// retry", which a caller may sharpen by reading the resource's status.
+func (e *ExitError) Busy() bool { return e.busy }
 
 // IsCredentialRejected reports an error carrying the server's refusal
 // of the credential: a 401 or 403, a token exchange answered 400, 401
@@ -235,6 +240,7 @@ func busyResourceError(status int, excerpt string) *ExitError {
 				"(server said (%d): %s)",
 			status, excerpt),
 		code: ExitGeneral,
+		busy: true,
 	}
 }
 

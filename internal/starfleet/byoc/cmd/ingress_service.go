@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
@@ -105,6 +107,7 @@ func newIngressServiceRegisterCmd(rt *module.Runtime) *cobra.Command {
 	var (
 		databaseID string
 		serviceID  string
+		svcType    string
 	)
 	cmd := &cobra.Command{
 		Use:   "register <ingress_id>",
@@ -112,10 +115,16 @@ func newIngressServiceRegisterCmd(rt *module.Runtime) *cobra.Command {
 		Long: `register exposes a database service through an ingress.
 
 Use it to make a running service reachable at the ingress's
-domain. The argument is the ingress's UUID; both --database-id and
---service-id are required.
+domain. The argument is the ingress's UUID, and --database-id is
+required.
+
+Name the service with --service (mcp, rag or postgrest), and the
+service ID is read from the database, or with --service-id. Given
+both, they must name the same service, or the command exits 2.
 
 Example:
+  pgedge starfleet byoc ingress service register <ingress_id> \
+    --database-id <id> --service mcp
   pgedge starfleet byoc ingress service register <ingress_id> \
     --database-id <id> --service-id <id>`,
 		Args: cobra.ExactArgs(1),
@@ -130,9 +139,39 @@ Example:
 				return err
 			}
 
+			f := cmd.Flags()
+			byType := f.Changed("service")
+			if !byType && !f.Changed("service-id") {
+				return newExitError(
+					"one of --service or --service-id is required",
+					ExitUsage)
+			}
+			if byType && !slices.Contains(serviceTypes, svcType) {
+				return newExitError(fmt.Sprintf(
+					"unknown service %q (expected one of: %s)", svcType,
+					strings.Join(serviceTypes, ", ")), ExitUsage)
+			}
+
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
+			}
+
+			if byType {
+				db, err := fetchDatabaseWith(rt, client, dbID)
+				if err != nil {
+					return err
+				}
+				given := ""
+				if f.Changed("service-id") {
+					given = serviceID
+				}
+				serviceID, err = serviceIDOfType(db, svcType, given)
+				if err != nil {
+					return err
+				}
+				rt.DryRun.Pass("%s service %s found on database %s",
+					svcType, output.Sanitize(serviceID), dbID)
 			}
 
 			body := api.CreateIngressServiceJSONRequestBody{
@@ -169,11 +208,55 @@ Example:
 	f.StringVar(&databaseID, "database-id", "",
 		"Database to register (full UUID)")
 	f.StringVar(&serviceID, "service-id", "", "Service ID to expose")
+	f.StringVar(&svcType, "service", "",
+		"Service type to expose, read from the database: "+
+			strings.Join(serviceTypes, ", "))
 	_ = cmd.MarkFlagRequired("database-id")
-	_ = cmd.MarkFlagRequired("service-id")
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// serviceTypes is the spec's Service.service_type enum.
+var serviceTypes = []string{
+	string(api.ServiceServiceTypeMcp),
+	string(api.ServiceServiceTypeRag),
+	string(api.ServiceServiceTypePostgrest),
+}
+
+// serviceIDOfType returns the ID of the database's service of type t,
+// or given when it is one of them. The database lists one entry per
+// service instance, so a service on several hosts repeats its ID; only
+// distinct IDs are ambiguous.
+func serviceIDOfType(db *api.Database, t, given string) (string, error) {
+	var ids []string
+	if db.Services != nil {
+		for _, svc := range *db.Services {
+			if string(svc.ServiceType) == t &&
+				!slices.Contains(ids, svc.ServiceId) {
+				ids = append(ids, svc.ServiceId)
+			}
+		}
+	}
+	list := output.Sanitize(strings.Join(ids, ", "))
+	switch {
+	case len(ids) == 0:
+		return "", newExitError(fmt.Sprintf(
+			"no %q service deployed on database %s", t, db.Id),
+			ExitGeneral)
+	case given != "" && slices.Contains(ids, given):
+		return given, nil
+	case given != "":
+		return "", newExitError(fmt.Sprintf(
+			"--service-id %q is not a %q service on database %s (%s)",
+			given, t, db.Id, list), ExitUsage)
+	case len(ids) == 1:
+		return ids[0], nil
+	}
+	return "", newExitError(fmt.Sprintf(
+		"database %s has %d %q services (%s); pass --service-id",
+		db.Id, len(ids), t, list),
+		ExitUsage)
 }
 
 // --- deregister ---

@@ -104,11 +104,18 @@ names them in order.
 Each rule is stated in full on the page named beside it.
 
 - **Pass `--wait` on every write in a script.** A write exits 0 when
-  the API accepts it, not when the work finishes, and no byoc response
-  carries a task ID. See the index's "Asynchronous operations".
+  the API accepts it, not when the work finishes. On a cluster,
+  database or backup-store write, `--wait` exits 0 only once the
+  resource reaches its end status, so no `get` is needed to confirm.
+  A service write's `--wait` reads the database, not the service, so
+  still read `database service list` for a `failed` state. On an
+  ingress, `--wait` covers only the task. See the index's
+  "Asynchronous operations".
 - **Run writes one at a time.** A database accepts one change at a
-  time, so deploy services one by one, each with `--wait`. See the
-  index's "Resource status".
+  time, so deploy services one by one, each with `--wait`, or run
+  `database wait` between writes. A busy refusal names the
+  database's status: read the failed task rather than retrying a
+  status that does not settle. See the index's "Resource status".
 - **A request that names the action and its target is consent: pass
   `--force`.** That consent covers the named action only, so ask
   before any other destructive step it turns out to need. Eleven verbs
@@ -122,7 +129,13 @@ Each rule is stated in full on the page named beside it.
   a list comes back empty creates on every failure. See
   `full-stack-setup` and `ingress`.
 - **`deploy` creates a service, and `update` changes one.** Each
-  refuses the other's job, and `update` is partial. See `database`.
+  refuses the other's job, and `update` is partial. When you do not
+  know whether the service exists, use `apply`, which does whichever
+  is needed. See `database`.
+- **Expose a service by its database.** `ingress create
+  --database-id` takes the cluster and region from the database, and
+  `ingress service register --service <type>` reads the service ID.
+  See `ingress`.
 - **byoc's admin role is a real Postgres superuser.** Never hand it to
   `postgrest deploy --db-anon-role`, and do not carry a byoc data-load
   recipe to a managed database. See the index's "Built-in roles" and

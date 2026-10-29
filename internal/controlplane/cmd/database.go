@@ -101,7 +101,7 @@ Example:
 }
 
 func newDatabaseGetCmd(rt *module.Runtime) *cobra.Command {
-	var upgrades bool
+	var upgrades, failure bool
 	cmd := &cobra.Command{
 		Use:   "get <database_id>",
 		Short: "Show database details",
@@ -129,12 +129,26 @@ spec. 'database update -f' reads the spec section out of that
 document, so the output round-trips without being restructured
 first.
 
+--failure shows why the database's latest task failed: the
+database's ID and state, that task, and its error, which is where a
+failed create records its reason. Under -o json/-o yaml it prints
+one object with database_id, state and task. When the latest task
+did not fail, or there is none, stdout stays empty and a sentence on
+stderr names the state and the task's status; the exit status is 0.
+
 Example:
   pgedge controlplane database get storefront
+  pgedge controlplane database get storefront --failure
   pgedge controlplane database get storefront --upgrades
   pgedge controlplane database get storefront -o yaml > spec.yaml`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if failure && upgrades {
+				return &ExitError{
+					msg:  "--failure and --upgrades are mutually exclusive",
+					code: ExitUsage,
+				}
+			}
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
@@ -152,6 +166,9 @@ Example:
 				string(resp.Body)); err != nil {
 				return err
 			}
+			if failure && resp.JSON200 != nil {
+				return printDatabaseFailure(rt, client, resp.JSON200)
+			}
 			if rt.Output.Structured() {
 				return rt.Output.Print(resp.JSON200, nil)
 			}
@@ -165,6 +182,8 @@ Example:
 	}
 	cmd.Flags().BoolVar(&upgrades, "upgrades", false,
 		"Also list the newer images this database can upgrade to")
+	cmd.Flags().BoolVar(&failure, "failure", false,
+		"Show the latest task's error if that task failed")
 	return cmd
 }
 

@@ -212,16 +212,12 @@ default) and `--wait-interval` (5 seconds by default). Without either
 of the first two the command returns when the API accepts the request,
 not when the work finishes.
 
-`--wait` blocks until the task reaches a terminal state, printing a
-status line per poll. `--follow` blocks the same way and streams the
-task's step messages instead. Both exit 0 when the task succeeded, 1
-when it failed and 3 when the deadline passed.
-
-The wait tracks the task, not the resource, so a successful wait tells
-you the work finished rather than that the cluster is serving. Confirm
-with a read:
-
-    pgedge starfleet byoc cluster get <cluster-id> -o json
+`--wait` blocks until the task succeeds and then reads the cluster
+until its status is `available`, or, for a delete, until the cluster
+answers not found, printing a status line per poll. `--follow` blocks
+the same way and streams the task's step messages instead. Both exit 0
+at that end status, 1 when the task failed or the cluster settled on
+another status, which the error names, and 3 when the deadline passed.
 
 Without a wait flag, text output prints a `Monitor with:` line on
 stderr naming the `task list --subject-id` command for that resource.

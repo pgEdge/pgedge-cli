@@ -284,7 +284,8 @@ Example:
 					"Backup store %q created (id: %s, status: %s).\n",
 					s.Name, output.Sanitize(s.Id), output.Sanitize(s.Status))
 			}
-			return trackMutation(rt, client, s.Id, "")
+			return trackMutation(rt, client, s.Id, "",
+				endState(backupStoreSettle(client, s.Id, "available")))
 		},
 	}
 	f := cmd.Flags()
@@ -352,11 +353,13 @@ Example:
 			}
 			if err := checkEmptyBodyResponse(
 				resp, "delete backup store"); err != nil {
-				return err
+				return withSubjectStatus(err,
+					backupStoreSettle(client, id.String(), ""))
 			}
 
 			fmt.Fprintf(rt.Stderr, "Backup store %s deletion requested.\n", id)
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(backupStoreSettle(client, id.String(), settleGone)))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false,

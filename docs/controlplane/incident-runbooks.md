@@ -76,8 +76,8 @@ the application and the instance. The first three steps say which.
 
         pgedge controlplane doctor -o json
 
-    `controlplane doctor` exits 0 whatever it finds, so read the
-    fields. `reachable` true, with a second key beside it saying a
+    Without `--require`, `controlplane doctor` exits 0 whatever it
+    finds, so read the fields. `reachable` true, with a second key beside it saying a
     cluster exists, means the server answers and is initialized. The
     [health checks guide](../doctor.md) documents every key.
     `reachable` false means the Control Plane is down or unreachable

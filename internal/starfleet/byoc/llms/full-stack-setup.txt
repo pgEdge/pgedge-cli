@@ -9,7 +9,8 @@
 You need a cloud account ID (`cloud-account list`), a target region,
 embedding provider credentials for MCP or RAG, and a pipeline
 configuration file for RAG. Pass `--wait` on every step that creates
-something: each one needs the previous one `available`.
+something: each one needs the previous one `available`, and `--wait`
+exits 0 only once it is.
 
 **1. Check the connection.** Run `pgedge starfleet doctor -o json` and
 proceed only when `tenant.resolved` is true. `pgedge llms starfleet`
@@ -53,13 +54,11 @@ pgedge starfleet byoc cluster create --name <name> \
     --wait -o json
 ```
 
-Capture the cluster's `id` from the response, then confirm `status`
-is `available` with `cluster get`. Rules added later with `cluster
-update` are appended to the existing ones.
+Capture the cluster's `id` from the response. Rules added later with
+`cluster update` are appended to the existing ones.
 
-**4. Create the database** on the cluster, then confirm it with
-`database get`. The `database` page has the name rule and the
-connection string.
+**4. Create the database** on the cluster. The `database` page has the
+name rule and the connection string.
 
 ```bash
 pgedge starfleet byoc database create --name <name> \
@@ -68,12 +67,15 @@ pgedge starfleet byoc database create --name <name> \
 
 **5. Deploy services**, one at a time, each with `--wait`: a second
 services write while the first is still `modifying` the database is
-refused. The `database mcp`, `database rag` and `database postgrest`
+refused. `apply` deploys a service or updates it, whichever the
+database needs. The `database mcp`, `database rag` and `database postgrest`
 pages have each one's flags, and `database service list <database_id>
 -o json` then shows every service's `state`. A `failed` state names a
 service that did not come up.
 
 **6. On a private cluster, expose each service through an ingress.**
-Create one ingress in the cluster's region and register each service
-on it. The `ingress` page covers both, and how to verify a
-registration.
+Create one ingress with `ingress create --database-id <database_id>`,
+which takes the cluster and region from the database, and register
+each service on it with `ingress service register <ingress_id>
+--database-id <database_id> --service <type>`. The `ingress` page
+covers both, and how to verify a registration.

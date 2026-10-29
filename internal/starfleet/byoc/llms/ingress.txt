@@ -113,20 +113,34 @@ Create an ingress
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--cluster-id string` | Yes |  | Cluster to associate with the ingress (full UUID) |
+| `--cluster-id string` | No |  | Cluster to associate with the ingress (full UUID) |
+| `--database-id string` | No |  | Take the cluster and region from this database (full UUID) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
 | `--name string` | Yes |  | Ingress name |
-| `--region string` | Yes |  | Cloud region for the ingress |
+| `--region string` | No |  | Cloud region for the ingress |
 | `--wait` | No |  | Wait for the operation's task to reach a terminal state |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
 <!-- END GENERATED -->
 
+To expose a database's services, pass `--database-id` and the CLI
+takes the ingress's cluster and region from that database: its
+cluster, and the cluster's one region. A cluster in several regions
+needs `--region` to choose one. A `--cluster-id` or `--region` that
+disagrees with the database is exit 2 with nothing created. Without
+`--database-id`, `--cluster-id` and `--region` are required.
+
+`--wait` on `ingress create` and `ingress delete` ends when the task
+succeeds; the ingress's own status is not read.
+
 **Example:**
 
 ```bash
+pgedge starfleet byoc ingress create \
+    --name prod-ingress \
+    --database-id f6a7b8c9-d0e1-2345-fabc-456789012345
 pgedge starfleet byoc ingress create \
     --name prod-ingress \
     --cluster-id a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
@@ -223,7 +237,8 @@ Register a service on an ingress
 |------|----------|---------|-------------|
 | `--database-id string` | Yes |  | Database to register (full UUID) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--service-id string` | Yes |  | Service ID to expose |
+| `--service string` | No |  | Service type to expose, read from the database: mcp, rag, postgrest |
+| `--service-id string` | No |  | Service ID to expose |
 
 <!-- END GENERATED -->
 
@@ -232,7 +247,7 @@ Register a service on an ingress
 ```bash
 pgedge starfleet byoc ingress service register c5d6e7f8-a9b0-1234-cdef-345678901234 \
     --database-id f6a7b8c9-d0e1-2345-fabc-456789012345 \
-    --service-id a7b8c9d0
+    --service mcp
 ```
 
 **Example output (table):**
@@ -241,11 +256,12 @@ pgedge starfleet byoc ingress service register c5d6e7f8-a9b0-1234-cdef-345678901
 Service "a7b8c9d0" registered on ingress c5d6e7f8-a9b0-1234-cdef-345678901234 (url: https://mcp.a7b8c9d0.pgedge.io).
 ```
 
-This is how a service on a private cluster becomes reachable. Take
-`--service-id` from `database service list <database_id> -o json`,
-where the field is `service_id`, not `id`, and take the ingress's
-cluster and region from `database get`. One ingress serves several
-services: register each in turn.
+This is how a service on a private cluster becomes reachable. Name it
+with `--service mcp`, `rag` or `postgrest`, and the CLI reads its
+service ID from the database: a type not deployed there is exit 1.
+`--service-id` names it directly instead, and given with `--service`
+it must be the same service, or the command exits 2. One ingress
+serves several services: register each in turn.
 
 `register` finishes in the one call: it prints its confirmation on
 STDERR when the API answers 200. Verify with

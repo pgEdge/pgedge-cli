@@ -214,7 +214,8 @@ operation, so complete the following checks before a restore:
   is busy and tells you to wait and retry. The CLI also points to a
   `get` command for the current status and to `task list` for what is
   running. The server's own sentence is quoted underneath, on a line
-  beginning `(server said`. Several of the refusals behind that
+  beginning `(server said`, and the CLI reads the database once and
+  names its status on the last line. Several of the refusals behind that
   message, restore included, key on the CLUSTER, not the database, so
   `database get` can report `available` while the refusal still
   stands. Check the cluster's tasks too, with `task list --subject-id
@@ -245,7 +246,7 @@ operation, so complete the following checks before a restore:
 ## Run the restore
 
 The restore names the database, takes the repository and node, and
-blocks until its task reaches a terminal state when you pass
+blocks until the restored database is `available` when you pass
 `--wait`. The command looks like this:
 
     pgedge starfleet byoc database restore <db-id> \
@@ -285,15 +286,17 @@ pick up the work later. That hint is a table and text courtesy, so
 
 ## Wait on a restore
 
-`--wait` runs a check against the database's task until the task
-reaches a terminal state, printing a status line at each check.
+`--wait` checks the database's task until it succeeds, then reads the
+database until its status is `available`, printing a status line at
+each check.
 `--follow` runs the same way but streams the task's step messages
 instead. Both bound themselves with `--wait-timeout`, 600 seconds by
 default, and check again every `--wait-interval` seconds, 5 by
 default.
 
-The three outcomes map to exit codes: 0 when the task succeeded, 1
-when it failed, and 3 when the wait ran out before the task finished.
+The three outcomes map to exit codes: 0 when the database is
+`available`, 1 when the task failed or the database settled on another
+status, which the error names, and 3 when the wait ran out first.
 Exit 3 means the restore is still running, not that it failed. The
 [Tasks and async operations](../tasks-and-async.md) guide covers
 picking the task up again afterward.

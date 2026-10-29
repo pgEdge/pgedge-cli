@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- byoc `--wait` and `--follow` wait for the cluster, database or
+  backup store to reach its end state, not only for the task, and exit
+  1 naming any other status it settles on. `starfleet byoc database
+  wait` waits on its own.
+- byoc `database mcp apply`, `rag apply` and `postgrest apply` deploy
+  a service, or update the one already there.
+- A byoc write refused because the database is busy names the
+  database's current status.
+- byoc `ingress create --database-id` takes the cluster and region
+  from the database, and `ingress service register --service` reads
+  the service ID from it.
 - `starfleet doctor` reports a one-word `verdict`, and `--strict`
   exits non-zero unless it is `ready`.
 - `starfleet doctor` reports whether the tenant can use BYOC, so an
@@ -10,6 +21,16 @@
   credential and exits 5 when the server rejects it.
 - `starfleet membership list --email` and `starfleet invite get
   --email` look a person up by address, and exit 4 when none matches.
+- `controlplane cluster join --from <member>` reads the join token
+  from an existing member and joins in one step, `--token-file` reads
+  it from a file, and `--wait` waits for the new host to be healthy.
+- `controlplane doctor --require reachable,cluster,supported` exits 1
+  unless every named condition holds.
+- `controlplane database instance start`, `stop` and `restart` take a
+  node name.
+- `controlplane task list --all` reads every page.
+- `controlplane database get --failure` prints the latest task's
+  error.
 - Managed `--wait` and `--follow` wait for the database or branch to
   reach its end state, not only for the task, and exit 1 naming any
   other status it settles on. `starfleet managed database wait` waits

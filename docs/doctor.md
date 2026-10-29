@@ -16,9 +16,10 @@ safe to run precisely when the thing they diagnose is broken, and it
 also means `pgedge starfleet doctor && <next step>` reads as a gate
 and is not one, unless you pass `--strict`.
 
-A script reads their fields under `-o json`, or runs
-`pgedge starfleet doctor --strict`, which exits non-zero unless the
-connection is ready.
+A script reads their fields under `-o json`. Two forms exit on the
+result instead: `pgedge starfleet doctor --strict` exits non-zero
+unless the connection is ready, and `pgedge controlplane doctor
+--require` exits 1 unless every condition it names holds.
 The one failure that does stop them is a broken `--config`, which is
 resolved before any command runs and exits 1. The
 [exit codes guide](exit-codes.md) covers that class and the rest.
@@ -199,6 +200,17 @@ A per-server one is absent when that server could not be asked. The
 top-level one summarizes only the servers that answered, and is absent
 when none answered or when those that answered disagree. Test for the
 key rather than its value in both cases.
+
+`--require` turns the report into a gate. It takes `reachable` (some
+server answered), `cluster` (the servers that answered agree a
+cluster exists) and `supported` (some server answered, and every one
+that answered reports a version at or above the floor; a version that
+cannot be read fails), comma-separated. doctor prints the same report,
+then exits 1 unless every named condition holds. An unknown or empty
+condition list is a usage error at exit 2, raised before any server
+is probed:
+
+    pgedge controlplane doctor --require reachable,cluster
 
 Treat an absent verdict as unknown, never as "needs init". Running
 `cluster init` against a fleet that already has a cluster is the

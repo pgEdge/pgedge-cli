@@ -113,7 +113,7 @@ operation is asynchronous; use --wait/--follow to track it.
 Example:
   pgedge controlplane database node switchover storefront n1
   pgedge controlplane database node switchover storefront n1 \
-    --candidate storefront-n2-9ptayhma --force --wait`,
+    --candidate storefront-n1-9ptayhma --force --wait`,
 		Args: cobra.ExactArgs(2),
 	}
 	wf := addWaitFollowFlags(cmd)

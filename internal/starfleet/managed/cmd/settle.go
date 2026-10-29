@@ -2,26 +2,20 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pgEdge/pgedge-cli/internal/module"
-	"github.com/pgEdge/pgedge-cli/internal/output"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/managed/api"
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/settle"
 )
 
-// settleGone is the end state a delete waits for: the read answering
-// 404, or a status of "deleted", which is what a deleted branch's read
-// returns (measured 2026-10-28; branches are soft-deleted).
-const settleGone = "deleted"
+const settleGone = settle.Gone
 
 // subjectStatuses is the documented status vocabulary (the "Database
 // status" table in llms.txt). transitionalStatuses is the part of it a
-// subject passes through on its way somewhere else; every other status,
-// and any status outside the vocabulary, is where it has come to rest.
+// subject passes through on its way somewhere else.
 var (
 	subjectStatuses = []string{
 		"creating", "available", "modifying", "deleting", "failed",
@@ -32,87 +26,23 @@ var (
 	}
 )
 
-// settleTarget is the subject --wait re-reads after its task succeeds,
-// and the status that means the write is done. It names no managed API
-// type, so byoc can adopt the same contract by supplying its own read.
-type settleTarget struct {
-	noun string
-	id   string
-	want string
-	// read returns the subject's status, or an ExitNotFound error once
-	// it is gone.
-	read func(ctx context.Context) (string, error)
-}
+type settleTarget = settle.Target
 
-// awaitSettled polls t until it reaches t.want, sharing the deadline the
-// task wait used. A succeeded task can leave the status a poll behind,
-// so a transitional status is polled through; any other status is
-// final and exits 1 naming it.
+// awaitSettled is settle.Await over managed's vocabulary.
 func awaitSettled(
 	rt *module.Runtime, t settleTarget,
 	deadline time.Time, timeout int, interval time.Duration,
 ) error {
-	last := ""
-	for {
-		if last != "" && time.Now().After(deadline) {
-			return settleTimeout(t, timeout, last)
-		}
-		// Floored at one request allowance, as task wait's poll is, so
-		// a task that succeeds on the deadline still gets its read.
-		pollDeadline := deadline
-		if floor := time.Now().Add(requestBound()); floor.After(deadline) {
-			pollDeadline = floor
-		}
-		ctx, cancel := context.WithDeadline(
-			context.Background(), pollDeadline)
-		status, err := t.read(ctx)
-		expired := time.Now().After(deadline)
-		cancel()
-
-		var ee *ExitError
-		switch {
-		case err != nil && t.want == settleGone &&
-			errors.As(err, &ee) && ee.Code() == ExitNotFound:
-			status = settleGone
-		case err != nil && errors.Is(err, context.DeadlineExceeded) &&
-			expired:
-			return settleTimeout(t, timeout, last)
-		case err != nil:
-			return err
-		}
-
-		if status == t.want {
-			fmt.Fprintf(rt.Stderr, "%s %s: %s.\n", output.Sanitize(t.noun),
-				output.Sanitize(t.id), output.Sanitize(status))
-			return nil
-		}
-		if !slices.Contains(transitionalStatuses, status) {
-			return newExitError(fmt.Sprintf("%s %s is %q, not %s",
-				t.noun, output.Sanitize(t.id), output.Sanitize(status),
-				t.want), ExitGeneral)
-		}
-		fmt.Fprintf(rt.Stderr, "%s %s: %s...\n", output.Sanitize(t.noun),
-			output.Sanitize(t.id), output.Sanitize(status))
-		last = status
-		time.Sleep(interval)
-	}
-}
-
-func settleTimeout(t settleTarget, timeout int, last string) error {
-	msg := fmt.Sprintf("timed out after %ds waiting for %s %s to be %s",
-		timeout, t.noun, t.id, t.want)
-	if last != "" {
-		msg += fmt.Sprintf(" (last status: %s)", output.Sanitize(last))
-	}
-	return newExitError(msg, ExitTimeout)
+	t.Transitional = transitionalStatuses
+	return settle.Await(rt, t, deadline, timeout, interval, requestBound())
 }
 
 // databaseSettle reads a database's status.
 func databaseSettle(
 	client *api.ClientWithResponses, id, want string,
 ) settleTarget {
-	return settleTarget{noun: "database", id: id, want: want,
-		read: func(ctx context.Context) (string, error) {
+	return settleTarget{Noun: "database", ID: id, Want: want,
+		Read: func(ctx context.Context) (string, error) {
 			uid, err := uuid.Parse(id)
 			if err != nil {
 				return "", newExitError(fmt.Sprintf(
@@ -140,8 +70,8 @@ func databaseSettle(
 func branchSettle(
 	client *api.ClientWithResponses, databaseID, branchID, want string,
 ) settleTarget {
-	return settleTarget{noun: "branch", id: branchID, want: want,
-		read: func(ctx context.Context) (string, error) {
+	return settleTarget{Noun: "branch", ID: branchID, Want: want,
+		Read: func(ctx context.Context) (string, error) {
 			dbID, err := uuid.Parse(databaseID)
 			if err != nil {
 				return "", newExitError(fmt.Sprintf(

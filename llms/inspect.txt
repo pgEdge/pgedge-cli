@@ -43,11 +43,9 @@ message; one that accepts it and never answers is exit 3.
 the block `connection-string` uses, so this form is for a Control
 Plane database or any other Postgres the machine can reach.
 
-A replica working through a backlog reports a catchup state with its
-lag intervals empty, so the distance between its sent and replay
-positions is what shows how far behind it is. The intervals fill in
-only while the database is taking writes the replica is keeping up
-with.
+A replica's lag intervals can be empty while it is behind, as a
+stalled replica in a catchup state shows. The distance between its
+sent and replay positions is what shows how far behind it is.
 
 Text output is a table with the analysis's own columns, upper-cased.
 `-o json` prints one object per row keyed by column, in column order;

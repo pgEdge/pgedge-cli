@@ -242,8 +242,25 @@ func warnIfOpen(
 		return
 	}
 	fmt.Fprintf(rt.Stderr, "The %s endpoint of database %s is now open "+
-		"to every address. Postgres roles and passwords are the only "+
-		"guard.\n", output.Sanitize(endpointName(typ)), output.Sanitize(dbID))
+		"to every address. %s\n", output.Sanitize(endpointName(typ)),
+		output.Sanitize(dbID), openGuard(typ))
+}
+
+// openGuard names what still guards an open endpoint. RAG asks for no
+// credential at all (measured on devapi), so its warning must not
+// promise one.
+func openGuard(typ api.ServiceConfigServiceType) string {
+	switch typ {
+	case "":
+		return "Postgres roles and passwords are the only guard."
+	case api.Mcp:
+		return "The MCP bearer token is the only guard."
+	case api.Rag:
+		return "RAG asks for no credential, so every address can query " +
+			"its pipelines."
+	default:
+		return "The service's own authentication is the only guard."
+	}
 }
 
 // confirmClose is the lockout guard: a write that leaves an endpoint

@@ -257,8 +257,9 @@ Replace one endpoint's rules with the single rule 0.0.0.0/0, so the
 API reports state "open" and any address can connect. The API has no
 off switch, and this is the nearest thing to one. There is no prompt,
 because open is the posture every pre-feature database already has,
-and it is never a default: a new database starts closed. A warning
-that Postgres roles and passwords are the only guard prints on stderr.
+and it is never a default: a new database starts closed. A warning on
+stderr names what still guards the endpoint: Postgres roles and
+passwords, the MCP bearer token, or nothing at all for RAG.
 
 **Example:**
 

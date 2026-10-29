@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/pgEdge/pgedge-cli/internal/output"
@@ -25,6 +26,16 @@ func emailArg(addr string) (string, error) {
 		return "", newExitError("--email needs an address", ExitUsage)
 	}
 	return addr, nil
+}
+
+// listReadErr is checkResponse for an --email lookup's list read. A
+// 404 there is a failed read, and exit 4 is reserved for "no match".
+func listReadErr(status int, body string) error {
+	err := checkResponse(status, body)
+	if err != nil && status == http.StatusNotFound {
+		return newExitError("list read failed: "+err.Error(), ExitGeneral)
+	}
+	return err
 }
 
 // errNoListBody keeps a 2xx without a parseable list from reading as

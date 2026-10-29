@@ -82,7 +82,11 @@ Example:
 			if err != nil {
 				return fmt.Errorf("list memberships: %w", err)
 			}
-			if err := checkResponse(resp.StatusCode(),
+			check := checkResponse
+			if byEmail {
+				check = listReadErr
+			}
+			if err := check(resp.StatusCode(),
 				string(resp.Body)); err != nil {
 				return err
 			}

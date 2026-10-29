@@ -181,8 +181,9 @@ failed: the invite is UNVERIFIED, so relay the error.
 pgedge starfleet membership list --email <addr>
 ```
 
-Exit 0 prints the member. Exit 4 means the member has not accepted
-yet; take Step 5 only if the address itself was wrong. Any other
+Exit 0 prints the member. Exit 4 means no current member has that
+address: the invite may not be accepted yet, or the person joined with
+another address. Take Step 5 only if the address itself was wrong. Any other
 non-zero exit means the read failed: the membership is UNVERIFIED, so
 relay the error and delete nothing.
 

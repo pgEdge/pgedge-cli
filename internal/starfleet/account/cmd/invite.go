@@ -202,7 +202,7 @@ func inviteGetByEmail(
 	if err != nil {
 		return fmt.Errorf("list invites: %w", err)
 	}
-	if err := checkResponse(resp.StatusCode(),
+	if err := listReadErr(resp.StatusCode(),
 		string(resp.Body)); err != nil {
 		return err
 	}

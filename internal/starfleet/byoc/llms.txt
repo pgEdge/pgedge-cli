@@ -194,20 +194,20 @@ Compare a readiness check against `available`, never against "not
 through `creating` again. A failed change leaves a database or cluster
 `degraded`, so stop polling a resource that reaches it and read the
 failed task: `task list --subject-id <id>`, then `task get`. A
-`degraded` resource still accepts writes. A deployed service reports `state`, not
+`degraded` resource still accepts writes, except `database
+rotate-password`, which refuses a database that is not `available`.
+A deployed service reports `state`, not
 `status`, and its `state` is not a readiness signal: the `database mcp`
 and `database rag` pages say why.
 
-**A database accepts one change at a time.** A services write, a
-`database update` or a restore against a database that is neither
-`available` nor `degraded` is refused with 400 `database in
-unmodifiable state: <status>`, exit 1. Pass `--wait` on each write, or
-run `database wait <database_id>` between them. That 400 names the
-status itself. The refusals the CLI reports as a busy resource, a 409
-and `rotate-password`'s `database is not in available status`, do not,
-so for those the CLI reads the resource once and adds its status to the
-error: retry a transitional one after it settles, and read the last
-task (`task list --subject-id <id>`) for any other.
+**A database accepts one change at a time.** A write against a
+database that is mid-operation is refused, exit 1. Pass `--wait` on
+each write, or run `database wait <database_id>` between them. The CLI
+reports a 409, or `rotate-password`'s `database is not in available
+status`, as a busy resource. It then reads the resource once and adds
+its current status to the error: retry a transitional one after it
+settles, and read the last task (`task list --subject-id <id>`) for
+any other.
 
 ### Built-in roles
 

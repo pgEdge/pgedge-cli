@@ -53,9 +53,9 @@ are still on the JSON object under `-o json`.
 `ENDPOINT` is the bare origin, not a full path: a deployed MCP
 server speaks streamable-HTTP MCP at `POST <endpoint>/mcp/v1`, the
 client appends that path itself. See `pgedge llms starfleet managed
-connecting-a-client` for the worked example and header requirements; the two products' clients speak the
-same protocol at the same path, just reached through a different
-column here.
+connecting-a-client` for the worked example and header requirements;
+the two products' clients speak the same protocol at the same path,
+just reached through a different column here.
 
 ---
 

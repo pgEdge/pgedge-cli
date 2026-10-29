@@ -18,8 +18,8 @@ func mask(cask string) string {
 
 // The tap's cask at da42311 is the hand-fixed one that passed brew
 // style and brew audit and installed cleanly. Patching goreleaser's
-// output must reproduce it apart from the release-specific lines and
-// the zsh-before-fish order brew style has required since.
+// output must reproduce it apart from the release-specific lines, and
+// the zsh-before-fish order and zap stanza brew style has required since.
 func TestPatchReproducesTheTapCask(t *testing.T) {
 	gen, err := os.ReadFile(filepath.Join("testdata", "goreleaser-v2.18.2.rb"))
 	if err != nil {
@@ -39,6 +39,7 @@ func TestPatchReproducesTheTapCask(t *testing.T) {
 	if want == string(tap) {
 		t.Fatal("tap fixture no longer has fish before zsh")
 	}
+	want = strings.Replace(want, "  "+noZapComment+"\n", "  zap :not_required\n", 1)
 	if mask(got) != mask(want) {
 		t.Errorf("patched cask differs from the tap's:\n%s", got)
 	}
@@ -113,6 +114,37 @@ func TestPatchSortsCompletions(t *testing.T) {
 		"  on_linux do\n" +
 		"    fish_completion \"nested\"\n" +
 		"  end\n" +
+		"end\n"
+	if got != want {
+		t.Errorf("patch() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestPatchReplacesTheNoZapComment(t *testing.T) {
+	cask := "cask \"x\" do\n" +
+		"  binary \"x\"\n" +
+		"  caveats <<~EOS\n" +
+		"  " + noZapComment + "\n" +
+		"  EOS\n" +
+		"  on_linux do\n" +
+		"    " + noZapComment + "\n" +
+		"  end\n" +
+		"  " + noZapComment + "\n" +
+		"end\n"
+	got, err := patch(cask)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "cask \"x\" do\n" +
+		"  binary \"x\"\n" +
+		postflightSteps +
+		"  caveats <<~EOS\n" +
+		"  " + noZapComment + "\n" +
+		"  EOS\n" +
+		"  on_linux do\n" +
+		"    " + noZapComment + "\n" +
+		"  end\n" +
+		"  zap :not_required\n" +
 		"end\n"
 	if got != want {
 		t.Errorf("patch() =\n%s\nwant\n%s", got, want)

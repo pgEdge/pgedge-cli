@@ -49,9 +49,8 @@ pgedge controlplane database instance restart storefront storefront-n1-689qacsi 
 ```
 
 **Pass a node name or an instance ID.** `start`, `stop` and `restart`
-take either, and so do `node switchover --candidate` and `node
-failover --candidate`. A node name such as `n1` is looked up with
-`database get` before any prompt:
+take either. A node name such as `n1` is looked up with `database
+get` before any prompt:
 
 - A node with one instance resolves to it, and stderr names the
   instance ID.
@@ -59,9 +58,10 @@ failover --candidate`. A node name such as `n1` is looked up with
   every instance ID with its host. Pass the one you want.
 - A node with no instance is exit 4.
 
-Any other value is sent as typed. Never build an instance ID: the
-Control Plane names one `<database>-<node>-<suffix>` with a random
-suffix, such as `storefront-n1-689qacsi`.
+Any other value is sent as typed. `node switchover --candidate` and
+`node failover --candidate` take an instance ID only. Never build an
+instance ID: the Control Plane names one `<database>-<node>-<suffix>`
+with a random suffix, such as `storefront-n1-689qacsi`.
 
 ---
 

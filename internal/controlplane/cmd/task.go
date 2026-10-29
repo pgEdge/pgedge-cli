@@ -107,10 +107,10 @@ list by --scope (database or host) and --entity-id, or list a single
 resource's tasks with --database or --host. Cap with --limit.
 
 --all follows the server's cursor page by page until a page comes
-back short, so the result is every task rather than one page. --limit
-then sets the page size, 100 when it is unset. It needs --database, --host,
-or --scope with --entity-id: the cursor pages one database's or one
-host's tasks.
+back short, so the result is every task rather than one page.
+--limit then sets the page size, 100 when it is unset. It needs
+--database, --host, or --scope with --entity-id: the cursor pages one
+database's or one host's tasks.
 
 Example:
   pgedge controlplane task list
@@ -237,9 +237,11 @@ func taskPageFetcher(
 			raw    any
 			tasks  []api.Task
 			err    error
+			action = "list tasks"
 		)
 		switch {
 		case database != "":
+			action = "list database tasks"
 			resp, rerr := client.ListDatabaseTasksWithResponse(
 				ctx, database, &api.ListDatabaseTasksParams{
 					Limit: limit, AfterTaskId: after,
@@ -251,6 +253,7 @@ func taskPageFetcher(
 				}
 			}
 		case host != "":
+			action = "list host tasks"
 			resp, rerr := client.ListHostTasksWithResponse(
 				ctx, host, &api.ListHostTasksParams{
 					Limit: limit, AfterTaskId: after,
@@ -281,7 +284,7 @@ func taskPageFetcher(
 			}
 		}
 		if err != nil {
-			return nil, nil, networkError("list tasks", err)
+			return nil, nil, networkError(action, err)
 		}
 		if err := checkResponse(status, string(body)); err != nil {
 			return nil, nil, err

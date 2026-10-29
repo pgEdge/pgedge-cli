@@ -159,7 +159,10 @@ Example:
 				supported: anyReachable,
 			}
 			for _, p := range probes {
-				if p.reachable && p.warning != "" {
+				if !p.reachable {
+					continue
+				}
+				if below, ok := belowFloor(p.version); below || !ok {
 					verdict.supported = false
 				}
 			}

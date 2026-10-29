@@ -7,8 +7,8 @@
   it from a file, and `--wait` waits for the new host to be healthy.
 - `controlplane doctor --require reachable,cluster,supported` exits 1
   unless every named condition holds.
-- `controlplane database instance start`, `stop` and `restart`, and
-  `--candidate`, take a node name.
+- `controlplane database instance start`, `stop` and `restart` take a
+  node name.
 - `controlplane task list --all` reads every page.
 - `controlplane database get --failure` prints the latest task's
   error.

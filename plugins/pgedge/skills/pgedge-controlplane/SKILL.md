@@ -126,10 +126,10 @@ Each rule is stated in full on the page named beside it.
   `database update` before the next `database node backup`. See
   `database restore`.
 - **Name an instance by its node.** `database instance
-  start`/`stop`/`restart` and `--candidate` take a node name such as
-  `n1` and look the instance up; an ambiguous name is exit 2 listing
-  every instance ID. Never build an instance ID. See `database
-  instance`.
+  start`/`stop`/`restart` take a node name such as `n1` and look the
+  instance up; an ambiguous name is exit 2 listing every instance ID.
+  `--candidate` takes an instance ID only. Never build an instance
+  ID. See `database instance`.
 - **Read a failure with `database get <id> --failure`.** It prints the
   latest task's error without a task ID. See `database`.
 - **Pass `--all` to `task list` to read every page.** See `task`.

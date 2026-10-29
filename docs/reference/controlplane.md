@@ -465,7 +465,7 @@ Fail over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
+| `--candidate string` | No |  | Instance ID of the replica to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |
@@ -491,7 +491,7 @@ Switch over a database node
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--candidate string` | No |  | Instance ID or node name of the replica to promote |
+| `--candidate string` | No |  | Instance ID of the replica candidate to promote |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--follow` | No |  | Stream the task log until it reaches a terminal state |
 | `--force` | No |  | Skip the confirmation prompt |
@@ -505,7 +505,7 @@ Switch over a database node
 ```
 pgedge controlplane database node switchover storefront n1
 pgedge controlplane database node switchover storefront n1 \
-  --candidate storefront-n2-9ptayhma --force --wait
+  --candidate storefront-n1-9ptayhma --force --wait
 ```
 
 #### pgedge controlplane database restore

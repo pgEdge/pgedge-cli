@@ -76,15 +76,12 @@ func TestInstanceArgResolvesANodeName(t *testing.T) {
 			[]string{"database", "instance", "stop", "storefront", "n9",
 				"--force"},
 			1, ExitNotFound, "", []string{"n9"}},
-		{"candidate node resolves",
+		// The server refuses a candidate from another node, so a node
+		// name there is never resolved.
+		{"candidate is sent as typed",
 			[]string{"database", "node", "switchover", "storefront", "n1",
 				"--candidate", "n2", "--force"},
-			1, ExitOK, `"candidate_instance_id":"storefront-n2-cccc"`, nil},
-		{"ambiguous candidate on failover",
-			[]string{"database", "node", "failover", "storefront", "n2",
-				"--candidate", "n1", "--force"},
-			1, ExitUsage, "",
-			[]string{"storefront-n1-aaaa", "storefront-n1-bbbb"}},
+			0, ExitOK, `"candidate_instance_id":"n2"`, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, out, _ := newTestRuntime(t, "", "text")

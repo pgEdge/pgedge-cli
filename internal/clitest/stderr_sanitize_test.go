@@ -322,8 +322,8 @@ var stderrComposedMessages = map[string]struct {
 // 227 -> 236: managed --wait's status lines after the task, and
 // `backup create --wait`'s backup status lines.
 // 236 -> 237: the open warning names each service's own guard.
-// 237 -> 247: controlplane join --wait.s host lines, the node-name
-// resolution line, and database get --failure.s no-failure sentences.
+// 237 -> 247: controlplane join --wait's host lines, the node-name
+// resolution line, and database get --failure's no-failure sentences.
 const (
 	stderrArgSites      = 247
 	stderrComposedSites = 23

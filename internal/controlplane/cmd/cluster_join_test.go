@@ -208,7 +208,7 @@ func TestClusterJoinWaitTimesOut(t *testing.T) {
 	url, _ := joinTarget(t, 200, "")
 	err := runControlplane(t, rt, out, url, "cluster", "join",
 		"--token", "x", "--server-url", member,
-		"--wait", "--wait-timeout", "0")
+		"--wait", "--wait-timeout", "1", "--wait-interval", "1")
 	if cli.ExitCode(err) != ExitTimeout {
 		t.Fatalf("exit = %d (%v), want %d", cli.ExitCode(err), err,
 			ExitTimeout)

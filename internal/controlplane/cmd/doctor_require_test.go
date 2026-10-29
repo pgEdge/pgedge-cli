@@ -37,6 +37,19 @@ func TestUnmetConditions(t *testing.T) {
 	}
 }
 
+// versionHandler answers /v1/cluster with a cluster and /v1/version
+// with version.
+func versionHandler(version string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/cluster") {
+			_, _ = io.WriteString(w, clusterBody)
+			return
+		}
+		_, _ = io.WriteString(w, versionBodyFor(version))
+	}
+}
+
 func TestDoctorRequire(t *testing.T) {
 	cluster := clusterStateHandler(http.StatusOK, clusterBody)
 	for _, tc := range []struct {
@@ -50,14 +63,10 @@ func TestDoctorRequire(t *testing.T) {
 			uninitializedBody), "reachable,cluster", ExitGeneral},
 		{"cluster unknown fails closed", clusterStateHandler(
 			http.StatusInternalServerError, "boom"), "cluster", ExitGeneral},
-		{"below floor", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			if strings.HasSuffix(r.URL.Path, "/cluster") {
-				_, _ = io.WriteString(w, clusterBody)
-				return
-			}
-			_, _ = io.WriteString(w, versionBodyFor("v0.9.1"))
-		}, "supported", ExitGeneral},
+		{"below floor", versionHandler("v0.9.1"), "supported", ExitGeneral},
+		{"unparseable version", versionHandler("dev"), "supported",
+			ExitGeneral},
+		{"trailing comma is ignored", cluster, "reachable,", ExitOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rt, out, _ := newTestRuntime(t, "", "json")
@@ -72,6 +81,24 @@ func TestDoctorRequire(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("servers disagree on the cluster", func(t *testing.T) {
+		rt, out, _ := newTestRuntime(t, "", "json")
+		err := runControlplaneURLs(t, rt, out, []string{"doctor",
+			"--require", "cluster"},
+			newServer(t, cluster),
+			newServer(t, clusterStateHandler(http.StatusConflict,
+				uninitializedBody)))
+		if got := cli.ExitCode(err); got != ExitGeneral {
+			t.Fatalf("exit = %d (%v), want %d", got, err, ExitGeneral)
+		}
+	})
+
+	t.Run("no condition at all", func(t *testing.T) {
+		rt, out, _ := newTestRuntime(t, "", "text")
+		requireUsageError(t, runControlplane(t, rt, out,
+			newServer(t, cluster), "doctor", "--require", ","))
+	})
 
 	t.Run("unreachable", func(t *testing.T) {
 		rt, out, _ := newTestRuntime(t, "", "text")

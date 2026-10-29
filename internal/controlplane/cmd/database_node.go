@@ -110,19 +110,15 @@ confirmation; use --force to skip it. Optionally target a replica with
 --candidate or defer the change with --scheduled-at (RFC3339). The
 operation is asynchronous; use --wait/--follow to track it.
 
---candidate takes an instance ID or a node name. A node name is looked
-up with 'database get': one instance resolves to it, several are exit
-2 listing every instance ID, and none is exit 4.
-
 Example:
   pgedge controlplane database node switchover storefront n1
   pgedge controlplane database node switchover storefront n1 \
-    --candidate storefront-n2-9ptayhma --force --wait`,
+    --candidate storefront-n1-9ptayhma --force --wait`,
 		Args: cobra.ExactArgs(2),
 	}
 	wf := addWaitFollowFlags(cmd)
 	cmd.Flags().StringVar(&candidate, "candidate", "",
-		"Instance ID or node name of the replica to promote")
+		"Instance ID of the replica candidate to promote")
 	cmd.Flags().StringVar(&scheduledAt, "scheduled-at", "",
 		"Schedule the switchover at an RFC3339 time (default now)")
 	cmd.Flags().BoolVar(&force, "force", false,
@@ -139,10 +135,6 @@ Example:
 		// connected client, and "a client notices" is the bar for a
 		// prompt. The endpoint has no force parameter, so --force only
 		// skips the prompt.
-		cand, err := resolveCandidate(rt, cmd, args[0], candidate)
-		if err != nil {
-			return err
-		}
 		if err := cli.Confirm(rt, fmt.Sprintf(
 			"Switch over node %s in database %s? This drops the "+
 				"connections the current leader is holding.",
@@ -154,8 +146,8 @@ Example:
 			return err
 		}
 		body := api.SwitchoverDatabaseNodeJSONRequestBody{}
-		if cand != "" {
-			body.CandidateInstanceId = &cand
+		if candidate != "" {
+			body.CandidateInstanceId = &candidate
 		}
 		if when != nil {
 			body.ScheduledAt = when
@@ -191,8 +183,7 @@ func newNodeFailoverCmd(rt *module.Runtime) *cobra.Command {
 node's leader is unhealthy. This can interrupt writes and, on a
 healthy cluster, is usually unnecessary — prefer switchover. Prompts
 for confirmation; use --force to skip it. --candidate targets a
-specific replica, by instance ID or by a node name resolved as
-switchover does; --skip-validation bypasses the health checks that
+specific replica; --skip-validation bypasses the health checks that
 normally block failover on a healthy cluster.
 
 Example:
@@ -202,16 +193,12 @@ Example:
 	}
 	wf := addWaitFollowFlags(cmd)
 	cmd.Flags().StringVar(&candidate, "candidate", "",
-		"Instance ID or node name of the replica to promote")
+		"Instance ID of the replica to promote")
 	cmd.Flags().BoolVar(&skipValidation, "skip-validation", false,
 		"Skip health checks that block failover on a healthy cluster")
 	cmd.Flags().BoolVar(&force, "force", false,
 		"Skip the confirmation prompt")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		cand, err := resolveCandidate(rt, cmd, args[0], candidate)
-		if err != nil {
-			return err
-		}
 		if err := cli.Confirm(rt, fmt.Sprintf(
 			"Fail over node %s in database %s? This is an unplanned "+
 				"promotion.", args[1], args[0]), force); err != nil {
@@ -222,8 +209,8 @@ Example:
 			return err
 		}
 		body := api.FailoverDatabaseNodeJSONRequestBody{}
-		if cand != "" {
-			body.CandidateInstanceId = &cand
+		if candidate != "" {
+			body.CandidateInstanceId = &candidate
 		}
 		if skipValidation {
 			sv := true
@@ -248,13 +235,4 @@ Example:
 	cli.MarkMutating(cmd)
 
 	return cmd
-}
-
-func resolveCandidate(
-	rt *module.Runtime, cmd *cobra.Command, dbID, candidate string,
-) (string, error) {
-	if candidate == "" {
-		return "", nil
-	}
-	return resolveInstanceArg(rt, cmd, dbID, candidate)
 }

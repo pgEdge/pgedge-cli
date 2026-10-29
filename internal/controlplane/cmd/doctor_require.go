@@ -12,8 +12,9 @@ type doctorVerdict struct {
 	reachable bool
 	// cluster is cluster_initialized true; absent fails, as unknown.
 	cluster bool
-	// supported holds when at least one server answered and none that
-	// answered is below the support floor.
+	// supported holds when at least one server answered and every one
+	// that answered reports a version at or above the floor; a version
+	// that will not parse cannot be shown to be.
 	supported bool
 }
 
@@ -25,6 +26,9 @@ func parseRequire(vals []string) ([]string, error) {
 	out := make([]string, 0, len(vals))
 	for _, v := range vals {
 		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
 		known := false
 		for _, c := range doctorConditions {
 			if v == c {
@@ -41,6 +45,13 @@ func parseRequire(vals []string) ([]string, error) {
 			}
 		}
 		out = append(out, v)
+	}
+	if len(vals) > 0 && len(out) == 0 {
+		return nil, &ExitError{
+			msg: "--require names no condition: want one or more of " +
+				strings.Join(doctorConditions, ", "),
+			code: ExitUsage,
+		}
 	}
 	return out, nil
 }

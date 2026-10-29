@@ -78,7 +78,7 @@ jobs:
           mkdir -p dist/tap/Casks
           go run ./cmd/caskpatch -in dist/homebrew/Casks/pgedge.rb \
             -out dist/tap/Casks/pgedge.rb
-      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # main
+      - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # main
       - name: Check the cask with brew style
         run: brew style dist/tap/Casks/pgedge.rb
       # A PAT with write access to pgEdge/homebrew-tap. Unset, the
@@ -113,7 +113,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # main
+      - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # main
       - name: brew install pgedge/tap/pgedge
         working-directory: ${{ runner.temp }}
         env:

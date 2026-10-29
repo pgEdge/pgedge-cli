@@ -40,10 +40,11 @@ List tasks
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--all` | No |  | Follow the cursor until a page comes back short |
 | `--database string` | No |  | List tasks for a single database |
 | `--entity-id string` | No |  | Filter the global list by entity (database_id or host_id) |
 | `--host string` | No |  | List tasks for a single host |
-| `--limit int` | No |  | Maximum tasks to return |
+| `--limit int` | No |  | Maximum tasks to return (the page size with --all) |
 | `--scope string` | No |  | Filter the global list by scope: database or host |
 
 <!-- END GENERATED -->
@@ -53,12 +54,20 @@ List tasks, newest first. Filter the global list by --scope and
 --host (mutually exclusive with each other and with
 --scope/--entity-id). Cap the count with --limit.
 
+**Pass `--all` to read every task.** It follows the server's cursor
+until a page comes back short, with `--limit` as the page size (100
+when it is unset), and prints one table, or one `{"tasks": [...]}`
+document under `-o json`. It needs `--database`, `--host`, or
+`--scope` with `--entity-id`; otherwise it is exit 2. A server that
+returns a task twice is exit 1.
+
 **Example:**
 
 ```bash
 pgedge controlplane task list
 pgedge controlplane task list --scope database --entity-id my-db --limit 20
 pgedge controlplane task list --database my-db
+pgedge controlplane task list --database my-db --all
 pgedge controlplane task list --host host-1
 ```
 
@@ -109,9 +118,9 @@ A spec that fails during planning never creates an instance at all,
 so `database get` shows a `failed` database with nothing under it; a
 failure after the instances exist leaves the database `failed` with
 its instance rows still present, and an instance there can read
-`available`. Read the database's `state`, then reach for the task.
-`task logs` carries the step-by-step trace, but the reason itself is
-on the task.
+`available`. Read the reason with `pgedge controlplane database get
+<database_id> --failure`, which needs no task ID. `task logs` carries
+the step-by-step trace.
 
 ---
 

@@ -46,19 +46,16 @@ unless the config says otherwise.
 
 4. Join each further host. Point `--base-url` at the new host, which
    must be running its own Control Plane and must not have been
-   initialized, and give it the token plus at least one existing
-   member to contact:
+   initialized, and point `--from` at an existing member:
 
         pgedge controlplane cluster join --base-url http://host-2:3000 \
-            --token PGEDGE-abc --server-url http://host-1:3000
+            --from http://host-1:3000 --wait
 
-    `--server-url` is repeatable, so list several members when you
-    have them. Both flags are checked when the command runs rather
-    than by cobra, so omitting either is a usage error at exit 2, and
-    a token the server rejects is exit 5. Reprint the pair at any
-    time with `pgedge controlplane cluster join-token`, and confirm
-    the result with `pgedge controlplane cluster info` and `pgedge
-    controlplane host list`.
+    `--from` reads the join token and server URLs from that member,
+    so the token never appears on the command line or in the output.
+    `--wait` returns once the new host reports healthy. To supply the
+    token yourself, use `--token-file` with at least one
+    `--server-url` instead. A token the server rejects is exit 5.
 
 From here, `pgedge controlplane database init` and `pgedge
 controlplane database create` work as the

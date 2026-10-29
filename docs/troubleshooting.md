@@ -144,9 +144,9 @@ their exit codes:
   describes the token cache, not the credential, and is `false` on
   any profile that has never cached a token.
 - `pgedge controlplane doctor` reports the Control Plane connection, including
-  when the server is unreachable or has no cluster. Read `reachable`
-  under `-o json`. `reachable` alone is not readiness, so read
-  `cluster_initialized` too.
+  when the server is unreachable or has no cluster. To gate on it, run
+  `pgedge controlplane doctor --require reachable,cluster`, which exits
+  1 unless `reachable` and `cluster_initialized` both hold.
   <!-- doc-gate: correct-for controlplane cluster_initialized — a key controlplane doctor
   builds into its own json map, not a field of any generated struct -->
 

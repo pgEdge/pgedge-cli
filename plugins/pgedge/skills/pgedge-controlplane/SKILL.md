@@ -92,10 +92,14 @@ then `task` if something fails.
 
 Each rule is stated in full on the page named beside it.
 
-- **Read `doctor -o json`, not its exit status.** `doctor` exits 0 even
-  when the server is unreachable. Check `reachable` and
-  `cluster_initialized`, and run `cluster init` or `cluster join` before
-  anything that reads cluster state. See `doctor`.
+- **Gate on `doctor --require reachable,cluster`.** Plain `doctor`
+  exits 0 even when the server is unreachable; with `--require` it
+  exits 1 unless every named condition holds. Run `cluster init` or
+  `cluster join` before anything that reads cluster state. See
+  `doctor`.
+- **Join a host with `cluster join --from <member-url>`.** It moves
+  the join token from member to new host without printing it, so
+  never copy a token out of `cluster join-token`. See `cluster`.
 - **Pass `--wait` on every write in a script.** Every mutating verb is
   asynchronous. A task that fails exits 1, and a wait that runs out
   exits 3. See the index.
@@ -121,6 +125,12 @@ Each rule is stated in full on the page named beside it.
 - **A restore clears the backup configuration.** Add it back with
   `database update` before the next `database node backup`. See
   `database restore`.
-- **Read instance IDs from the server.** Take them from `database
-  instance list` or `database get`. See `database instance`.
+- **Name an instance by its node.** `database instance
+  start`/`stop`/`restart` take a node name such as `n1` and look the
+  instance up; an ambiguous name is exit 2 listing every instance ID.
+  `--candidate` takes an instance ID only. Never build an instance
+  ID. See `database instance`.
+- **Read a failure with `database get <id> --failure`.** It prints the
+  latest task's error without a task ID. See `database`.
+- **Pass `--all` to `task list` to read every page.** See `task`.
 - **This CLI supports Control Plane 0.10.0 and later.** See the index.

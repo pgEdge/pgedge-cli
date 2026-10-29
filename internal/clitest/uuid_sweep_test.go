@@ -110,8 +110,8 @@ var nameNotUUIDPositionals = map[string]idExempt{
 	"database_id": {why: "cp addresses a database by NAME (`cp " +
 		"database get storefront`). The cloud modules' <database_id> " +
 		"is a UUID.", controlplaneOnly: true},
-	"host_id":     {why: "cp host names, not UUIDs", controlplaneOnly: true},
-	"instance_id": {why: "controlplane instance names, not UUIDs", controlplaneOnly: true},
+	"host_id":             {why: "cp host names, not UUIDs", controlplaneOnly: true},
+	"instance_id_or_node": {why: "controlplane instance names, not UUIDs", controlplaneOnly: true},
 }
 
 const controlplaneModule = "controlplane"

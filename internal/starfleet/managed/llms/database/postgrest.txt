@@ -55,12 +55,12 @@ Deploy PostgREST on a database (not yet supported)
 | `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
 | `--db-schemas string` | Yes |  | Comma-separated schemas to expose as REST (e.g. public,api) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--jwt-audience string` | No |  | JWT audience claim to require |
 | `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
 | `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
 | `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -116,12 +116,12 @@ Update PostgREST on a database (not yet supported)
 | `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
 | `--db-schemas string` | No |  | Comma-separated schemas to expose as REST (e.g. public,api) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--jwt-audience string` | No |  | JWT audience claim to require |
 | `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
 | `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
 | `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 

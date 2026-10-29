@@ -20,6 +20,7 @@ var mutatingVerbNames = map[string]bool{
 	"accept":          true,
 	"add":             true,
 	"api":             true,
+	"apply":           true,
 	"backup":          true,
 	"cancel":          true,
 	"clear":           true,
@@ -318,7 +319,8 @@ func TestMutatingVerbCountIsSane(t *testing.T) {
 	// unannotated.
 	// 72 -> 74: `managed database branch create` and `... delete`;
 	// `list` and `get` are read-only and unannotated.
-	const census = 74
+	// 74 -> 76: `managed database mcp apply` and `rag apply`.
+	const census = 76
 	if annotated != census {
 		t.Errorf("%d annotated mutating commands, want exactly %d. If "+
 			"you added or removed a verb, update this number in the "+

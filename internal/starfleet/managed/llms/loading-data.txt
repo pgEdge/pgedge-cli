@@ -15,6 +15,26 @@ and its migrations connect as. `database connection-string
 <database_id> --user-type admin` (or `app`) prints the URI to connect
 with, and `database get` returns the same credentials.
 
+## Using a Second Database
+
+A managed database can hold more Postgres databases than the one its
+connection names. The admin role creates one, and app can use it only
+once admin has handed it over:
+
+1. Connected as admin, run `CREATE DATABASE <name>`.
+2. Still as admin, run `ALTER DATABASE <name> OWNER TO app`.
+3. Create tables and load data in `<name>` as app, so app owns them.
+
+If admin has already created objects in `<name>`, connect to `<name>`
+as admin and run `REASSIGN OWNED BY admin TO app`. That statement also
+hands app every other database admin owns, so run it only when each of
+them should belong to app.
+
+`--dbname <name>` on `database connection-string`, `database env pull`
+and `database inspect` swaps only the database name in the URI the
+command builds. A name that is empty or holds `/`, `?`, `#` or a
+control character is exit status 2 before any request.
+
 ## Extensions
 
 **Install only a supported extension.** Every other extension is

@@ -147,6 +147,7 @@ Example:
 		newDatabaseDeleteCmd(rt),
 		newDatabaseResizeCmd(rt),
 		newDatabaseRotatePasswordCmd(rt),
+		newDatabaseWaitCmd(rt),
 		newDatabaseMetricsCmd(rt),
 		newDatabaseLogsCmd(rt),
 		newDatabaseLinkCmd(rt),
@@ -366,9 +367,7 @@ func newDatabaseCreateCmd(rt *module.Runtime) *cobra.Command {
 		displayName string
 		pgVersion   string
 		options     []string
-		allow       []string
-		myIP        bool
-		open        bool
+		allow       createAllowOpts
 		link        bool
 	)
 	cmd := &cobra.Command{
@@ -470,12 +469,7 @@ Example:
 				}
 			}
 
-			// --allow alone can be sized before the client is built;
-			// --my-ip cannot, since its one entry comes from a read
-			// that needs the client, so its bound is checked again
-			// after that read below.
-			if err := checkAllowlistBounds(
-				newRules(allow, ""), ""); err != nil {
+			if err := allow.precheck(); err != nil {
 				return err
 			}
 
@@ -546,23 +540,9 @@ Example:
 				body.Options = &options
 			}
 
-			var rules []api.IPAllowlistRule
-			switch {
-			case open:
-				rules = []api.IPAllowlistRule{{Cidr: allowlistOpenCIDR}}
-			case len(allow) > 0 || myIP:
-				inputs := allow
-				if myIP {
-					mine, err := fetchClientIP(rt, client)
-					if err != nil {
-						return err
-					}
-					inputs = append(inputs, mine)
-				}
-				rules = newRules(inputs, "")
-				if err := checkAllowlistBounds(rules, ""); err != nil {
-					return err
-				}
+			rules, err := allow.rules(rt, client)
+			if err != nil {
+				return err
 			}
 			if rules != nil {
 				body.IpAllowlist = &api.IPAllowlist{Rules: rules}
@@ -605,7 +585,8 @@ Example:
 			}
 			// A brand-new database has no prior tasks, so the first
 			// task seen for it is the one this create spawned.
-			if err := trackMutation(rt, client, d.Id, taskBaseline{}); err != nil {
+			if err := trackMutation(rt, client, d.Id, taskBaseline{},
+				databaseSettle(client, d.Id, "available")); err != nil {
 				return err
 			}
 			if linkDir == "" {
@@ -645,17 +626,9 @@ Example:
 			"defaults to the newest supported version)")
 	f.StringSliceVar(&options, "options", nil,
 		"Comma-separated list of options")
-	f.StringArrayVar(&allow, "allow", nil,
-		"IPv4 address or CIDR block allowed to reach the Postgres "+
-			"endpoint; repeat for more than one")
-	f.BoolVar(&myIP, "my-ip", false,
-		"Also allow the address the API sees this command arriving from")
-	f.BoolVar(&open, "open", false,
-		"Admit every address (one 0.0.0.0/0 rule); never the default")
+	bindCreateAllowFlags(cmd, &allow, "Postgres")
 	f.BoolVar(&link, "link", false,
 		"Link the current folder to the new database (needs --wait or --follow)")
-	cmd.MarkFlagsMutuallyExclusive("open", "allow")
-	cmd.MarkFlagsMutuallyExclusive("open", "my-ip")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("size")
 	cli.MarkMutating(cmd)
@@ -902,8 +875,9 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Database %s deleted.\n", id)
-			return trackMutation(rt, client, id.String(), base)
+			fmt.Fprintf(rt.Stderr, "Database %s deletion requested.\n", id)
+			return trackMutation(rt, client, id.String(), base,
+				databaseSettle(client, id.String(), settleGone))
 		},
 	}
 	addWaitFlags(cmd)

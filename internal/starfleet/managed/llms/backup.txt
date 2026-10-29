@@ -24,10 +24,10 @@ the platform, whose backup records the API only mirrors.
 
 `create` takes `--kind hot` (the fastest to restore from) or
 `--kind durable` (kept apart from the database's own storage and
-slower to restore). `create` reports acceptance, not completion, and
-the backup runs in the background. It is listable and gettable from
-the moment `create` returns, in status `pending`; poll `backup get
-<id>` or `backup list` to watch it reach a terminal state.
+slower to restore). Without `--wait`, `create` reports acceptance, not
+completion, and the backup runs in the background. It is listable and
+gettable from the moment `create` returns, in status `pending`. Pass
+`--wait` to block until the backup is `completed` or `failed`.
 
 `backups` is accepted as a plural alias.
 
@@ -144,7 +144,11 @@ Take an on-demand backup
 |------|----------|---------|-------------|
 | `--database-id string` | Yes |  | Database to back up (full UUID) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Same as --wait |
 | `--kind string` | Yes |  | Backup tier to take: hot or durable |
+| `--wait` | No |  | Wait for the backup to be completed or failed |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
 <!-- END GENERATED -->
 
@@ -162,22 +166,14 @@ locally with exit 2, before any request is sent.
 The API returns 202 with the NEW BACKUP, which `-o json` writes to
 stdout. Read its `id` from there rather than searching `backup list`
 for it. That is acceptance, not completion: the backup runs in the
-background and arrives in status `pending`. It is listable and
-gettable immediately, so poll `backup get <id>` — or `backup list`
-filtered by `--database-id` — to watch it reach a terminal state. This
-verb has no `--wait`. A `backup create` DOES spawn a `backup-managed`
-task: the call returns `status pending` and a `backup-managed` task
-appears for the database shortly afterward.
+background and arrives in status `pending`.
 
-**The task and the backup record disagree.** The task reaches
-`succeeded` while the backup record is still `pending`, and its own
-steps read `Configuring System` then `Taking Backup` at
-`progress: 100, status: succeeded`. So the task claims to have taken the
-backup while the record it produced says otherwise. Both reach a
-terminal state, but they do not reach it together.
-
-A `--wait` on that task would therefore report success over a backup
-still in progress. **Poll the backup record** rather than the task.
+**`--wait` follows the backup record, not a task.** It reads `backup
+get <id>` until the record is `completed`, exit status 0, or `failed`,
+exit status 1, and prints each status on stderr. When `--wait-timeout`
+passes first, the exit status is 3. `--follow` behaves as `--wait`. The `backup-managed` task the
+create spawns reaches `succeeded` while the record is still `pending`,
+so read the record, never the task, when waiting by hand.
 
 In text mode the report names the database the backup was taken on and
 the backup's own id, which are different values: a backup's `name`
@@ -189,9 +185,8 @@ embeds its database id, so do not read one for the other.
 pgedge starfleet managed backup create \
     --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind hot
 pgedge starfleet managed backup create \
-    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable -o json
-pgedge starfleet managed backup list \
-    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --limit 1
+    --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable \
+    --wait -o json
 ```
 
 <!-- BEGIN GENERATED: pgedge starfleet managed backup restore -->
@@ -206,9 +201,9 @@ Restore a database from a backup
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -224,8 +219,9 @@ the backup was taken is no longer in the database, though the database
 keeps its ID and connection details. It is destructive, so it prompts
 for confirmation unless `--force` is given, and asynchronous: the API
 answers with the database (status `modifying`) and recovers in the
-background. Pass `--wait` to block until the restore's task reaches a
-terminal state — see "Asynchronous verbs" above. The backup must be in
+background. Pass `--wait` to block until the restore's task succeeds
+and the database is `available` again, as the index's "Asynchronous
+verbs" section describes. The backup must be in
 the `completed` state; the API refuses any other restore point upfront.
 
 **A hot backup of the current state is taken first, so a restore run

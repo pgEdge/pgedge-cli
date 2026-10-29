@@ -53,7 +53,11 @@ Take an on-demand backup
 |------|----------|---------|-------------|
 | `--database-id string` | Yes |  | Database to back up (full UUID) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--follow` | No |  | Same as --wait |
 | `--kind string` | Yes |  | Backup tier to take: hot or durable |
+| `--wait` | No |  | Wait for the backup to be completed or failed |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
 **Example:**
 
@@ -61,7 +65,8 @@ Take an on-demand backup
 pgedge starfleet managed backup create \
   --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind hot
 pgedge starfleet managed backup create \
-  --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable
+  --database-id e5f6a7b8-c9d0-1234-efab-567890123456 --kind durable \
+  --wait
 ```
 
 #### pgedge starfleet managed backup get
@@ -115,9 +120,9 @@ Restore a database from a backup
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -180,11 +185,11 @@ Allow addresses to reach an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--label string` | No |  | Note stored on each rule added by this call, at most 64 characters |
 | `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -209,10 +214,10 @@ Close an endpoint to every address
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -254,9 +259,9 @@ Let every address reach an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -278,10 +283,10 @@ Stop addresses reaching an endpoint
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt when removing the last rule |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -304,10 +309,10 @@ Replace an endpoint's allowlist
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--label string` | No |  | Note stored on every rule set by this call, at most 64 characters |
 | `--service string` | No |  | Edit this service's own allowlist instead of the Postgres endpoint's: mcp, rag or postgrest |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -348,8 +353,8 @@ Create a branch of a managed database
 |------|----------|---------|-------------|
 | `--display-name string` | No |  | Display name for the branch, at most 25 characters |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -372,9 +377,9 @@ Delete a branch
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -483,6 +488,7 @@ Print a connection string for a managed database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--dbname string` | No |  | Connect to this Postgres database inside the managed database instead of its own |
 | `--format string` | No | `uri` | Shape of the text output: uri or env |
 | `--no-password` | No |  | Leave the password out of the string |
 | `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
@@ -507,19 +513,19 @@ Create a managed database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
-| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the Postgres endpoint; repeat for more than one |
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the Postgres endpoint (repeatable) |
 | `--display-name string` | No |  | Display name for the database, at most 25 characters |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--link` | No |  | Link the current folder to the new database (needs --wait or --follow) |
 | `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
 | `--name string` | Yes |  | Database name |
-| `--open` | No |  | Admit every address (one 0.0.0.0/0 rule); never the default |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
 | `--options strings` | No |  | Comma-separated list of options |
 | `--pg-version string` | No |  | Postgres major version to create the database on: 18, 17, 16 (fixed for the life of the database; defaults to the newest supported version) |
 | `--region string` | No |  | Region to provision the database in (e.g. us-east-1); checked against 'region list'; optional while the API publishes only one, and required as soon as it publishes more |
 | `--size string` | Yes |  | Managed size name (e.g. small, large); checked against 'size list' |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -548,9 +554,9 @@ Delete a managed database
 |------|----------|---------|-------------|
 | `--delete-branches` | No |  | Also delete every branch first; data cannot be recovered |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -587,6 +593,7 @@ Write DATABASE_URL for a database into .env
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--branch string` | No |  | Pull this branch of the database instead of the linked target, leaving the link as it is |
+| `--dbname string` | No |  | Connect to this Postgres database inside the managed database instead of its own |
 | `--file string` | No |  | File to write (default .env beside .pgedge/, or in the current folder when an ID is given) |
 | `--user-type string` | No |  | Role whose credentials to use: admin, app or app_read_only (default app) |
 | `--var string` | No | `DATABASE_URL` | Variable name to set |
@@ -631,6 +638,7 @@ Run a read-only diagnostic against a managed database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--dbname string` | No |  | Connect to this Postgres database inside the managed database instead of its own |
 | `--user-type string` | No |  | Role to connect as: admin, app or app_read_only (default app; admin for the statistics analyses) |
 
 **Example:**
@@ -721,7 +729,41 @@ Manage the MCP server on a database
 ```
 pgedge starfleet managed database mcp deploy <database_id>
 pgedge starfleet managed database mcp update <database_id> --allow-writes
+pgedge starfleet managed database mcp apply <database_id> --my-ip
 pgedge starfleet managed database mcp connection <database_id>
+```
+
+##### pgedge starfleet managed database mcp apply
+
+**Usage:** `pgedge starfleet managed database mcp apply <database_id> [flags]`
+
+Deploy or update the MCP server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
+| `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
+| `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
+| `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
+| `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+**Example:**
+
+```
+pgedge starfleet managed database mcp apply <database_id> --my-ip
+pgedge starfleet managed database mcp apply <database_id> \
+  --allow-writes --wait
 ```
 
 ##### pgedge starfleet managed database mcp connection
@@ -756,22 +798,25 @@ Deploy an MCP server on a database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
 | `--allow-writes` | No |  | Grant the MCP service read-write access (WARNING: allows LLM to modify data) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
 | `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
 | `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
 **Example:**
 
 ```
-pgedge starfleet managed database mcp deploy <database_id>
+pgedge starfleet managed database mcp deploy <database_id> --my-ip
 pgedge starfleet managed database mcp deploy <database_id> \
   --embedding-provider openai \
   --embedding-model text-embedding-3-small \
@@ -793,10 +838,10 @@ Update the MCP server on a database
 | `--embedding-api-key string` | No |  | API key for the embedding provider (required when --embedding-provider is set on deploy; the stored key is reused if omitted on update) |
 | `--embedding-model string` | No |  | Embedding model identifier (the API requires it when --embedding-provider is set) |
 | `--embedding-provider string` | No |  | Embedding provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--init-tokens string` | No |  | Bearer token forwarded to the MCP server as INIT_TOKENS |
 | `--init-users string` | No |  | Comma-separated username:password pairs forwarded as INIT_USERS |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -861,12 +906,12 @@ Deploy PostgREST on a database (not yet supported)
 | `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
 | `--db-schemas string` | Yes |  | Comma-separated schemas to expose as REST (e.g. public,api) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--jwt-audience string` | No |  | JWT audience claim to require |
 | `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
 | `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
 | `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -895,12 +940,12 @@ Update PostgREST on a database (not yet supported)
 | `--db-pool int` | No |  | Database connections to keep open (1-30, default 10) |
 | `--db-schemas string` | No |  | Comma-separated schemas to expose as REST (e.g. public,api) |
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--jwt-audience string` | No |  | JWT audience claim to require |
 | `--jwt-role-claim-key string` | No |  | JSONPath to the role claim inside the JWT |
 | `--jwt-secret string` | No |  | JWT signing secret (min 32 chars); write-only, never returned |
 | `--max-rows int` | No |  | Maximum rows returned per request (1-10000, default 1000) |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -932,6 +977,47 @@ pgedge starfleet managed database rag deploy <database_id> \
 pgedge starfleet managed database rag update <database_id> --top-n 10
 ```
 
+##### pgedge starfleet managed database rag apply
+
+**Usage:** `pgedge starfleet managed database rag apply <database_id> [flags]`
+
+Deploy or update the RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
+| `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | No |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | No |  | Completion LLM provider: openai or anthropic |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+**Example:**
+
+```
+pgedge starfleet managed database rag apply <database_id> --top-n 10
+pgedge starfleet managed database rag apply <database_id> \
+  --embedding-llm-provider openai \
+  --embedding-llm-model text-embedding-3-small \
+  --embedding-llm-api-key "$OPENAI_API_KEY" \
+  --completion-llm-provider openai --completion-llm-model gpt-4o \
+  --completion-llm-api-key "$OPENAI_API_KEY" \
+  --pipeline-config pipelines.json --my-ip --wait
+```
+
 ##### pgedge starfleet managed database rag deploy
 
 **Usage:** `pgedge starfleet managed database rag deploy <database_id> [flags]`
@@ -942,6 +1028,7 @@ Deploy a RAG server on a database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
 | `--completion-llm-api-key string` | Yes |  | API key for the completion LLM provider |
 | `--completion-llm-model string` | Yes |  | Completion LLM model identifier |
 | `--completion-llm-provider string` | Yes |  | Completion LLM provider: openai or anthropic |
@@ -949,11 +1036,13 @@ Deploy a RAG server on a database
 | `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | Yes |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
 | `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -985,11 +1074,11 @@ Update the RAG server on a database
 | `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -1012,10 +1101,10 @@ Resize a managed database
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
 | `--size string` | Yes |  | Target managed size name (e.g. small, large); checked against 'size list' |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -1039,10 +1128,10 @@ Rotate a built-in role's password
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
 | `--role string` | Yes |  | Built-in role to rotate: admin, app, or app_read_only |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -1103,9 +1192,9 @@ Remove a service type from a database
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--force` | No |  | Skip the confirmation prompt |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -1154,6 +1243,28 @@ pgedge starfleet managed database update e5f6a7b8-c9d0-1234-efab-567890123456 \
   --deletion-protection
 pgedge starfleet managed database update e5f6a7b8-c9d0-1234-efab-567890123456 \
   --deletion-protection=false
+```
+
+#### pgedge starfleet managed database wait
+
+**Usage:** `pgedge starfleet managed database wait [<database_id>] [flags]`
+
+Wait for a database to reach a status
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--status string` | No | `available` | Status to wait for: creating, available, modifying, deleting, failed, degraded, suspending, suspended, resuming |
+| `--wait-interval int` | No | `5` | Polling interval in seconds |
+| `--wait-timeout int` | No | `600` | Max seconds to wait |
+
+**Example:**
+
+```
+pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --status suspended --wait-timeout 900
 ```
 
 ### pgedge starfleet managed pg-version

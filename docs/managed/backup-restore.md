@@ -46,10 +46,11 @@ takes on its schedule.
 1. Take the backup, naming the database and the tier:
 
         pgedge starfleet managed backup create \
-            --database-id <db-id> --kind hot
+            --database-id <db-id> --kind hot --wait
 
     `--kind` is required and takes `hot` or `durable`, described
-    under [Choosing a Backup Tier](#choosing-a-backup-tier).
+    under [Choosing a Backup Tier](#choosing-a-backup-tier). `--wait`
+    blocks until the backup is `completed` or `failed`.
 
 2. Record the new backup's id, which the command reports.
 
@@ -58,7 +59,7 @@ takes on its schedule.
     `stderr`, and those are different ids. A backup's `name` embeds
     its database id, so do not read one for the other.
 
-3. Run `backup get` until the backup reaches `completed` or `failed`:
+3. Read the backup with `backup get`:
 
         pgedge starfleet managed backup get <backup-id>
 
@@ -66,22 +67,21 @@ takes on its schedule.
     STATUS, CREATED and FINISHED columns. PURPOSE reads `user` for a
     backup you take, `scheduled` for the platform's daily backup and
     `prebranch` for the `hot` backup each `database branch create`
-    takes of its source. `backup create` reports acceptance,
-    not completion. The new backup arrives in status `pending` and
-    runs in the background. It is listable and gettable from the
-    moment `create` returns. Waiting for `completed` alone never
-    returns on a backup that failed. `backup list --database-id
-    <db-id>` watches the same record and returns up to 100 backups,
-    newest first.
+    takes of its source. Without `--wait`, `backup create` reports
+    acceptance, not completion. The new backup arrives in status
+    `pending` and runs in the background, and it is listable and
+    gettable from the moment `create` returns. `backup list
+    --database-id <db-id>` reads the same record and returns up to 100
+    backups, newest first.
 
-`backup create` has no `--wait`, and neither has `backup get`. The
-command does spawn a `backup-managed` task, which appears for the
-database within seconds. That task reaches `succeeded` while the
-backup record is still `pending`, its own steps reading `Configuring
-System` then `Taking Backup` at `progress: 100, status: succeeded`. A
-`--wait` on that task would therefore report success over a backup
-still in progress. `backup create` also never moves the database's
-status, so reading `database get` during a backup proves nothing.
+With `--wait`, `backup create` reads the backup record until it is `completed`,
+exit status 0, or `failed`, exit status 1. When `--wait-timeout` passes first,
+the exit status is 3. Without `--wait`, poll `backup get` until the backup is
+`completed` or `failed`, because waiting for `completed` alone never ends on a
+failed backup. The command also spawns a `backup-managed` task, which reaches
+`succeeded` while the backup record is still `pending`, so never wait on that
+task. `backup create` also never moves the database's status, so reading
+`database get` during a backup proves nothing.
 
 ## Choosing a Backup Tier
 

@@ -54,12 +54,13 @@ database: the endpoint that lets an LLM query the database.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is. connection prints the endpoint URL and
-bearer token a client needs.
+update fails if none is. apply does whichever the database needs.
+connection prints the endpoint URL and bearer token a client needs.
 
 Example:
   pgedge starfleet managed database mcp deploy <database_id>
   pgedge starfleet managed database mcp update <database_id> --allow-writes
+  pgedge starfleet managed database mcp apply <database_id> --my-ip
   pgedge starfleet managed database mcp connection <database_id>`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -69,6 +70,7 @@ Example:
 	cmd.AddCommand(
 		newDatabaseMCPDeployCmd(rt),
 		newDatabaseMCPUpdateCmd(rt),
+		newDatabaseMCPApplyCmd(rt),
 		newDatabaseMCPConnectionCmd(rt),
 	)
 	return cmd
@@ -78,6 +80,7 @@ Example:
 
 func newDatabaseMCPDeployCmd(rt *module.Runtime) *cobra.Command {
 	opts := &mcpServiceOpts{}
+	allow := &createAllowOpts{}
 	cmd := &cobra.Command{
 		Use:   "deploy <database_id>",
 		Short: "Deploy an MCP server on a database",
@@ -91,18 +94,24 @@ update instead of reconfiguring it.
 If no bearer token is supplied with --init-tokens, the API generates
 one.
 
+A new service's endpoint is closed. --allow <cidr> (repeatable),
+--my-ip or --open set its allowlist in the same request, as they do
+for database create.
+
 Example:
-  pgedge starfleet managed database mcp deploy <database_id>
+  pgedge starfleet managed database mcp deploy <database_id> --my-ip
   pgedge starfleet managed database mcp deploy <database_id> \
     --embedding-provider openai \
     --embedding-model text-embedding-3-small \
     --embedding-api-key sk-...`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return applyMCPService(rt, cmd, args[0], opts, intentDeploy)
+			return applyMCPService(rt, cmd, args[0], opts, intentDeploy,
+				allow)
 		},
 	}
 	bindMCPFlags(cmd, opts)
+	bindCreateAllowFlags(cmd, allow, "service's")
 	addWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
@@ -136,10 +145,52 @@ Example:
   pgedge starfleet managed database mcp update <database_id> --allow-writes=false`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return applyMCPService(rt, cmd, args[0], opts, intentUpdate)
+			return applyMCPService(rt, cmd, args[0], opts, intentUpdate,
+				nil)
 		},
 	}
 	bindMCPFlags(cmd, opts)
+	addWaitFlags(cmd)
+	cli.MarkMutating(cmd)
+
+	return cmd
+}
+
+// --- apply ---
+
+func newDatabaseMCPApplyCmd(rt *module.Runtime) *cobra.Command {
+	opts := &mcpServiceOpts{}
+	allow := &createAllowOpts{}
+	cmd := &cobra.Command{
+		Use:   "apply <database_id>",
+		Short: "Deploy or update the MCP server on a database",
+		Long: `apply deploys an MCP server on a managed database that has none,
+and otherwise updates the deployed one, so a script needs one command
+and one exit status for both.
+
+It takes deploy's and update's flags. On a deployed service only the
+flags you pass change, as with update: omitting --allow-writes leaves
+the access level alone, and a new service starts read-only.
+
+--allow, --my-ip and --open set a new service's allowlist, as on
+deploy. On a deployed service they are refused with exit 2; use
+'database allowlist add --service mcp' for its rules.
+
+The database is read first. A read that fails ends the command with
+that read's exit status, and nothing is deployed.
+
+Example:
+  pgedge starfleet managed database mcp apply <database_id> --my-ip
+  pgedge starfleet managed database mcp apply <database_id> \
+    --allow-writes --wait`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return applyMCPService(rt, cmd, args[0], opts, intentApply,
+				allow)
+		},
+	}
+	bindMCPFlags(cmd, opts)
+	bindCreateAllowFlags(cmd, allow, "service's")
 	addWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
@@ -172,12 +223,15 @@ func bindMCPFlags(cmd *cobra.Command, opts *mcpServiceOpts) {
 
 func applyMCPService(
 	rt *module.Runtime, cmd *cobra.Command, dbID string,
-	opts *mcpServiceOpts, intent serviceIntent,
+	opts *mcpServiceOpts, intent serviceIntent, allow *createAllowOpts,
 ) error {
 	// Before the client: after it, a misspelled provider would report
 	// exit 5 "no credentials found", or cost a token exchange and a GET
 	// to reject a value that was never going to be sent.
 	if err := validateEmbeddingProvider(rt, cmd, opts); err != nil {
+		return err
+	}
+	if err := allow.precheck(); err != nil {
 		return err
 	}
 	id, err := parseUUIDArg(dbID, "database ID")
@@ -195,8 +249,15 @@ func applyMCPService(
 		return err
 	}
 
+	intent = resolveApplyIntent(db, api.Mcp, intent)
+	group := cmd.Parent().CommandPath()
 	if err := guardServiceIntent(rt, db, api.Mcp, intent,
-		cmd.Parent().CommandPath()); err != nil {
+		group); err != nil {
+		return err
+	}
+	rules, err := serviceCreateRules(rt, client, db, api.Mcp, intent,
+		allow, group)
+	if err != nil {
 		return err
 	}
 
@@ -211,8 +272,7 @@ func applyMCPService(
 		ServiceType: api.Mcp,
 		McpConfig:   &cfg,
 	}
-
-	return applyServices(rt, client, db, buildServiceList(db, newSvc),
+	return applyNewService(rt, client, db, newSvc, rules,
 		"MCP service applied", dbID)
 }
 

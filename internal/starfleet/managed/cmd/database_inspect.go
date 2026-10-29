@@ -20,7 +20,7 @@ import (
 var inspectDeps *cli.InspectDeps
 
 func newDatabaseInspectCmd(rt *module.Runtime) *cobra.Command {
-	var userType string
+	var userType, dbname string
 	cmd := &cobra.Command{
 		Use:   "inspect [<database_id>] <analysis>",
 		Short: "Run a read-only diagnostic against a managed database",
@@ -48,7 +48,8 @@ blank but application. A database that refuses the connection is exit
 1; one that accepts it and never answers is exit 3 after 30 seconds.
 The database ID takes a full UUID. In a folder linked with
 'database link', the ID can be left out, and a link naming a branch
-inspects the branch.
+inspects the branch. --dbname inspects another Postgres database
+created inside the managed database.
 
 Example:
   pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 table-sizes
@@ -75,6 +76,9 @@ Example:
 				if id, err = parseUUIDArg(args[0], "database ID"); err != nil {
 					return err
 				}
+			}
+			if err := validateDBName(cmd, dbname); err != nil {
+				return err
 			}
 			analysis := args[len(args)-1]
 			a, ok := inspect.Lookup(analysis)
@@ -122,6 +126,7 @@ Example:
 				if err != nil {
 					return err
 				}
+				cs = withDBName(cs, dbname, true)
 				return cli.RunInspect(cmd.Context(), rt, inspectDeps, a, cs.URI)
 			}
 			params := &api.GetManagedDatabaseParams{}
@@ -145,6 +150,7 @@ Example:
 			if err != nil {
 				return err
 			}
+			cs = withDBName(cs, dbname, true)
 			// Returned as is: cli.ExitCode maps a plain error to 1 and
 			// a usage error to 2, and rebuilding it here would flatten
 			// the second.
@@ -153,5 +159,6 @@ Example:
 	}
 	cmd.Flags().StringVar(&userType, "user-type", "",
 		"Role to connect as: admin, app or app_read_only (default app; admin for the statistics analyses)")
+	addDBNameFlag(cmd, &dbname)
 	return cmd
 }

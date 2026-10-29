@@ -355,7 +355,8 @@ Example:
 			}
 			// A brand-new branch has no prior tasks, so the first task
 			// seen for it is the one this create spawned.
-			return trackMutation(rt, client, b.Id, taskBaseline{})
+			return trackMutation(rt, client, b.Id, taskBaseline{},
+				branchSettle(client, b.DatabaseId, b.Id, "available"))
 		},
 	}
 	addWaitFlags(cmd)
@@ -420,8 +421,10 @@ Example:
 				return err
 			}
 
-			fmt.Fprintf(rt.Stderr, "Branch %s deleted.\n", branchID)
-			return trackMutation(rt, client, branchID.String(), base)
+			fmt.Fprintf(rt.Stderr, "Branch %s deletion requested.\n", branchID)
+			return trackMutation(rt, client, branchID.String(), base,
+				branchSettle(client, databaseID.String(),
+					branchID.String(), settleGone))
 		},
 	}
 	addWaitFlags(cmd)

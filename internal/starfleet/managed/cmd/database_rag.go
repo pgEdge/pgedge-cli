@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
@@ -37,7 +39,7 @@ database: the retrieval-augmented-generation pipelines built on it.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is.
+update fails if none is. apply does whichever the database needs.
 
 Example:
   pgedge starfleet managed database rag deploy <database_id> \
@@ -57,14 +59,24 @@ Example:
 	cmd.AddCommand(
 		newDatabaseRAGDeployCmd(rt),
 		newDatabaseRAGUpdateCmd(rt),
+		newDatabaseRAGApplyCmd(rt),
 	)
 	return cmd
 }
 
 // --- deploy ---
 
+// ragDeployRequired are the flags a new RAG service needs: deploy marks
+// them required, and apply checks them once it knows it is deploying.
+var ragDeployRequired = []string{
+	"embedding-llm-provider", "embedding-llm-model",
+	"embedding-llm-api-key", "completion-llm-provider",
+	"completion-llm-model", "completion-llm-api-key", "pipeline-config",
+}
+
 func newDatabaseRAGDeployCmd(rt *module.Runtime) *cobra.Command {
 	opts := &ragServiceOpts{}
+	allow := &createAllowOpts{}
 	cmd := &cobra.Command{
 		Use:   "deploy <database_id>",
 		Short: "Deploy a RAG server on a database",
@@ -76,6 +88,10 @@ database's data. The embedding and completion LLM settings and a
 one is already deployed on this database, it fails and points you at
 update instead of reconfiguring it.
 
+A new service's endpoint is closed. --allow <cidr> (repeatable),
+--my-ip or --open set its allowlist in the same request, as they do
+for database create.
+
 Example:
   pgedge starfleet managed database rag deploy <database_id> \
     --embedding-llm-provider openai \
@@ -85,18 +101,15 @@ Example:
     --completion-llm-api-key sk-... --pipeline-config pipelines.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return applyRAGService(rt, cmd, args[0], opts, intentDeploy)
+			return applyRAGService(rt, cmd, args[0], opts, intentDeploy,
+				allow)
 		},
 	}
 	bindRAGFlags(cmd, opts)
-
-	_ = cmd.MarkFlagRequired("embedding-llm-provider")
-	_ = cmd.MarkFlagRequired("embedding-llm-model")
-	_ = cmd.MarkFlagRequired("embedding-llm-api-key")
-	_ = cmd.MarkFlagRequired("completion-llm-provider")
-	_ = cmd.MarkFlagRequired("completion-llm-model")
-	_ = cmd.MarkFlagRequired("completion-llm-api-key")
-	_ = cmd.MarkFlagRequired("pipeline-config")
+	bindCreateAllowFlags(cmd, allow, "service's")
+	for _, name := range ragDeployRequired {
+		_ = cmd.MarkFlagRequired(name)
+	}
 	addWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
@@ -132,10 +145,58 @@ Example:
     --pipeline-config pipelines.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return applyRAGService(rt, cmd, args[0], opts, intentUpdate)
+			return applyRAGService(rt, cmd, args[0], opts, intentUpdate,
+				nil)
 		},
 	}
 	bindRAGFlags(cmd, opts)
+	addWaitFlags(cmd)
+	cli.MarkMutating(cmd)
+
+	return cmd
+}
+
+// --- apply ---
+
+func newDatabaseRAGApplyCmd(rt *module.Runtime) *cobra.Command {
+	opts := &ragServiceOpts{}
+	allow := &createAllowOpts{}
+	cmd := &cobra.Command{
+		Use:   "apply <database_id>",
+		Short: "Deploy or update the RAG server on a database",
+		Long: `apply deploys a RAG server on a managed database that has none,
+and otherwise updates the deployed one, so a script needs one command
+and one exit status for both.
+
+It takes deploy's and update's flags. A new service needs every flag
+deploy requires, and their absence is exit 2. On a deployed service
+only the flags you pass change, as with update, and the API keys may
+be omitted.
+
+--allow, --my-ip and --open set a new service's allowlist, as on
+deploy. On a deployed service they are refused with exit 2; use
+'database allowlist add --service rag' for its rules.
+
+The database is read first. A read that fails ends the command with
+that read's exit status, and nothing is deployed.
+
+Example:
+  pgedge starfleet managed database rag apply <database_id> --top-n 10
+  pgedge starfleet managed database rag apply <database_id> \
+    --embedding-llm-provider openai \
+    --embedding-llm-model text-embedding-3-small \
+    --embedding-llm-api-key "$OPENAI_API_KEY" \
+    --completion-llm-provider openai --completion-llm-model gpt-4o \
+    --completion-llm-api-key "$OPENAI_API_KEY" \
+    --pipeline-config pipelines.json --my-ip --wait`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return applyRAGService(rt, cmd, args[0], opts, intentApply,
+				allow)
+		},
+	}
+	bindRAGFlags(cmd, opts)
+	bindCreateAllowFlags(cmd, allow, "service's")
 	addWaitFlags(cmd)
 	cli.MarkMutating(cmd)
 
@@ -170,12 +231,15 @@ func bindRAGFlags(cmd *cobra.Command, opts *ragServiceOpts) {
 
 func applyRAGService(
 	rt *module.Runtime, cmd *cobra.Command, dbID string,
-	opts *ragServiceOpts, intent serviceIntent,
+	opts *ragServiceOpts, intent serviceIntent, allow *createAllowOpts,
 ) error {
 	// Before the client: after it, a malformed ID would report exit 5
 	// "no credentials found".
 	id, err := parseUUIDArg(dbID, "database ID")
 	if err != nil {
+		return err
+	}
+	if err := allow.precheck(); err != nil {
 		return err
 	}
 
@@ -189,8 +253,21 @@ func applyRAGService(
 		return err
 	}
 
+	applying := intent == intentApply
+	intent = resolveApplyIntent(db, api.Rag, intent)
+	group := cmd.Parent().CommandPath()
 	if err := guardServiceIntent(rt, db, api.Rag, intent,
-		cmd.Parent().CommandPath()); err != nil {
+		group); err != nil {
+		return err
+	}
+	if applying && intent == intentDeploy {
+		if err := requireFlags(cmd, ragDeployRequired); err != nil {
+			return err
+		}
+	}
+	rules, err := serviceCreateRules(rt, client, db, api.Rag, intent,
+		allow, group)
+	if err != nil {
 		return err
 	}
 
@@ -207,9 +284,25 @@ func applyRAGService(
 		ServiceType: api.Rag,
 		RagConfig:   &cfg,
 	}
-
-	return applyServices(rt, client, db, buildServiceList(db, newSvc),
+	return applyNewService(rt, client, db, newSvc, rules,
 		"RAG service applied", dbID)
+}
+
+// requireFlags is cobra's required-flag check, for a verb that learns
+// which flags it needs only after a read. The message is cobra's.
+func requireFlags(cmd *cobra.Command, names []string) error {
+	var missing []string
+	for _, n := range names {
+		if !cmd.Flags().Changed(n) {
+			missing = append(missing, strconv.Quote(n))
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return newExitError(fmt.Sprintf(
+		"required flag(s) %s not set to deploy a new service",
+		strings.Join(missing, ", ")), ExitUsage)
 }
 
 // existingRAGConfig returns a copy of the RAG configuration already

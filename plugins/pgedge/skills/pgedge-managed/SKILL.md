@@ -83,6 +83,7 @@ Each page prints with `pgedge llms starfleet managed <page>`:
 | Take, list or delete a branch | `database branch` |
 | Deploy or update an MCP server | `database mcp` |
 | Deploy or update a RAG pipeline | `database rag` |
+| Wait for a database to be available | `database` |
 | List, read or remove a deployed service | `database service` |
 | Call a deployed MCP or RAG service from a client | `connecting-a-client` |
 | Load a schema and data, or install an extension | `loading-data` |
@@ -101,8 +102,10 @@ and connecting to it reads `database` and then `database allowlist`.
 Each rule is stated in full on the page named beside it.
 
 - **Pass `--wait` on every write in a script.** A write exits 0 when
-  the API accepts it, not when the work finishes. The index's
-  "Asynchronous verbs" section has the exit statuses.
+  the API accepts it, not when the work finishes. With `--wait` it
+  ends at exit status 0 only when the database, branch or backup has
+  reached its end status, so no follow-up read is needed. The index's "Asynchronous
+  verbs" section has the exit statuses.
 - **Run writes one at a time.** Most writes need the database
   `available` and refuse a busy one. Several branch creates sent
   together can fail, so create branches one at a time, each with
@@ -127,6 +130,11 @@ Each rule is stated in full on the page named beside it.
 - **A linked folder names the database for reads only.** Below a
   `.pgedge/link.yaml`, read commands may omit the ID. Every write still
   needs its ID. See `database`.
+- **Deploy or update a service with `apply`.** `database mcp apply`
+  and `database rag apply` deploy when the service is absent and
+  update it otherwise, with one exit status. Never choose between
+  `deploy` and `update` from a `service get` yourself. See `database
+  mcp` and `database rag`.
 - **Ask a service whether it is ready.** A service's `state` and a
   succeeded task do not mean the endpoint answers. See
   `connecting-a-client`.

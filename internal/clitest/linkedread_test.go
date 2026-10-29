@@ -22,6 +22,7 @@ var linkedReads = []string{
 	"pgedge starfleet managed database logs",
 	"pgedge starfleet managed database mcp connection",
 	"pgedge starfleet managed database metrics",
+	"pgedge starfleet managed database wait",
 }
 
 // promptedWrites leave the database ID out only to ask a person for it

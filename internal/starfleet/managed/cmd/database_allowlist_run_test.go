@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/managed/api"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
@@ -552,5 +553,21 @@ func TestAllowlistClearServiceClosesOnlyThatService(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body, `"ip_allowlist":{"rules":[]`) {
 		t.Errorf("mcp list not emptied: %s", rec.Body)
+	}
+}
+
+// An open RAG endpoint asks for no credential, so its warning must not
+// promise the Postgres password guard.
+func TestOpenGuardNamesEachServicesGuard(t *testing.T) {
+	cases := map[api.ServiceConfigServiceType]string{
+		"":            "Postgres roles and passwords",
+		api.Mcp:       "bearer token",
+		api.Rag:       "no credential",
+		api.Postgrest: "own authentication",
+	}
+	for typ, want := range cases {
+		if got := openGuard(typ); !strings.Contains(got, want) {
+			t.Errorf("openGuard(%q) = %q, want %q", typ, got, want)
+		}
 	}
 }

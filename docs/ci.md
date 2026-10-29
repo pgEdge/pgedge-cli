@@ -142,10 +142,10 @@ stdout, even on commands that otherwise print nothing.
 ## Building a Complete GitHub Actions Pipeline
 
 The following workflow takes a nightly backup of one managed database,
-start to finish. It installs the CLI, takes the backup, and checks the
-backup record until it reaches a terminal status. It checks the record
-for two reasons. `backup create` has no `--wait`, and the task that
-the create spawns reaches `succeeded` while the backup record is still
+start to finish. It installs the CLI and takes the backup with
+`--wait`, which reads the backup record until it reaches a terminal
+status. The record is the signal because the task that the create
+spawns reaches `succeeded` while the backup record is still
 `pending`.
 [Backing up and Restoring a pgEdge Starfleet Managed Database](managed/backup-restore.md)
 explains why the record is the signal. The complete workflow:
@@ -165,7 +165,7 @@ explains why the record is the signal. The complete workflow:
         steps:
           - uses: pgEdge/pgedge-cli@v0.5.0-beta.4
 
-          - name: Take the backup
+          - name: Take the backup and wait for it
             env:
               PGEDGE_CLIENT_ID: ${{ secrets.PGEDGE_CLIENT_ID }}
               PGEDGE_CLIENT_SECRET: ${{ secrets.PGEDGE_CLIENT_SECRET }}
@@ -173,42 +173,8 @@ explains why the record is the signal. The complete workflow:
               set -euo pipefail
               pgedge starfleet managed backup create \
                   --database-id "$DB_ID" --kind hot \
-                  --timeout 60s -o json > backup.json
-              jq -er .id backup.json > id.txt
-              test -s id.txt
-              echo "BACKUP_ID=$(cat id.txt)" >> "$GITHUB_ENV"
-
-          - name: Wait for the backup record
-            env:
-              PGEDGE_CLIENT_ID: ${{ secrets.PGEDGE_CLIENT_ID }}
-              PGEDGE_CLIENT_SECRET: ${{ secrets.PGEDGE_CLIENT_SECRET }}
-            run: |
-              set -uo pipefail
-              for _ in $(seq 1 60)
-              do
-                  pgedge starfleet managed backup get "$BACKUP_ID" \
-                      --timeout 30s -o json > record.json
-                  rc=$?
-                  if [ "$rc" -ne 0 ]
-                  then
-                      echo "::error::backup get exited $rc" >&2
-                      exit "$rc"
-                  fi
-                  backup_status=$(jq -r .status record.json)
-                  if [ "$backup_status" = "completed" ]
-                  then
-                      echo "backup $BACKUP_ID completed"
-                      exit 0
-                  fi
-                  if [ "$backup_status" = "failed" ]
-                  then
-                      echo "::error::backup $BACKUP_ID failed" >&2
-                      exit 1
-                  fi
-                  sleep 30
-              done
-              echo "::error::backup $BACKUP_ID never settled" >&2
-              exit 1
+                  --wait --wait-timeout 1800 --timeout 60s \
+                  -o json > backup.json
 
 The `pgEdge/pgedge-cli` action installs the release its tag names, so
 every run installs the same binary until you change the tag. The
@@ -217,20 +183,19 @@ and fails the job if either check fails. It runs on Linux and macOS
 runners. To install a release other than the tag's, set the action's
 `version` input to that release's tag.
 
-The two secrets are step-scoped, so only the steps that call `pgedge`
+The two secrets are step-scoped, so only the step that calls `pgedge`
 can read them.
 
-The loop captures the exit status into `rc` before reading any field.
-A failed read leaves `record.json` holding whatever was there before.
-`jq` would then branch on a stale status.
-[Exit codes](exit-codes.md) covers reading the status before the
-output.
+The step fails with the command's exit status: 1 for a failed backup
+and 3 when `--wait-timeout` passes first. `backup.json` holds the
+backup as the API accepted it, so read its `id` rather than its
+status.
 
 ## Building a GitLab CI Pipeline
 
 This pipeline is a preflight gate on a different runner, in place of
-a backup. It spells out the exit status branching that the loop above
-compresses. It refuses the deploy unless the database both exists and
+a backup. It spells out exit status branching that the step above
+leaves to `set -e`. It refuses the deploy unless the database both exists and
 reports `available`.
 
 Set `PGEDGE_CLIENT_ID`, `PGEDGE_CLIENT_SECRET` and

@@ -801,6 +801,9 @@ func backupRestoreHandler(rec *restoreRecorder,
 			_, _ = w.Write([]byte(
 				"[" + backupJSON(testBackupID, testDatabaseID) + "]"))
 
+		case strings.Contains(r.URL.Path, "/databases/"):
+			_, _ = w.Write([]byte(databaseJSON(testDatabaseID, "")))
+
 		default:
 			_, _ = w.Write([]byte(
 				backupJSON(testBackupID, testDatabaseID)))

@@ -160,7 +160,8 @@ func applyServices(
 	}
 	fmt.Fprintf(rt.Stderr, "%s on database %s.\n",
 		output.Sanitize(what), output.Sanitize(dbID))
-	return trackMutation(rt, client, db.Id, base)
+	return trackMutation(rt, client, db.Id, base,
+		databaseSettle(client, db.Id, "available"))
 }
 
 // printUpdatedDatabase renders the database the API returns from a
@@ -212,7 +213,26 @@ type serviceIntent int
 const (
 	intentDeploy serviceIntent = iota
 	intentUpdate
+	// intentApply is deploy when the read finds no service of the type
+	// and update when it finds one.
+	intentApply
 )
+
+// resolveApplyIntent turns intentApply into deploy or update by what
+// the database read found. Only a successful read gets here, so a
+// failed one never becomes a deploy.
+func resolveApplyIntent(
+	db *api.ManagedDatabase, t api.ServiceConfigServiceType,
+	intent serviceIntent,
+) serviceIntent {
+	if intent != intentApply {
+		return intent
+	}
+	if findService(db, t) != nil {
+		return intentUpdate
+	}
+	return intentDeploy
+}
 
 // guardServiceIntent enforces the create/reconfigure split `deploy` and
 // `update` promise: deploy refuses when a service of that type already

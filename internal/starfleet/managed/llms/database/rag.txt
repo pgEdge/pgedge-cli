@@ -30,6 +30,7 @@ pgedge starfleet managed database rag deploy <database_id> \
   --completion-llm-api-key "$OPENAI_API_KEY" \
   --pipeline-config pipelines.json
 pgedge starfleet managed database rag update <database_id> --top-n 10
+pgedge starfleet managed database rag apply <database_id> --top-n 10
 ```
 
 `pgedge llms starfleet managed connecting-a-client` carries the RAG
@@ -46,6 +47,7 @@ Deploy a RAG server on a database
 
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
 | `--completion-llm-api-key string` | Yes |  | API key for the completion LLM provider |
 | `--completion-llm-model string` | Yes |  | Completion LLM model identifier |
 | `--completion-llm-provider string` | Yes |  | Completion LLM provider: openai or anthropic |
@@ -53,11 +55,13 @@ Deploy a RAG server on a database
 | `--embedding-llm-api-key string` | Yes |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | Yes |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | Yes |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
 | `--pipeline-config string` | Yes |  | Path to a JSON file containing pipeline definitions |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -73,6 +77,12 @@ silently reconfiguring it — no PATCH is sent.
 
 Both LLM settings and a pipeline config are required, because the API
 requires all three and rejects a partial config outright.
+
+**A new service's endpoint is closed.** `--allow <cidr>`
+(repeatable), `--my-ip` and `--open` set its allowlist in the deploy
+request itself, as the `allowlist` page describes. With none of them
+the service starts closed, and `database allowlist add <database_id>
+--service rag` admits an address afterward.
 
 `--pipeline-config` points at a JSON file holding the pipeline
 definitions. It accepts either a bare array of pipelines or an object
@@ -127,11 +137,11 @@ Update the RAG server on a database
 | `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
 | `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
 | `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
-| `--follow` | No |  | Stream the task's step messages until it reaches a terminal state |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
 | `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
 | `--token-budget int` | No |  | Default max completion tokens across all pipelines |
 | `--top-n int` | No |  | Default number of results to retrieve per pipeline |
-| `--wait` | No |  | Wait for the operation's task to reach a terminal state |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
 | `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
 | `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
 
@@ -166,9 +176,78 @@ pgedge starfleet managed database rag update e5f6a7b8-c9d0-1234-efab-56789012345
     --completion-llm-api-key sk-ant-...
 ```
 
-**`--wait` proves the task finished, not that the running pipeline
+**`--wait` proves the write finished, not that the running pipeline
 reflects the change.** The `update-managed` task settles before the
 running pipeline does, so even with `--wait`, a script that updates a
 pipeline and immediately queries it should tolerate briefly seeing the
 old configuration. Without `--wait` the verb exits 0 the moment the API
 accepts the change.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database rag apply -->
+###### pgedge starfleet managed database rag apply
+
+**Usage:** `pgedge starfleet managed database rag apply <database_id> [flags]`
+
+Deploy or update the RAG server on a database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--allow stringArray` | No |  | IPv4 address or CIDR block allowed to reach the service's endpoint (repeatable) |
+| `--completion-llm-api-key string` | No |  | API key for the completion LLM provider |
+| `--completion-llm-model string` | No |  | Completion LLM model identifier |
+| `--completion-llm-provider string` | No |  | Completion LLM provider: openai or anthropic |
+| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
+| `--embedding-llm-api-key string` | No |  | API key for the embedding LLM provider |
+| `--embedding-llm-model string` | No |  | Embedding LLM model identifier |
+| `--embedding-llm-provider string` | No |  | Embedding LLM provider: openai or voyage |
+| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
+| `--my-ip` | No |  | Also allow the address the API sees this command arriving from |
+| `--open` | No |  | Admit every address with one 0.0.0.0/0 rule, never the default |
+| `--pipeline-config string` | No |  | Path to a JSON file containing pipeline definitions |
+| `--token-budget int` | No |  | Default max completion tokens across all pipelines |
+| `--top-n int` | No |  | Default number of results to retrieve per pipeline |
+| `--wait` | No |  | Wait for the task, then for the resource's end status |
+| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
+| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
+
+<!-- END GENERATED -->
+
+###### pgedge starfleet managed database rag apply
+
+Deploy a RAG server when the database has none, and update the
+deployed one otherwise, in one command with one exit status. Use it
+wherever a script would otherwise choose between `deploy` and
+`update`.
+
+`apply` reads the database first. A read that fails ends the command
+with that read's exit status and sends no write, so an authentication
+failure, a network error or an unknown database ID never becomes a
+deploy.
+
+`apply` takes `deploy`'s and `update`'s flags. A new service needs
+every flag `deploy` marks required, and a missing one is exit status 2
+naming it, with nothing sent. On a deployed service only the flags you pass
+change, as on `update`, and the LLM API keys may be omitted.
+
+`--allow`, `--my-ip` and `--open` set a new service's allowlist, as on
+`deploy`. On a deployed service they are exit status 2 with nothing
+sent, and the error names `database allowlist add <database_id>
+--service rag`
+as the command for its rules.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database rag apply e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --top-n 10 --wait
+pgedge starfleet managed database rag apply e5f6a7b8-c9d0-1234-efab-567890123456 \
+  --embedding-llm-provider openai \
+  --embedding-llm-model text-embedding-3-small \
+  --embedding-llm-api-key "$OPENAI_API_KEY" \
+  --completion-llm-provider openai \
+  --completion-llm-model gpt-4o \
+  --completion-llm-api-key "$OPENAI_API_KEY" \
+  --pipeline-config pipelines.json --my-ip --wait
+```

@@ -197,7 +197,7 @@ Example:
 				return nil
 			}
 			return pullEnv(rt, client, id, branchID,
-				filepath.Join(wd, ".env"), "DATABASE_URL", "")
+				filepath.Join(wd, ".env"), "DATABASE_URL", "", "")
 		},
 	}
 	cmd.Flags().StringVar(&branch, "branch", "",
@@ -347,6 +347,9 @@ reads the same string. Inside a git work tree, a file git does not
 ignore draws a warning on stderr naming the line to add to
 .gitignore. The command writes nothing to stdout.
 
+--dbname points the URI at another Postgres database created inside
+the managed database, in place of the one its connection names.
+
 Example:
   pgedge starfleet managed database env pull
   pgedge starfleet managed database env pull e5f6a7b8-c9d0-1234-efab-567890123456 \
@@ -359,6 +362,8 @@ Example:
 		},
 	}
 	projectlink.AddEnvPullFlags(cmd.Flags())
+	var dbname string
+	addDBNameFlag(cmd, &dbname)
 	return cmd
 }
 
@@ -383,6 +388,10 @@ func runEnvPull(rt *module.Runtime, cmd *cobra.Command, args []string) error {
 	if cmd.Flags().Changed("file") && file == "" {
 		return newExitError("--file given an empty value: name a file, "+
 			"or omit the flag to use .env", ExitUsage)
+	}
+	dbname, _ := cmd.Flags().GetString("dbname")
+	if err := validateDBName(cmd, dbname); err != nil {
+		return err
 	}
 
 	var branchID uuid.UUID
@@ -412,13 +421,14 @@ func runEnvPull(rt *module.Runtime, cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	return pullEnv(rt, client, id, branchID, file, varName, userType)
+	return pullEnv(rt, client, id, branchID, file, varName, userType,
+		dbname)
 }
 
 // pullEnv writes the connection of the database, or of branchID when it
 // is set, into file as varName.
 func pullEnv(rt *module.Runtime, client *api.ClientWithResponses,
-	id, branchID uuid.UUID, file, varName, userType string,
+	id, branchID uuid.UUID, file, varName, userType, dbname string,
 ) error {
 	var (
 		c   *api.ManagedConnection
@@ -438,7 +448,8 @@ func pullEnv(rt *module.Runtime, client *api.ClientWithResponses,
 		return newExitError(fmt.Sprintf("%s has no connection host yet; it "+
 			"is still being created, or its status is not available", what), ExitGeneral)
 	}
-	cs := connstr.Build(*c.Host, c.Port, c.Database, c.Username, c.Password, true)
+	cs := withDBName(connstr.Build(*c.Host, c.Port, c.Database,
+		c.Username, c.Password, true), dbname, true)
 	if err := dotenv.Set(file, varName, connstr.EnvFileURI(cs)); err != nil {
 		return newExitError(fmt.Sprintf("write %s: %v", file, err), ExitGeneral)
 	}

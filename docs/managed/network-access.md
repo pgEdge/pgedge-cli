@@ -129,10 +129,13 @@ Run `allowlist open` to accept connections from every address:
 
     pgedge starfleet managed database allowlist open <db-id>
 
-The command replaces every rule with the single rule `0.0.0.0/0`. On
-an open endpoint, the Postgres role and password are the only guard,
-and the CLI prints a warning that says so. To restrict the endpoint
-again, run `allowlist set` with the addresses that need access.
+The command replaces every rule with the single rule `0.0.0.0/0`, and
+the CLI prints a warning that names what still guards the endpoint.
+On the Postgres endpoint, that is the role and password. On an MCP
+endpoint, it is the bearer token. A RAG endpoint asks for no
+credential, so every address can query its pipelines. To restrict
+the endpoint again, run `allowlist set` with the addresses that need
+access.
 
 Run `allowlist clear` to close an endpoint to every address:
 

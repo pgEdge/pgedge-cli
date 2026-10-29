@@ -81,6 +81,10 @@ var stderrSafeArgs = map[string]struct {
 	why   string
 	files map[string]bool
 }{
+	"openGuard(typ)": {
+		"returns one of four fixed sentences; typ only selects which",
+		map[string]bool{"../starfleet/managed/cmd/allowlist.go": true},
+	},
 	"shellQuote(output.Sanitize(path))": {
 		"Sanitize runs first, and quoting adds only ' and \\, so no " +
 			"control character reaches the verb",
@@ -314,8 +318,11 @@ var stderrComposedMessages = map[string]struct {
 // 218 -> 227, 22 -> 23: client create --secret-file's path lines and
 // its stderr fallback for the secret; `mcp connection` prints the URI
 // and token lines; byoc `database env pull`'s `Set` line.
+// 227 -> 236: managed --wait's status lines after the task, and
+// `backup create --wait`'s backup status lines.
+// 236 -> 237: the open warning names each service's own guard.
 const (
-	stderrArgSites      = 227
+	stderrArgSites      = 237
 	stderrComposedSites = 23
 )
 

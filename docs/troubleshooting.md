@@ -137,11 +137,10 @@ their exit codes:
   nothing, so it reports that a connection is configured, never that
   it works.
 - `pgedge starfleet doctor` is the verdict on the Starfleet connection,
-  byoc and managed included. Read `auth.authenticated` and
-  `tenant.resolved` under `-o json`. A resolved tenant proves the
-  server accepts the credential. When it is `false`, check
-  `api.reachable` first, since an unreachable endpoint means a login
-  will not help. Do not gate on `token_valid`: it
+  byoc and managed included. Its `verdict` names the fault, and
+  `--strict` exits non-zero unless it is `ready`. The verdict
+  `endpoint-unreachable` means a login will not help. Do not gate on
+  `token_valid`: it
   describes the token cache, not the credential, and is `false` on
   any profile that has never cached a token.
 - `pgedge controlplane doctor` reports the Control Plane connection, including

@@ -28,16 +28,13 @@ fetch it again. Rotation is therefore replacement:
     the next command exchanges a fresh token, and nothing keeps
     running as the old client.
 
-3. Confirm the new credential works. `starfleet doctor` exits 0 even
-   when the connection is broken, so its exit status is not the
-   confirmation. Read the fields:
+3. Confirm the new credential works:
 
-        pgedge starfleet doctor -o json
+        pgedge starfleet doctor --strict
 
-    Expect `auth.authenticated` and `tenant.resolved` both `true`.
-    A resolved tenant proves the server accepts the credential. If it
-    is `false`, check `api.reachable` first to rule the endpoint
-    out.
+    Exit 0 means the verdict is `ready` and the server accepts the
+    credential. Exit 5 means it was rejected, and exit 1 with the
+    verdict `endpoint-unreachable` rules the credential out.
 
 4. Only then delete the old client:
 

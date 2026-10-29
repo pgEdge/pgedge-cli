@@ -355,10 +355,13 @@ type authStatusReport struct {
 	ExpiresAt  string `json:"expires_at,omitempty"`
 	// Renews reports a browser session that can renew its own token.
 	Renews bool `json:"renews"`
+	// Verified is present only under --verify.
+	Verified *bool `json:"verified,omitempty"`
 }
 
 func newAuthStatusCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	return &cobra.Command{
+	var verify bool
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show current authentication state",
 		Long: `status reports which credential source is active for the
@@ -379,11 +382,17 @@ expired access token is exit 0 and renews on next use; one that
 cannot renew itself exits 5 once it expires, and 'pgedge starfleet
 auth login' starts a new session. status calls no endpoint, so
 "authenticated" means credentials resolved, not that the server
-accepts them; 'pgedge starfleet doctor' checks that.
+accepts them.
+
+--verify also reads the tenant list, as any command would, and
+reports "verified". It exits 5 when the server rejects the
+credential. Any other failure, such as a 5xx or a timed-out token
+exchange, exits with another non-zero code, usually 1.
 
 Example:
   pgedge starfleet auth status
-  pgedge starfleet auth status -o json`,
+  pgedge starfleet auth status -o json
+  pgedge starfleet auth status --verify`,
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			res, err := conn.ResolveCredentials(
@@ -412,10 +421,16 @@ Example:
 				return conn.NewExitError(err.Error(), code)
 			}
 			if res.Session {
-				return sessionStatus(rt, res, f.Tenant)
+				return sessionStatus(rt, res, f, verify)
 			}
 			if f.Tenant != "" {
 				return conn.ErrTenantWithAPIClient()
+			}
+			// Before the token is read, so the Token line reports any
+			// token the read minted.
+			var verifyErr error
+			if verify {
+				verifyErr = verifyCredential(rt, f)
 			}
 			creds, source, apiURL := res.Creds, res.Source, res.APIURL
 
@@ -436,8 +451,8 @@ Example:
 			if res.Env {
 				lines = append(lines,
 					"Token:        never cached (env credentials)")
-				return printAuthStatus(
-					rt, report, strings.Join(lines, "\n")+"\n")
+				return printVerifiedStatus(
+					rt, report, lines, verify, verifyErr)
 			}
 			tok, err := conn.Store(rt).LoadToken()
 			switch {
@@ -465,10 +480,56 @@ Example:
 					"Token:        valid (expires %s)", report.ExpiresAt))
 			}
 
-			return printAuthStatus(
-				rt, report, strings.Join(lines, "\n")+"\n")
+			return printVerifiedStatus(rt, report, lines, verify, verifyErr)
 		},
 	}
+	cmd.Flags().BoolVar(&verify, "verify", false,
+		"Check that the server accepts the credential")
+	return cmd
+}
+
+// verifyCredential lists tenants as doctor does, but through
+// conn.Resolve, so an expired session renews as any command would.
+// Exit 5 is kept for a refusal of the credential; an exchange that
+// failed for any other reason is exit 1.
+func verifyCredential(rt *module.Runtime, f *conn.Flags) error {
+	cf := *f
+	if cf.Timeout <= 0 {
+		cf.Timeout = conn.RequestTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), cf.Timeout)
+	defer cancel()
+
+	err := func() error {
+		c, err := conn.Resolve(rt, cf)
+		if err != nil {
+			return err
+		}
+		client, err := accountClientFor(c)
+		if err != nil {
+			return err
+		}
+		_, err = readTenants(ctx, client)
+		return err
+	}()
+	return conn.UnrefusedAsGeneral(err)
+}
+
+// printVerifiedStatus prints the report with its Verified line when
+// --verify was given, then returns the verification's failure.
+func printVerifiedStatus(rt *module.Runtime, report authStatusReport,
+	lines []string, verify bool, verifyErr error,
+) error {
+	if verify {
+		ok := verifyErr == nil
+		report.Verified = &ok
+		lines = append(lines, "Verified:     "+output.BoolYesNo(ok))
+	}
+	if err := printAuthStatus(
+		rt, report, strings.Join(lines, "\n")+"\n"); err != nil {
+		return err
+	}
+	return verifyErr
 }
 
 // sessionState is what status and doctor read from a browser session's
@@ -511,9 +572,13 @@ func readSession(rt *module.Runtime, res *conn.Resolved,
 // sessionStatus reports a browser session. An expired one that cannot
 // renew itself exits 5; a tenant the token cannot reach exits 2.
 func sessionStatus(
-	rt *module.Runtime, res *conn.Resolved, flagTenant string,
+	rt *module.Runtime, res *conn.Resolved, f *conn.Flags, verify bool,
 ) error {
-	s := readSession(rt, res, flagTenant)
+	var verifyErr error
+	if verify {
+		verifyErr = verifyCredential(rt, f)
+	}
+	s := readSession(rt, res, f.Tenant)
 	report := authStatusReport{
 		Authenticated: s.problem == nil,
 		Source:        res.Source,
@@ -555,11 +620,10 @@ func sessionStatus(
 		renews = "yes"
 	}
 	lines = append(lines, "Renews:       "+renews)
-	if pErr := printAuthStatus(
-		rt, report, strings.Join(lines, "\n")+"\n"); pErr != nil {
-		return pErr
+	if s.problem != nil {
+		verifyErr = s.problem
 	}
-	return s.problem
+	return printVerifiedStatus(rt, report, lines, verify, verifyErr)
 }
 
 // printAuthStatus renders report through rt.Output for json/yaml, or

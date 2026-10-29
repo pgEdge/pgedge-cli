@@ -133,9 +133,10 @@ resolved rather than that the server accepts them, and a wrong secret
 that resolves reports the same thing. It exits 0 whenever credentials
 resolve, 5 when none do, and 2 for a half-supplied
 `--client-id`/`--client-secret` pair, which a fresh login will not
-fix. `pgedge starfleet doctor` makes the call, and its Tenant row is
-the part that proves the credential works. The health checks guide
-covers every row.
+fix. `auth status --verify` adds a real read and exits 5 when the
+server rejects the credential. `pgedge starfleet doctor` makes the
+same call, and its Tenant row is the part that proves the credential
+works. The health checks guide covers every row.
 
 There is no `pgedge starfleet user` command. The account API does
 expose a current-user endpoint, but a client-credentials token

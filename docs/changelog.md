@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `starfleet doctor` reports a one-word `verdict`, and `--strict`
+  exits non-zero unless it is `ready`.
+- `starfleet auth status --verify` reads the tenant with the
+  credential and exits 5 when the server rejects it.
+- `starfleet membership list --email` and `starfleet invite get
+  --email` look a person up by address, and exit 4 when none matches.
 - Managed `--wait` and `--follow` wait for the database or branch to
   reach its end state, not only for the task, and exit 1 naming any
   other status it settles on. `starfleet managed database wait` waits

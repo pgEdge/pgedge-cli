@@ -119,19 +119,38 @@ Example:
 // --- get ---
 
 func newInviteGetCmd(rt *module.Runtime) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <invite_id>",
+	var email string
+	cmd := &cobra.Command{
+		Use:   "get [<invite_id>]",
 		Short: "Show invite details",
 		Long: `get shows the details of a single invite.
 
 Use it to read an invite's email, team, and expiry. The argument
 is the invite's UUID.
 
+--email, in place of the argument, finds the pending invites for
+that address, compared without regard to case, and prints them as a
+list (an array under -o json). It exits 4 when there is none, so a
+failed read (any other non-zero code) never looks like "no invite".
+
 Example:
   pgedge starfleet invite get b0c1d2e3-f4a5-6789-bcde-890123456789
-  pgedge starfleet invite get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml`,
-		Args: cobra.ExactArgs(1),
+  pgedge starfleet invite get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml
+  pgedge starfleet invite get --email teammate@example.com`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			byEmail := cmd.Flags().Changed("email")
+			if (len(args) == 1) == byEmail {
+				return newExitError("pass exactly one of an invite ID "+
+					"or --email", ExitUsage)
+			}
+			if byEmail {
+				addr, err := emailArg(email)
+				if err != nil {
+					return err
+				}
+				return inviteGetByEmail(rt, cmd, addr)
+			}
 			id, err := cli.ParseUUIDArg(args[0], "invite ID")
 			if err != nil {
 				return err
@@ -165,6 +184,44 @@ Example:
 			return rt.Output.Print(rows, inviteColumns)
 		},
 	}
+	cmd.Flags().StringVar(&email, "email", "",
+		"Find the invites for this email address instead of an ID")
+	return cmd
+}
+
+// inviteGetByEmail filters the full invite list: the API has no
+// lookup by address.
+func inviteGetByEmail(
+	rt *module.Runtime, cmd *cobra.Command, email string,
+) error {
+	client, err := clientFromCmd(rt, cmd)
+	if err != nil {
+		return err
+	}
+	resp, err := client.ListInvitesWithResponse(context.Background())
+	if err != nil {
+		return fmt.Errorf("list invites: %w", err)
+	}
+	if err := listReadErr(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return err
+	}
+	if resp.JSON200 == nil || *resp.JSON200 == nil {
+		return errNoListBody("invites")
+	}
+	invites := matchEmail(*resp.JSON200, email,
+		func(inv api.Invite) string { return inv.Email })
+	if len(invites) == 0 {
+		return errNoEmailMatch("invite", email)
+	}
+	if rt.Output.Structured() {
+		return rt.Output.Print(invites, nil)
+	}
+	rows := make([]output.Row, 0, len(invites))
+	for _, inv := range invites {
+		rows = append(rows, inviteRowFrom(inv))
+	}
+	return rt.Output.Print(rows, inviteColumns)
 }
 
 // --- create ---

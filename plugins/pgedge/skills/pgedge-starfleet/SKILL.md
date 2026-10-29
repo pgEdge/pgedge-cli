@@ -105,11 +105,12 @@ Each rule is stated in full on the page named beside it.
   the `auth login` command to run; ask the user to run it. `--tenant` with an API client is exit 2.
   See the index.
 - **`auth status` proves only that credentials resolved.** A wrong
-  secret still reports `authenticated: true`. `doctor`'s tenant check
-  is the one that proves the server accepts the credential. See
-  `auth` and `doctor`.
-- **Read `doctor -o json`, not its exit status.** `doctor` exits 0
-  even when authentication is broken. See `doctor`.
+  secret still reports `authenticated: true`. `auth status --verify`
+  makes a real read and exits 5 when the server rejects the
+  credential. See `auth`.
+- **Gate on `doctor --strict`, or read `verdict`.** Plain `doctor`
+  exits 0 even when authentication is broken. `--strict` exits
+  non-zero unless `verdict` is `ready`. See `doctor`.
 - **`client create` shows the new secret once.** Pass
   `--secret-file <path>` to write it to a new file instead of the
   output, which keeps it out of the transcript. If that write fails
@@ -118,8 +119,7 @@ Each rule is stated in full on the page named beside it.
 - **Invites are created and accepted in the Starfleet UI.** The CLI
   refuses both steps with exit 5, whichever way you signed in. Track
   and clean up invites from the CLI. See `invite`.
-- **Membership is the signal that an invite was accepted.** See
-  `invite` and `membership`.
-- **Check a read's exit status before acting on an empty result.** A
-  failed read prints nothing on stdout, so an invite that looks absent
-  may only be unread. See the index's team onboarding sequence.
+- **Membership is the signal that an invite was accepted.** Look a
+  person up with `membership list --email <addr>` or
+  `invite get --email <addr>`: exit 4 means no match, and any other
+  non-zero exit means the read failed. See `invite` and `membership`.

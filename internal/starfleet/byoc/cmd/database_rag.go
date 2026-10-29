@@ -41,7 +41,7 @@ the retrieval-augmented-generation pipelines built on it.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is.
+update fails if none is. apply does whichever the database needs.
 
 Example:
   pgedge starfleet byoc database rag deploy <database_id> \
@@ -61,6 +61,7 @@ Example:
 	cmd.AddCommand(
 		newDatabaseRAGDeployCmd(rt),
 		newDatabaseRAGUpdateCmd(rt),
+		newDatabaseRAGApplyCmd(rt),
 	)
 	return cmd
 }
@@ -96,16 +97,19 @@ Example:
 	bindRAGFlags(cmd, opts)
 	addWaitFlags(cmd)
 
-	_ = cmd.MarkFlagRequired("embedding-llm-provider")
-	_ = cmd.MarkFlagRequired("embedding-llm-model")
-	_ = cmd.MarkFlagRequired("embedding-llm-api-key")
-	_ = cmd.MarkFlagRequired("completion-llm-provider")
-	_ = cmd.MarkFlagRequired("completion-llm-model")
-	_ = cmd.MarkFlagRequired("completion-llm-api-key")
-	_ = cmd.MarkFlagRequired("pipeline-config")
+	for _, name := range ragDeployRequired {
+		_ = cmd.MarkFlagRequired(name)
+	}
 	cli.MarkMutating(cmd)
 
 	return cmd
+}
+
+// ragDeployRequired are the flags a new RAG service needs.
+var ragDeployRequired = []string{
+	"embedding-llm-provider", "embedding-llm-model",
+	"embedding-llm-api-key", "completion-llm-provider",
+	"completion-llm-model", "completion-llm-api-key", "pipeline-config",
 }
 
 // --- update ---
@@ -137,6 +141,47 @@ Example:
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return applyRAGService(rt, cmd, args[0], opts, intentUpdate)
+		},
+	}
+	bindRAGFlags(cmd, opts)
+	addWaitFlags(cmd)
+	cli.MarkMutating(cmd)
+
+	return cmd
+}
+
+// --- apply ---
+
+func newDatabaseRAGApplyCmd(rt *module.Runtime) *cobra.Command {
+	opts := &ragServiceOpts{}
+	cmd := &cobra.Command{
+		Use:   "apply <database_id>",
+		Short: "Deploy or update the RAG server on a database",
+		Long: `apply deploys a RAG server on a database that has none, and
+otherwise updates the deployed one, so a script needs one command and
+one exit status for both.
+
+It takes deploy's and update's flags. A new service needs every flag
+deploy requires, and their absence is exit 2. On a deployed service
+only the flags you pass change, as with update, and the API keys must
+be passed again whenever you change the provider or model they belong
+to.
+
+The database is read first. A read that fails ends the command with
+that read's exit status, and nothing is deployed.
+
+Example:
+  pgedge starfleet byoc database rag apply <database_id> --top-n 10 --wait
+  pgedge starfleet byoc database rag apply <database_id> \
+    --embedding-llm-provider openai \
+    --embedding-llm-model text-embedding-3-small \
+    --embedding-llm-api-key "$OPENAI_API_KEY" \
+    --completion-llm-provider openai --completion-llm-model gpt-4o \
+    --completion-llm-api-key "$OPENAI_API_KEY" \
+    --pipeline-config pipelines.json --wait`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return applyRAGService(rt, cmd, args[0], opts, intentApply)
 		},
 	}
 	bindRAGFlags(cmd, opts)
@@ -196,9 +241,16 @@ func applyRAGService(
 		return err
 	}
 
+	applying := intent == intentApply
+	intent = resolveApplyIntent(db, api.ServiceServiceTypeRag, intent)
 	if err := guardServiceIntent(rt, db, api.ServiceServiceTypeRag, intent,
 		cmd.Parent().CommandPath()); err != nil {
 		return err
+	}
+	if applying && intent == intentDeploy {
+		if err := requireFlags(cmd, ragDeployRequired); err != nil {
+			return err
+		}
 	}
 
 	// Start from the deployed configuration so an update touches only
@@ -250,7 +302,8 @@ func applyRAGService(
 	}
 	if err := checkResponse(resp.StatusCode(),
 		string(resp.Body)); err != nil {
-		return err
+		return withSubjectStatus(err,
+			databaseSettle(client, dbID, ""))
 	}
 
 	if err := printUpdatedDatabase(rt, resp.JSON200); err != nil {
@@ -258,7 +311,8 @@ func applyRAGService(
 	}
 	fmt.Fprintf(rt.Stderr, "RAG service applied to database %s.\n",
 		output.Sanitize(dbID))
-	return trackMutation(rt, client, dbID, priorTaskID)
+	return trackMutation(rt, client, dbID, priorTaskID,
+		endState(databaseSettle(client, dbID, "available")))
 }
 
 // existingRAGConfig returns a copy of the RAG configuration already

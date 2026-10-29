@@ -32,9 +32,9 @@ var (
 // command exits on acceptance, not when the work completes.
 func addWaitFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&waitFlag, "wait", false,
-		"Wait for the operation's task to reach a terminal state")
+		"Wait for the task, then for the resource's end status")
 	cmd.Flags().BoolVar(&followFlag, "follow", false,
-		"Stream the task's step messages until it reaches a terminal state")
+		"Wait as --wait does, streaming the task's step messages")
 	cmd.Flags().IntVar(&waitTimeoutFlag, "wait-timeout", 600,
 		"Max seconds to wait when --wait/--follow is set")
 	cmd.Flags().IntVar(&waitIntervalFlag, "wait-interval", 5,
@@ -321,7 +321,7 @@ func timeoutError(timeout int, subjectID, taskID string) error {
 
 // trackMutation handles the asynchronous tail of a resource command:
 // it waits when tracking, otherwise prints a monitor hint in text
-// output.
+// output. With end set, the wait goes on until end reaches its state.
 //
 // priorTaskID must be the newest task for the subject captured before
 // the mutation. For a freshly created resource it is "", since the new
@@ -329,13 +329,19 @@ func timeoutError(timeout int, subjectID, taskID string) error {
 func trackMutation(
 	rt *module.Runtime,
 	client *api.ClientWithResponses,
-	subjectID, priorTaskID string,
+	subjectID, priorTaskID string, end *settleTarget,
 ) error {
 	if tracking() {
-		return waitForSubjectTask(
+		deadline := time.Now().Add(
+			time.Duration(waitTimeoutFlag) * time.Second)
+		if err := waitForSubjectTask(
 			rt, client, subjectID, priorTaskID,
 			waitTimeoutFlag, waitIntervalFlag, followFlag,
-		)
+		); err != nil || end == nil {
+			return err
+		}
+		return awaitSettled(rt, *end, deadline, waitTimeoutFlag,
+			time.Duration(max(waitIntervalFlag, 1))*time.Second)
 	}
 	if !rt.Output.Structured() {
 		fmt.Fprintf(rt.Stderr,
@@ -343,4 +349,13 @@ func trackMutation(
 			output.Sanitize(subjectID))
 	}
 	return nil
+}
+
+// taskOnlyWaitFlags restores the task-only wording on a verb whose
+// resource has no known end status.
+func taskOnlyWaitFlags(cmd *cobra.Command) {
+	cmd.Flags().Lookup("wait").Usage =
+		"Wait for the operation's task to reach a terminal state"
+	cmd.Flags().Lookup("follow").Usage =
+		"Stream the task's step messages until it reaches a terminal state"
 }

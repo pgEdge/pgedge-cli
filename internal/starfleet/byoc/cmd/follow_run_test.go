@@ -15,7 +15,7 @@ import (
 // A --follow that cursors correctly prints each exactly once.
 func followFlowHandler(terminalStatus string) http.HandlerFunc {
 	var mu sync.Mutex
-	mutated := false
+	mutated, deleted := false, false
 	byIDCalls := 0
 
 	const early = `[{"level":"info","progress":5,"status":"running",
@@ -66,9 +66,17 @@ func followFlowHandler(terminalStatus string) http.HandlerFunc {
 		case r.Method != http.MethodGet:
 			mu.Lock()
 			mutated = true
+			deleted = r.Method == http.MethodDelete
 			mu.Unlock()
 			_, _ = w.Write([]byte(`{}`))
 		default:
+			mu.Lock()
+			done, gone := mutated, deleted
+			mu.Unlock()
+			if done {
+				subjectAfterWrite(w, gone)
+				return
+			}
 			_, _ = w.Write([]byte(`{}`))
 		}
 	}

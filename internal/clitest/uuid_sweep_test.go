@@ -254,8 +254,10 @@ func TestEveryIDPositionalRefusesANonUUID(t *testing.T) {
 	// env pull` take one each.
 	// 99 -> 102: `managed database wait`, `mcp apply` and `rag apply`
 	// take one each.
-	if checked != 102 {
-		t.Errorf("%d ID positionals swept, want exactly 102. Adding or "+
+	// 102 -> 106: byoc `database wait`, `mcp apply`, `rag apply` and
+	// `postgrest apply` take one each.
+	if checked != 106 {
+		t.Errorf("%d ID positionals swept, want exactly 106. Adding or "+
 			"removing one is a deliberate edit here.", checked)
 	}
 }
@@ -493,9 +495,10 @@ func TestEveryIDFlagRefusesANonUUID(t *testing.T) {
 	// input reddens the build, and adding one reddens it too, so a new
 	// flag cannot arrive unswept. The derivation, walked from the
 	// tree: 2 --backup-store-id, 2 --cloud-account-id, 3 byoc
-	// --cluster-id (controlplane's is exempt), 5 --database-id, 2 --subject-id.
-	if checked != 14 {
-		t.Errorf("%d ID flags swept, want exactly 14. Adding or "+
+	// --cluster-id (controlplane's is exempt), 6 --database-id, 2 --subject-id.
+	// 14 -> 15: byoc `ingress create --database-id`.
+	if checked != 15 {
+		t.Errorf("%d ID flags swept, want exactly 15. Adding or "+
 			"removing one is a deliberate edit here -- and check "+
 			"uuidCommandExempt, which removes a whole command from "+
 			"both arms and is the only table that can do so.", checked)

@@ -51,7 +51,7 @@ database: the REST API generated directly from the database schema.
 
 deploy creates the service; update reconfigures it. Each refuses to
 run in the other's place: deploy fails if one is already deployed,
-update fails if none is.
+update fails if none is. apply does whichever the database needs.
 
 Example:
   pgedge starfleet byoc database postgrest deploy <database_id> \
@@ -65,6 +65,7 @@ Example:
 	cmd.AddCommand(
 		newDatabasePostgRESTDeployCmd(rt),
 		newDatabasePostgRESTUpdateCmd(rt),
+		newDatabasePostgRESTApplyCmd(rt),
 	)
 	return cmd
 }
@@ -144,6 +145,44 @@ Example:
 	return cmd
 }
 
+// --- apply ---
+
+func newDatabasePostgRESTApplyCmd(rt *module.Runtime) *cobra.Command {
+	opts := &postgrestServiceOpts{}
+	cmd := &cobra.Command{
+		Use:   "apply <database_id>",
+		Short: "Deploy or update the PostgREST API on a database",
+		Long: `apply deploys a PostgREST service on a database that has none,
+and otherwise updates the deployed one, so a script needs one command
+and one exit status for both.
+
+It takes deploy's and update's flags. A new service needs
+--db-schemas and --db-anon-role, and their absence is exit 2. On a
+deployed service only the flags you pass change, as with update, and
+--jwt-secret must be passed again whenever you change other JWT
+settings.
+
+The database is read first. A read that fails ends the command with
+that read's exit status, and nothing is deployed.
+
+Example:
+  pgedge starfleet byoc database postgrest apply <database_id> \
+    --db-schemas public --db-anon-role web_anon --wait
+  pgedge starfleet byoc database postgrest apply <database_id> \
+    --max-rows 500 --wait`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return applyPostgRESTService(
+				rt, cmd, args[0], opts, intentApply)
+		},
+	}
+	bindPostgRESTFlags(cmd, opts)
+	addWaitFlags(cmd)
+	cli.MarkMutating(cmd)
+
+	return cmd
+}
+
 // bindPostgRESTFlags registers the PostgREST service flags, shared by
 // deploy and update.
 func bindPostgRESTFlags(cmd *cobra.Command, opts *postgrestServiceOpts) {
@@ -195,6 +234,7 @@ func applyPostgRESTService(
 		return err
 	}
 
+	intent = resolveApplyIntent(db, api.ServiceServiceTypePostgrest, intent)
 	if err := guardServiceIntent(rt,
 		db, api.ServiceServiceTypePostgrest, intent,
 		cmd.Parent().CommandPath()); err != nil {
@@ -250,7 +290,8 @@ func applyPostgRESTService(
 	}
 	if err := checkResponse(resp.StatusCode(),
 		string(resp.Body)); err != nil {
-		return err
+		return withSubjectStatus(err,
+			databaseSettle(client, dbID, ""))
 	}
 
 	if err := printUpdatedDatabase(rt, resp.JSON200); err != nil {
@@ -258,7 +299,8 @@ func applyPostgRESTService(
 	}
 	fmt.Fprintf(rt.Stderr,
 		"PostgREST service applied to database %s.\n", output.Sanitize(dbID))
-	return trackMutation(rt, client, dbID, priorTaskID)
+	return trackMutation(rt, client, dbID, priorTaskID,
+		endState(databaseSettle(client, dbID, "available")))
 }
 
 // existingPostgRESTConfig returns a copy of the PostgREST configuration

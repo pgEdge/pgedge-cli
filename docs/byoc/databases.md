@@ -102,14 +102,12 @@ it here or accept the API's default.
     database object goes to stdout instead, which is where a script
     reads `.id` from.
 
-3. Confirm the result, whether you waited or not:
+3. If you did not pass `--wait`, wait for the database:
 
-        pgedge starfleet byoc database get <db-id> -o json
+        pgedge starfleet byoc database wait <db-id>
 
-    Expect `"status": "available"`. A task reaching `succeeded`
-    reports that the platform's own work finished, not that the
-    database is ready to connect to. Branch on the status, not the
-    task.
+    It exits 0 once the database is `available`, and 1 naming any
+    other status it settles on, as `--wait` does.
 
 `--pg-version` is validated only for emptiness, so `--pg-version 99` is
 the API's to refuse, while `--pg-version ""` is exit 2 with nothing
@@ -189,11 +187,13 @@ that vocabulary and the separate `state` vocabulary a service reports.
 `create`, `delete`, `restore` and `rotate-password` are asynchronous.
 The API accepts the request and spawns a background task, and the
 command returns exit 0 as soon as the acknowledgment arrives.
-`--wait` blocks until that task reaches a terminal state, printing a
-status line each time it checks. `--follow` blocks the same way while
-streaming the task's step messages. Both report 0 for a succeeded
-task, 1 for a failed one and 3 for the timeout, which defaults to 600
-seconds.
+`--wait` blocks until that task succeeds and then reads the database
+until its status is `available`, or, for a delete, until it answers
+not found, printing a status line each time it checks. `--follow`
+blocks the same way while streaming the task's step messages. Both
+report 0 at that end status, 1 for a failed task or a database that
+settled on another status, which the error names, and 3 for the
+timeout, which defaults to 600 seconds.
 
 No byoc response has a task identifier, so a wait finds its task
 by subject. On a database that already exists, the CLI reads its
@@ -267,11 +267,10 @@ and its cluster must be `available`, and the database is checked
 first.
 
 A rotation refused while the database is busy exits 1 with a message
-saying to wait and retry. That advice is right for a `modifying`
-database, but wrong for a `failed` one: a `failed` database returns
-the same message and never becomes available, because the API's body
-does not name the status. Run `database get`
-before retrying. A `deleting` database answers 404 instead. A refusal
+saying to wait and retry. A `failed` database, which never becomes
+available, returns the same message, so the CLI reads the database
+once and names its status in the error. Retry only when that status
+is one the database passes through, such as `modifying`. A refusal
 naming the cluster, not the database, is a different condition with a
 different remedy. The refusal comes back as a plain bad request. The
 [Rotate a BYOC database password](rotate-credentials.md) guide covers

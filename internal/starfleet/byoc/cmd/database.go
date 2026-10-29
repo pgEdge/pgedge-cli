@@ -140,6 +140,7 @@ Example:
 		newDatabaseDeleteCmd(rt),
 		newDatabaseRotatePasswordCmd(rt),
 		newDatabaseRestoreCmd(rt),
+		newDatabaseWaitCmd(rt),
 		newDatabaseLogsCmd(rt),
 		newDatabaseMetricsCmd(rt),
 		NewDatabaseServiceCmd(rt),
@@ -404,7 +405,8 @@ Example:
 					"Database %q created (id: %s, status: %s).\n",
 					d.Name, output.Sanitize(d.Id), output.Sanitize(d.Status))
 			}
-			return trackMutation(rt, client, d.Id, "")
+			return trackMutation(rt, client, d.Id, "",
+				endState(databaseSettle(client, d.Id, "available")))
 		},
 	}
 	f := cmd.Flags()
@@ -476,7 +478,8 @@ Example:
 			}
 			if err := checkResponse(resp.StatusCode(),
 				string(resp.Body)); err != nil {
-				return err
+				return withSubjectStatus(err,
+					databaseSettle(client, id.String(), ""))
 			}
 
 			if rt.Output.Structured() {
@@ -559,11 +562,13 @@ Example:
 			}
 			if err := checkEmptyBodyResponse(
 				resp, "delete database"); err != nil {
-				return err
+				return withSubjectStatus(err,
+					databaseSettle(client, id.String(), ""))
 			}
 
 			fmt.Fprintf(rt.Stderr, "Database %s deletion requested.\n", id)
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(databaseSettle(client, id.String(), settleGone)))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false,

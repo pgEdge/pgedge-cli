@@ -320,7 +320,8 @@ func TestMutatingVerbCountIsSane(t *testing.T) {
 	// 72 -> 74: `managed database branch create` and `... delete`;
 	// `list` and `get` are read-only and unannotated.
 	// 74 -> 76: `managed database mcp apply` and `rag apply`.
-	const census = 76
+	// 76 -> 79: byoc `database mcp`, `rag` and `postgrest apply`.
+	const census = 79
 	if annotated != census {
 		t.Errorf("%d annotated mutating commands, want exactly %d. If "+
 			"you added or removed a verb, update this number in the "+

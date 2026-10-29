@@ -122,13 +122,15 @@ Example:
 			}
 			if err := checkEmptyBodyResponse(
 				resp, "rotate role password"); err != nil {
-				return err
+				return withSubjectStatus(err,
+					databaseSettle(client, id.String(), ""))
 			}
 
 			fmt.Fprintf(rt.Stderr,
 				"Password rotation requested for role %q on database %s.\n",
 				role, output.Sanitize(args[0]))
-			return trackMutation(rt, client, id.String(), priorTaskID)
+			return trackMutation(rt, client, id.String(), priorTaskID,
+				endState(databaseSettle(client, id.String(), "available")))
 		},
 	}
 	f := cmd.Flags()

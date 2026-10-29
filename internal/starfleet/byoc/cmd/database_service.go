@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -255,7 +256,8 @@ Example:
 			}
 			if err := checkResponse(resp.StatusCode(),
 				string(resp.Body)); err != nil {
-				return err
+				return withSubjectStatus(err,
+					databaseSettle(client, dbID, ""))
 			}
 
 			if err := printUpdatedDatabase(rt, resp.JSON200); err != nil {
@@ -264,7 +266,8 @@ Example:
 			fmt.Fprintf(rt.Stderr,
 				"Service type %q removal requested for database %s.\n",
 				svcType, output.Sanitize(dbID))
-			return trackMutation(rt, client, dbID, priorTaskID)
+			return trackMutation(rt, client, dbID, priorTaskID,
+				endState(databaseSettle(client, dbID, "available")))
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false,
@@ -342,7 +345,41 @@ type serviceIntent int
 const (
 	intentDeploy serviceIntent = iota
 	intentUpdate
+	// intentApply is deploy when the read finds no service of the type
+	// and update when it finds one.
+	intentApply
 )
+
+// resolveApplyIntent turns intentApply into deploy or update by what
+// the database read found, and passes any other intent through.
+func resolveApplyIntent(
+	db *api.Database, t api.ServiceServiceType, intent serviceIntent,
+) serviceIntent {
+	if intent != intentApply {
+		return intent
+	}
+	if findService(db, t) != nil {
+		return intentUpdate
+	}
+	return intentDeploy
+}
+
+// requireFlags is cobra's required-flag check, for apply, which learns
+// whether it is deploying only after the read.
+func requireFlags(cmd *cobra.Command, names []string) error {
+	var missing []string
+	for _, n := range names {
+		if !cmd.Flags().Changed(n) {
+			missing = append(missing, strconv.Quote(n))
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return newExitError(fmt.Sprintf(
+		"required flag(s) %s not set to deploy a new service",
+		strings.Join(missing, ", ")), ExitUsage)
+}
 
 // guardServiceIntent enforces the create/reconfigure split `deploy` and
 // `update` promise: deploy refuses when a service of that type already

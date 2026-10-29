@@ -75,7 +75,8 @@ and its failure modes.
 
 `pgedge starfleet doctor` is the verdict on the Starfleet connection,
 which byoc and managed both share. There is no byoc or managed doctor
-for that reason. It prints five rows.
+for that reason. It prints five rows, and a sixth, BYOC, when the
+verdict is `ready`.
 
 The following table describes each row and what a warning means:
 
@@ -84,6 +85,7 @@ The following table describes each row and what a warning means:
 | Auth | Which credential source resolved, whether a token is cached, and whether that token is still valid. | Credentials resolve but the token is expired or absent, or a valid cached token was minted for a different connection. It reports `error` when no credentials resolve at all. |
 | API connectivity | An unauthenticated GET against the resolved base URL, with the status and latency. | Never. An unreachable endpoint is reported as `error`. |
 | Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, the tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
+| BYOC | Whether the tenant's plan includes BYOC: `entitled`, `not-entitled` or `unknown`, the `byoc` field in JSON. Printed only on a `ready` verdict. | The value is `not-entitled` or `unknown`. A failed check reads `unknown`; run doctor again. |
 | Environment | The operating system, architecture, and whether `NO_COLOR` is set. | Never. |
 | Verdict | The report in one word, the `verdict` field in JSON. | Never. Any verdict but `ready` is reported as `error`. |
 
@@ -116,8 +118,8 @@ must not hang.
 For a script, gate on `--strict` or on `verdict`. Do not gate on
 `token_valid`: it describes the token cache, which doctor does not
 write, so it stays `false` on a profile with good credentials and no
-cached token. The plan does not change the verdict, so read
-`tenant.plan` before byoc work.
+cached token. The plan does not change the verdict, so read `byoc`
+before byoc work.
 
 The following table lists each verdict and the code `--strict` exits
 with:

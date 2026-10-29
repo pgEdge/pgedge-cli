@@ -111,8 +111,8 @@ Other byoc capabilities are not plan-gated at all, `cluster list` and
 regardless of the tenant's plan. **An empty list from one of these
 verbs proves nothing about entitlement**: a tenant with no resources
 and a tenant the plan excludes look identical. Run `pgedge starfleet
-doctor -o json` and read `tenant.plan` before reading an empty list as
-"no resources yet."
+doctor -o json` and check that `byoc` is `entitled` before reading an
+empty list as "no resources yet."
 
 ### Destructive operations (`--force`)
 

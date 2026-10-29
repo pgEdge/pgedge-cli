@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pgEdge/pgedge-cli/internal/auth"
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
@@ -30,6 +31,8 @@ type authInfo struct {
 	// are simply no credentials, whose remedy is the Auth row's text.
 	Problem    string `json:"problem,omitempty"`
 	TokenValid bool   `json:"token_valid"`
+	// problemCode is the exit code Problem would cause a command.
+	problemCode int
 	// TokenBound reports whether the cached token was minted for the
 	// credential AND resolved API URL now configured; see
 	// auth.CachedToken.MintedBy. Meaningful only alongside TokenValid.
@@ -84,6 +87,8 @@ type tenantInfo struct {
 	Skipped string `json:"skipped,omitempty"`
 	// selected: a browser session's chosen tenant, not the first.
 	selected bool
+	// err is why the read failed, carrying its exit code.
+	err error
 }
 
 // selectedTenant returns the listed tenant whose ID is id, else one
@@ -101,6 +106,7 @@ func selectedTenant(tenants []api.Tenant, id string) api.Tenant {
 // resolution, token state, reachability, the tenant that credential
 // authenticates as, and the environment those are read from.
 type accountDoctorReport struct {
+	Verdict     string          `json:"verdict"`
 	Auth        authInfo        `json:"auth"`
 	API         apiInfo         `json:"api"`
 	Tenant      tenantInfo      `json:"tenant"`
@@ -113,7 +119,8 @@ type accountDoctorReport struct {
 // starfleet root owns f, so the checks below read the one set of
 // connection flags bound there.
 func NewDoctorCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	return &cobra.Command{
+	var strict bool
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose the pgEdge Starfleet connection",
 		Long: `doctor reports which credential source is in effect, whether
@@ -128,17 +135,42 @@ written to the token cache — including when --api-url points somewhere
 other than the profile's own host. Whatever a later command would have
 used, it still will.
 
+The verdict sums the report up in one word:
+
+  ready                      the tenant read succeeded
+  no-credentials             no credential resolves, or the keychain
+                             cannot be read (exit 5)
+  credentials-misconfigured  a flag pair, env pair or --tenant is
+                             malformed (exit 2)
+  session-needs-login        the browser sign-in is gone (exit 5)
+  session-unverified         the sign-in renews on next use, so it
+                             was not read; run 'pgedge starfleet auth
+                             status --verify' to renew and check it
+                             (exit 5)
+  endpoint-unreachable       the API URL does not answer (exit 1)
+  credential-rejected        the API refuses the credential (exit 5)
+  tenant-unresolved          the tenant could not be read for any
+                             other reason (exit 1)
+
+doctor exits 0 whatever the verdict. With --strict it exits with the
+code shown when the verdict is not ready. The tenant's plan does not
+affect the verdict; read tenant.plan for that.
+
 For the install itself — version, config file, shell — run
 'pgedge doctor'.
 
 Example:
   pgedge starfleet doctor
-  pgedge starfleet doctor -o json`,
+  pgedge starfleet doctor -o json
+  pgedge starfleet doctor --strict`,
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runDoctor(rt, f)
+			return runDoctorStrict(rt, f, strict)
 		},
 	}
+	cmd.Flags().BoolVar(&strict, "strict", false,
+		"Exit non-zero unless the verdict is ready")
+	return cmd
 }
 
 // --- check implementations ---------------------------------------------------
@@ -153,8 +185,11 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 		// A usage error is not "not authenticated": the profile may
 		// hold a good pair that incomplete flags override. An
 		// unreadable keychain is named too; its remedy differs.
-		if conn.IsUsageError(err) || !errors.Is(err, auth.ErrNoCredentials) {
-			return authInfo{Problem: err.Error()}
+		if conn.IsUsageError(err) {
+			return authInfo{Problem: err.Error(), problemCode: ExitUsage}
+		}
+		if !errors.Is(err, auth.ErrNoCredentials) {
+			return authInfo{Problem: err.Error(), problemCode: ExitAuth}
 		}
 		return authInfo{}
 	}
@@ -168,7 +203,8 @@ func checkAuth(rt *module.Runtime, f *conn.Flags) authInfo {
 	}
 	if f.Tenant != "" {
 		return authInfo{Source: res.Source,
-			Problem: conn.ErrTenantWithAPIClient().Error()}
+			Problem:     conn.ErrTenantWithAPIClient().Error(),
+			problemCode: ExitUsage}
 	}
 
 	tok, err := conn.Store(rt).LoadToken()
@@ -198,6 +234,7 @@ func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
 	if s.problem != nil {
 		info.Authenticated = false
 		info.Problem = s.problem.Error()
+		info.problemCode = cli.ExitCode(s.problem)
 	}
 	return info
 }
@@ -260,18 +297,17 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	cf.Timeout = timeout
 	client, c, err := newEphemeralAccountClient(rt, cf)
 	if err != nil {
-		return tenantInfo{}
+		return tenantInfo{err: err}
 	}
 
 	ctx, cancel := context.WithTimeout(
 		context.Background(), 10*time.Second)
 	defer cancel()
 
-	resp, err := client.ListTenantsWithResponse(ctx)
-	if err != nil || resp.JSON200 == nil {
-		return tenantInfo{}
+	tenants, err := readTenants(ctx, client)
+	if err != nil {
+		return tenantInfo{err: err}
 	}
-	tenants := *resp.JSON200
 	if len(tenants) == 0 {
 		return tenantInfo{}
 	}
@@ -294,6 +330,60 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 		info.PlanTrial = *t.PlanTrial
 	}
 	return info
+}
+
+// readTenants is the authenticated read doctor and `auth status
+// --verify` make: the cheapest call the API must authorize.
+func readTenants(
+	ctx context.Context, client *api.ClientWithResponses,
+) ([]api.Tenant, error) {
+	resp, err := client.ListTenantsWithResponse(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tenants: %w", err)
+	}
+	if err := checkResponse(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return nil, err
+	}
+	if resp.JSON200 == nil {
+		return nil, nil
+	}
+	return *resp.JSON200, nil
+}
+
+// Doctor verdicts, each with one exit code.
+const (
+	verdictReady               = "ready"
+	verdictNoCredentials       = "no-credentials"
+	verdictCredsMisconfigured  = "credentials-misconfigured"
+	verdictSessionNeedsLogin   = "session-needs-login"
+	verdictSessionUnverified   = "session-unverified"
+	verdictEndpointUnreachable = "endpoint-unreachable"
+	verdictCredentialRejected  = "credential-rejected" //nolint:gosec // G101: a verdict name
+	verdictTenantUnresolved    = "tenant-unresolved"
+)
+
+// doctorVerdict reduces a report to one verdict and the exit code
+// --strict gives it. Reachability is judged before the tenant read,
+// which an unreachable host also fails.
+func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
+	switch {
+	case !r.Auth.Authenticated && r.Auth.problemCode == ExitUsage:
+		return verdictCredsMisconfigured, ExitUsage
+	case !r.Auth.Authenticated && r.Auth.Source == auth.SourceBrowser:
+		return verdictSessionNeedsLogin, ExitAuth
+	case !r.Auth.Authenticated:
+		return verdictNoCredentials, ExitAuth
+	case !r.API.Reachable:
+		return verdictEndpointUnreachable, ExitGeneral
+	case r.Tenant.Skipped != "":
+		return verdictSessionUnverified, ExitAuth
+	case conn.IsCredentialRejected(r.Tenant.err):
+		return verdictCredentialRejected, ExitAuth
+	case !r.Tenant.Resolved:
+		return verdictTenantUnresolved, ExitGeneral
+	}
+	return verdictReady, ExitOK
 }
 
 // tenantCheckRow renders the Tenant check. A plan that is not
@@ -356,6 +446,10 @@ func checkEnvironment() environmentInfo {
 // --- runner -------------------------------------------------------------------
 
 func runDoctor(rt *module.Runtime, f *conn.Flags) error {
+	return runDoctorStrict(rt, f, false)
+}
+
+func runDoctorStrict(rt *module.Runtime, f *conn.Flags, strict bool) error {
 	report := accountDoctorReport{
 		Auth:        checkAuth(rt, f),
 		API:         checkAPI(rt, f),
@@ -368,7 +462,19 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 	} else {
 		report.Tenant = checkTenant(rt, f)
 	}
+	verdict, code := doctorVerdict(report)
+	report.Verdict = verdict
+	if err := printDoctor(rt, report); err != nil {
+		return err
+	}
+	if strict && code != ExitOK {
+		return newExitError(
+			"starfleet doctor --strict: verdict is "+verdict, code)
+	}
+	return nil
+}
 
+func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 	if rt.Output.Structured() {
 		return rt.Output.Print(report, nil)
 	}
@@ -450,7 +556,19 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 			Status:  "ok",
 			Details: strings.Join(envParts, ", "),
 		},
+		output.CheckRow{
+			Check:   "Verdict",
+			Status:  verdictStatus(report.Verdict),
+			Details: report.Verdict,
+		},
 	}
 
 	return rt.Output.Print(rows, output.CheckHeaders())
+}
+
+func verdictStatus(verdict string) string {
+	if verdict == verdictReady {
+		return "ok"
+	}
+	return "error"
 }

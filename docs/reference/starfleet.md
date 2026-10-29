@@ -119,15 +119,22 @@ pgedge starfleet auth logout
 
 #### pgedge starfleet auth status
 
-**Usage:** `pgedge starfleet auth status`
+**Usage:** `pgedge starfleet auth status [flags]`
 
 Show current authentication state
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--verify` | No |  | Check that the server accepts the credential |
 
 **Example:**
 
 ```
 pgedge starfleet auth status
 pgedge starfleet auth status -o json
+pgedge starfleet auth status --verify
 ```
 
 #### pgedge starfleet auth whoami
@@ -252,15 +259,22 @@ pgedge starfleet client update b0c1d2e3-f4a5-6789-bcde-890123456789 \
 
 ### pgedge starfleet doctor
 
-**Usage:** `pgedge starfleet doctor`
+**Usage:** `pgedge starfleet doctor [flags]`
 
 Diagnose the pgEdge Starfleet connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--strict` | No |  | Exit non-zero unless the verdict is ready |
 
 **Example:**
 
 ```
 pgedge starfleet doctor
 pgedge starfleet doctor -o json
+pgedge starfleet doctor --strict
 ```
 
 ### pgedge starfleet invite
@@ -337,15 +351,22 @@ pgedge starfleet invite delete b0c1d2e3-f4a5-6789-bcde-890123456789 --force
 
 #### pgedge starfleet invite get
 
-**Usage:** `pgedge starfleet invite get <invite_id>`
+**Usage:** `pgedge starfleet invite get [<invite_id>] [flags]`
 
 Show invite details
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--email string` | No |  | Find the invites for this email address instead of an ID |
 
 **Example:**
 
 ```
 pgedge starfleet invite get b0c1d2e3-f4a5-6789-bcde-890123456789
 pgedge starfleet invite get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml
+pgedge starfleet invite get --email teammate@example.com
 ```
 
 #### pgedge starfleet invite list
@@ -396,15 +417,22 @@ pgedge starfleet membership delete b0c1d2e3-f4a5-6789-bcde-890123456789 --force
 
 #### pgedge starfleet membership list
 
-**Usage:** `pgedge starfleet membership list`
+**Usage:** `pgedge starfleet membership list [flags]`
 
 List team memberships
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--email string` | No |  | Show only the members with this email address |
 
 **Example:**
 
 ```
 pgedge starfleet membership list
 pgedge starfleet membership list -o json
+pgedge starfleet membership list --email teammate@example.com
 ```
 
 ### pgedge starfleet tenant

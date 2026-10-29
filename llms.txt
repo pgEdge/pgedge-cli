@@ -348,7 +348,8 @@ Four deliberate exceptions:
 
 - `pgedge starfleet doctor` exits **0** even when authentication is
   broken, because it is meant to be safe to run when auth is the
-  suspected problem. Read `auth.authenticated` in `-o json`, not `$?`.
+  suspected problem. `--strict` exits non-zero unless `verdict` is
+  `ready`.
 - `pgedge controlplane doctor` exits **0** for the same reason,
   including when the Control Plane is **unreachable**, has no cluster,
   or the active profile carries a field that will not parse, unless

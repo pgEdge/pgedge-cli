@@ -84,7 +84,8 @@ deliberate exceptions. These are the ones that matter for scripts:
 - `pgedge starfleet doctor` and `pgedge controlplane doctor` return
   exit status 0 even when the thing they diagnose is broken. Their job
   is to report, so a script reads their `-o json` fields to find a
-  fault.
+  fault, or runs `pgedge starfleet doctor --strict`, which exits
+  non-zero unless the connection is ready.
 - A plan-entitlement rejection is exit status 5, the same class as a
   bad credential. An auth-retry loop should stop on it.
 

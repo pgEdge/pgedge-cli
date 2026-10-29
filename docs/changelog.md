@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- `starfleet doctor` reports a one-word `verdict`, and `--strict`
+  exits non-zero unless it is `ready`.
+- `starfleet auth status --verify` reads the tenant with the
+  credential and exits 5 when the server rejects it.
+- `starfleet membership list --email` and `starfleet invite get
+  --email` look a person up by address, and exit 4 when none matches.
 - `controlplane cluster join --from <member>` reads the join token
   from an existing member and joins in one step, `--token-file` reads
   it from a file, and `--wait` waits for the new host to be healthy.

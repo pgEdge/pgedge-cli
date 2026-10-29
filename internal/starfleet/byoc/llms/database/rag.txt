@@ -246,7 +246,7 @@ deployed one otherwise, in one command with one exit status.
 with that read's exit status and sends no write.
 
 A new service needs every flag `deploy` requires, and a missing one is
-exit 2 with nothing sent. On a deployed service only the flags you
+exit 2 with no write sent. On a deployed service only the flags you
 pass change, as on `update`, and the LLM API keys must be passed again
 whenever you change the provider or model they belong to.
 

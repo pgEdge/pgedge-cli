@@ -43,6 +43,9 @@ var flightStanzas = []string{"preflight", "postflight", "uninstall_preflight", "
 // rejected since Homebrew 5ac888db7.
 var completionOrder = []string{"bash_completion", "zsh_completion", "fish_completion", "pwsh_completion"}
 
+// brew style's Cask/ZapNotRequired rejects this comment goreleaser writes.
+const noZapComment = "# No zap stanza required"
+
 // heredocStart matches a Ruby heredoc opener such as <<~EOS, whose body
 // runs to a line holding only EOS.
 var heredocStart = regexp.MustCompile(`<<[~-]?([A-Z_]+)`)
@@ -73,7 +76,8 @@ func run(in, out string) error {
 // patch inserts postflightSteps after the cask's last top-level
 // artifact line (binary or a *_completion), which is where brew style's
 // stanza order puts it, and sorts the completion lines into
-// completionOrder in the slots they already hold. Top-level only, so a
+// completionOrder in the slots they already hold. It also replaces
+// noZapComment with zap :not_required. Top-level only, so a
 // line inside an on_arm block or a caveats heredoc is never touched.
 func patch(cask string) (string, error) {
 	lines := strings.SplitAfter(cask, "\n")
@@ -97,6 +101,9 @@ func patch(cask string) (string, error) {
 			}
 		}
 		topLevel := strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ")
+		if topLevel && strings.TrimSpace(line) == noZapComment {
+			lines[i] = strings.Replace(line, noZapComment, "zap :not_required", 1)
+		}
 		if topLevel && (word == "binary" || strings.HasSuffix(word, "_completion")) {
 			last = i
 		}

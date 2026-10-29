@@ -110,24 +110,33 @@ func TestIngressCreateFromDatabase(t *testing.T) {
 func TestIngressRegisterByServiceType(t *testing.T) {
 	reg := `{"database_id":"` + testDatabaseID + `","service_id":"svc-1",` +
 		`"url":"https://mcp.example.com"}`
+	twoMCP := strings.Replace(dbWithServiceBody, `"services":[`,
+		`"services":[{"service_id":"svc-2","service_type":"mcp"},`, 1)
 	cases := []struct {
 		name     string
 		dbBody   string
 		extra    []string
 		wantCode int
+		wantID   string
 	}{
 		{"resolves the id", dbWithServiceBody,
-			[]string{"--service", "mcp"}, 0},
+			[]string{"--service", "mcp"}, 0, "svc-1"},
 		{"agreeing id", dbWithServiceBody,
-			[]string{"--service", "mcp", "--service-id", "svc-1"}, 0},
+			[]string{"--service", "mcp", "--service-id", "svc-1"}, 0,
+			"svc-1"},
 		{"disagreeing id", dbWithServiceBody,
 			[]string{"--service", "mcp", "--service-id", "svc-9"},
-			ExitUsage},
+			ExitUsage, ""},
+		{"id picks one of several", twoMCP,
+			[]string{"--service", "mcp", "--service-id", "svc-2"}, 0,
+			"svc-2"},
+		{"several need an id", twoMCP,
+			[]string{"--service", "mcp"}, ExitUsage, ""},
 		{"type not deployed", dbNoServiceBody,
-			[]string{"--service", "mcp"}, ExitGeneral},
+			[]string{"--service", "mcp"}, ExitGeneral, ""},
 		{"unknown type", dbWithServiceBody,
-			[]string{"--service", "mpc"}, ExitUsage},
-		{"neither flag", dbWithServiceBody, nil, ExitUsage},
+			[]string{"--service", "mpc"}, ExitUsage, ""},
+		{"neither flag", dbWithServiceBody, nil, ExitUsage, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -153,7 +162,7 @@ func TestIngressRegisterByServiceType(t *testing.T) {
 			if err != nil {
 				t.Fatalf("want exit 0, got %v", err)
 			}
-			if !strings.Contains(wrote, `"service_id":"svc-1"`) {
+			if !strings.Contains(wrote, `"service_id":"`+tc.wantID+`"`) {
 				t.Errorf("register body %s names the wrong service", wrote)
 			}
 		})

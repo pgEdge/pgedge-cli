@@ -104,10 +104,13 @@ names them in order.
 Each rule is stated in full on the page named beside it.
 
 - **Pass `--wait` on every write in a script.** A write exits 0 when
-  the API accepts it, not when the work finishes. With `--wait` it
-  exits 0 only once the resource reaches its end status, so do not
-  re-read it with `get` to confirm. See the index's "Asynchronous
-  operations".
+  the API accepts it, not when the work finishes. On a cluster,
+  database or backup-store write, `--wait` exits 0 only once the
+  resource reaches its end status, so no `get` is needed to confirm.
+  A service write's `--wait` reads the database, not the service, so
+  still read `database service list` for a `failed` state. On an
+  ingress, `--wait` covers only the task. See the index's
+  "Asynchronous operations".
 - **Run writes one at a time.** A database accepts one change at a
   time, so deploy services one by one, each with `--wait`, or run
   `database wait` between writes. A busy refusal names the

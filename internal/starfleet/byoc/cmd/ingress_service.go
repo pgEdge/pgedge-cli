@@ -162,17 +162,14 @@ Example:
 				if err != nil {
 					return err
 				}
-				resolved, err := serviceIDOfType(db, svcType)
+				given := ""
+				if f.Changed("service-id") {
+					given = serviceID
+				}
+				serviceID, err = serviceIDOfType(db, svcType, given)
 				if err != nil {
 					return err
 				}
-				if f.Changed("service-id") && serviceID != resolved {
-					return newExitError(fmt.Sprintf(
-						"--service-id %q is not database %s's %s "+
-							"service (%s)", serviceID, dbID, svcType,
-						output.Sanitize(resolved)), ExitUsage)
-				}
-				serviceID = resolved
 				rt.DryRun.Pass("%s service %s found on database %s",
 					svcType, output.Sanitize(serviceID), dbID)
 			}
@@ -227,10 +224,11 @@ var serviceTypes = []string{
 	string(api.ServiceServiceTypePostgrest),
 }
 
-// serviceIDOfType returns the ID of the database's service of type t.
-// The database lists one entry per service instance, so a service on
-// several hosts repeats its ID; only distinct IDs are ambiguous.
-func serviceIDOfType(db *api.Database, t string) (string, error) {
+// serviceIDOfType returns the ID of the database's service of type t,
+// or given when it is one of them. The database lists one entry per
+// service instance, so a service on several hosts repeats its ID; only
+// distinct IDs are ambiguous.
+func serviceIDOfType(db *api.Database, t, given string) (string, error) {
 	var ids []string
 	if db.Services != nil {
 		for _, svc := range *db.Services {
@@ -240,17 +238,24 @@ func serviceIDOfType(db *api.Database, t string) (string, error) {
 			}
 		}
 	}
-	switch len(ids) {
-	case 0:
+	list := output.Sanitize(strings.Join(ids, ", "))
+	switch {
+	case len(ids) == 0:
 		return "", newExitError(fmt.Sprintf(
 			"no %q service deployed on database %s", t, db.Id),
 			ExitGeneral)
-	case 1:
+	case given != "" && slices.Contains(ids, given):
+		return given, nil
+	case given != "":
+		return "", newExitError(fmt.Sprintf(
+			"--service-id %q is not a %q service on database %s (%s)",
+			given, t, db.Id, list), ExitUsage)
+	case len(ids) == 1:
 		return ids[0], nil
 	}
 	return "", newExitError(fmt.Sprintf(
 		"database %s has %d %q services (%s); pass --service-id",
-		db.Id, len(ids), t, output.Sanitize(strings.Join(ids, ", "))),
+		db.Id, len(ids), t, list),
 		ExitUsage)
 }
 

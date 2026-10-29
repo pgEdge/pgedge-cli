@@ -152,7 +152,7 @@ streams the task's step messages, and both share one `--wait-timeout`.
 | Write | End status |
 |---|---|
 | cluster, database or backup-store `create`; `cluster update`; `database restore`, `rotate-password` and the service writes | the resource is `available` (a service write reads its database) |
-| cluster, database or backup-store `delete` | the resource answers 404 |
+| cluster, database or backup-store `delete` | the resource answers 404, or reads `deleted` |
 | ingress `create` and `delete` | the task succeeded; the resource is not read |
 
 Both exit 0 at the end status, 1 when the task failed or the resource
@@ -202,10 +202,12 @@ and `database rag` pages say why.
 `database update` or a restore against a database that is neither
 `available` nor `degraded` is refused with 400 `database in
 unmodifiable state: <status>`, exit 1. Pass `--wait` on each write, or
-run `database wait <database_id>` between them. When a write is refused
-as busy, the error also names the resource's status, read once: retry a
-transitional one after it settles, and read the last task (`task list
---subject-id <id>`) for any other.
+run `database wait <database_id>` between them. That 400 names the
+status itself. The refusals the CLI reports as a busy resource, a 409
+and `rotate-password`'s `database is not in available status`, do not,
+so for those the CLI reads the resource once and adds its status to the
+error: retry a transitional one after it settles, and read the last
+task (`task list --subject-id <id>`) for any other.
 
 ### Built-in roles
 

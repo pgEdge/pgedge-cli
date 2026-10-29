@@ -13,7 +13,8 @@ Four flags appear on every asynchronous command in all three modules:
 
 - `--wait` blocks until the operation's task reaches a terminal state,
   printing one status line per poll to `stderr`. In byoc and managed
-  it then reads the resource until it reaches the write's end status.
+  it then reads the resource until it reaches the write's end status,
+  except on byoc ingress writes, where the task is all it waits for.
 - `--follow` blocks the same way but streams the task's step messages
   instead of bare status lines, one line per step transition.
 - `--wait-timeout` bounds the wait, in seconds.

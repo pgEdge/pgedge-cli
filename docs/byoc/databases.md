@@ -267,11 +267,10 @@ and its cluster must be `available`, and the database is checked
 first.
 
 A rotation refused while the database is busy exits 1 with a message
-saying to wait and retry. That advice is right for a `modifying`
-database, but wrong for a `failed` one: a `failed` database returns
-the same message and never becomes available, because the API's body
-does not name the status. Run `database get`
-before retrying. A `deleting` database answers 404 instead. A refusal
+saying to wait and retry. A `failed` database, which never becomes
+available, returns the same message, so the CLI reads the database
+once and names its status in the error. Retry only when that status
+is one the database passes through, such as `modifying`. A refusal
 naming the cluster, not the database, is a different condition with a
 different remedy. The refusal comes back as a plain bad request. The
 [Rotate a BYOC database password](rotate-credentials.md) guide covers

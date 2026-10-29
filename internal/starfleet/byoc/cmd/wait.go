@@ -321,10 +321,7 @@ func timeoutError(timeout int, subjectID, taskID string) error {
 
 // trackMutation handles the asynchronous tail of a resource command:
 // it waits when tracking, otherwise prints a monitor hint in text
-// output. A succeeded task sets the status rather than proving it, so
-// with end set the wait goes on, within the same --wait-timeout, until
-// end reaches its end state. end is nil only where that state is not
-// known.
+// output. With end set, the wait goes on until end reaches its state.
 //
 // priorTaskID must be the newest task for the subject captured before
 // the mutation. For a freshly created resource it is "", since the new

@@ -15,6 +15,8 @@
   the service ID from it.
 - `starfleet doctor` reports a one-word `verdict`, and `--strict`
   exits non-zero unless it is `ready`.
+- `starfleet doctor` reports whether the tenant can use BYOC, so an
+  empty byoc list is no longer ambiguous.
 - `starfleet auth status --verify` reads the tenant with the
   credential and exits 5 when the server rejects it.
 - `starfleet membership list --email` and `starfleet invite get

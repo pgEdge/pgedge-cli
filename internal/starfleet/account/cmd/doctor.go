@@ -15,6 +15,7 @@ import (
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
+	byocapi "github.com/pgEdge/pgedge-cli/internal/starfleet/byoc/api"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/pgEdge/pgedge-cli/internal/useragent"
 	"github.com/spf13/cobra"
@@ -111,6 +112,8 @@ type accountDoctorReport struct {
 	API         apiInfo         `json:"api"`
 	Tenant      tenantInfo      `json:"tenant"`
 	Environment environmentInfo `json:"environment"`
+	// BYOC is one of the byoc* values, set only on a ready verdict.
+	BYOC string `json:"byoc,omitempty"`
 }
 
 // --- command wiring -----------------------------------------------------------
@@ -125,12 +128,13 @@ func NewDoctorCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
 		Short: "Diagnose the pgEdge Starfleet connection",
 		Long: `doctor reports which credential source is in effect, whether
 the cached token is still valid, whether the resolved API base URL is
-reachable, and which tenant the credential authenticates as. It never
-fails on missing credentials, so it is safe to run precisely when
-authentication is broken.
+reachable, which tenant the credential authenticates as, and whether
+that tenant can use BYOC. It never fails on missing
+credentials, so it is safe to run precisely when authentication is
+broken.
 
 It changes nothing. Reading the tenant needs a token, so doctor may
-exchange one, but that token is used for the single call and never
+exchange one, but that token is used for doctor's reads and never
 written to the token cache — including when --api-url points somewhere
 other than the profile's own host. Whatever a later command would have
 used, it still will.
@@ -154,7 +158,15 @@ The verdict sums the report up in one word:
 
 doctor exits 0 whatever the verdict. With --strict it exits with the
 code shown when the verdict is not ready. The tenant's plan does not
-affect the verdict; read tenant.plan for that.
+affect the verdict; read byoc before byoc work.
+
+On a ready verdict, the BYOC row (JSON byoc) reads:
+
+  entitled      the tenant can use BYOC
+  not-entitled  the tenant cannot use BYOC; a byoc command prints
+                an empty list or exits 5
+  unknown       the check failed for another reason; to see why,
+                run 'pgedge starfleet byoc cloud-account list'
 
 For the install itself — version, config file, shell — run
 'pgedge doctor'.
@@ -270,11 +282,6 @@ func checkAPI(rt *module.Runtime, f *conn.Flags) apiInfo {
 	return info
 }
 
-// enterprisePlan is the only plan whose entitlements admit byoc. The
-// API denies its capabilities (clusters, cloud accounts, backup stores,
-// ssh keys) on every other plan.
-const enterprisePlan = "enterprise"
-
 // checkTenant reads the tenant the active credential authenticates as.
 //
 // Every failure is reported as unresolved rather than returned:
@@ -286,7 +293,9 @@ const enterprisePlan = "enterprise"
 // checkAuth had printed "token expired or missing", and since a cached
 // token is bound to the API URL, `doctor --api-url <elsewhere>` would
 // evict the working token for the profile's own host.
-func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
+func checkTenant(
+	rt *module.Runtime, f *conn.Flags,
+) (tenantInfo, *conn.Conn) {
 	// --timeout 0 unbounds ordinary commands, but a hung token mint
 	// must not hang a diagnostic. A raised --timeout is honoured.
 	timeout := f.Timeout
@@ -297,7 +306,7 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	cf.Timeout = timeout
 	client, c, err := newEphemeralAccountClient(rt, cf)
 	if err != nil {
-		return tenantInfo{err: err}
+		return tenantInfo{err: err}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(
@@ -306,10 +315,10 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 
 	tenants, err := readTenants(ctx, client)
 	if err != nil {
-		return tenantInfo{err: err}
+		return tenantInfo{err: err}, c
 	}
 	if len(tenants) == 0 {
-		return tenantInfo{}
+		return tenantInfo{}, c
 	}
 
 	t := tenants[0]
@@ -329,7 +338,41 @@ func checkTenant(rt *module.Runtime, f *conn.Flags) tenantInfo {
 	if t.PlanTrial != nil {
 		info.PlanTrial = *t.PlanTrial
 	}
-	return info
+	return info, c
+}
+
+// BYOC entitlement values.
+const (
+	byocEntitled    = "entitled"
+	byocNotEntitled = "not-entitled"
+	byocUnknown     = "unknown"
+)
+
+// checkBYOC lists cloud accounts, the one byoc read the API refuses
+// outright on a plan without BYOC; the other byoc lists answer 200
+// with an empty array there.
+func checkBYOC(c *conn.Conn) string {
+	client, err := byocapi.NewClient(c.APIURL,
+		byocapi.WithRequestEditorFn(c.BearerEditor),
+		byocapi.WithHTTPClient(c.HTTPClient))
+	if err != nil {
+		return byocUnknown
+	}
+	ctx, cancel := context.WithTimeout(
+		context.Background(), 10*time.Second)
+	defer cancel()
+	resp, err := client.ListCloudAccounts(ctx)
+	if err != nil {
+		return byocUnknown
+	}
+	err = checkEmptyBodyResponse(resp, "cloud account list")
+	switch {
+	case err == nil:
+		return byocEntitled
+	case conn.IsPlanDenied(err):
+		return byocNotEntitled
+	}
+	return byocUnknown
 }
 
 // readTenants is the authenticated read doctor and `auth status
@@ -386,9 +429,8 @@ func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 	return verdictReady, ExitOK
 }
 
-// tenantCheckRow renders the Tenant check. A plan that is not
-// enterprise is a warning, not an error: the credential works, it just
-// cannot drive byoc.
+// tenantCheckRow renders the Tenant check. The plan is reported, not
+// judged: the BYOC row measures what the plan allows.
 func tenantCheckRow(info tenantInfo) output.CheckRow {
 	if info.Skipped != "" {
 		return output.CheckRow{
@@ -426,13 +468,7 @@ func tenantCheckRow(info tenantInfo) output.CheckRow {
 			info.Count)
 	}
 
-	status := "ok"
-	if plan != enterprisePlan {
-		status = "warning"
-		detail += fmt.Sprintf(
-			"; byoc verbs are entitlement-denied on a %s plan", plan)
-	}
-	return output.CheckRow{Check: "Tenant", Status: status, Details: detail}
+	return output.CheckRow{Check: "Tenant", Status: "ok", Details: detail}
 }
 
 func checkEnvironment() environmentInfo {
@@ -450,6 +486,7 @@ func runDoctor(rt *module.Runtime, f *conn.Flags) error {
 }
 
 func runDoctorStrict(rt *module.Runtime, f *conn.Flags, strict bool) error {
+	var c *conn.Conn
 	report := accountDoctorReport{
 		Auth:        checkAuth(rt, f),
 		API:         checkAPI(rt, f),
@@ -460,10 +497,13 @@ func runDoctorStrict(rt *module.Runtime, f *conn.Flags, strict bool) error {
 		a.Authenticated && !a.TokenValid {
 		report.Tenant.Skipped = "the browser session renews on next use"
 	} else {
-		report.Tenant = checkTenant(rt, f)
+		report.Tenant, c = checkTenant(rt, f)
 	}
 	verdict, code := doctorVerdict(report)
 	report.Verdict = verdict
+	if verdict == verdictReady && c != nil {
+		report.BYOC = checkBYOC(c)
+	}
 	if err := printDoctor(rt, report); err != nil {
 		return err
 	}
@@ -551,6 +591,17 @@ func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 			Details: apiDetail,
 		},
 		tenantCheckRow(report.Tenant),
+	}
+	if report.BYOC != "" {
+		status := "warning"
+		if report.BYOC == byocEntitled {
+			status = "ok"
+		}
+		rows = append(rows, output.CheckRow{
+			Check: "BYOC", Status: status, Details: report.BYOC,
+		})
+	}
+	rows = append(rows,
 		output.CheckRow{
 			Check:   "Environment",
 			Status:  "ok",
@@ -561,7 +612,7 @@ func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 			Status:  verdictStatus(report.Verdict),
 			Details: report.Verdict,
 		},
-	}
+	)
 
 	return rt.Output.Print(rows, output.CheckHeaders())
 }

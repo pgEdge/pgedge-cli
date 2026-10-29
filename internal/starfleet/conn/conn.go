@@ -99,6 +99,8 @@ type ExitError struct {
 	// rejected: the server refused the credential itself, as opposed to
 	// failing to answer. Both are ExitAuth to an ordinary command.
 	rejected bool
+	// planDenied: the tenant's plan lacks the capability requested.
+	planDenied bool
 }
 
 // NewExitError builds an ExitError with the given message and code.
@@ -121,6 +123,13 @@ func (e *ExitError) Busy() bool { return e.busy }
 func IsCredentialRejected(err error) bool {
 	var ee *ExitError
 	return errors.As(err, &ee) && ee.rejected
+}
+
+// IsPlanDenied reports an error carrying the API's refusal of a
+// capability the tenant's plan lacks.
+func IsPlanDenied(err error) bool {
+	var ee *ExitError
+	return errors.As(err, &ee) && ee.planDenied
 }
 
 // UnrefusedAsGeneral re-codes an exit-5 error that is not a refusal of
@@ -293,7 +302,8 @@ func CheckResponse(status int, body string) error {
 						"about a per-tenant override for this tenant.\n"+
 						"(server said (%d): %s)",
 					status, excerpt),
-				code: ExitAuth,
+				code:       ExitAuth,
+				planDenied: true,
 			}
 		}
 		if strings.Contains(body, busyStatusPhrase) ||

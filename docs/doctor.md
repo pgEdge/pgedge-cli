@@ -76,7 +76,8 @@ and its failure modes.
 
 `pgedge starfleet doctor` is the verdict on the Starfleet connection,
 which byoc and managed both share. There is no byoc or managed doctor
-for that reason. It prints five rows.
+for that reason. It prints five rows, and a sixth, BYOC, when the
+verdict is `ready`.
 
 The following table describes each row and what a warning means:
 
@@ -84,7 +85,8 @@ The following table describes each row and what a warning means:
 |---|---|---|
 | Auth | Which credential source resolved, whether a token is cached, and whether that token is still valid. | Credentials resolve but the token is expired or absent, or a valid cached token was minted for a different connection. It reports `error` when no credentials resolve at all. |
 | API connectivity | An unauthenticated GET against the resolved base URL, with the status and latency. | Never. An unreachable endpoint is reported as `error`. |
-| Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, the tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
+| Tenant | The tenant the credential authenticates as, its ID and its plan. | The tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
+| BYOC | Whether the tenant can use BYOC: `entitled`, `not-entitled` or `unknown`, the `byoc` field in JSON. Printed only on a `ready` verdict. | The value is `not-entitled` or `unknown`. Any other failed check reads `unknown`; run `pgedge starfleet byoc cloud-account list` to see why. |
 | Environment | The operating system, architecture, and whether `NO_COLOR` is set. | Never. |
 | Verdict | The report in one word, the `verdict` field in JSON. | Never. Any verdict but `ready` is reported as `error`. |
 
@@ -103,12 +105,12 @@ The Tenant row is the only one that proves the server accepts the
 credential, because reading a tenant is an authenticated call. The API
 connectivity row is an unauthenticated probe and says nothing about it. A
 profile carries one Starfleet credential that byoc and managed both borrow, so
-a profile is a tenant, and the plan decides which modules work. On a
-non-enterprise plan, byoc commands are denied server-side and the symptom is
-otherwise an empty list that looks like "no resources yet".
+a profile is a tenant, and the plan decides which modules work. The BYOC
+row says whether the tenant can use byoc, so an empty byoc list is not
+misread as "no resources yet".
 
 Reading the tenant needs a token, so doctor may exchange one. That
-token is used for the single call and never written to the cache, even
+token is used for doctor's reads and never written to the cache, even
 under `--api-url`, so running doctor never changes which token a later
 command uses. The whole tenant probe is bounded at ten seconds
 whatever `--timeout` says, because a diagnostic whose job is to answer
@@ -117,8 +119,8 @@ must not hang.
 For a script, gate on `--strict` or on `verdict`. Do not gate on
 `token_valid`: it describes the token cache, which doctor does not
 write, so it stays `false` on a profile with good credentials and no
-cached token. The plan does not change the verdict, so read
-`tenant.plan` before byoc work.
+cached token. The plan does not change the verdict, so read `byoc`
+before byoc work.
 
 The following table lists each verdict and the code `--strict` exits
 with:

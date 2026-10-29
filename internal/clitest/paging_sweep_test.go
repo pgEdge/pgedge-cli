@@ -29,8 +29,8 @@ import (
 //
 // An allowlist rather than a per-verb assertion, because the property
 // being protected is a negative one: a ceiling must exist ONLY where
-// the vendored spec declares a maximum. managed.yaml declares one for
-// exactly two operations; byoc.yaml, account.yaml and
+// the vendored spec declares a maximum. managed.yaml declares some;
+// byoc.yaml, account.yaml and
 // control-plane.json declare none anywhere.
 //
 // This map does not certify itself. TestPagingCeilingsAreSpecDerived

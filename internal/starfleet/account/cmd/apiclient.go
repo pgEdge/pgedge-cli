@@ -186,7 +186,8 @@ without auth0_secret under -o json and -o yaml. The file must not
 exist, and a path that cannot be created is refused before any
 request. If the client is created but the
 file cannot be written, the secret is printed on stderr instead and
-create exits 1.
+create exits 1. If the API returns no secret, create warns on stderr,
+writes no file and exits 0.
 
 Both --name and --description are required by the API.
 

@@ -20,13 +20,7 @@ a plain read and takes neither flag.
 
 **--force skips the confirmation prompt, and nothing else.** The
 server-side unmodifiable-state override is its own flag,
---force-unmodifiable:
-
-| Verb | Prompts? | Server-side override |
-|---|---|---|
-| `start` | No | `--force-unmodifiable` starts even if unmodifiable; the verb has no `--force` at all (unknown flag, exit 2) |
-| `stop` | Yes | `--force-unmodifiable` stops even if unmodifiable |
-| `restart` | Yes | none — the endpoint takes no force parameter |
+--force-unmodifiable.
 
 `stop` and `restart` interrupt service, so both refuse to run
 non-interactively without --force, exiting 2 with "this operation is

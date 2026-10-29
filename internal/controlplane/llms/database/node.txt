@@ -18,13 +18,7 @@ name and spawns an asynchronous task; use --wait/--follow to track it.
 
 **--force means one thing everywhere: skip the confirmation prompt.**
 Where a server-side override exists it is its own flag,
---force-unmodifiable:
-
-| Verb | Prompts? | Server-side override |
-|------|----------|----------------------|
-| `backup` | No | `--force-unmodifiable` attempts the backup in an unmodifiable state (and the verb has no `--force`: it never prompts) |
-| `switchover` | Yes | none (`--skip-validation` is the separate health-check bypass on failover) |
-| `failover` | Yes | none |
+--force-unmodifiable.
 
 `switchover` and `failover` both interrupt service, so both refuse to
 run non-interactively without --force, exiting 2 with "this operation

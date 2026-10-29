@@ -370,10 +370,10 @@ Four deliberate exceptions:
 ## Paging
 
 `--limit` and `--offset` mean the same thing wherever a verb has them.
-Exactly eleven verbs carry `--limit`: byoc's six list
-verbs plus `backup-repository get`, managed's three list verbs, and
-`controlplane task list`, which has no `--offset`. On any other verb
-an `unknown flag` exit 2 is the flag not existing.
+`--limit` is on some byoc and managed list verbs, on byoc
+`backup-repository get`, and on `controlplane task list`, which has no
+`--offset`. The flag tables in each module reference show which.
+On any other verb an `unknown flag` exit 2 is the flag not existing.
 
 **Omitting a flag is how you ask for the server's default.** A value
 it cannot mean is refused locally at exit **2** with **no request
@@ -384,8 +384,8 @@ Writing `--limit "$N"` with `N` unset is the usual way that happens.
 **Any maximum is per ENDPOINT, not per flag name.** Where the API
 publishes a bound the CLI enforces it and the error names it. Where it
 publishes none the CLI enforces none, even where the server is known
-to clamp. Only managed declares any maximum, on two operations, and
-`--offset` has none anywhere.
+to clamp. Only managed declares any maximum, and `--offset` has none
+anywhere.
 
 **A server-side clamp is reported.** Every byoc and managed list verb that
 takes `--limit` prints a `Showing first N results...` hint to stderr when a

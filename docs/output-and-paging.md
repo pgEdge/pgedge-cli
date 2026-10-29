@@ -3,7 +3,7 @@
 Four rules govern how a result reaches you: three output formats, a
 guarantee that binds two of them together, successes that print
 nothing at all, and the `--limit` and `--offset` contract on the
-eleven commands that page.
+commands that page.
 
 ## Choosing a format
 
@@ -105,9 +105,8 @@ vocabulary, which its
 ## Paging
 
 `--limit` and `--offset` mean the same thing wherever a command has
-them, and most commands do not have them. Exactly eleven carry
-`--limit`, each with the page its endpoint applies when the flag is
-omitted:
+them, and most commands do not have them. These carry `--limit`, each
+with the page its endpoint applies when the flag is omitted:
 
 | Command | Default page | Ceiling |
 |---|---|---|
@@ -119,6 +118,7 @@ omitted:
 | `starfleet byoc ingress list` | 10 | clamped at 100 |
 | `starfleet byoc task list` | 25 | clamped at 100 |
 | `starfleet managed backup list` | 100 | refused above 100 |
+| `starfleet managed database branch list` | 100 | refused above 100 |
 | `starfleet managed database list` | no page applied | refused above 1000 |
 | `starfleet managed task list` | 25 | clamped at 100 |
 | `controlplane task list` | server default | none published |
@@ -147,7 +147,7 @@ publishes a bound the CLI enforces it and the error names the
 number. Where the API publishes none the CLI enforces none, even on
 an endpoint the server is known to clamp, because refusing a value
 the contract permits would be wrong the day the cap moves. Only
-`managed` declares any maximum, on two operations.
+`managed` declares any maximum.
 
 The CLI refuses this request before sending anything, because
 `/managed/v1/databases` declares a maximum of 1000:

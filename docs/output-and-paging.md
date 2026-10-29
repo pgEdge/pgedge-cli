@@ -105,9 +105,8 @@ vocabulary, which its
 ## Paging
 
 `--limit` and `--offset` mean the same thing wherever a command has
-them, and most commands do not have them. Exactly eleven carry
-`--limit`, each with the page its endpoint applies when the flag is
-omitted:
+them, and most commands do not have them. These carry `--limit`, each
+with the page its endpoint applies when the flag is omitted:
 
 | Command | Default page | Ceiling |
 |---|---|---|
@@ -119,6 +118,7 @@ omitted:
 | `starfleet byoc ingress list` | 10 | clamped at 100 |
 | `starfleet byoc task list` | 25 | clamped at 100 |
 | `starfleet managed backup list` | 100 | refused above 100 |
+| `starfleet managed database branch list` | 100 | refused above 100 |
 | `starfleet managed database list` | no page applied | refused above 1000 |
 | `starfleet managed task list` | 25 | clamped at 100 |
 | `controlplane task list` | server default | none published |

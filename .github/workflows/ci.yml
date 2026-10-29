@@ -252,7 +252,7 @@ jobs:
         with:
           version: v2.18.2
           args: release --snapshot --clean --skip=sign,sbom,publish,validate
-      - uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # main
+      - uses: Homebrew/actions/setup-homebrew@d482da0e602890d3160aade42e72c8556103bf04 # main
       - name: Patch the cask
         run: |
           mkdir -p "$RUNNER_TEMP/good/Casks"

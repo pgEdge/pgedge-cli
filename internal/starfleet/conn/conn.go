@@ -95,6 +95,9 @@ const (
 type ExitError struct {
 	msg  string
 	code int
+	// rejected: the server refused the credential itself, as opposed to
+	// failing to answer. Both are ExitAuth to an ordinary command.
+	rejected bool
 }
 
 // NewExitError builds an ExitError with the given message and code.
@@ -106,6 +109,43 @@ func (e *ExitError) Error() string { return e.msg }
 
 // Code returns the process exit code associated with the error.
 func (e *ExitError) Code() int { return e.code }
+
+// IsCredentialRejected reports an error carrying the server's refusal
+// of the credential: a 401 or 403, a token exchange answered 400, 401
+// or 403, or a browser session that must sign in again.
+func IsCredentialRejected(err error) bool {
+	var ee *ExitError
+	return errors.As(err, &ee) && ee.rejected
+}
+
+// UnrefusedAsGeneral re-codes an exit-5 error that is not a refusal of
+// the credential as exit 1, for a caller whose 5 must mean "refused".
+// Any other error is returned unchanged.
+func UnrefusedAsGeneral(err error) error {
+	var ee *ExitError
+	if !errors.As(err, &ee) || ee.code != ExitAuth || ee.rejected {
+		return err
+	}
+	return &ExitError{msg: err.Error(), code: ExitGeneral}
+}
+
+// tokenStatusError is a token exchange the server answered non-2xx.
+type tokenStatusError struct {
+	status int
+	msg    string
+}
+
+func (e *tokenStatusError) Error() string { return e.msg }
+
+// authFailed is the exit-5 error for a failed token exchange.
+func authFailed(err error) *ExitError {
+	var ts *tokenStatusError
+	rejected := errors.As(err, &ts) && (ts.status == http.StatusBadRequest ||
+		ts.status == http.StatusUnauthorized ||
+		ts.status == http.StatusForbidden)
+	return &ExitError{msg: fmt.Sprintf("authentication failed: %v", err),
+		code: ExitAuth, rejected: rejected}
+}
 
 // isRouteMiss reports whether a 404 came from a router rather than a
 // handler: it is a route miss unless the body parses as a JSON object
@@ -228,8 +268,9 @@ func CheckResponse(status int, body string) error {
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:
 		return &ExitError{
-			msg:  fmt.Sprintf("authentication error (%d): %s", status, excerpt),
-			code: ExitAuth,
+			msg:      fmt.Sprintf("authentication error (%d): %s", status, excerpt),
+			code:     ExitAuth,
+			rejected: true,
 		}
 	case http.StatusBadRequest:
 		if strings.Contains(body, planDenialPhrase) {
@@ -404,9 +445,9 @@ func (a *Authenticator) Exchange(ctx context.Context,
 		return nil, fmt.Errorf("conn: read token response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf(
-			"conn: token endpoint returned %s: %s",
-			resp.Status, bodyExcerpt(raw))
+		return nil, &tokenStatusError{status: resp.StatusCode,
+			msg: fmt.Sprintf("conn: token endpoint returned %s: %s",
+				resp.Status, bodyExcerpt(raw))}
 	}
 
 	// A proxy intercepting the token endpoint can answer 2xx with HTML,
@@ -611,9 +652,11 @@ type Session struct {
 // SessionExpiredError is the exit-5 failure for a browser session
 // whose token is expired, missing, or was signed in for another API.
 func SessionExpiredError(rt *module.Runtime, apiURL string) *ExitError {
-	return NewExitError(fmt.Sprintf("the browser sign-in for %s has "+
+	e := NewExitError(fmt.Sprintf("the browser sign-in for %s has "+
 		"expired or is missing: run '%s' to sign in again",
 		apiURL, loginCommand(rt)), ExitAuth)
+	e.rejected = true
+	return e
 }
 
 // SessionRefusedError is SessionExpiredError carrying the reason Auth0
@@ -624,9 +667,11 @@ func SessionRefusedError(rt *module.Runtime, apiURL string,
 	if !errors.As(err, &d) || d.Description == "" {
 		return SessionExpiredError(rt, apiURL)
 	}
-	return NewExitError(fmt.Sprintf("the browser sign-in for %s could "+
+	e := NewExitError(fmt.Sprintf("the browser sign-in for %s could "+
 		"not be renewed: %s; run '%s' to sign in again",
 		apiURL, d.Description, loginCommand(rt)), ExitAuth)
+	e.rejected = true
+	return e
 }
 
 // loginCommand is the auth login line for rt's profile.
@@ -884,8 +929,7 @@ func resolve(rt *module.Runtime, f Flags, policy tokenPolicy,
 	value, expiry, err := token(context.Background(), rt, store, apiURL,
 		creds, timeout, policy)
 	if err != nil {
-		return nil, NewExitError(
-			fmt.Sprintf("authentication failed: %v", err), ExitAuth)
+		return nil, authFailed(err)
 	}
 
 	// The editor asks a source rather than closing over one token, so a
@@ -906,8 +950,7 @@ func resolve(rt *module.Runtime, f Flags, policy tokenPolicy,
 		BearerEditor: func(ctx context.Context, req *http.Request) error {
 			v, err := src.bearer(ctx)
 			if err != nil {
-				return NewExitError(fmt.Sprintf(
-					"authentication failed: %v", err), ExitAuth)
+				return authFailed(err)
 			}
 			req.Header.Set("Authorization", "Bearer "+v)
 			return nil

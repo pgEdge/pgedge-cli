@@ -139,12 +139,17 @@ Example:
   pgedge starfleet invite get --email teammate@example.com`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) == (email != "") {
+			byEmail := cmd.Flags().Changed("email")
+			if (len(args) == 1) == byEmail {
 				return newExitError("pass exactly one of an invite ID "+
 					"or --email", ExitUsage)
 			}
-			if email != "" {
-				return inviteGetByEmail(rt, cmd, email)
+			if byEmail {
+				addr, err := emailArg(email)
+				if err != nil {
+					return err
+				}
+				return inviteGetByEmail(rt, cmd, addr)
 			}
 			id, err := cli.ParseUUIDArg(args[0], "invite ID")
 			if err != nil {
@@ -201,11 +206,10 @@ func inviteGetByEmail(
 		string(resp.Body)); err != nil {
 		return err
 	}
-	var all []api.Invite
-	if resp.JSON200 != nil {
-		all = *resp.JSON200
+	if resp.JSON200 == nil || *resp.JSON200 == nil {
+		return errNoListBody("invites")
 	}
-	invites := matchEmail(all, email,
+	invites := matchEmail(*resp.JSON200, email,
 		func(inv api.Invite) string { return inv.Email })
 	if len(invites) == 0 {
 		return errNoEmailMatch("invite", email)

@@ -386,7 +386,8 @@ accepts them.
 
 --verify also reads the tenant list, as any command would, and
 reports "verified". It exits 5 when the server rejects the
-credential; other failures keep their usual exit codes.
+credential. Any other failure, such as a 5xx or a timed-out token
+exchange, exits with another non-zero code, usually 1.
 
 Example:
   pgedge starfleet auth status
@@ -487,19 +488,31 @@ Example:
 	return cmd
 }
 
-// verifyCredential makes doctor's tenant read through the ordinary
-// resolver, so an expired session renews as any command would renew it.
+// verifyCredential lists tenants as doctor does, but through
+// conn.Resolve, so an expired session renews as any command would.
+// Exit 5 is kept for a refusal of the credential; an exchange that
+// failed for any other reason is exit 1.
 func verifyCredential(rt *module.Runtime, f *conn.Flags) error {
-	c, err := conn.Resolve(rt, *f)
-	if err != nil {
-		return err
+	cf := *f
+	if cf.Timeout <= 0 {
+		cf.Timeout = conn.RequestTimeout
 	}
-	client, err := accountClientFor(c)
-	if err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), cf.Timeout)
+	defer cancel()
+
+	err := func() error {
+		c, err := conn.Resolve(rt, cf)
+		if err != nil {
+			return err
+		}
+		client, err := accountClientFor(c)
+		if err != nil {
+			return err
+		}
+		_, err = readTenants(ctx, client)
 		return err
-	}
-	_, err = readTenants(context.Background(), client)
-	return err
+	}()
+	return conn.UnrefusedAsGeneral(err)
 }
 
 // printVerifiedStatus prints the report with its Verified line when

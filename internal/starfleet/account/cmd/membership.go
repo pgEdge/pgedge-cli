@@ -65,6 +65,13 @@ Example:
   pgedge starfleet membership list --email teammate@example.com`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			byEmail := cmd.Flags().Changed("email")
+			if byEmail {
+				var err error
+				if email, err = emailArg(email); err != nil {
+					return err
+				}
+			}
 			client, err := clientFromCmd(rt, cmd)
 			if err != nil {
 				return err
@@ -80,12 +87,11 @@ Example:
 				return err
 			}
 
-			if email != "" {
-				var all []api.Membership
-				if resp.JSON200 != nil {
-					all = *resp.JSON200
+			if byEmail {
+				if resp.JSON200 == nil || *resp.JSON200 == nil {
+					return errNoListBody("memberships")
 				}
-				members := matchEmail(all, email,
+				members := matchEmail(*resp.JSON200, email,
 					func(m api.Membership) string { return m.UserEmail })
 				if len(members) == 0 {
 					return errNoEmailMatch("member", email)

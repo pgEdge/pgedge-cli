@@ -124,13 +124,14 @@ with:
 
 | Verdict | Meaning | `--strict` exit |
 |---|---|---|
-| `ready` | The tenant read succeeded, or a browser session renews on next use. | 0 |
+| `ready` | The tenant read succeeded. | 0 |
 | `no-credentials` | No credential resolves, or the keychain cannot be read. | 5 |
 | `credentials-misconfigured` | Half a flag or env pair, `--profile` with the env pair, or a bad `--tenant`. | 2 |
 | `session-needs-login` | The browser sign-in expired; run `auth login`. | 5 |
+| `session-unverified` | The browser sign-in renews on next use, so doctor did not read the tenant; `auth status --verify` renews and checks it. | 5 |
 | `endpoint-unreachable` | The API base URL does not answer, so a login will not help. | 1 |
-| `credential-rejected` | The API refused the credential. | 5 |
-| `tenant-unresolved` | The tenant read failed some other way. | 1 |
+| `credential-rejected` | The API answered the tenant read with 401 or 403, or the token exchange with 400, 401 or 403. | 5 |
+| `tenant-unresolved` | The tenant read failed any other way, including a token exchange that timed out or answered 5xx. | 1 |
 
 ## starfleet auth status
 

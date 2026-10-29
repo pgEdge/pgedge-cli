@@ -180,8 +180,10 @@ one.
 **`--verify`** reads the tenant list with the credential, as any
 command would, so it may mint and cache a token or renew a browser
 session. The output gains `verified` (`Verified:` in text). It exits 5
-when the server rejects the credential; a failure that is not a
-rejection keeps its own code, such as 1 or 3. Gate a script on
+when the server refuses the credential (a 400, 401 or 403 from the
+token exchange, 401 or 403 from the read, or a sign-in that must start
+again). Any other failure, a 5xx or a timed-out exchange included,
+exits with another non-zero code, usually 1. Gate a script on
 `auth status --verify` or `starfleet doctor --strict`, never on
 `authenticated` or `token_valid`.
 

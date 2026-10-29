@@ -138,12 +138,19 @@ used, it still will.
 The verdict sums the report up in one word:
 
   ready                      the tenant read succeeded
-  no-credentials             no credential resolves (exit 5)
-  credentials-misconfigured  a flag or env pair is malformed (exit 2)
+  no-credentials             no credential resolves, or the keychain
+                             cannot be read (exit 5)
+  credentials-misconfigured  a flag pair, env pair or --tenant is
+                             malformed (exit 2)
   session-needs-login        the browser sign-in is gone (exit 5)
+  session-unverified         the sign-in renews on next use, so it
+                             was not read; run 'pgedge starfleet auth
+                             status --verify' to renew and check it
+                             (exit 5)
   endpoint-unreachable       the API URL does not answer (exit 1)
   credential-rejected        the API refuses the credential (exit 5)
-  tenant-unresolved          the tenant could not be read (exit 1)
+  tenant-unresolved          the tenant could not be read for any
+                             other reason (exit 1)
 
 doctor exits 0 whatever the verdict. With --strict it exits with the
 code shown when the verdict is not ready. The tenant's plan does not
@@ -344,22 +351,21 @@ func readTenants(
 	return *resp.JSON200, nil
 }
 
-// Doctor verdicts. Control Plane and byoc checks reuse these names, so
-// each keeps one exit code.
+// Doctor verdicts, each with one exit code.
 const (
 	verdictReady               = "ready"
 	verdictNoCredentials       = "no-credentials"
 	verdictCredsMisconfigured  = "credentials-misconfigured"
 	verdictSessionNeedsLogin   = "session-needs-login"
+	verdictSessionUnverified   = "session-unverified"
 	verdictEndpointUnreachable = "endpoint-unreachable"
 	verdictCredentialRejected  = "credential-rejected" //nolint:gosec // G101: a verdict name
 	verdictTenantUnresolved    = "tenant-unresolved"
 )
 
 // doctorVerdict reduces a report to one verdict and the exit code
-// --strict gives it. Order matters: a token exchange against an
-// unreachable host fails with the auth code, so reachability is
-// judged before the tenant read.
+// --strict gives it. Reachability is judged before the tenant read,
+// which an unreachable host also fails.
 func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 	switch {
 	case !r.Auth.Authenticated && r.Auth.problemCode == ExitUsage:
@@ -371,10 +377,8 @@ func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 	case !r.API.Reachable:
 		return verdictEndpointUnreachable, ExitGeneral
 	case r.Tenant.Skipped != "":
-		// A session past expiry that renews itself: the Auth row is ok
-		// and the next command renews it.
-		return verdictReady, ExitOK
-	case r.Tenant.err != nil && cli.ExitCode(r.Tenant.err) == ExitAuth:
+		return verdictSessionUnverified, ExitAuth
+	case conn.IsCredentialRejected(r.Tenant.err):
 		return verdictCredentialRejected, ExitAuth
 	case !r.Tenant.Resolved:
 		return verdictTenantUnresolved, ExitGeneral

@@ -61,10 +61,11 @@ given.
 Both the database and its cluster must be in the available state;
 the API refuses the rotation otherwise.
 
-The new password is not printed. Read it back from the connection
-block with 'database connection-string <id>', or write it into .env
-with 'database env pull <id>'. 'database get -o json' prints every
-node's password.
+The new password is not printed. Each node's connection block
+carries the admin role's credentials, so after rotating admin, read
+the new password with 'database connection-string <id>' or write it
+into .env with 'database env pull <id>'. The API returns no password
+for any other role.
 
 The argument takes a full UUID.
 

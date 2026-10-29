@@ -83,9 +83,9 @@ print an object with `uri` and `token` fields. `--no-token` leaves the
 token out of every format.
 
 The command ends with exit status 1 and prints nothing on stdout when
-the database has no MCP service, no `uri` yet or an empty token. A
-script that stops on that exit status never sends an empty bearer
-token.
+the database has no MCP service or no `uri` yet, and on an empty token
+unless `--no-token` is given. A script that stops on that exit status
+never sends an empty bearer token.
 
 `--branch <branch_id>` prints the branch's own MCP server, whose `uri`
 and token differ from the source database's. With the database ID left

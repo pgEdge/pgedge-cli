@@ -22,7 +22,7 @@ func TestWarnIfCommittable(t *testing.T) {
 	}{
 		{"not ignored", "", false, "git does not ignore"},
 		{"ignored", ".env\n", false, ""},
-		{"tracked, even though ignored", ".env\n", true, "git rm --cached .env"},
+		{"tracked, even though ignored", ".env\n", true, "rm --cached -- "},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -51,6 +51,12 @@ func TestWarnIfCommittable(t *testing.T) {
 				t.Errorf("unexpected warning: %q", errb.String())
 			case tc.want != "" && !strings.Contains(errb.String(), tc.want):
 				t.Errorf("stderr %q does not contain %q", errb.String(), tc.want)
+			case tc.track && !strings.Contains(errb.String()[strings.Index(
+				errb.String(), "rm --cached -- ")+1:], dir):
+				// A bare file name untracks the wrong file from
+				// anywhere but the file's own directory.
+				t.Errorf("git rm hint does not name the full path: %q",
+					errb.String())
 			}
 		})
 	}

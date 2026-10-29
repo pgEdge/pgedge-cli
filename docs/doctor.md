@@ -14,9 +14,11 @@ credential, an uninitialized cluster and a profile field that will not
 parse are each printed as a row, at exit 0. That is what makes them
 safe to run precisely when the thing they diagnose is broken, and it
 also means `pgedge starfleet doctor && <next step>` reads as a gate
-and is not one.
+and is not one, unless you pass `--strict`.
 
-A script reads their fields under `-o json`, never their exit status.
+A script reads their fields under `-o json`, or runs
+`pgedge starfleet doctor --strict`, which exits non-zero unless the
+connection is ready.
 The one failure that does stop them is a broken `--config`, which is
 resolved before any command runs and exits 1. The
 [exit codes guide](exit-codes.md) covers that class and the rest.
@@ -73,7 +75,7 @@ and its failure modes.
 
 `pgedge starfleet doctor` is the verdict on the Starfleet connection,
 which byoc and managed both share. There is no byoc or managed doctor
-for that reason. It prints four rows.
+for that reason. It prints five rows.
 
 The following table describes each row and what a warning means:
 
@@ -83,6 +85,7 @@ The following table describes each row and what a warning means:
 | API connectivity | An unauthenticated GET against the resolved base URL, with the status and latency. | Never. An unreachable endpoint is reported as `error`. |
 | Tenant | The tenant the credential authenticates as, its ID and its plan. | The plan is anything but `enterprise`, the tenant could not be read, or a browser session must renew before it can be read; the next command renews it. |
 | Environment | The operating system, architecture, and whether `NO_COLOR` is set. | Never. |
+| Verdict | The report in one word, the `verdict` field in JSON. | Never. Any verdict but `ready` is reported as `error`. |
 
 A cached token is bound to the credential and the API base URL that
 minted it, so rekeying a profile, overriding either flag for one
@@ -95,7 +98,7 @@ so the message names both rather than guessing which one moved. A
 half-supplied `--client-id` and `--client-secret` pair is reported in
 `auth.problem` and printed in place of "not authenticated".
 
-The Tenant row is the only one of the four that proves the server accepts the
+The Tenant row is the only one that proves the server accepts the
 credential, because reading a tenant is an authenticated call. The API
 connectivity row is an unauthenticated probe and says nothing about it. A
 profile carries one Starfleet credential that byoc and managed both borrow, so
@@ -110,13 +113,24 @@ command uses. The whole tenant probe is bounded at ten seconds
 whatever `--timeout` says, because a diagnostic whose job is to answer
 must not hang.
 
-For a script, the three fields worth gating on are
-`auth.authenticated`, `api.reachable` and `tenant.resolved`. Do not
-gate on `token_valid`: it describes the token cache, which doctor does
-not write, so it stays `false` on a profile with perfectly good
-credentials and no cached token. When `tenant.resolved` is `false`,
-read `api.reachable` first, since an unreachable endpoint means a
-login will not help.
+For a script, gate on `--strict` or on `verdict`. Do not gate on
+`token_valid`: it describes the token cache, which doctor does not
+write, so it stays `false` on a profile with good credentials and no
+cached token. The plan does not change the verdict, so read
+`tenant.plan` before byoc work.
+
+The following table lists each verdict and the code `--strict` exits
+with:
+
+| Verdict | Meaning | `--strict` exit |
+|---|---|---|
+| `ready` | The tenant read succeeded, or a browser session renews on next use. | 0 |
+| `no-credentials` | No credential resolves, or the keychain cannot be read. | 5 |
+| `credentials-misconfigured` | Half a flag or env pair, `--profile` with the env pair, or a bad `--tenant`. | 2 |
+| `session-needs-login` | The browser sign-in expired; run `auth login`. | 5 |
+| `endpoint-unreachable` | The API base URL does not answer, so a login will not help. | 1 |
+| `credential-rejected` | The API refused the credential. | 5 |
+| `tenant-unresolved` | The tenant read failed some other way. | 1 |
 
 ## starfleet auth status
 
@@ -133,7 +147,9 @@ when empty, so a run with no credentials configured answers with
 
 Because it calls nothing, `authenticated: true` means the credentials
 resolved, not that the server accepts them: a wrong secret that merely
-resolves reports the same as a real one. Its exit codes are 0 whenever
+resolves reports the same as a real one. `--verify` adds a real read
+and a `verified` field, and exits 5 when the server rejects the
+credential. Its exit codes are 0 whenever
 credentials resolve (even with no cached token), 5 when none resolve,
 and 2 for a half-supplied flag pair. The
 [exit codes guide](exit-codes.md) explains why an entitlement failure

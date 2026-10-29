@@ -7,9 +7,15 @@
 <!-- BEGIN GENERATED: pgedge starfleet doctor -->
 ### pgedge starfleet doctor
 
-**Usage:** `pgedge starfleet doctor`
+**Usage:** `pgedge starfleet doctor [flags]`
 
 Diagnose the pgEdge Starfleet connection
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--strict` | No |  | Exit non-zero unless the verdict is ready |
 
 <!-- END GENERATED -->
 
@@ -28,12 +34,31 @@ broken. For the install itself — version, config file, shell — run
 | API connectivity | HTTP GET to the resolved API base URL; records status and latency. |
 | Tenant | Names the tenant the active credential authenticates as, and its **plan**. `ok` only for an `enterprise` plan; `warning` for any other, naming it — because a profile carries one Starfleet credential that byoc and managed both borrow, so a profile IS a tenant and the plan decides which modules work. On a non-enterprise plan the byoc verbs are entitlement-denied server-side, and the symptom is otherwise an empty list or a `plan does not allow ...` error far from its cause. `warning` with "could not resolve tenant" when the credential cannot read one, and with "not read" (JSON `tenant.skipped` names why) when a browser session must renew first, which doctor leaves to the next command. The command still exits 0. |
 | Environment | Reports OS/arch and whether `NO_COLOR` is set. Env credentials appear on the Auth row instead. |
+| Verdict | The report in one word, below. `ok` only for `ready`. |
+
+**Verdict and `--strict`.** `verdict` (top level in `-o json`) is one
+of the values below. doctor exits 0 whatever it is; `--strict` exits
+with the listed code unless it is `ready`. Gate a script on `--strict`
+or on `verdict`, never on `token_valid`, which describes a cache
+doctor does not write. The plan does not affect the verdict: read
+`tenant.plan` before byoc work.
+
+| Verdict | Meaning | `--strict` exit |
+|---------|---------|-----------------|
+| `ready` | The tenant read succeeded, or a browser session renews on next use | 0 |
+| `no-credentials` | No credential resolves, or the keychain cannot be read | 5 |
+| `credentials-misconfigured` | A half flag or env pair, `--profile` with the env pair, or a bad `--tenant` | 2 |
+| `session-needs-login` | The browser sign-in expired; run `auth login` | 5 |
+| `endpoint-unreachable` | The API URL does not answer; a login will not help | 1 |
+| `credential-rejected` | The API refused the credential | 5 |
+| `tenant-unresolved` | The tenant read failed some other way | 1 |
 
 **Example:**
 
 ```bash
 pgedge starfleet doctor
 pgedge starfleet doctor -o json
+pgedge starfleet doctor --strict
 ```
 
 **Example output (table):**
@@ -44,6 +69,7 @@ Auth              ok      authenticated via config (expires 2026-12-31T23:59:59Z
 API connectivity  ok      https://api.pgedge.com (200, 87ms)
 Tenant            ok      acme (d1e2f3a4-b5c6-7890-def0-123456789abc, plan: enterprise)
 Environment       ok      darwin/arm64
+Verdict           ok      ready
 ```
 
 On a plan that cannot drive byoc, the Tenant row says so rather than
@@ -60,7 +86,8 @@ With `NO_COLOR` exported, the Environment row adds it:
 Environment       ok       darwin/arm64, NO_COLOR: set
 ```
 
-`-o json` emits `auth`, `api`, `tenant` and `environment` objects. The
+`-o json` emits `verdict` and the `auth`, `api`, `tenant` and
+`environment` objects. The
 environment object's keys are `os`, `arch` and `no_color_set`. `-o yaml`
 carries the same fields under the same keys: one rule holds tree-wide —
 the yaml key is the json key.

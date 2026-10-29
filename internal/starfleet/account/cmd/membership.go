@@ -46,7 +46,8 @@ Example:
 // --- list ---
 
 func newMembershipListCmd(rt *module.Runtime) *cobra.Command {
-	return &cobra.Command{
+	var email string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List team memberships",
 		Long: `list shows the members of the active team.
@@ -54,9 +55,14 @@ func newMembershipListCmd(rt *module.Runtime) *cobra.Command {
 Use it to find a membership's ID before removing a member. The
 OWNER column marks the member who owns the tenant.
 
+--email keeps only the members with that address, compared without
+regard to case. It exits 4 when no member has it, so a failed read
+(any other non-zero code) never looks like "not a member".
+
 Example:
   pgedge starfleet membership list
-  pgedge starfleet membership list -o json`,
+  pgedge starfleet membership list -o json
+  pgedge starfleet membership list --email teammate@example.com`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			client, err := clientFromCmd(rt, cmd)
@@ -72,6 +78,19 @@ Example:
 			if err := checkResponse(resp.StatusCode(),
 				string(resp.Body)); err != nil {
 				return err
+			}
+
+			if email != "" {
+				var all []api.Membership
+				if resp.JSON200 != nil {
+					all = *resp.JSON200
+				}
+				members := matchEmail(all, email,
+					func(m api.Membership) string { return m.UserEmail })
+				if len(members) == 0 {
+					return errNoEmailMatch("member", email)
+				}
+				resp.JSON200 = &members
 			}
 
 			if rt.Output.Structured() {
@@ -91,6 +110,9 @@ Example:
 			return rt.Output.Print(rows, membershipColumns)
 		},
 	}
+	cmd.Flags().StringVar(&email, "email", "",
+		"Show only the members with this email address")
+	return cmd
 }
 
 // --- delete ---

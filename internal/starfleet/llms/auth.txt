@@ -120,9 +120,15 @@ client ID went.
 <!-- BEGIN GENERATED: pgedge starfleet auth status -->
 #### pgedge starfleet auth status
 
-**Usage:** `pgedge starfleet auth status`
+**Usage:** `pgedge starfleet auth status [flags]`
 
 Show current authentication state
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--verify` | No |  | Check that the server accepts the credential |
 
 <!-- END GENERATED -->
 
@@ -166,40 +172,25 @@ signed in for another API URL are 5, with `authenticated: false` and
 `problem` naming the `auth login` command to run. A `--tenant`
 the session cannot reach, a profile `tenant_id` it no longer reaches,
 or `--tenant` with an API client is 2.
-This command calls no endpoint at all, so passing
-(`authenticated: true`) means credentials *resolved*, not that the
-server accepts them — a wrong secret that merely resolves reports
-`authenticated: true` exactly like a real one.
+Without `--verify` this command calls no endpoint, so
+`authenticated: true` means credentials *resolved*, not that the
+server accepts them — a wrong secret reports it exactly like a real
+one.
 
-`starfleet doctor`'s Auth row means the same thing and no more. Its Tenant
-row is the part that proves the server ACCEPTS the credential: reading
-the tenant is an authenticated call, so a resolved tenant means the
-credential worked. That is the only check either command makes that
-proves anything about the credential — doctor's API row is an
-unauthenticated reachability probe, and says nothing about it.
-
-Doctor may exchange a token to make that call; on a warm, bound cache
-it reuses the cached one and exchanges nothing. Either way the token
-is never written to the cache, so running doctor does not change which
-token a later command will use.
-
-Do not gate a script on `token_valid` from doctor. It describes the
-token CACHE, which doctor does not write, so on a profile with
-credentials and no cached token it stays `false` however many times
-doctor runs. `tenant.resolved` is the honest gate.
-
-When `tenant.resolved` is false, read `api.reachable` before blaming
-the credential. `api.reachable: false` proves the endpoint is the
-cause and a login will not help; `true` does not prove the opposite,
-since a reachable host whose token endpoint or `/tenants` route is
-broken also leaves the tenant unresolved with a perfectly good
-credential.
+**`--verify`** reads the tenant list with the credential, as any
+command would, so it may mint and cache a token or renew a browser
+session. The output gains `verified` (`Verified:` in text). It exits 5
+when the server rejects the credential; a failure that is not a
+rejection keeps its own code, such as 1 or 3. Gate a script on
+`auth status --verify` or `starfleet doctor --strict`, never on
+`authenticated` or `token_valid`.
 
 **Example:**
 
 ```bash
 pgedge starfleet auth status
 pgedge starfleet auth status -o json
+pgedge starfleet auth status --verify
 ```
 
 **Example output:**

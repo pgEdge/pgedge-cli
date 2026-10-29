@@ -12,11 +12,11 @@ refuses outright:
 | Command | Runs from the CLI |
 |---|---|
 | `invite list` | Yes |
-| `invite get <invite_id>` | Yes |
+| `invite get <invite_id>`, `invite get --email <addr>` | Yes |
 | `invite delete <invite_id>` | Yes |
 | `invite create` | No, exits 5 |
 | `invite accept <invite_id>` | No, exits 5 |
-| `membership list` | Yes |
+| `membership list`, `membership list --email <addr>` | Yes |
 | `membership delete <membership_id>` | Yes |
 
 `invite create` and `invite accept` both need a signed-in user in the
@@ -36,7 +36,7 @@ Work through these steps in order.
 
 2. Confirm from the CLI that the invite exists:
 
-        pgedge starfleet invite list
+        pgedge starfleet invite get --email teammate@example.com
 
     The table shows ID, EMAIL, INVITED BY, TEAM, EXPIRES and
     CREATED. INVITED BY is blank when the API omits it, and the
@@ -48,11 +48,10 @@ Work through these steps in order.
 
 4. Verify the membership:
 
-        pgedge starfleet membership list
+        pgedge starfleet membership list --email teammate@example.com
 
-    The person's address appears in the USER EMAIL column once they
-    have accepted, and presence in that list is the signal that the
-    invite was taken up.
+    The person's row appears once they have accepted, and presence in
+    that list is the signal that the invite was taken up.
 
 ## Exit codes and empty reads
 
@@ -61,18 +60,14 @@ There is no `status` field on an invite anywhere in this API.
 itself, so there is no state word to poll and absence is the only
 thing left to read.
 
-That makes the exit code the trustworthy signal, because under the
-default `-o text` a failed read and an empty successful read look
-identical on `stdout`:
+That makes the exit code the trustworthy signal. With `--email`,
+`invite get` and `membership list` give each outcome its own code:
 
-- A successful but empty read prints "No invites found." on `stderr`
-  and exits 0, so the absence is real at the moment of the read.
-- A failed read prints nothing on `stdout` and exits non-zero, so the
-  invite is unverified rather than missing.
-
-Under `-o json` and `-o yaml` the two look different, since an empty
-success still prints an empty array while a failure prints nothing.
-The exit code is the reliable test in every format.
+- Exit 0 prints the matching rows.
+- Exit 4 means the read succeeded and nothing matches the address,
+  compared without regard to case.
+- Any other non-zero exit means the read failed, so the invite or
+  membership is unverified rather than missing.
 
 The remedy for a member who never appears is revoking the invite:
 
@@ -80,9 +75,9 @@ The remedy for a member who never appears is revoking the invite:
 
 Revoking is destructive, so it prompts unless you pass `--force`, and
 treating a failed read as an absence revokes a perfectly good invite.
-Check the exit code first. On exit 0 with the address still absent,
-wait and read again before concluding anything, and revoke only when
-the address itself was wrong.
+Check the exit code first. On exit 4, wait and read again before
+concluding anything, and revoke only when the address itself was
+wrong.
 
 ## Memberships and owner semantics
 

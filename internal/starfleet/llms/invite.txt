@@ -58,19 +58,31 @@ neither is guaranteed present on every invite.
 <!-- BEGIN GENERATED: pgedge starfleet invite get -->
 #### pgedge starfleet invite get
 
-**Usage:** `pgedge starfleet invite get <invite_id>`
+**Usage:** `pgedge starfleet invite get [<invite_id>] [flags]`
 
 Show invite details
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--email string` | No |  | Find the invites for this email address instead of an ID |
 
 <!-- END GENERATED -->
 
 Get details for a specific invite. Same fields and column order as
 `invite list`, for one invite.
 
+`--email <addr>`, in place of the ID, prints every pending invite for
+that address, compared without regard to case: an array under
+`-o json`. It exits 4 when none matches; any other non-zero exit is a
+failed read, not an absent invite.
+
 **Example:**
 
 ```bash
 pgedge starfleet invite get d6e7f8a9-b0c1-2345-defa-456789012345
+pgedge starfleet invite get --email teammate@example.com -o json
 ```
 
 ---

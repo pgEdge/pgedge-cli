@@ -15,6 +15,8 @@ profile = "eval"
 # run, so one release compares with the next.
 runs = 3
 tasks = [6, 7, 8, 9, 10]
+# The workflow tasks, outside a release run (14, 17-19 need psql):
+# tasks = [11, 12, 13, 14, 15, 16, 17, 18, 19]
 arms = ["with", "without", "api"]
 
 # One table per harness. Each model gets its own lane and fixture.

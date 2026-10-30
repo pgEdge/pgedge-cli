@@ -1,0 +1,1 @@
+Set up an MCP server on {fixture} that can read but not write, and tell me when it's ready to use.

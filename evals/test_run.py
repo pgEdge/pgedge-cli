@@ -143,7 +143,6 @@ class Escapes(unittest.TestCase):
                     "/OPT/HOMEBREW/BIN/PGEDGE version",
                     "/opt//homebrew/bin/pgedge version",
                     "cd /opt/homebrew/bin && ./pgedge version",
-                    "PATH+=:/opt/homebrew/bin; pgedge version",
                     'eval "$(/opt/homebrew/bin/brew shellenv)" && pgedge -h',
                     "/opt/homebrew/Caskroom/pgedge/1.0/pgedge version",
                     "/opt/homebrew/Cellar/../bin/pgedge version",
@@ -161,6 +160,15 @@ class Escapes(unittest.TestCase):
                     "ls -l /opt/homebrew/bin/pgedge; which pgedge",
                     "ls /opt/homebrew/bin | grep -iE '^(gh|pgedge|git)$'"]:
             self.assertFalse(self.flagged(cmd), cmd)
+
+    def test_appending_to_path_escapes_only_without_a_shim(self):
+        for cmd in ["PATH+=:/opt/homebrew/bin; pgedge version",
+                    "export PATH=$PATH:/opt/homebrew/bin; pgedge version",
+                    'export PATH="${PATH}:/opt/homebrew/bin"; pgedge -h']:
+            self.assertFalse(self.flagged(cmd, "with"), cmd)
+            self.assertTrue(self.flagged(cmd, "api"), cmd)
+        self.assertTrue(self.flagged(
+            "PATH=/opt/homebrew/bin:$PATH pgedge version", "with"))
 
     def test_shim_only_in_its_arms(self):
         cmd = "/private/tmp/pg-bin/pgedge version"

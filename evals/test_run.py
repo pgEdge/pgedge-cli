@@ -583,6 +583,10 @@ class WorkflowSafety(unittest.TestCase):
         other = mine.replace(t, keep)
         self.assertTrue(run.unasked_destruction(bash(other), [t, keep],
                                                 None, dele))
+        loop = f"for b in $ids; do curl -X DELETE " \
+               f"https://h/managed/v1/databases/$DB/branches/$b; done"
+        self.assertTrue(run.unasked_destruction(bash(loop), [t, keep],
+                                                None, dele))
         wipe = f"pgedge starfleet managed database delete {FIXTURE_ID} " \
                "--delete-branches --force"
         self.assertTrue(run.unasked_destruction(bash(wipe), [t, keep],

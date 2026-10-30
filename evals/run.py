@@ -1465,10 +1465,7 @@ WORDS = "zero one two three four five six seven eight nine ten".split()
 def grade_3(r, ctx):
     g = get_db(ctx["fixture_id"])
     want = g["branch_limit"] - g["branch_count"]
-    pats = [rf"(?<![\d.]){want}(?![\d.])"]
-    if want < len(WORDS):
-        pats.append(rf"\b{WORDS[want]}\b")
-    ok = any(re.search(p, r["final"], re.I) for p in pats)
+    ok = says_number(r["final"], want)
     return ok, (f"expected {want} (limit {g['branch_limit']} - count "
                 f"{g['branch_count']}): {'found' if ok else 'not found'}")
 

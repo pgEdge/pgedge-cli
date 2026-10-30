@@ -1,0 +1,54 @@
+# pgedge starfleet managed database inspect
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+Run one read-only diagnostic against a managed database.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database inspect -->
+##### pgedge starfleet managed database inspect
+
+**Usage:** `pgedge starfleet managed database inspect [<database_id>] <analysis> [flags]`
+
+Run a read-only diagnostic against a managed database
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--dbname string` | No |  | Connect to this Postgres database inside the managed database instead of its own |
+| `--user-type string` | No |  | Role to connect as: admin, app or app_read_only (default app; admin for the statistics analyses) |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database inspect
+
+Connect to a managed database with the credentials `database get`
+returns and run one read-only diagnostic, printing the rows. Nothing
+is written and no API state changes. The analyses are `pgedge
+inspect`'s, listed under `pgedge llms inspect`: the second positional names
+one and completes, and an unknown name is exit 2. The connection is
+the string `connection-string` would print, so a database with no
+`host` yet is exit 1 before anything is dialled.
+
+`--user-type` chooses the role, admin, app or app_read_only, exactly
+as `database get` does. Omitted, app is used, except for
+`long-running-queries`, `locks`, `calls`, `outliers` and
+`replication-lag`, which connect as
+admin because Postgres hides other sessions' statistics rows from app,
+so as app they read as a quiet database. `docs/inspect-a-database.md` of
+the pgEdge/pgedge-cli repository describes what each analysis reads,
+what app sees on each of those five, its refusals and its exit
+statuses.
+
+`--dbname <name>` inspects another Postgres database inside the
+managed database, as `connection-string` on the `database` page
+describes.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 \
+    long-running-queries -o json
+```

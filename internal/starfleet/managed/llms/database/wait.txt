@@ -1,0 +1,42 @@
+# pgedge starfleet managed database wait
+
+> One page of the `starfleet managed` reference. `pgedge llms starfleet
+> managed` is the index: authentication, exit codes, IDs, paging and the
+> workflows that span resources live there.
+
+Wait for a managed database to reach a status.
+
+<!-- BEGIN GENERATED: pgedge starfleet managed database wait -->
+##### pgedge starfleet managed database wait
+
+**Usage:** `pgedge starfleet managed database wait [<database_id>] [flags]`
+
+Wait for a database to reach a status
+
+**Flags:**
+
+| Flag | Required | Default | Description |
+|------|----------|---------|-------------|
+| `--status string` | No | `available` | Status to wait for: creating, available, modifying, deleting, failed, degraded, suspending, suspended, resuming |
+| `--wait-interval int` | No | `5` | Polling interval in seconds |
+| `--wait-timeout int` | No | `600` | Max seconds to wait |
+
+<!-- END GENERATED -->
+
+##### pgedge starfleet managed database wait
+
+Read one database's status until it is `--status`, `available` by
+default, to chain work after a write sent without `--wait`. It reads
+again through the statuses the index's "Asynchronous verbs" section
+names. Any other status ends it at exit status 1, naming the status.
+A timeout is exit status 3, an unknown ID exit status 4 and an
+unknown `--status` exit status 2. In a linked folder the ID can be
+left out.
+
+**Example:**
+
+```bash
+pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456
+pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456 \
+    --wait-timeout 900
+```

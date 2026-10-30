@@ -160,52 +160,6 @@ pgedge starfleet managed database connection-string \
     e5f6a7b8-c9d0-1234-efab-567890123456 --dbname analytics
 ```
 
-<!-- BEGIN GENERATED: pgedge starfleet managed database inspect -->
-##### pgedge starfleet managed database inspect
-
-**Usage:** `pgedge starfleet managed database inspect [<database_id>] <analysis> [flags]`
-
-Run a read-only diagnostic against a managed database
-
-**Flags:**
-
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--dbname string` | No |  | Connect to this Postgres database inside the managed database instead of its own |
-| `--user-type string` | No |  | Role to connect as: admin, app or app_read_only (default app; admin for the statistics analyses) |
-
-<!-- END GENERATED -->
-
-##### pgedge starfleet managed database inspect
-
-Connect to a managed database with the credentials `database get`
-returns and run one read-only diagnostic, printing the rows. Nothing
-is written and no API state changes. The analyses are `pgedge
-inspect`'s, listed under `pgedge llms inspect`: the second positional names
-one and completes, and an unknown name is exit 2. The connection is
-the string `connection-string` would print, so a database with no
-`host` yet is exit 1 before anything is dialled.
-
-`--user-type` chooses the role, admin, app or app_read_only, exactly
-as `database get` does. Omitted, app is used, except for
-`long-running-queries`, `locks`, `calls`, `outliers` and
-`replication-lag`, which connect as
-admin because Postgres hides other sessions' statistics rows from app,
-so as app they read as a quiet database. `docs/inspect-a-database.md` of
-the pgEdge/pgedge-cli repository describes what each analysis reads,
-what app sees on each of those five, its refusals and its exit
-statuses.
-
-`--dbname <name>` inspects another Postgres database inside the
-managed database, as `connection-string` describes.
-
-**Example:**
-
-```bash
-pgedge starfleet managed database inspect e5f6a7b8-c9d0-1234-efab-567890123456 \
-    long-running-queries -o json
-```
-
 <!-- BEGIN GENERATED: pgedge starfleet managed database create -->
 ##### pgedge starfleet managed database create
 
@@ -395,147 +349,6 @@ pgedge starfleet managed database resize e5f6a7b8-c9d0-1234-efab-567890123456 \
     --size large --force --wait
 ```
 
-<!-- BEGIN GENERATED: pgedge starfleet managed database rotate-password -->
-##### pgedge starfleet managed database rotate-password
-
-**Usage:** `pgedge starfleet managed database rotate-password <database_id> [flags]`
-
-Rotate a built-in role's password
-
-**Flags:**
-
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--dry-run string[="checks"]` | No |  | Run every client-side check, then stop before sending the write and report the request that would have been sent. Checks that read the API do run, so this needs credentials; the server validates nothing until the real write |
-| `--follow` | No |  | Wait as --wait does, streaming the task's step messages |
-| `--force` | No |  | Skip the confirmation prompt |
-| `--role string` | Yes |  | Built-in role to rotate: admin, app, or app_read_only |
-| `--wait` | No |  | Wait for the task, then for the resource's end status |
-| `--wait-interval int` | No | `5` | Polling interval in seconds when --wait/--follow is set |
-| `--wait-timeout int` | No | `600` | Max seconds to wait when --wait/--follow is set |
-
-<!-- END GENERATED -->
-
-##### pgedge starfleet managed database rotate-password
-
-Issue a new password for one of the database's built-in roles. `--role`
-takes admin, app or app_read_only, and any other value is refused
-before a request. Rotation breaks every session still using the old
-password, so it prompts unless `--force` is given. Rotating the role a
-deployed service connects as also restarts that service.
-
-Without `--wait` the command exits when the API has accepted the
-rotation, not when the running database is using the new password.
-With `--wait` it ends at exit status 0 only when the database is
-`available` again.
-Before that, `database get <database_id> --user-type <role>` returns
-the old credential. The rotation never prints the new password.
-
-The rotation spawns a `rotate-password-managed` task and returns no
-id. A `succeeded` task means the new credential reached the running
-database. A rotation that fails leaves that task non-terminal rather than
-`failed`, so a `--wait` timeout means the outcome is unknown, and
-rotating again on a timeout risks replacing a credential already in
-place. The published contract says a failed rotation leaves the
-database `degraded` and refuses another rotation until it is
-recovered, which is the contract's claim rather than confirmed
-behavior. The `task` page carries how to read the task by hand, and
-`docs/managed/rotate-credentials.md` of the pgEdge/pgedge-cli
-repository the step-by-step procedure.
-
-**Example:**
-
-```bash
-pgedge starfleet managed database rotate-password e5f6a7b8-c9d0-1234-efab-567890123456 \
-    --role app --force --wait
-```
-
-<!-- BEGIN GENERATED: pgedge starfleet managed database wait -->
-##### pgedge starfleet managed database wait
-
-**Usage:** `pgedge starfleet managed database wait [<database_id>] [flags]`
-
-Wait for a database to reach a status
-
-**Flags:**
-
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--status string` | No | `available` | Status to wait for: creating, available, modifying, deleting, failed, degraded, suspending, suspended, resuming |
-| `--wait-interval int` | No | `5` | Polling interval in seconds |
-| `--wait-timeout int` | No | `600` | Max seconds to wait |
-
-<!-- END GENERATED -->
-
-##### pgedge starfleet managed database wait
-
-Read one database's status until it is `--status`, `available` by
-default, to chain work after a write sent without `--wait`. It reads
-again through the statuses the index's "Asynchronous verbs" section
-names. Any other status ends it at exit status 1, naming the status.
-A timeout is exit status 3, an unknown ID exit status 4 and an
-unknown `--status` exit status 2. In a linked folder the ID can be
-left out.
-
-**Example:**
-
-```bash
-pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456
-pgedge starfleet managed database wait e5f6a7b8-c9d0-1234-efab-567890123456 \
-    --wait-timeout 900
-```
-
-<!-- BEGIN GENERATED: pgedge starfleet managed database link -->
-##### pgedge starfleet managed database link
-
-**Usage:** `pgedge starfleet managed database link [<database_id>] [flags]`
-
-Link the current folder to a managed database
-
-**Flags:**
-
-| Flag | Required | Default | Description |
-|------|----------|---------|-------------|
-| `--branch string` | No |  | Link a branch of the database instead of the database itself |
-| `--force` | No |  | Replace a link to another database |
-
-<!-- END GENERATED -->
-
-##### pgedge starfleet managed database link
-
-Write `.pgedge/link.yaml` in the current folder, naming one database,
-or with `--branch` one of its branches. The file holds IDs only, so a
-project can commit it. The database, and the branch, are read first:
-an ID the profile cannot see is exit 4 and writes nothing. A folder
-already linked elsewhere, or holding an unreadable link, is exit 1
-unless `--force` is given. The home folder is refused at exit 2,
-because `~/.pgedge` is the shared config folder; `unlink` and
-`create --link` refuse it the same way.
-
-With no ID and no terminal, `link` is exit 2, so always pass the ID.
-With no ID in a terminal, it asks a person to choose the database,
-then a branch, and offers to write `.env`. `--branch` without the
-database ID is exit 2.
-
-Below a linked folder, ten read verbs take the linked database when
-the ID is left out, and print `Using database <id> from <path>` on
-stderr when they do: `get`, `connection-string`, `inspect`, `logs`,
-`metrics`, `wait`, `allowlist get`, `branch list`, `mcp connection`
-and `env pull`. Every verb
-that changes anything still requires its ID, so a script whose ID
-variable is unset fails rather than writing to the linked database.
-With a branch link, `connection-string`, `inspect`, `mcp connection`
-and `env pull` read the branch, and the other six read the source
-database.
-The folder search stops at the first folder holding `.git`, and never
-reads `~/.pgedge`.
-
-**Example:**
-
-```bash
-pgedge starfleet managed database link e5f6a7b8-c9d0-1234-efab-567890123456
-```
-
 <!-- BEGIN GENERATED: pgedge starfleet managed database unlink -->
 ##### pgedge starfleet managed database unlink
 
@@ -567,10 +380,14 @@ Each resource below has its own page. Read only the one you need.
 | `allowlist` | `pgedge llms starfleet managed database allowlist` | Manage which addresses may reach a database |
 | `branch` | `pgedge llms starfleet managed database branch` | Manage branches of a managed database |
 | `env` | `pgedge llms starfleet managed database env` | Write a database's connection into a .env file |
+| `inspect` | `pgedge llms starfleet managed database inspect` | Run a read-only diagnostic against a managed database |
+| `link` | `pgedge llms starfleet managed database link` | Link the current folder to a managed database |
 | `logs` | `pgedge llms starfleet managed database logs` | Read a managed database's logs |
 | `mcp` | `pgedge llms starfleet managed database mcp` | Manage the MCP server on a database |
 | `metrics` | `pgedge llms starfleet managed database metrics` | Read a managed database's metrics |
 | `postgrest` | `pgedge llms starfleet managed database postgrest` | Manage PostgREST on a database (not yet supported) |
 | `rag` | `pgedge llms starfleet managed database rag` | Manage the RAG server on a database |
+| `rotate-password` | `pgedge llms starfleet managed database rotate-password` | Rotate a built-in role's password |
 | `service` | `pgedge llms starfleet managed database service` | Manage services deployed on a database |
+| `wait` | `pgedge llms starfleet managed database wait` | Wait for a database to reach a status |
 <!-- END GENERATED ROUTING -->

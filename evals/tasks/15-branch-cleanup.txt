@@ -1,0 +1,1 @@
+Delete the branches of {fixture} whose names start with test-.

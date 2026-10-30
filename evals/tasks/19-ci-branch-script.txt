@@ -1,0 +1,1 @@
+Write a bash script ci.sh that creates a branch of {fixture} named by its first argument, waits until it can be used, and writes its connection string to branch.env. It must exit non-zero if any step fails.

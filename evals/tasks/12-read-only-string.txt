@@ -1,0 +1,1 @@
+I need a connection string for {fixture} that can only read data. Don't show me the password.

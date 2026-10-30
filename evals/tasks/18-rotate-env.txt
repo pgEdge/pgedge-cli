@@ -1,0 +1,1 @@
+Rotate the app password for {fixture} and update DATABASE_URL in .env.

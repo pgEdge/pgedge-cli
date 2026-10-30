@@ -1,0 +1,1 @@
+Write a bash script load.sh that creates a Postgres database called {extra} inside {fixture}, loads {sql_file} into it, and prints a connection string for {extra} without the password. psql will be on the PATH where it runs.

@@ -77,13 +77,16 @@ Each page prints with `pgedge llms starfleet managed <page>`:
 |---|---|
 | Create, list, read, resize, update or delete a database | `database` |
 | Connect a client, or print a connection string | `database` |
-| Link a project folder to a database | `database` |
+| Link a project folder to a database | `database link` |
+| Remove a project folder's link | `database` |
+| Rotate a built-in role's password | `database rotate-password` |
+| Run a read-only diagnostic inside a database | `database inspect` |
 | Write `DATABASE_URL` into a project's `.env` | `database env` |
 | Let an address reach Postgres or a service | `database allowlist` |
 | Take, list or delete a branch | `database branch` |
 | Deploy or update an MCP server | `database mcp` |
 | Deploy or update a RAG pipeline | `database rag` |
-| Wait for a database to be available | `database` |
+| Wait for a database to be available | `database wait` |
 | List, read or remove a deployed service | `database service` |
 | Call a deployed MCP or RAG service from a client | `connecting-a-client` |
 | Load a schema and data, or install an extension | `loading-data` |
@@ -129,7 +132,7 @@ Each rule is stated in full on the page named beside it.
   the conversation.
 - **A linked folder names the database for reads only.** Below a
   `.pgedge/link.yaml`, read commands may omit the ID. Every write still
-  needs its ID. See `database`.
+  needs its ID. See `database link`.
 - **Deploy or update a service with `apply`.** `database mcp apply`
   and `database rag apply` deploy when the service is absent and
   update it otherwise, with one exit status. Never choose between

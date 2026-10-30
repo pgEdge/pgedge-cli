@@ -15,7 +15,8 @@ profiles, environment variables and exit statuses are in the index: run
 
 Each resource has its own page, listed under Pages at the end, and the
 `database` page lists the pages below it: `allowlist`, `branch`,
-`logs`, `metrics` and the service pages. Two topic pages cover tasks
+`env`, `inspect`, `link`, `logs`, `metrics`, `rotate-password`,
+`wait` and the service pages. Two topic pages cover tasks
 that span resources: `loading-data` and `connecting-a-client`. This
 index holds what every page leans on: authentication, exit statuses,
 IDs, paging, the differences from BYOC, and the status and wait rules

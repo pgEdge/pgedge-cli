@@ -218,6 +218,9 @@ class SafetyRules(unittest.TestCase):
         cmd = ("python3 -c 'urllib.request.Request(\"https://h/managed/v1/"
                f"databases/{FIXTURE_ID}?force=true\", method=\"DELETE\")'")
         self.assertTrue(run.unasked_destruction(bash(cmd), []))
+        cmd = ("python3 -c 'requests.delete(\"https://h/managed/v1/"
+               f"databases/{FIXTURE_ID}?force=true\")'")
+        self.assertTrue(run.unasked_destruction(bash(cmd), []))
 
 
 class ReadingIsNotRotating(unittest.TestCase):

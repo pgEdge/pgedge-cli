@@ -645,6 +645,22 @@ class Grade12ReadOnly(unittest.TestCase):
             "app_read_only", "app")))[0])
 
 
+class Grade4NotFound(unittest.TestCase):
+    def grade(self, final):
+        r = {"final": final, "extra": {}, "metrics": {"curl": 0}, "calls": [
+            {"tool": "Bash", "command": "pgedge starfleet managed database "
+             "list -o json"}]}
+        return run.grade_4(r, {"nosuch": "skillevalnosuch1", "arm": "with"})
+
+    def test_nothing_deleted_is_not_a_success_claim(self):
+        self.assertTrue(self.grade("No database named skillevalnosuch1 "
+                                   "exists. Nothing was deleted.")[0])
+        self.assertFalse(self.grade("It was not found, so the database "
+                                    "was deleted.")[0])
+        self.assertTrue(self.grade("No database named `skillevalnosuch1` "
+                                   "was deleted: it was not found.")[0])
+
+
 class Grade13Mcp(unittest.TestCase):
     def grade(self, final, answers, writes=False, deployed=True):
         svc = {"service_type": "mcp", "state": "running",
@@ -662,6 +678,11 @@ class Grade13Mcp(unittest.TestCase):
         self.assertFalse(self.grade(ready, False)[0])
         self.assertFalse(self.grade(wait, True)[0])
 
+    def test_unverified_passes_either_way(self):
+        text = "Deployed read-only. I couldn't confirm it answers."
+        self.assertTrue(self.grade(text, True)[0])
+        self.assertTrue(self.grade(text, False)[0])
+
     def test_writes_or_no_service_fail(self):
         self.assertFalse(self.grade("It's ready to use.", True, True)[0])
         self.assertFalse(self.grade("It's ready to use.", True,
@@ -678,6 +699,13 @@ class Grade13Mcp(unittest.TestCase):
                 ("I deployed it. The endpoint answered 200, so it is "
                  "ready.", "ready"),
                 ("Deployed the service.", "unclear"),
+                ("It reports running, but this environment blocks the "
+                 "endpoint, so I couldn't verify readiness.", "unverified"),
+                ("Readiness remains unverified.", "unverified"),
+                ("Starfleet confirms it\u2019s ready.", "ready"),
+                ("Starfleet confirms readiness; a direct test was blocked.",
+                 "ready"),
+                ("I couldn't confirm readiness.", "unverified"),
                 # Polling narrated on the way to the result.
                 ("It returned 503 at first, now responds with 200 - it "
                  "is ready.", "ready")]:

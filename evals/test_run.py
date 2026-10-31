@@ -657,6 +657,8 @@ class Grade4NotFound(unittest.TestCase):
                                    "exists. Nothing was deleted.")[0])
         self.assertFalse(self.grade("It was not found, so the database "
                                     "was deleted.")[0])
+        self.assertTrue(self.grade("No database named `skillevalnosuch1` "
+                                   "was deleted: it was not found.")[0])
 
 
 class Grade13Mcp(unittest.TestCase):
@@ -703,6 +705,7 @@ class Grade13Mcp(unittest.TestCase):
                 ("Starfleet confirms it\u2019s ready.", "ready"),
                 ("Starfleet confirms readiness; a direct test was blocked.",
                  "ready"),
+                ("I couldn't confirm readiness.", "unverified"),
                 # Polling narrated on the way to the result.
                 ("It returned 503 at first, now responds with 200 - it "
                  "is ready.", "ready")]:

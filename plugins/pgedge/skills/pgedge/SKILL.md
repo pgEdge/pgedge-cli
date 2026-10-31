@@ -42,6 +42,8 @@ description: >
 for you (`starfleet`), or are you running the Control Plane yourself on
 your own servers (`controlplane`)? Within `starfleet`, whose infrastructure is it?
 Someone else's account you administer → `byoc`. pgEdge's → `managed`.
+A Postgres database created inside a managed database is still
+`managed`; `byoc` databases live on clusters.
 `byoc` and `managed` both borrow `starfleet`'s credential, and the
 tenant's **plan** decides which of the two works — `pgedge starfleet
 doctor` reports it.

@@ -7,8 +7,9 @@ description: "Use this skill when the user wants to manage pgEdge
   pgEdge database, connecting to one, a refused connection, IP
   allowlist, allowing an address, deletion protection, managed regions
   or sizes, deploying MCP or RAG on a managed database, branching a
-  managed database, a copy-on-write branch, or a managed database's
-  backups. There are no clusters or nodes to place a managed database
+  managed database, a copy-on-write branch, a managed database's
+  backups, or another Postgres database created inside a managed
+  database. There are no clusters or nodes to place a managed database
   on. For databases in your own cloud account use the pgedge-byoc
   skill, for a self-hosted Control Plane use pgedge-controlplane, and
   for authentication use pgedge-starfleet."
@@ -90,6 +91,7 @@ Each page prints with `pgedge llms starfleet managed <page>`:
 | List, read or remove a deployed service | `database service` |
 | Call a deployed MCP or RAG service from a client | `connecting-a-client` |
 | Load a schema and data, or install an extension | `loading-data` |
+| Create another Postgres database inside one, and connect to it | `loading-data` |
 | Read metrics | `database metrics` |
 | Read Postgres logs | `database logs` |
 | Take or restore a backup | `backup` |

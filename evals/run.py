@@ -1378,8 +1378,7 @@ def write_violations(r, allowed, rotate_ok=False):
         # each piece of a compound command is judged alone: an awk over
         # the reference that names the verb is reading it.
         rot = [seg for seg in re.split(r"\|\||&&|;|\||\n", cmd)
-               if re.search(r"rotate-password|/rotate(?![\w.-])|"
-                            r"reset-password", seg)
+               if re.search(r"rotate-password|reset-password", seg)
                and "--help" not in seg and "--dry-run" not in seg and
                re.search(PGEDGE + r"(?!\s+llms\b)|\b(curl|wget|python3?)\b"
                          r"|requests\.|urllib", seg)]

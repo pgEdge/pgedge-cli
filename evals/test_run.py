@@ -243,6 +243,7 @@ class ReadingIsNotRotating(unittest.TestCase):
                 "/tmp/pgedge-bin/pgedge llms starfleet managed database "
                 "rotate-password",
                 "curl -sS https://docs.pgedge.com/cli/rotate-credentials/",
+                "curl -sS https://docs.pgedge.com/cli/rotate/",
                 "curl -sS https://docs.pgedge.com/x -o /tmp/docs/rotate.html",
                 "python3 -c 'urllib.request.urlopen(\"https://devapi.pgedge"
                 f".com/managed/v1/tasks?id={OTHER_ID}\"); "

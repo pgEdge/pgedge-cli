@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -50,19 +51,24 @@ var promptIsInteractive = func(rt *module.Runtime) bool {
 	return ok && term.IsTerminal(int(out.Fd()))
 }
 
-// browserLogin signs the user in through the browser and saves the
-// profile as a browser session.
-func browserLogin(rt *module.Runtime, f *conn.Flags) error {
+// browserLogin signs the user in through the browser, or with a device
+// code when device is set or no browser opens, and saves the profile as
+// a browser session either way.
+func browserLogin(rt *module.Runtime, f *conn.Flags, device bool) error {
 	apiURL := conn.ResolveAPIURL(
 		rt.Config.StarfleetProfile(rt.Profile), f.APIURL)
 	app, _, ok := conn.SignInApp(apiURL)
 	if !ok {
+		method := "browser"
+		if device {
+			method = "device-code"
+		}
 		// Exit 5, not 2: the command is well formed, and the same line
 		// works once the API has a sign-in app.
-		return newExitError(fmt.Sprintf("browser sign-in is not "+
+		return newExitError(fmt.Sprintf("%s sign-in is not "+
 			"available for %s yet: sign in with an API client instead, "+
 			"with --client-id and --client-secret, or --api-client to "+
-			"be prompted for them", apiURL), ExitAuth)
+			"be prompted for them", method, apiURL), ExitAuth)
 	}
 	timeout := f.Timeout
 	if timeout <= 0 {
@@ -71,7 +77,19 @@ func browserLogin(rt *module.Runtime, f *conn.Flags) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	toks, err := signInFlow(rt, app, timeout).Run(ctx)
+	flow := signInFlow(rt, app, timeout)
+	var toks *signin.Tokens
+	var err error
+	if device {
+		toks, err = flow.RunDevice(ctx)
+	} else {
+		toks, err = flow.Run(ctx)
+		if errors.Is(err, signin.ErrNoBrowser) {
+			fmt.Fprintf(rt.Stderr, "%s; signing in with a code instead.\n",
+				output.Sanitize(err.Error()))
+			toks, err = flow.RunDevice(ctx)
+		}
+	}
 	if err != nil {
 		return newExitError(err.Error(), ExitAuth)
 	}

@@ -51,7 +51,7 @@ Example:
 }
 
 func newAuthLoginCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	var insecureStorage, apiClient, secretStdin bool
+	var insecureStorage, apiClient, secretStdin, device bool
 	var secretFile string
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -74,6 +74,16 @@ prompt, and uses your account's default tenant otherwise. --tenant
 picks one by ID or name without asking. Browser sign-in is available only for pgEdge
 Starfleet APIs that have a sign-in app; for any other --api-url,
 login fails with exit 5 and asks for an API client.
+
+--device signs you in with a code instead, for a terminal whose
+machine has no browser you can use, such as an SSH session, a
+Codespace or a dev container. login prints a URL and a short code on
+stderr; open the URL in a browser on any device, check that it shows
+the same code, and confirm. Confirm a code only when you started the
+sign-in yourself. login waits until you confirm, refuse or the code
+expires, and Ctrl-C stops it. When login cannot start a browser, it
+switches to a code without --device. Either way the result is the
+same session a browser sign-in saves.
 
 An API client is the unattended path, for CI and scripts. Supply
 --client-id and --client-secret, or --api-client to be prompted for
@@ -105,6 +115,7 @@ the profile until they are unset.
 Example:
   pgedge starfleet auth login
   pgedge starfleet auth login --tenant TENANT_ID
+  pgedge starfleet auth login --device
   pgedge starfleet auth login --client-id ID --client-secret-file FILE
   pgedge starfleet auth login --client-id ID --client-secret-stdin < FILE
   pgedge starfleet auth login --api-client --insecure-storage`,
@@ -127,6 +138,11 @@ Example:
 				return newExitError(err.Error(), ExitUsage)
 			}
 
+			if device && (creds != nil || apiClient || insecureStorage) {
+				return newExitError("--device signs you in as yourself: "+
+					"drop the API client flags, or drop --device",
+					ExitUsage)
+			}
 			if creds == nil && !apiClient {
 				if insecureStorage {
 					return newExitError("--insecure-storage stores an "+
@@ -135,7 +151,7 @@ Example:
 						"--client-secret-stdin or "+
 						"--client-secret-file", ExitUsage)
 				}
-				if err := browserLogin(rt, f); err != nil {
+				if err := browserLogin(rt, f, device); err != nil {
 					return err
 				}
 				warnEnvPair(rt)
@@ -236,6 +252,8 @@ Example:
 	}
 	cmd.Flags().BoolVar(&insecureStorage, "insecure-storage", false,
 		"store the client secret in the config file, not the OS keychain")
+	cmd.Flags().BoolVar(&device, "device", false,
+		"sign in with a code entered in a browser on any device")
 	cmd.Flags().BoolVar(&apiClient, "api-client", false,
 		"sign in with an API client, prompting for its ID and secret")
 	cmd.Flags().BoolVar(&secretStdin, "client-secret-stdin", false,

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -57,6 +58,8 @@ type signInStubs struct {
 	revokeStatus int
 	// atAPI, when set, runs as each API request arrives.
 	atAPI func(*http.Request)
+	// openErr, when set, is what opening the browser fails with.
+	openErr error
 
 	mu            sync.Mutex
 	refreshedWith []string
@@ -78,6 +81,12 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			w.Header().Set("Content-Type", "application/json")
 			s.mu.Lock()
 			defer s.mu.Unlock()
+			if r.URL.Path == "/oauth/device/code" {
+				_, _ = io.WriteString(w, `{"device_code":"dc",`+
+					`"user_code":"WXYZ-1234","interval":5,"expires_in":900,`+
+					`"verification_uri":"https://auth.example/activate"}`)
+				return
+			}
 			if r.URL.Path == "/oauth/revoke" {
 				s.revoked = append(s.revoked, r.PostForm.Get("token"))
 				if s.revokeStatus != 0 {
@@ -151,7 +160,13 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			Audience: app.Audience, Ports: []int{0},
 			Wait: 5 * time.Second, Out: rt.Stderr,
 			HTTPClient: conn.SignInHTTPClient(rt, 5*time.Second),
+			Sleep: func(context.Context, time.Duration) error {
+				return nil
+			},
 			Open: func(target string) error {
+				if s.openErr != nil {
+					return s.openErr
+				}
 				u, _ := url.Parse(target)
 				q := u.Query()
 				resp, err := http.Get(q.Get("redirect_uri") + "?" +

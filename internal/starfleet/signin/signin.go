@@ -36,7 +36,12 @@ var (
 	ErrPortsBusy = errors.New("signin: no free callback port")
 	ErrTimeout   = errors.New("timed out waiting for the browser sign-in")
 	ErrCancelled = errors.New("sign-in cancelled")
+	// ErrNoBrowser wraps Open's failure; Run returns it before waiting.
+	ErrNoBrowser = errors.New("could not open a browser")
 )
+
+// scope asks for offline_access so Auth0 issues a refresh token.
+const scope = "openid profile email offline_access"
 
 // DeniedError is an error Auth0 returned on the callback, such as
 // access_denied.
@@ -64,6 +69,9 @@ type Flow struct {
 	HTTPClient *http.Client
 	// Out receives the URL and progress lines.
 	Out io.Writer
+	// Sleep and Now pace RunDevice's polling; nil means real time.
+	Sleep func(context.Context, time.Duration) error
+	Now   func() time.Time
 }
 
 // Tokens is what the token endpoint returns. RefreshToken is empty
@@ -113,14 +121,13 @@ func (f *Flow) Run(ctx context.Context) (*Tokens, error) {
 	}()
 
 	authURL := f.authorizeURL(redirect, challengeFor(verifier), state)
-	fmt.Fprintf(f.Out, "Opening your browser to sign in to pgEdge "+
-		"Starfleet. If it does not open, visit:\n  %s\n", output.Sanitize(authURL))
 	if f.Open != nil {
 		if err := f.Open(authURL); err != nil {
-			fmt.Fprintf(f.Out, "Could not open a browser (%s); open "+
-				"the URL above to continue.\n", output.Sanitize(err.Error()))
+			return nil, fmt.Errorf("%w: %v", ErrNoBrowser, err)
 		}
 	}
+	fmt.Fprintf(f.Out, "Opening your browser to sign in to pgEdge "+
+		"Starfleet. If it does not open, visit:\n  %s\n", output.Sanitize(authURL))
 	fmt.Fprintln(f.Out, "Waiting for the sign-in to finish "+
 		"(Ctrl-C to cancel)...")
 
@@ -180,7 +187,7 @@ func (f *Flow) authorizeURL(redirect, challenge, state string) string {
 		"client_id":             {f.ClientID},
 		"redirect_uri":          {redirect},
 		"audience":              {f.Audience},
-		"scope":                 {"openid profile email offline_access"},
+		"scope":                 {scope},
 		"code_challenge":        {challenge},
 		"code_challenge_method": {"S256"},
 		"state":                 {state},

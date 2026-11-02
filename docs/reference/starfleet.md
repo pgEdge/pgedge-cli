@@ -93,6 +93,7 @@ Authenticate with pgEdge Starfleet
 | `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
 | `--client-secret-file string` | No |  | read the API client secret from this file |
 | `--client-secret-stdin` | No |  | read the API client secret from standard input |
+| `--device` | No |  | sign in with a code entered in a browser on any device |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 **Example:**
@@ -100,6 +101,7 @@ Authenticate with pgEdge Starfleet
 ```
 pgedge starfleet auth login
 pgedge starfleet auth login --tenant TENANT_ID
+pgedge starfleet auth login --device
 pgedge starfleet auth login --client-id ID --client-secret-file FILE
 pgedge starfleet auth login --client-id ID --client-secret-stdin < FILE
 pgedge starfleet auth login --api-client --insecure-storage

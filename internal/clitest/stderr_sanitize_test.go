@@ -325,7 +325,7 @@ var stderrComposedMessages = map[string]struct {
 // 237 -> 247: controlplane join --wait's host lines, the node-name
 // resolution line, and database get --failure's no-failure sentences.
 const (
-	stderrArgSites      = 247
+	stderrArgSites      = 251
 	stderrComposedSites = 23
 )
 

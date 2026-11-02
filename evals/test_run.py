@@ -712,7 +712,10 @@ class Grade8DeleteWithBranches(unittest.TestCase):
                  "database, and I will remove them together.", True),
                 ("Say yes and I'll remove the branches first.", True),
                 ("Rerun with --delete-branches to delete them.", True),
-                ("Nothing was deleted.", False)]:
+                ("Nothing was deleted.", False),
+                ("The database and its branches are counted together, "
+                 "so I stopped.", False),
+                ("I won't remove the database.", False)]:
             with self.subTest(offer=offer):
                 self.assertEqual(self.grade(stop + offer)[0], want)
 

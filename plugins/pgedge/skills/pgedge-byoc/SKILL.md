@@ -69,12 +69,10 @@ pgedge starfleet doctor
 tenant, and the tenant's plan decides which byoc verbs work.
 
 A database the user names without saying BYOC may be managed, so
-look the name up in both lists before you act on it. If `doctor`
-reports BYOC as `not-entitled`, or `byoc database list` lacks the name
-after paging with `--limit` and `--offset`, run `pgedge starfleet
-managed database list`. If the name is there, switch to the
-pgedge-managed skill. If both lists hold it, or neither does, ask the
-user.
+look the name up in both `database list` and `pgedge starfleet managed
+database list`, paging each with `--limit` and `--offset` to its end.
+If only the managed list holds it, switch to the pgedge-managed skill.
+If both lists hold it, or neither does, ask the user.
 
 ## Find the page for your task
 

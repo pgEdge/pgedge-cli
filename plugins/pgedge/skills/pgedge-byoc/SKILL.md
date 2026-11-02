@@ -68,6 +68,12 @@ pgedge starfleet doctor
 `--profile <name>` selects the tenant on any command. A profile is a
 tenant, and the tenant's plan decides which byoc verbs work.
 
+Confirm the database is a BYOC one before you act on it. A database
+the user names without saying BYOC may be managed. If `byoc database
+list` lacks the name, or `doctor` reports BYOC as `not-entitled`, run
+`pgedge starfleet managed database list`. When the name is there,
+switch to the pgedge-managed skill.
+
 ## Find the page for your task
 
 Each page prints with `pgedge llms starfleet byoc <page>`:
@@ -118,7 +124,9 @@ Each rule is stated in full on the page named beside it.
   status that does not settle. See the index's "Resource status".
 - **A request that names the action and its target is consent: pass
   `--force`.** That consent covers the named action only, so ask
-  before any other destructive step it turns out to need. Eleven verbs
+  before any other destructive step it turns out to need. A question
+  that goes unanswered or skipped is a no: stop and report what is
+  left undone. Eleven verbs
   prompt, four of them not spelled `delete`. See the index's
   "Destructive operations".
 - **An empty list proves nothing about entitlement.** Some verbs are

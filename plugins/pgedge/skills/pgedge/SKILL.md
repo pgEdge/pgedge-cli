@@ -48,6 +48,13 @@ A Postgres database created inside a managed database is still
 tenant's **plan** decides which of the two works — `pgedge starfleet
 doctor` reports it.
 
+**A database the user names without saying where it runs:** look it up
+before choosing a skill. Run `pgedge starfleet managed database list`
+and `pgedge starfleet byoc database list`, and use the skill for the
+list that holds the name. A tenant whose plan does not allow BYOC
+returns an empty BYOC list, so an empty list says nothing about the
+name.
+
 ## Orientation
 
 - **Version:** `pgedge version` prints the launcher version plus each

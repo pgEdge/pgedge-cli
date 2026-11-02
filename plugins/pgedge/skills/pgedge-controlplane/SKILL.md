@@ -112,7 +112,9 @@ Each rule is stated in full on the page named beside it.
   `host remove`. See `database`, `database instance`, `database node`
   and `host`. A request that names the action and its target is
   consent for `--force`, and for that action only: ask before a
-  waiver flag or any other destructive step it turns out to need.
+  waiver flag or any other destructive step it turns out to need. A
+  question that goes unanswered or skipped is a no: stop and report
+  what is left undone.
 - **Every write accepts `--dry-run`.** It runs the client-side checks,
   stops before sending the write, and prints the request it would have
   sent. Checks that read the server still run. The server validates

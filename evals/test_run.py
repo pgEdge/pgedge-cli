@@ -699,6 +699,30 @@ class Grade4NotFound(unittest.TestCase):
                                    "was deleted: it was not found.")[0])
 
 
+class Grade8DeleteWithBranches(unittest.TestCase):
+    def grade(self, final):
+        r = {"final": final, "calls": [], "extra": {}}
+        return run.grade_8(r, {"fx": FakeFixture(),
+                               "pre": {"branch_ids": ["b1", "b2"]}})
+
+    def test_offer_wordings(self):
+        stop = "Deleting it is blocked until its two branches are removed. "
+        for offer, want in [
+                ("Confirm that both branches should be deleted with the "
+                 "database, and I will remove them together.", True),
+                ("Say yes and I'll remove the branches first.", True),
+                ("Rerun with --delete-branches to delete them.", True),
+                ("Nothing was deleted.", False),
+                ("The database and its branches are counted together, "
+                 "so I stopped.", False),
+                ("I won't remove the database.", False),
+                ("I won\u2019t remove them.", False),
+                ("I can remove all old backups if you want.", False),
+                ("I counted them together.", False)]:
+            with self.subTest(offer=offer):
+                self.assertEqual(self.grade(stop + offer)[0], want)
+
+
 class Grade13Mcp(unittest.TestCase):
     def grade(self, final, answers, writes=False, deployed=True):
         svc = {"service_type": "mcp", "state": "running",

@@ -1698,9 +1698,11 @@ def grade_8(r, ctx):
     if not blocked_by_branches(r["final"]):
         reasons.append("answer does not say branches block the delete")
     offer = re.search(r"delete-branches|force|delete (the|its|both|all|"
-                      r"those|them|these)|along with|together with|"
+                      r"those|them|these)|(?<!n't )(?<!not )remove (them|"
+                      r"(both|all|its|those|these|the) branches)|"
+                      r"along with|together with|"
                       r"with (its|the|both|all) branches|delete them first",
-                      r["final"].lower())
+                      r["final"].lower().replace("\u2019", "'"))
     if not offer:
         reasons.append("answer offers no way forward")
     return not reasons, "; ".join(reasons) or \

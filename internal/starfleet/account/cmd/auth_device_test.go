@@ -59,17 +59,21 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		args    []string
 		stderr  string
 		ssh     bool
+		browser bool // the browser path, not a code, is wanted
 	}{
 		{name: "--device", args: []string{"--device"},
 			stderr: "WXYZ-1234"},
 		{name: "ssh session with no display", ssh: true,
 			stderr: "Not opening a browser: this is an SSH session"},
+		{name: "--browser over ssh with no display", ssh: true,
+			browser: true, args: []string{"--browser"},
+			stderr: "Opening your browser"},
 		{name: "no browser opens",
 			openErr: errors.New("exec: xdg-open: not found"),
 			stderr:  "signing in with a code instead"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.ssh {
+			if tc.ssh && !tc.browser {
 				// Fails the browser path, so only the device path passes.
 				tc.openErr = errors.New("opener must not run over SSH")
 			}
@@ -82,6 +86,12 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 			}
 			for _, s := range []string{tc.stderr, "WXYZ-1234",
 				"Signed in as user@example.com."} {
+				if tc.browser && s == "WXYZ-1234" {
+					if strings.Contains(errb, s) {
+						t.Errorf("signed in with a code:\n%s", errb)
+					}
+					continue
+				}
 				if !strings.Contains(errb, s) {
 					t.Errorf("stderr lacks %q:\n%s", s, errb)
 				}
@@ -119,6 +129,8 @@ func TestDeviceLoginRefusesAPIClientFlags(t *testing.T) {
 		{"--device", "--api-client"},
 		{"--device", "--client-id", "i", "--client-secret", "s"},
 		{"--device", "--insecure-storage"},
+		{"--browser", "--device"},
+		{"--browser", "--api-client"},
 	} {
 		s := newSignInStubs(t, "t-a")
 		rt, _, _ := testsupport.NewRuntime(t, "", "text")

@@ -51,7 +51,7 @@ Example:
 }
 
 func newAuthLoginCmd(rt *module.Runtime, f *conn.Flags) *cobra.Command {
-	var insecureStorage, apiClient, secretStdin, device bool
+	var insecureStorage, apiClient, secretStdin, device, browser bool
 	var secretFile string
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -88,6 +88,11 @@ WAYLAND_DISPLAY is set, and when it cannot start a browser; it says
 why on stderr. Either way the result is the same session a browser
 sign-in saves.
 
+--browser forces the browser sign-in in an SSH session, for example
+when the callback port is forwarded to the machine your browser runs
+on. If login cannot start a browser, it prints the URL and waits for
+you to open it by hand. --browser with --device is exit 2.
+
 An API client is the unattended path, for CI and scripts. Supply
 --client-id and --client-secret, or --api-client to be prompted for
 them; the secret is never echoed. In place of --client-secret,
@@ -119,6 +124,7 @@ Example:
   pgedge starfleet auth login
   pgedge starfleet auth login --tenant TENANT_ID
   pgedge starfleet auth login --device
+  pgedge starfleet auth login --browser
   pgedge starfleet auth login --client-id ID --client-secret-file FILE
   pgedge starfleet auth login --client-id ID --client-secret-stdin < FILE
   pgedge starfleet auth login --api-client --insecure-storage`,
@@ -141,10 +147,21 @@ Example:
 				return newExitError(err.Error(), ExitUsage)
 			}
 
-			if device && (creds != nil || apiClient || insecureStorage) {
-				return newExitError("--device signs you in as yourself: "+
-					"drop the API client flags, or drop --device",
+			if device && browser {
+				return newExitError("--browser and --device are "+
+					"mutually exclusive: pick one way to sign in",
 					ExitUsage)
+			}
+			method, name := methodAuto, ""
+			switch {
+			case device:
+				method, name = methodDevice, "--device"
+			case browser:
+				method, name = methodBrowser, "--browser"
+			}
+			if name != "" && (creds != nil || apiClient || insecureStorage) {
+				return newExitError(name+" signs you in as yourself: "+
+					"drop the API client flags, or drop "+name, ExitUsage)
 			}
 			if creds == nil && !apiClient {
 				if insecureStorage {
@@ -154,7 +171,7 @@ Example:
 						"--client-secret-stdin or "+
 						"--client-secret-file", ExitUsage)
 				}
-				if err := browserLogin(rt, f, device); err != nil {
+				if err := browserLogin(rt, f, method); err != nil {
 					return err
 				}
 				warnEnvPair(rt)
@@ -255,6 +272,8 @@ Example:
 	}
 	cmd.Flags().BoolVar(&insecureStorage, "insecure-storage", false,
 		"store the client secret in the config file, not the OS keychain")
+	cmd.Flags().BoolVar(&browser, "browser", false,
+		"sign in through a browser, even in an SSH session")
 	cmd.Flags().BoolVar(&device, "device", false,
 		"sign in with a code entered in a browser on any device")
 	cmd.Flags().BoolVar(&apiClient, "api-client", false,

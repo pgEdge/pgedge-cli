@@ -59,10 +59,20 @@ var (
 	sessionEnv  = os.Getenv
 )
 
-// browserLogin signs the user in through the browser, or with a device
-// code when device is set, the session is remote, or no browser opens,
-// and saves the profile as a browser session either way.
-func browserLogin(rt *module.Runtime, f *conn.Flags, device bool) error {
+// signInMethod is how a sign-in as the user reaches Auth0.
+type signInMethod int
+
+const (
+	methodAuto    signInMethod = iota // browser, else a device code
+	methodBrowser                     // --browser
+	methodDevice                      // --device
+)
+
+// browserLogin signs the user in through the browser or with a device
+// code, and saves the profile as a browser session either way.
+func browserLogin(rt *module.Runtime, f *conn.Flags,
+	method signInMethod) error {
+	device := method == methodDevice
 	apiURL := conn.ResolveAPIURL(
 		rt.Config.StarfleetProfile(rt.Profile), f.APIURL)
 	app, _, ok := conn.SignInApp(apiURL)
@@ -86,11 +96,25 @@ func browserLogin(rt *module.Runtime, f *conn.Flags, device bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	flow := signInFlow(rt, app, timeout)
-	if !device {
+	if method == methodAuto {
 		if why := signin.RemoteSession(sessionGOOS, sessionEnv); why != "" {
 			fmt.Fprintf(rt.Stderr, "Not opening a browser: %s. Signing "+
-				"in with a code instead.\n", output.Sanitize(why))
+				"in with a code instead; use --browser to override.\n",
+				output.Sanitize(why))
 			device = true
+		}
+	}
+	if method == methodBrowser && flow.Open != nil {
+		// --browser keeps waiting on the printed URL, which a forwarded
+		// callback port can still complete.
+		open := flow.Open
+		flow.Open = func(target string) error {
+			if err := open(target); err != nil {
+				fmt.Fprintf(rt.Stderr, "Could not open a browser (%s); "+
+					"open the URL below to continue.\n",
+					output.Sanitize(err.Error()))
+			}
+			return nil
 		}
 	}
 	var toks *signin.Tokens

@@ -27,8 +27,10 @@ A profile signs in one of three ways:
   confirms it signs that terminal in as themselves. Login uses a code
   without `--device` in an SSH session on macOS or Windows, in an SSH
   session on Linux or BSD with no display forwarded, and when it
-  cannot start a browser. Either way you get the same session as a
-  browser sign-in.
+  cannot start a browser. Pass `--browser` to sign in through the
+  browser over SSH anyway, for example with the callback port
+  forwarded. Either way you get the same session as a browser
+  sign-in.
 - **As an API client.** Pass `--client-id` with
   `--client-secret-file <path>` or `--client-secret-stdin`, or
   `--api-client` to be prompted for them. This is the path for CI and

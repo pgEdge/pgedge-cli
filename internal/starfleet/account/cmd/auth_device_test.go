@@ -75,6 +75,30 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 	}
 }
 
+// TestDeviceLoginDebugOutputCarriesNoSecrets: whoever holds the device
+// code can collect the tokens once the user confirms it.
+func TestDeviceLoginDebugOutputCarriesNoSecrets(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	s.issueRefresh = true
+	rt, _, errb := testsupport.NewRuntime(t, "", "text")
+	rt.Keychain = &keychain.Fake{}
+	rt.Debug = true
+	if err := login(t, rt, s, "--device"); err != nil {
+		t.Fatalf("login: %v\n%s", err, errb.String())
+	}
+	if !strings.Contains(errb.String(), "/oauth/device/code") {
+		t.Fatalf("--debug did not log the device code request:\n%s",
+			errb.String())
+	}
+	issued, _ := s.issued.Load().(string)
+	for _, secret := range append(strings.Fields(issued), "devcode~9f2",
+		"refresh~1") {
+		if secret == "" || strings.Contains(errb.String(), secret) {
+			t.Errorf("--debug output carries %q", secret)
+		}
+	}
+}
+
 func TestDeviceLoginRefusesAPIClientFlags(t *testing.T) {
 	for _, args := range [][]string{
 		{"--device", "--api-client"},

@@ -104,7 +104,7 @@ var maskedHeaders = map[string]bool{
 var secretFieldNames = []string{
 	// Auth: the token endpoint and stored client credentials.
 	"access_token", "refresh_token", "id_token", "client_secret",
-	"auth0_secret",
+	"auth0_secret", "device_code",
 	// Database and role credentials.
 	"password",
 	// Cloud-provider credentials, byoc and controlplane.
@@ -310,7 +310,7 @@ func RedactBody(raw []byte, limit int) string {
 
 // formSecretNames are the OAuth form fields that would let a reader of
 // the log finish a code exchange or use a token being revoked.
-var formSecretNames = []string{"code", "code_verifier", "token"}
+var formSecretNames = []string{"code", "code_verifier", "device_code", "token"}
 
 // RedactForm is RedactBody for a form-encoded body: the value of every
 // secret field, JSON names included, is masked, and the field order is

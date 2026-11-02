@@ -82,7 +82,7 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if r.URL.Path == "/oauth/device/code" {
-				_, _ = io.WriteString(w, `{"device_code":"dc",`+
+				_, _ = io.WriteString(w, `{"device_code":"devcode~9f2",`+
 					`"user_code":"WXYZ-1234","interval":5,"expires_in":900,`+
 					`"verification_uri":"https://auth.example/activate"}`)
 				return

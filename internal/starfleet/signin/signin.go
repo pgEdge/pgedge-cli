@@ -1,6 +1,6 @@
-// Package signin runs the browser half of a pgEdge Starfleet sign-in:
-// an OAuth 2.0 authorization-code flow with PKCE against Auth0, with
-// the redirect caught on a loopback listener.
+// Package signin runs the Auth0 half of a pgEdge Starfleet sign-in:
+// an authorization-code flow with PKCE, its redirect caught on a
+// loopback listener, or the device authorization grant.
 package signin
 
 import (
@@ -28,7 +28,8 @@ import (
 // any other port is refused by Auth0.
 var DefaultPorts = []int{8484, 8485, 8486}
 
-// DefaultWait bounds how long Run waits for the browser to come back.
+// DefaultWait bounds how long Run waits for the browser to come back,
+// and RunDevice for a code whose lifetime Auth0 did not give.
 const DefaultWait = 5 * time.Minute
 
 // Errors Run reports. Callers map them to exit codes.

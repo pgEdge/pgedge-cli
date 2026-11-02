@@ -36,11 +36,12 @@ Authenticate with pgEdge Starfleet
 
 <!-- END GENERATED -->
 
-Signs the active profile in, as a user through the browser or with a
-device code, or as an API client. Run this once per profile: the sign-in serves the whole
-starfleet tree, and the account-level commands, byoc and managed all
-share that one connection and one token. A profile holds one kind of
-credential, so signing in one way removes what the other way stored.
+Signs the active profile in, as a user through the browser or with
+a device code, or as an API client. Run this once per profile: the
+sign-in serves the whole starfleet tree, and the account-level
+commands, byoc and managed all share that one connection and one
+token. A profile holds one kind of credential, so signing in one way
+removes what the other way stored.
 
 **With no credential flags, login signs you in through the browser.**
 It opens the pgEdge sign-in page and prints the same URL on stderr,

@@ -71,9 +71,11 @@ opens the URL in a browser on any device, checks that it shows the
 same code, and confirms. Relay both to the user. Tell them to confirm
 only a sign-in they started: anyone who confirms the code signs this
 terminal in as themselves. login waits until the user confirms or
-refuses, or the code expires, and Ctrl-C stops it. When login cannot
-start a browser, it switches to a code on its own and says so on
-stderr. The saved profile, the session and the closing lines are the
+refuses, or the code expires, and Ctrl-C stops it. login uses a code
+without `--device`, and says why on stderr, in an SSH session
+(`SSH_CONNECTION` or `SSH_TTY` set) on macOS or Windows, in one on
+Linux or BSD with neither `DISPLAY` nor `WAYLAND_DISPLAY` set, and
+when it cannot start a browser. The saved profile, the session and the closing lines are the
 same as a browser sign-in's. A refusal and an expired code are exit 5,
 and `--device` with any API client flag is exit 2.
 

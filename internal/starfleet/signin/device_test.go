@@ -299,3 +299,43 @@ func TestRunReportsAFailedOpenBeforeWaiting(t *testing.T) {
 		t.Errorf("waited for a browser that never opened:\n%s", out)
 	}
 }
+
+func TestRemoteSession(t *testing.T) {
+	ssh := map[string]string{"SSH_CONNECTION": "10.0.0.2 51000 10.0.0.1 22"}
+	with := func(base map[string]string, k, v string) map[string]string {
+		m := map[string]string{k: v}
+		for bk, bv := range base {
+			m[bk] = bv
+		}
+		return m
+	}
+	for _, tc := range []struct {
+		name   string
+		goos   string
+		env    map[string]string
+		remote bool
+	}{
+		{"local linux with DISPLAY", "linux",
+			map[string]string{"DISPLAY": ":0"}, false},
+		{"local linux, no display", "linux", nil, false},
+		{"plain local darwin", "darwin", nil, false},
+		{"ssh with X forwarding", "linux", with(ssh, "DISPLAY",
+			"localhost:10.0"), false},
+		{"ssh with wayland", "freebsd", with(ssh, "WAYLAND_DISPLAY",
+			"wayland-0"), false},
+		{"ssh, no display", "linux", ssh, true},
+		{"SSH_TTY alone, no display", "openbsd",
+			map[string]string{"SSH_TTY": "/dev/pts/1"}, true},
+		{"darwin over ssh", "darwin", with(ssh, "DISPLAY", ":0"), true},
+		{"windows over ssh", "windows", ssh, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			why := RemoteSession(tc.goos,
+				func(k string) string { return tc.env[k] })
+			if (why != "") != tc.remote {
+				t.Errorf("RemoteSession = %q, want remote %v", why,
+					tc.remote)
+			}
+		})
+	}
+}

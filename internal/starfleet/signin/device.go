@@ -151,3 +151,21 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 		return ctx.Err()
 	}
 }
+
+// RemoteSession reports why a browser sign-in on goos cannot reach the
+// user, or "" when it can. getenv reads the environment.
+func RemoteSession(goos string, getenv func(string) string) string {
+	if getenv("SSH_CONNECTION") == "" && getenv("SSH_TTY") == "" {
+		return ""
+	}
+	switch goos {
+	case "darwin", "windows":
+		// The opener succeeds there, on the remote machine's screen.
+		return "this is an SSH session, so a browser would open on " +
+			"the remote machine"
+	}
+	if getenv("DISPLAY") != "" || getenv("WAYLAND_DISPLAY") != "" {
+		return ""
+	}
+	return "this is an SSH session with no display"
+}

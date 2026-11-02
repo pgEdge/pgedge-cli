@@ -24,9 +24,11 @@ A profile signs in one of three ways:
   Login prints a URL and a short code; open the URL in a browser on
   any device, check that it shows the same code, and confirm. Confirm
   a code only when you started that sign-in yourself, because whoever
-  confirms it signs that terminal in as themselves. When login cannot
-  start a browser, it switches to a code without `--device`. Either
-  way you get the same session as a browser sign-in.
+  confirms it signs that terminal in as themselves. Login uses a code
+  without `--device` in an SSH session on macOS or Windows, in an SSH
+  session on Linux or BSD with no display forwarded, and when it
+  cannot start a browser. Either way you get the same session as a
+  browser sign-in.
 - **As an API client.** Pass `--client-id` with
   `--client-secret-file <path>` or `--client-secret-stdin`, or
   `--api-client` to be prompted for them. This is the path for CI and

@@ -153,6 +153,10 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 			Audience: "aud", ClientID: "cid"}, auth0.URL, true
 	}
 	promptIsInteractive = func(*module.Runtime) bool { return false }
+	// A test run over SSH must still take the browser path.
+	savedEnv := sessionEnv
+	t.Cleanup(func() { sessionEnv = savedEnv })
+	sessionEnv = func(string) string { return "" }
 	signInFlow = func(rt *module.Runtime, app apidefaults.Auth0App,
 		_ time.Duration) *signin.Flow {
 		return &signin.Flow{

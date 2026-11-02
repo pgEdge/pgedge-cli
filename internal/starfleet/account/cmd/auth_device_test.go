@@ -21,10 +21,15 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		profile config.StarfleetProfile
 		refresh string
 	}
-	signIn := func(t *testing.T, openErr error, args ...string) (stored,
-		string) {
+	signIn := func(t *testing.T, ssh bool, openErr error,
+		args ...string) (stored, string) {
 		t.Helper()
 		s := newSignInStubs(t, "t-a")
+		if ssh {
+			sessionEnv = func(k string) string {
+				return map[string]string{"SSH_TTY": "/dev/pts/1"}[k]
+			}
+		}
 		s.issueRefresh = true
 		s.openErr = openErr
 		rt, _, errb := testsupport.NewRuntime(t, "", "text")
@@ -44,7 +49,7 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		return stored{p, refresh}, errb.String()
 	}
 
-	want, _ := signIn(t, nil)
+	want, _ := signIn(t, false, nil)
 	if want.profile.Auth != config.AuthBrowser || want.refresh == "" {
 		t.Fatalf("browser sign-in stored %+v", want)
 	}
@@ -53,15 +58,25 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		openErr error
 		args    []string
 		stderr  string
+		ssh     bool
 	}{
 		{name: "--device", args: []string{"--device"},
 			stderr: "WXYZ-1234"},
+		{name: "ssh session with no display", ssh: true,
+			stderr: "Not opening a browser: this is an SSH session"},
 		{name: "no browser opens",
 			openErr: errors.New("exec: xdg-open: not found"),
 			stderr:  "signing in with a code instead"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, errb := signIn(t, tc.openErr, tc.args...)
+			if tc.ssh {
+				// Fails the browser path, so only the device path passes.
+				tc.openErr = errors.New("opener must not run over SSH")
+			}
+			got, errb := signIn(t, tc.ssh, tc.openErr, tc.args...)
+			if tc.ssh && strings.Contains(errb, "could not open") {
+				t.Errorf("tried the opener over SSH:\n%s", errb)
+			}
 			if got != want {
 				t.Errorf("stored %+v, want the browser's %+v", got, want)
 			}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -51,9 +52,16 @@ var promptIsInteractive = func(rt *module.Runtime) bool {
 	return ok && term.IsTerminal(int(out.Fd()))
 }
 
+// sessionGOOS and sessionEnv describe where login runs. Variables so
+// tests can stand in for an SSH session.
+var (
+	sessionGOOS = runtime.GOOS
+	sessionEnv  = os.Getenv
+)
+
 // browserLogin signs the user in through the browser, or with a device
-// code when device is set or no browser opens, and saves the profile as
-// a browser session either way.
+// code when device is set, the session is remote, or no browser opens,
+// and saves the profile as a browser session either way.
 func browserLogin(rt *module.Runtime, f *conn.Flags, device bool) error {
 	apiURL := conn.ResolveAPIURL(
 		rt.Config.StarfleetProfile(rt.Profile), f.APIURL)
@@ -78,6 +86,13 @@ func browserLogin(rt *module.Runtime, f *conn.Flags, device bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	flow := signInFlow(rt, app, timeout)
+	if !device {
+		if why := signin.RemoteSession(sessionGOOS, sessionEnv); why != "" {
+			fmt.Fprintf(rt.Stderr, "Not opening a browser: %s. Signing "+
+				"in with a code instead.\n", output.Sanitize(why))
+			device = true
+		}
+	}
 	var toks *signin.Tokens
 	var err error
 	if device {

@@ -81,9 +81,12 @@ Codespace or a dev container. login prints a URL and a short code on
 stderr; open the URL in a browser on any device, check that it shows
 the same code, and confirm. Confirm a code only when you started the
 sign-in yourself. login waits until you confirm, refuse or the code
-expires, and Ctrl-C stops it. When login cannot start a browser, it
-switches to a code without --device. Either way the result is the
-same session a browser sign-in saves.
+expires, and Ctrl-C stops it. login also uses a code without
+--device in an SSH session (SSH_CONNECTION or SSH_TTY set) on macOS
+or Windows, or on Linux and BSD when neither DISPLAY nor
+WAYLAND_DISPLAY is set, and when it cannot start a browser; it says
+why on stderr. Either way the result is the same session a browser
+sign-in saves.
 
 An API client is the unattended path, for CI and scripts. Supply
 --client-id and --client-secret, or --api-client to be prompted for

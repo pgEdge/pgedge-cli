@@ -68,7 +68,8 @@ run it. Where the terminal's machine has no browser the user can
 reach (SSH, Codespaces, dev containers, hosted IDEs), use
 `auth login --device`: it prints a URL and a short code on stderr,
 and the user opens the URL in a browser on any device and confirms
-the code. Relay both, and tell the user to confirm only a sign-in
+the code. In an SSH session with no display forwarded, or any SSH
+session on macOS or Windows, login does this without `--device`. Relay both, and tell the user to confirm only a sign-in
 they started. For CI and unattended runs, sign in with an API client
 instead: `--client-id` with `--client-secret-file <path>` or
 `--client-secret-stdin`, or the `PGEDGE_CLIENT_ID` /

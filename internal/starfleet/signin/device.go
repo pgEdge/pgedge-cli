@@ -72,9 +72,15 @@ func (f *Flow) RunDevice(ctx context.Context) (*Tokens, error) {
 		if !now().Before(deadline) {
 			return nil, ErrExpired
 		}
-		tok, err := postToken(ctx, f.HTTPClient, f.BaseURL, form)
+		pctx, cancel := context.WithTimeout(ctx, deadline.Sub(now()))
+		tok, err := postToken(pctx, f.HTTPClient, f.BaseURL, form)
+		expired := pctx.Err() != nil
+		cancel()
 		if ctx.Err() != nil {
 			return nil, ErrCancelled
+		}
+		if expired {
+			return nil, ErrExpired
 		}
 		var d *DeniedError
 		if !errors.As(err, &d) {

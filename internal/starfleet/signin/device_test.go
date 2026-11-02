@@ -245,6 +245,17 @@ func TestRunDeviceStopsWhenCancelled(t *testing.T) {
 	}
 }
 
+func TestRunDeviceExpiresDuringASlowPoll(t *testing.T) {
+	a := &fakeDevice{code: deviceCodeBody(1, 1),
+		onPoll: func() { time.Sleep(2 * time.Second) }}
+	f, _ := newFlow(a.serve(t), nil)
+	f.Sleep = func(context.Context, time.Duration) error { return nil }
+	if _, err := f.RunDevice(context.Background()); !errors.Is(err,
+		ErrExpired) {
+		t.Fatalf("err = %v, want %v", err, ErrExpired)
+	}
+}
+
 func TestRunDeviceCodeRequestFails(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string

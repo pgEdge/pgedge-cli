@@ -58,6 +58,12 @@ This login creates the `dev` profile. Login is the one command that
 accepts a new `--profile` name. Every other command accepts only a
 configured profile name, or the built-in `default`.
 
+When your terminal runs on a machine with no browser you can use,
+such as an SSH session, a Codespace or a dev container, add
+`--device`. Login prints a URL and a short code; open the URL in a
+browser on any device, check that it shows the same code, and
+confirm. Confirm a code only when you started that sign-in yourself.
+
 For unattended use, such as CI, sign in with an API client instead:
 pass `--client-id` and `--client-secret-file <path>`, which reads the
 secret from a file. Login then saves the secret

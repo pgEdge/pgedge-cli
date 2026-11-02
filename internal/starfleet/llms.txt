@@ -39,7 +39,9 @@ A profile signs in one of two ways:
   printed when no OS keychain could hold it. Once
   it ends, a command fails at exit 5 and tells the user to run
   `auth login` again. An agent cannot complete a browser sign-in, so
-  ask the user to run it.
+  ask the user to run it. Where the terminal has no browser on its
+  machine, `auth login --device` prints a URL and a code for the user
+  to confirm in a browser on any device; the session is the same.
 - **As an API client,** for CI, scripts and agents. Supply a client
   ID and secret through one of the sources below.
 

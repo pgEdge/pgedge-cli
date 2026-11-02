@@ -10,7 +10,7 @@ Plane that requires them.
 
 ## Signing in
 
-A profile signs in one of two ways:
+A profile signs in one of three ways:
 
 - **As you, through the browser.** Run `pgedge starfleet auth login`
   with no credential flags. It opens your browser on the pgEdge
@@ -18,6 +18,15 @@ A profile signs in one of two ways:
   when no browser starts. The CLI then calls pgEdge Starfleet as you,
   with the same access as the console, and creates nothing on the
   server.
+- **As you, with a device code.** Run `pgedge starfleet auth login
+  --device` when the terminal runs on a machine with no browser you
+  can use, such as an SSH session, a Codespace or a dev container.
+  Login prints a URL and a short code; open the URL in a browser on
+  any device, check that it shows the same code, and confirm. Confirm
+  a code only when you started that sign-in yourself, because whoever
+  confirms it signs that terminal in as themselves. When login cannot
+  start a browser, it switches to a code without `--device`. Either
+  way you get the same session as a browser sign-in.
 - **As an API client.** Pass `--client-id` with
   `--client-secret-file <path>` or `--client-secret-stdin`, or
   `--api-client` to be prompted for them. This is the path for CI and
@@ -39,9 +48,10 @@ uses your account's default tenant when it cannot ask. Pass
 To work in another of your tenants for one command, pass `--tenant`
 with its ID to that command.
 
-Browser sign-in works with the pgEdge Starfleet API endpoints that
-have a sign-in app. For any other `--api-url`, login reports that the
-browser path is not available there; sign in with an API client.
+Browser and device-code sign-in work with the pgEdge Starfleet API
+endpoints that have a sign-in app. For any other `--api-url`, login
+reports that the sign-in is not available there; sign in with an API
+client.
 
 ## How credentials resolve
 

@@ -70,6 +70,12 @@ pgedge starfleet doctor
 tenant, so a database name means different databases under different
 profiles. Identify a database by its UUID, never by its name.
 
+A database the user names without saying Managed may be a BYOC one. If
+`database list`, paged with `--limit` and `--offset`, lacks the name,
+run `pgedge starfleet byoc database list`. If the name is there,
+switch to the pgedge-byoc skill. If both lists hold it, or neither
+does, ask the user.
+
 ## Find the page for your task
 
 Each page prints with `pgedge llms starfleet managed <page>`:

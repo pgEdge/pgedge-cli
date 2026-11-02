@@ -70,6 +70,12 @@ pgedge starfleet doctor
 tenant, so a database name means different databases under different
 profiles. Identify a database by its UUID, never by its name.
 
+A database the user names without saying Managed may be a BYOC one,
+so look the name up in both `database list` and `pgedge starfleet byoc
+database list`, paging each with `--limit` and `--offset` to its end.
+If only the BYOC list holds it, switch to the pgedge-byoc skill. If
+both lists hold it, or neither does, ask the user.
+
 ## Find the page for your task
 
 Each page prints with `pgedge llms starfleet managed <page>`:
@@ -127,7 +133,8 @@ Each rule is stated in full on the page named beside it.
   recovered. A request that names the action and its target is
   consent, so pass `--force`. That consent covers the named action
   only: ask before any other destructive step it turns out to need,
-  such as deleting branches.
+  such as deleting branches. A question that goes unanswered or
+  skipped is a no: stop and report what is left undone.
 - **Keep credentials out of the transcript.** Pass `--no-password` to
   `database connection-string` whenever the output is shown to a
   person. Otherwise write the output to a file or a variable, never to

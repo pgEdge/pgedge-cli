@@ -29,17 +29,20 @@ Authenticate with pgEdge Starfleet
 | Flag | Required | Default | Description |
 |------|----------|---------|-------------|
 | `--api-client` | No |  | sign in with an API client, prompting for its ID and secret |
+| `--browser` | No |  | sign in through a browser, even in an SSH session |
 | `--client-secret-file string` | No |  | read the API client secret from this file |
 | `--client-secret-stdin` | No |  | read the API client secret from standard input |
+| `--device` | No |  | sign in with a code entered in a browser on any device |
 | `--insecure-storage` | No |  | store the client secret in the config file, not the OS keychain |
 
 <!-- END GENERATED -->
 
-Signs the active profile in, as a user through the browser or as an
-API client. Run this once per profile: the sign-in serves the whole
-starfleet tree, and the account-level commands, byoc and managed all
-share that one connection and one token. A profile holds one kind of
-credential, so signing in one way removes what the other way stored.
+Signs the active profile in, as a user through the browser or with
+a device code, or as an API client. Run this once per profile: the
+sign-in serves the whole starfleet tree, and the account-level
+commands, byoc and managed all share that one connection and one
+token. A profile holds one kind of credential, so signing in one way
+removes what the other way stored.
 
 **With no credential flags, login signs you in through the browser.**
 It opens the pgEdge sign-in page and prints the same URL on stderr,
@@ -61,6 +64,24 @@ is exit 5: a refusal from the sign-in page (its reason is printed),
 no answer from the browser, all three callback ports
 (8484-8486) in use, or an API URL that has no browser sign-in. For
 that last case, sign in with an API client instead.
+
+**`--device` signs the user in with a code, for a terminal with no
+usable browser on its machine** (SSH, Codespaces, dev containers,
+hosted IDEs). login prints a URL and a short code on stderr; the user
+opens the URL in a browser on any device, checks that it shows the
+same code, and confirms. Relay both to the user. Tell them to confirm
+only a sign-in they started: anyone who confirms the code signs this
+terminal in as themselves. login waits until the user confirms or
+refuses, or the code expires, and Ctrl-C stops it. login uses a code
+without `--device`, and says why on stderr, in an SSH session
+(`SSH_CONNECTION` or `SSH_TTY` set) on macOS or Windows, in one on
+Linux or BSD with neither `DISPLAY` nor `WAYLAND_DISPLAY` set, and
+when it cannot start a browser. `--browser` overrides the SSH rule
+and, when no browser starts, prints the URL and waits for it to be
+opened by hand. The saved profile, the session and the closing lines
+are the same as a browser sign-in's. A refusal and an expired code are
+exit 5. `--browser` with `--device`, and either with any API client
+flag, is exit 2.
 
 **With an API client, this command is scriptable.** Pass both
 `--client-id` and `--client-secret` and it never reads stdin, so it
@@ -105,6 +126,8 @@ applies only to an API client, so without one it is exit 2. A later
 ```bash
 pgedge starfleet auth login
 pgedge starfleet auth login --tenant TENANT_ID
+pgedge starfleet auth login --device
+pgedge starfleet auth login --browser
 pgedge starfleet auth login --client-id ID --client-secret-file FILE
 pgedge starfleet auth login --api-client --insecure-storage
 ```

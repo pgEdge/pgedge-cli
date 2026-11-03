@@ -173,8 +173,9 @@ The rotation returns no task ID, so find the task by name.
     pgedge starfleet managed task list --subject-id <db-id> \
         --name rotate-password-managed
 
-Read that task's timestamps, not its status. A stuck task and
-a running one both report `running`.
+Read that task's status first. `succeeded` means the rotation
+finished. A stuck task and a running one both report `running`, so
+for those, read the timestamps.
 
     pgedge starfleet managed task get <task-id> -o json
 

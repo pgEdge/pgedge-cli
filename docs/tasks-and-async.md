@@ -319,10 +319,11 @@ confirmation, and the cluster applies it independently, so a worker
 that died in between leaves a stuck task over a rotation the database
 may already have applied.
 
-`task get <task-id>` is the discriminator, but read its timestamps
-rather than its status, because a stuck task and a running one both
-report the same status. Compare `updated_at` against the current time,
-not against `created_at`. A rotation completes within seconds, so a
+`task get <task-id>` is the discriminator. Read its status first:
+`succeeded` means the rotation finished. A stuck task and a running
+one both report the same status, so for a task still `queued` or
+`running`, compare `updated_at` against the current time, not against
+`created_at`. A rotation completes within seconds, so a
 task whose `updated_at` is minutes old has stopped progressing.
 `created_at` is the wrong baseline in both directions: a task that
 finished inside the API's one-second timestamp resolution shows the

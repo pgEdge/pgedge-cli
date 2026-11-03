@@ -135,12 +135,13 @@ per-step trace, of which text shows only the last entry.
 already have applied the credential, so read the task before rotating
 again. While a rotation is in progress, the database reports
 `modifying`, and another rotation is refused at exit status 1 without
-starting a task. Read `task get`'s timestamps rather than its status, because
-a stuck task and a running one both report `running`. Compare
-`updated_at` against the current time, not against `created_at`: a
-task still `queued` or `running` whose `updated_at` has stopped
-advancing has stopped progressing, while a healthy one that finished
-inside the API's one-second timestamp resolution shows the two equal.
+starting a task. Read `task get`'s status first: `succeeded` means the
+rotation finished. A stuck task and a running one both report
+`running`, so for a task still `queued` or `running`, compare
+`updated_at` against the current time, not against `created_at`: one
+whose `updated_at` has stopped advancing has stopped progressing,
+while a healthy one that finished inside the API's one-second
+timestamp resolution shows the two equal.
 Rotating a role a service connects as ends by restarting that service
 onto the new password: RAG connects as app_read_only, and so does MCP
 unless its writes are allowed, when it connects as app. So a stuck

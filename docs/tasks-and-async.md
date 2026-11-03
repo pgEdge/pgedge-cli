@@ -310,16 +310,14 @@ anywhere else.
 
 ## A rotation that times out
 
-Managed `rotate-password` carries a caveat no other command does. A
-failed rotation leaves its task non-terminal rather than failed, so a
-`--wait` on it can only end in a timeout, and that timeout means the
-outcome is unknown rather than failed.
-
-Do not re-rotate on a timeout, because that risks replacing a
-credential already in place. The job hands the new credential to the
-cluster first and only then waits for confirmation, and the cluster
-applies it independently, so a worker that died in between leaves a
-stuck task over a rotation the database may already have applied.
+A managed `rotate-password` timeout means the outcome is unknown, so
+read the task before you rotate again. While a rotation is in
+progress, the database reports `modifying`, and another rotation is
+refused at exit status 1 without starting a task. The job hands the
+new credential to the cluster first and only then waits for
+confirmation, and the cluster applies it independently, so a worker
+that died in between leaves a stuck task over a rotation the database
+may already have applied.
 
 `task get <task-id>` is the discriminator, but read its timestamps
 rather than its status, because a stuck task and a running one both

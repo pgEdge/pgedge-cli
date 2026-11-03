@@ -83,9 +83,7 @@ the rotation, not when the running database uses the new password.
     `--wait-timeout` bounds that wait and defaults to 600 seconds.
     `--wait-interval` sets the interval between status checks and defaults to 5
     seconds. The command exits 0 when the task succeeds and 3 on timeout. A
-    failed rotation leaves its task non-terminal rather than `failed`. A
-    rotation that fails then reaches the timeout instead of exiting at exit
-    status 1. A succeeded task means the new credential reached the running
+    succeeded task means the new credential reached the running
     database.
 
     `--wait` is the reliable finish signal. A rotation moves the
@@ -164,11 +162,11 @@ confirmation.
 
 ## Diagnosing a Stalled Rotation
 
-A rotation that fails leaves its task non-terminal instead of
-`failed`. A `--wait` timeout at exit status 3 then means the outcome
-is unknown, not failed. The database may already hold the new
-credential. Do not rotate again after a timeout. A second
-rotation risks replacing a credential already in place.
+A `--wait` timeout at exit status 3 means the outcome is unknown. The
+database may already hold the new credential, so read the task before
+you rotate again. While a rotation is in progress, the database
+reports `modifying`. Another rotation is then refused at exit status 1
+and starts no task.
 
 The rotation returns no task ID, so find the task by name.
 
@@ -194,11 +192,6 @@ unexpected eof while reading`, which says nothing about the password.
 [Controlling Network Access to a pgEdge Starfleet Managed
 Database](network-access.md) describes
 adding one.
-
-The published contract says that a failed rotation leaves the
-database `degraded`. It also says a failed rotation refuses another
-rotation until the database is recovered. That is the contract's
-claim, not confirmed behavior.
 
 ## Recovering a Password Changed in SQL
 

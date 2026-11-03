@@ -131,12 +131,11 @@ subject minutes apart are told apart.
 Use `-o json`/`-o yaml` for the whole `messages` array — the complete
 per-step trace, of which text shows only the last entry.
 
-**A rotation's task reports success but cannot report failure.** A
-rotation that fails leaves its task non-terminal, so waiting on it can
-only end in a timeout, and that timeout means the outcome is unknown:
-the database may already have applied the credential. Do not rotate
-again on a timeout, because that risks replacing a credential already
-in place. Read `task get`'s timestamps rather than its status, because
+**A rotation timeout means the outcome is unknown.** The database may
+already have applied the credential, so read the task before rotating
+again. While a rotation is in progress, the database reports
+`modifying`, and another rotation is refused at exit status 1 without
+starting a task. Read `task get`'s timestamps rather than its status, because
 a stuck task and a running one both report `running`. Compare
 `updated_at` against the current time, not against `created_at`: a
 task still `queued` or `running` whose `updated_at` has stopped

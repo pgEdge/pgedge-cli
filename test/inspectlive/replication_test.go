@@ -152,12 +152,17 @@ func TestReplicationSlotsThroughAnOutage(t *testing.T) {
 		t.Errorf("physical slot %v", physical)
 	}
 	// 400000 rows of WAL (measured: 65 MB) went past the stopped
-	// logical slot; the physical slot was reserved after them.
-	if parseSize(t, logical["retained_wal"]) <= 16<<20 {
+	// logical slot; the physical slot was reserved after them. Both are
+	// measured to the same current LSN, so WAL written after the
+	// checkpoint (8490 kB once on 18) inflates both alike: compare the
+	// gap, not the physical slot alone.
+	logicalWAL, physicalWAL := parseSize(t, logical["retained_wal"]), parseSize(t, physical["retained_wal"])
+	if logicalWAL <= 16<<20 {
 		t.Errorf("logical slot retains %q, want more than one 16 MB segment", logical["retained_wal"])
 	}
-	if parseSize(t, physical["retained_wal"]) >= 1<<20 {
-		t.Errorf("physical slot retains %q, want under 1 MB", physical["retained_wal"])
+	if logicalWAL-physicalWAL <= 16<<20 {
+		t.Errorf("physical slot retains %q against the logical slot's %q, want at least 16 MB less",
+			physical["retained_wal"], logical["retained_wal"])
 	}
 	if got[0]["slot"] != physicalSlot {
 		t.Errorf("first row %q, want %s (slot-name order)", got[0]["slot"], physicalSlot)

@@ -310,21 +310,20 @@ anywhere else.
 
 ## A rotation that times out
 
-Managed `rotate-password` carries a caveat no other command does. A
-failed rotation leaves its task non-terminal rather than failed, so a
-`--wait` on it can only end in a timeout, and that timeout means the
-outcome is unknown rather than failed.
+A managed `rotate-password` timeout means the outcome is unknown, so
+read the task before you rotate again. While a rotation is in
+progress, the database reports `modifying`, and another rotation is
+refused at exit status 1 without starting a task. The job hands the
+new credential to the cluster first and only then waits for
+confirmation, and the cluster applies it independently, so a worker
+that died in between leaves a stuck task over a rotation the database
+may already have applied.
 
-Do not re-rotate on a timeout, because that risks replacing a
-credential already in place. The job hands the new credential to the
-cluster first and only then waits for confirmation, and the cluster
-applies it independently, so a worker that died in between leaves a
-stuck task over a rotation the database may already have applied.
-
-`task get <task-id>` is the discriminator, but read its timestamps
-rather than its status, because a stuck task and a running one both
-report the same status. Compare `updated_at` against the current time,
-not against `created_at`. A rotation completes within seconds, so a
+`task get <task-id>` is the discriminator. Read its status first:
+`succeeded` means the rotation finished. A stuck task and a running
+one both report the same status, so for a task still `queued` or
+`running`, compare `updated_at` against the current time, not against
+`created_at`. A rotation completes within seconds, so a
 task whose `updated_at` is minutes old has stopped progressing.
 `created_at` is the wrong baseline in both directions: a task that
 finished inside the API's one-second timestamp resolution shows the

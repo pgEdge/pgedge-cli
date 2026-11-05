@@ -17,7 +17,7 @@ repos:
   # CONTRIBUTING tells every contributor to install these hooks, so a
   # stale one lints their commit with a different linter than CI uses.
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.13.2
+    rev: v2.15.0
     hooks:
       - id: golangci-lint
   - repo: https://github.com/gitleaks/gitleaks

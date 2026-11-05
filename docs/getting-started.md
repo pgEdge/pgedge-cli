@@ -155,8 +155,8 @@ lists what each route needs:
 | npm, with `npm install -g @pgedge/cli@beta` | Node.js 18 or newer |
 | GitHub Actions | A Linux or macOS runner |
 | Download a release archive | `tar` and `sha256sum` or `shasum` |
-| `go install` from main | Go 1.27 or newer |
-| Clone and build | Go 1.27 or newer |
+| `go install` from main | Go 1.27.3 or newer |
+| Clone and build | Go 1.27.3 or newer |
 
 On macOS, `brew install node` and `brew install go` cover those. Only
 `npx skills add` and the npm route use Node.

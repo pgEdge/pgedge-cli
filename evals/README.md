@@ -106,7 +106,7 @@ Results go to `results/<timestamp>/`, which git ignores: transcripts,
 
 ## Score a release
 
-    python3 run.py --config eval.toml --release 0.5.0-beta.4 --ref <sha>
+    python3 run.py --config eval.toml --release 0.5.1-beta.1 --ref <sha>
 
 `<sha>` is the commit the release would tag. The runner refuses to
 start when either plugin manifest there carries another version, then

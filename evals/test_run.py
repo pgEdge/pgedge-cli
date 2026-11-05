@@ -329,6 +329,13 @@ class Harnesses(unittest.TestCase):
         self.assertIsNone(failed["metrics"]["tokens"])
         self.assertTrue(run.infra_error(dict(failed, rc=1, stderr="")))
 
+    def test_quota_in_an_answer_is_not_infra(self):
+        answer = dict(rc=0, result="x", calls=[], stderr="Reading input",
+                      final="No fixed limit, unless it has its own quota.")
+        self.assertIsNone(run.infra_error(answer))
+        self.assertTrue(run.infra_error(
+            dict(answer, stderr="Error: quota exceeded")))
+
     def test_codex_wrapper_does_not_hide_an_escape(self):
         for flag in ("-lc", "-c"):
             cmd = run.Codex.unwrap(f"/bin/zsh {flag} '/opt/homebrew/bin/"

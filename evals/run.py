@@ -3600,7 +3600,7 @@ def main():
     ap.add_argument("--regrade", metavar="RESULTS_DIR")
     ap.add_argument("--release", metavar="VERSION",
                     help="score the commit a CUT would tag, e.g. "
-                         "0.5.0-beta.4; writes releases/VERSION/SUMMARY.md")
+                         "0.5.1-beta.1; writes releases/VERSION/SUMMARY.md")
     ap.add_argument("--ref", help="with --release: the commit the CUT tags")
     ap.add_argument("--resume", metavar="RESULTS_DIR",
                     help="keep that run's graded rows and run only the rest")

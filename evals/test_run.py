@@ -278,6 +278,8 @@ class Isolation(unittest.TestCase):
         self.assertEqual(run.cross_arm_problems(ok), [])
         bad = {"with": base | {"MCP:mine"}, "without": base}
         self.assertTrue(run.cross_arm_problems(bad))
+        self.assertEqual(run.cross_arm_problems(
+            {"with": {"MCP:cursor"}, "without": set()}), [])
 
     def test_cursor_wording_of_nothing_is_not_a_difference(self):
         with_ = run.self_reported(

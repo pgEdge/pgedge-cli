@@ -2732,8 +2732,9 @@ def cross_arm_problems(seen):
     if "with" not in seen or len(seen) < 2:
         return []
     others = set().union(*(v for k, v in seen.items() if k != "with"))
+    # Cursor's own server is listed by any one arm at random.
     extra = {x for x in seen["with"] - others
-             if not x.startswith("SKILLS:pgedge")}
+             if not x.startswith("SKILLS:pgedge") and x != "MCP:cursor"}
     return [f"with arm lists more than pgedge: {sorted(extra)}"] if extra \
         else []
 

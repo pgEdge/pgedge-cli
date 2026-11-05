@@ -374,7 +374,7 @@ func stopSleeper() {
 		return
 	}
 	sleeper.cancel()
-	<-sleeper.done
+	<-sleeper.done //nolint:errcheck // the error is the cancellation itself
 }
 
 // requireLive skips a test in a run that did not enable the suite.

@@ -36,9 +36,9 @@ Each install method suits a different platform and update routine:
 | [GitHub Actions](#installing-in-github-actions) | Linux and macOS runners | Nothing else | A new tag in `uses:` |
 | [Homebrew](#installing-with-homebrew-linux-macos) | Linux, macOS | Homebrew | `brew upgrade pgedge` |
 | [npm](#installing-with-npm) | Linux, macOS, Windows | Node.js 18 or newer | Re-run `npm install -g` |
-| [go install](#installing-with-go-install) | Linux, macOS, Windows | Go 1.26 or newer | Re-run `go install` |
+| [go install](#installing-with-go-install) | Linux, macOS, Windows | Go 1.27 or newer | Re-run `go install` |
 | [Release by hand](#downloading-a-release-by-hand) | Linux, macOS, Windows | `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
-| [Build from source](#building-from-source) | Linux, macOS | Go 1.26 or newer, `make` | `git pull && make build` |
+| [Build from source](#building-from-source) | Linux, macOS | Go 1.27 or newer, `make` | `git pull && make build` |
 
 ### Handing the Install to an AI Agent
 

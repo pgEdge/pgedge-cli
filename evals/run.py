@@ -2426,13 +2426,15 @@ def install_state(r, run):
 
 def infra_error(r):
     """A harness/quota failure is not a task fail."""
-    text = (r.get("stderr") or "") + " " + (r.get("final") or "")
-    if re.search(CURSOR_INFRA, r.get("stderr") or "", re.I):
-        return (r.get("stderr") or "").strip()[:300]
-    if re.search(r"(?i)rate.?limit|quota|usage limit|model.{0,40}not "
-                 r"(available|supported|allowed)|overloaded|"
-                 r"upgrade your plan|out of (credits|usage)", text) and \
-            not r["calls"]:
+    stderr = r.get("stderr") or ""
+    text = stderr + " " + (r.get("final") or "")
+    if re.search(CURSOR_INFRA, stderr, re.I):
+        return stderr.strip()[:300]
+    # "quota" is an everyday word in an answer, so only stderr's counts.
+    if (re.search(r"(?i)rate.?limit|usage limit|model.{0,40}not "
+                  r"(available|supported|allowed)|overloaded|"
+                  r"upgrade your plan|out of (credits|usage)", text)
+            or re.search(r"(?i)quota", stderr)) and not r["calls"]:
         return text.strip()[:300]
     if r["rc"] not in (0,) and not r["result"] and not r["calls"]:
         return f"rc={r['rc']}: {text.strip()[:300]}"
@@ -2730,8 +2732,9 @@ def cross_arm_problems(seen):
     if "with" not in seen or len(seen) < 2:
         return []
     others = set().union(*(v for k, v in seen.items() if k != "with"))
+    # Cursor's own server is listed by any one arm at random.
     extra = {x for x in seen["with"] - others
-             if not x.startswith("SKILLS:pgedge")}
+             if not x.startswith("SKILLS:pgedge") and x != "MCP:cursor"}
     return [f"with arm lists more than pgedge: {sorted(extra)}"] if extra \
         else []
 

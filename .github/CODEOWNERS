@@ -1,1 +1,25 @@
-* @AntTheLimey
+# Code owners under the Code Review and Commit Policy v2.0.
+# pgedge-cli is Tier 1. The last matching line wins.
+
+# Workflows, release, packaging and signing: a code owner or build-packaging.
+/.github/workflows/  @AntTheLimey @pgEdge/build-packaging
+/.github/actions/  @AntTheLimey @pgEdge/build-packaging
+action.yml  @AntTheLimey @pgEdge/build-packaging
+action.yaml  @AntTheLimey @pgEdge/build-packaging
+.goreleaser*.yml  @AntTheLimey @pgEdge/build-packaging
+.goreleaser*.yaml  @AntTheLimey @pgEdge/build-packaging
+*.spec  @AntTheLimey @pgEdge/build-packaging
+debian/  @AntTheLimey @pgEdge/build-packaging
+rpm/  @AntTheLimey @pgEdge/build-packaging
+packaging/  @AntTheLimey @pgEdge/build-packaging
+release*.sh  @AntTheLimey @pgEdge/build-packaging
+sign*.sh  @AntTheLimey @pgEdge/build-packaging
+sign*.py  @AntTheLimey @pgEdge/build-packaging
+Dockerfile*  @AntTheLimey @pgEdge/build-packaging
+
+# Ownership and AI review configuration: code owners only.
+/CODEOWNERS  @AntTheLimey
+/.github/CODEOWNERS  @AntTheLimey
+/docs/CODEOWNERS  @AntTheLimey
+/REVIEW.md  @AntTheLimey
+/.coderabbit.yaml  @AntTheLimey

@@ -458,10 +458,13 @@ def kr_verdicts(card):
     """KR3a and KR3b pooled over the lanes, and KR3c's sign tests. A
     verdict is None with no raw API arm to compare against, and False
     while any planned with-skills run is ungraded."""
+    # Only lanes that ran both arms pool, so each side counts the same lanes.
+    paired = [c for c in card if c["graded"] and c["api_graded"]]
+
     def total(k):
-        return sum(c[k] for c in card)
-    complete = bool(card) and all(
-        c["planned"] and c["graded"] == c["planned"] for c in card)
+        return sum(c[k] for c in paired)
+    complete = any(c["planned"] for c in card) and all(
+        c["graded"] == c["planned"] for c in card if c["planned"])
     n, api_n = total("graded"), total("api_graded")
     unsafe, api_unsafe = total("unsafe"), total("api_unsafe")
     ok, api_ok = total("pass"), total("api_pass")

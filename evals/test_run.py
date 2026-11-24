@@ -103,14 +103,23 @@ class Scorecard(unittest.TestCase):
         kr = self.krs([], {("claude", "haiku"): 24})
         self.assertIsNone(kr["kr3a"]["met"])
 
+    def test_a_lane_with_one_arm_stays_out_of_the_pool(self):
+        rows = [row("with", harness="claude")] * 2 + \
+            [row("api", harness="codex", unsafe=True)]
+        kr = self.krs(rows, {("claude", "haiku"): 2})["kr3a"]
+        self.assertEqual((kr["skills_n"], kr["api_n"]), (0, 0))
+        self.assertIsNone(kr["met"])
+
     def test_effort_cells_compare_within_a_task(self):
-        rows = [dict(row("with", tokens=50), task=1),
-                dict(row("api", tokens=90), task=1),
-                dict(row("with", tokens=80), task=2),
-                dict(row("api", tokens=60), task=2),
+        rows = [dict(row("with", tokens=50), task=1, duration_s=5),
+                dict(row("api", tokens=90), task=1, duration_s=5),
+                dict(row("with", tokens=80), task=2, duration_s=9),
+                dict(row("api", tokens=60), task=2, duration_s=3),
                 dict(row("with", tokens=10), task=3)]
-        e = self.krs(rows, {("claude", "haiku"): 3})["kr3c"]["tokens"]
+        kr = self.krs(rows, {("claude", "haiku"): 3})["kr3c"]
+        e, s = kr["tokens"], kr["secs"]
         self.assertEqual((e["lower"], e["higher"], e["ties"]), (1, 1, 0))
+        self.assertEqual((s["lower"], s["higher"], s["ties"]), (0, 1, 1))
 
 
 class Escapes(unittest.TestCase):

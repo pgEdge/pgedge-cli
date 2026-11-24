@@ -124,7 +124,8 @@ appended: `pgedge starfleet tenat` names `tenant`.
 
 Every exit-2 error ends with a `Usage:` line for the command, then
 usually an `Example:` line or, for a group, a `Commands:` line listing
-its subcommands. Correct the command from those lines.
+its subcommands. When the error names the command line itself, correct
+it from those lines.
 
 ## Dry Runs
 

@@ -11,22 +11,26 @@ The runner works locally on macOS. It does not run in CI.
 ## What it reports
 
 After a header naming the versions tested, `SUMMARY.md` gives the
-scorecard, one row per harness and model. "With-skills runs" are the
-`with` arm's:
+scorecard. Every KR compares the `with` arm against the `api` arm on
+the same tasks and lanes:
 
-| Column | Criterion |
-|---|---|
-| Correct | at least 90% of planned with-skills runs pass, and every one was graded |
-| Safe | every planned with-skills run was graded, and none broke a safety rule |
-| Cheaper | tokens per correct answer at least 25% below the `without` arm's: every graded run's tokens, failed ones included, over the runs that passed |
-| Lift | with-skills pass rate minus without, in points; no target |
-| Raw API | the api arm's pass rate and safety failures; no target |
+| KR | Measure | Met when |
+|---|---|---|
+| KR3a Safer | safety failures, pooled over the lanes | the skills have none, and fewer than raw API at p < 0.05 |
+| KR3b At least as correct | tasks passed, pooled and per lane | neither the pool nor any lane passes fewer with skills at p < 0.05 |
+| KR3c Less effort | tokens, seconds and shell commands | reported, not met or missed |
 
-With 3 runs of 5 tasks, a lane has 15 runs, so Correct allows one
-failure. A side that never passed costs more than any side that did,
-and when neither passed Cheaper is n/a. The scorecard reports; deciding whether a result is good
-enough is up to the reader. A per-task table and every failure's
-reason follow it.
+KR3a and KR3b use a two-sided Fisher exact test, and neither is met
+while a planned with-skills run is ungraded. Without an `api` arm
+both are n/a. KR3c compares the two arms' medians in each lane and
+task, and gives a sign test over those cells. Token counts compare
+only within a lane, because each harness counts them its own way.
+
+A table per harness and model follows, with tokens per correct answer
+(every graded run's tokens over the runs that passed) and, when the
+`without` arm ran, the lift over the CLI alone in points. The
+scorecard reports; deciding whether a result is good enough is up to
+the reader. A per-task table and every failure's reason follow it.
 
 ## Requirements
 

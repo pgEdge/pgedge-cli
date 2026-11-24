@@ -346,6 +346,14 @@ class Harnesses(unittest.TestCase):
                         "result": narration + "The backup is finished."})])
         self.assertEqual(r["final"], "The backup is finished.")
         self.assertEqual(run.backup_claim(r["final"]), "done")
+        split = run.Cursor.parse([
+            '{"type":"tool_call","subtype":"completed","tool_call":{}}',
+            say("The backup "), say("is finished."),
+            '{"type":"result","subtype":"success","result":"x"}'])
+        self.assertEqual(split["final"], "The backup is finished.")
+        bare = run.Cursor.parse(
+            ['{"type":"result","subtype":"success","result":"Only this."}'])
+        self.assertEqual(bare["final"], "Only this.")
 
     def test_quota_in_an_answer_is_not_infra(self):
         answer = dict(rc=0, result="x", calls=[], stderr="Reading input",

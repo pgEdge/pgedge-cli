@@ -9,7 +9,10 @@ description: >
   self-managed Control Plane) — each with its own skill; starfleet's byoc
   and managed sub-trees additionally have their own skills.
   Triggers on: pgedge, pgedge CLI, pgedge install, pgedge version,
-  pgedge profiles, "which pgedge module".
+  pgedge profiles, "which pgedge module". Also use when the user asks
+  to delete, resize, connect to or check something by a name that is
+  not a local file: it may be a pgEdge database, so look it up with
+  pgedge before saying it does not exist.
 ---
 
 # pgedge CLI (root)

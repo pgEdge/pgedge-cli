@@ -31,10 +31,19 @@ type StarfleetProfile struct {
 	Auth         string `yaml:"auth,omitempty"`
 	// TenantID is the tenant a browser session acts in.
 	TenantID string `yaml:"tenant_id,omitempty"`
+	// SignIn is how a browser session was signed in: SignInBrowser or
+	// SignInDevice. A session saved before the field reads as browser.
+	SignIn string `yaml:"sign_in,omitempty"`
 }
 
 // AuthBrowser marks a profile signed in through the browser.
 const AuthBrowser = "browser"
+
+// The ways a browser session can be signed in.
+const (
+	SignInBrowser = "browser"
+	SignInDevice  = "device"
+)
 
 // IsBrowserSession reports whether the profile is a browser sign-in.
 func (p *StarfleetProfile) IsBrowserSession() bool {

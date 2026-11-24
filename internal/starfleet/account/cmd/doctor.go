@@ -413,7 +413,7 @@ func doctorVerdict(r accountDoctorReport) (verdict string, code int) {
 	switch {
 	case !r.Auth.Authenticated && r.Auth.problemCode == ExitUsage:
 		return verdictCredsMisconfigured, ExitUsage
-	case !r.Auth.Authenticated && r.Auth.Source == auth.SourceBrowser:
+	case !r.Auth.Authenticated && auth.IsSession(r.Auth.Source):
 		return verdictSessionNeedsLogin, ExitAuth
 	case !r.Auth.Authenticated:
 		return verdictNoCredentials, ExitAuth
@@ -493,7 +493,7 @@ func runDoctorStrict(rt *module.Runtime, f *conn.Flags, strict bool) error {
 		Environment: checkEnvironment(),
 	}
 	// Reading the tenant would need the renewal doctor must not make.
-	if a := report.Auth; a.Source == auth.SourceBrowser &&
+	if a := report.Auth; auth.IsSession(a.Source) &&
 		a.Authenticated && !a.TokenValid {
 		report.Tenant.Skipped = "the browser session renews on next use"
 	} else {
@@ -528,7 +528,7 @@ func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 	if report.Auth.Problem != "" {
 		authDetail = report.Auth.Problem
 	}
-	session := report.Auth.Source == auth.SourceBrowser
+	session := auth.IsSession(report.Auth.Source)
 	switch {
 	case session && report.Auth.Authenticated:
 		authStatus = "ok"
@@ -539,8 +539,9 @@ func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 		case report.Auth.Renews:
 			state += ", renews itself"
 		}
-		authDetail = fmt.Sprintf("signed in as %s via browser (%s)",
-			output.Sanitize(report.Auth.User), state)
+		authDetail = fmt.Sprintf("signed in as %s via %s (%s)",
+			output.Sanitize(report.Auth.User),
+			signInLabel(report.Auth.Source), state)
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

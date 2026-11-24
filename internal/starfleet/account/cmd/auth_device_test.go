@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,15 +15,17 @@ import (
 )
 
 // TestDeviceLoginSavesTheBrowserSession checks that --device, and the
-// switch to a code when no browser opens, store exactly what a browser
-// sign-in stores, so status, renewal and logout cannot tell them apart.
+// switch to a code when no browser opens, store what a browser sign-in
+// stores, apart from sign_in, so renewal and logout cannot tell them
+// apart. It also checks which URLs the browser is asked to open.
 func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 	type stored struct {
 		profile config.StarfleetProfile
 		refresh string
 	}
+	const deviceURL = "https://auth.example/activate"
 	signIn := func(t *testing.T, ssh bool, openErr error,
-		args ...string) (stored, string) {
+		args ...string) (stored, string, []string) {
 		t.Helper()
 		s := newSignInStubs(t, "t-a")
 		if ssh {
@@ -46,11 +49,12 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		refresh, _ := kc.Get(conn.Store(rt).SessionAccount())
 		p := *rt.Config.StarfleetProfile("default")
 		p.APIURL = "" // each stub API has its own port
-		return stored{p, refresh}, errb.String()
+		return stored{p, refresh}, errb.String(), s.opened
 	}
 
-	want, _ := signIn(t, false, nil)
-	if want.profile.Auth != config.AuthBrowser || want.refresh == "" {
+	want, _, _ := signIn(t, false, nil)
+	if want.profile.Auth != config.AuthBrowser || want.refresh == "" ||
+		want.profile.SignIn != config.SignInBrowser {
 		t.Fatalf("browser sign-in stored %+v", want)
 	}
 	for _, tc := range []struct {
@@ -60,9 +64,17 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 		stderr  string
 		ssh     bool
 		browser bool // the browser path, not a code, is wanted
+		// opensDevice: the device code's URL is opened, after the code
+		// is printed.
+		opensDevice bool
 	}{
 		{name: "--device", args: []string{"--device"},
-			stderr: "WXYZ-1234"},
+			stderr: "WXYZ-1234", opensDevice: true},
+		{name: "--device whose opener fails", args: []string{"--device"},
+			openErr: errors.New("exec: xdg-open: not found"),
+			stderr:  "WXYZ-1234", opensDevice: true},
+		{name: "--device over ssh with no display", ssh: true,
+			args: []string{"--device"}, stderr: "WXYZ-1234"},
 		{name: "ssh session with no display", ssh: true,
 			stderr: "Not opening a browser: this is an SSH session"},
 		{name: "--browser over ssh with no display", ssh: true,
@@ -77,12 +89,27 @@ func TestDeviceLoginSavesTheBrowserSession(t *testing.T) {
 				// Fails the browser path, so only the device path passes.
 				tc.openErr = errors.New("opener must not run over SSH")
 			}
-			got, errb := signIn(t, tc.ssh, tc.openErr, tc.args...)
+			got, errb, opened := signIn(t, tc.ssh, tc.openErr, tc.args...)
 			if tc.ssh && strings.Contains(errb, "could not open") {
 				t.Errorf("tried the opener over SSH:\n%s", errb)
 			}
-			if got != want {
-				t.Errorf("stored %+v, want the browser's %+v", got, want)
+			wantProfile := want
+			if !tc.browser {
+				wantProfile.profile.SignIn = config.SignInDevice
+			}
+			if got != wantProfile {
+				t.Errorf("stored %+v, want %+v", got, wantProfile)
+			}
+			if gotOpen := slices.Contains(opened, deviceURL); gotOpen !=
+				tc.opensDevice {
+				t.Errorf("opened %q, want the device URL opened: %v",
+					opened, tc.opensDevice)
+			}
+			if tc.ssh && !tc.browser && len(opened) != 0 {
+				t.Errorf("opened %q over SSH", opened)
+			}
+			if tc.opensDevice && strings.Contains(errb, "xdg-open") {
+				t.Errorf("a failed open printed:\n%s", errb)
 			}
 			for _, s := range []string{tc.stderr, "WXYZ-1234",
 				"Signed in as user@example.com."} {

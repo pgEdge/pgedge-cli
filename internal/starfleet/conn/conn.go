@@ -633,7 +633,7 @@ func ResolveCredentials(rt *module.Runtime,
 		return r, nil
 	}
 	r.APIURL = ResolveAPIURL(ap, flagAPIURL)
-	if source == auth.SourceBrowser {
+	if auth.IsSession(source) {
 		r.Session = true
 		r.TenantID = ap.TenantID
 	}

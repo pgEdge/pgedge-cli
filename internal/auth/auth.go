@@ -50,9 +50,17 @@ const (
 	SourceKeychain = "keychain"
 	SourceConfig   = "config"
 	// SourceBrowser is a browser sign-in: no credentials, only the
-	// user's cached token.
+	// user's cached token. SourceDevice is the same session signed in
+	// with a device code.
 	SourceBrowser = "browser"
+	SourceDevice  = "device"
 )
+
+// IsSession reports whether source is a user's sign-in rather than an
+// API client.
+func IsSession(source string) bool {
+	return source == SourceBrowser || source == SourceDevice
+}
 
 // The environment pair. Empty counts as unset.
 const (
@@ -266,7 +274,8 @@ var ErrNoCredentials = errors.New("no credentials found — use " +
 //
 // The profile's secret comes from the config file when it holds one,
 // else from the keychain; login writes one or the other, never both.
-// A browser-session profile resolves to SourceBrowser with nil
+// A browser-session profile resolves to SourceBrowser, or
+// SourceDevice when signed in with a device code, with nil
 // credentials.
 func (a *Auth) ResolveCredentials(ap *config.StarfleetProfile,
 	flagID, flagSecret string) (*Credentials, string, error) {
@@ -285,6 +294,9 @@ func (a *Auth) ResolveCredentials(ap *config.StarfleetProfile,
 		return creds, SourceEnv, nil
 	}
 	if ap.IsBrowserSession() {
+		if ap.SignIn == config.SignInDevice {
+			return nil, SourceDevice, nil
+		}
 		return nil, SourceBrowser, nil
 	}
 	if ap == nil || ap.ClientID == "" {

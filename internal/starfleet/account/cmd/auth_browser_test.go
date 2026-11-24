@@ -60,6 +60,8 @@ type signInStubs struct {
 	atAPI func(*http.Request)
 	// openErr, when set, is what opening the browser fails with.
 	openErr error
+	// opened lists each URL the browser was asked to open.
+	opened []string
 
 	mu            sync.Mutex
 	refreshedWith []string
@@ -168,11 +170,17 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 				return nil
 			},
 			Open: func(target string) error {
+				s.mu.Lock()
+				s.opened = append(s.opened, target)
+				s.mu.Unlock()
 				if s.openErr != nil {
 					return s.openErr
 				}
 				u, _ := url.Parse(target)
 				q := u.Query()
+				if q.Get("redirect_uri") == "" {
+					return nil // a device code's URL: nothing to answer
+				}
 				resp, err := http.Get(q.Get("redirect_uri") + "?" +
 					s.reply(q).Encode())
 				if err == nil {
@@ -698,6 +706,86 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 			if warned != (status != http.StatusOK) {
 				t.Errorf("warning = %v for %d:\n%s", warned, status,
 					errb.String())
+			}
+		})
+	}
+}
+
+// TestSourceNamesTheSignIn: source is device after a device-code
+// sign-in and browser otherwise, including a profile saved before
+// sign_in was recorded, and every session check accepts both.
+func TestSourceNamesTheSignIn(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	for _, tc := range []struct {
+		name, stored, source, label string
+	}{
+		{"saved without sign_in", "", auth.SourceBrowser, "browser"},
+		{"browser", config.SignInBrowser, auth.SourceBrowser, "browser"},
+		{"device", config.SignInDevice, auth.SourceDevice, "device code"},
+	} {
+		// seed signs rt in as tc.stored, its token expiring at exp.
+		seed := func(t *testing.T, exp time.Time, renews bool) (
+			*module.Runtime, *bytes.Buffer) {
+			t.Helper()
+			rt, out, _ := testsupport.NewRuntime(t, "", "text")
+			if renews {
+				seedRenewableSession(t, rt, s.api, exp)
+			} else {
+				testsupport.SeedSession(t, rt, s.api, "u1", exp, "t-a")
+			}
+			p := *rt.Config.StarfleetProfile(rt.Profile)
+			p.SignIn = tc.stored
+			rt.Config.SetStarfleetProfile(rt.Profile, &p)
+			return rt, out
+		}
+		run := func(t *testing.T, rt *module.Runtime, out *bytes.Buffer,
+			format string, args ...string) ([]byte, error) {
+			t.Helper()
+			out.Reset()
+			rt.Output.Format = format
+			err := runAccount(t, rt, &bytes.Buffer{}, args...)
+			return out.Bytes(), err
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(time.Hour), false)
+			if text, err := run(t, rt, out, "text", "auth",
+				"status"); err != nil || !bytes.Contains(text,
+				[]byte("Auth source:  "+tc.label+"\n")) {
+				t.Errorf("status (%v):\n%s", err, text)
+			}
+			if text, err := run(t, rt, out, "text", "doctor"); err != nil ||
+				!bytes.Contains(text, []byte("via "+tc.label+" (")) {
+				t.Errorf("doctor (%v):\n%s", err, text)
+			}
+			raw, err := run(t, rt, out, "json", "auth", "status")
+			var status authStatusReport
+			if err != nil || json.Unmarshal(raw, &status) != nil ||
+				status.Source != tc.source || status.TenantID != "t-a" {
+				t.Errorf("status json (%v):\n%s", err, raw)
+			}
+			raw, err = run(t, rt, out, "json", "doctor")
+			var doc accountDoctorReport
+			if err != nil || json.Unmarshal(raw, &doc) != nil ||
+				doc.Auth.Source != tc.source || doc.Verdict != verdictReady {
+				t.Errorf("doctor json (%v):\n%s", err, raw)
+			}
+		})
+		t.Run(tc.name+", expired", func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(-time.Minute), false)
+			raw, _ := run(t, rt, out, "json", "doctor")
+			var doc accountDoctorReport
+			if json.Unmarshal(raw, &doc) != nil ||
+				doc.Verdict != verdictSessionNeedsLogin {
+				t.Errorf("doctor json:\n%s", raw)
+			}
+		})
+		t.Run(tc.name+", renews", func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(-time.Minute), true)
+			raw, _ := run(t, rt, out, "json", "doctor")
+			var doc accountDoctorReport
+			if json.Unmarshal(raw, &doc) != nil ||
+				doc.Verdict != verdictSessionUnverified {
+				t.Errorf("doctor json:\n%s", raw)
 			}
 		})
 	}

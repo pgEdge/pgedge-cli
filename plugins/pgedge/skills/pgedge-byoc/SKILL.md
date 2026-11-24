@@ -127,7 +127,8 @@ Each rule is stated in full on the page named beside it.
   before any other destructive step it turns out to need. Eleven verbs
   prompt, four of them not spelled `delete`. See the index's
   "Destructive operations". A question that goes unanswered or
-  skipped is a no: stop and report what is left undone.
+  skipped is a no: stop, say what is left undone and what blocks it,
+  and name the reply that would let you finish.
 - **An empty list proves nothing about entitlement.** Some verbs are
   plan-gated and some answer an empty array on any plan. See the
   index's "Plan entitlement".

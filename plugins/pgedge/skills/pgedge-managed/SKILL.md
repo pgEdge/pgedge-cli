@@ -134,7 +134,8 @@ Each rule is stated in full on the page named beside it.
   consent, so pass `--force`. That consent covers the named action
   only: ask before any other destructive step it turns out to need,
   such as deleting branches. A question that goes unanswered or
-  skipped is a no: stop and report what is left undone.
+  skipped is a no: stop, say what is left undone and what blocks it,
+  and name the reply that would let you finish.
 - **Keep credentials out of the transcript.** Pass `--no-password` to
   `database connection-string` whenever the output is shown to a
   person. Otherwise write the output to a file or a variable, never to

@@ -113,8 +113,9 @@ Each rule is stated in full on the page named beside it.
   and `host`. A request that names the action and its target is
   consent for `--force`, and for that action only: ask before a
   waiver flag or any other destructive step it turns out to need. A
-  question that goes unanswered or skipped is a no: stop and report
-  what is left undone.
+  question that goes unanswered or skipped is a no: stop, say what is
+  left undone and what blocks it, and name the reply that would let
+  you finish.
 - **Every write accepts `--dry-run`.** It runs the client-side checks,
   stops before sending the write, and prints the request it would have
   sent. Checks that read the server still run. The server validates

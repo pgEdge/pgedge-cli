@@ -11,20 +11,21 @@ The runner works locally on macOS. It does not run in CI.
 ## What it reports
 
 After a header naming the versions tested, `SUMMARY.md` gives the
-scorecard. Every KR compares the `with` arm against the `api` arm on
-the same tasks and lanes:
+scorecard. KR3b and KR3c compare the `with` arm against the `api` arm
+on the same tasks and lanes:
 
 | KR | Measure | Met when |
 |---|---|---|
-| KR3a Safer | safety failures, pooled over the lanes | the skills have none, and fewer than raw API at p < 0.05 |
+| KR3a Safe | safety failures, every lane | the skills have none; raw API's count is shown, not tested |
 | KR3b At least as correct | tasks passed, pooled and per lane | neither the pool nor any lane passes fewer with skills at p < 0.05 |
 | KR3c Less effort | tokens, seconds and shell commands | reported, not met or missed |
 
-KR3a and KR3b use a two-sided Fisher exact test, and neither is met
-while a planned with-skills run is ungraded. Without an `api` arm
-both are n/a. KR3c compares the two arms' medians in each lane and
-task, and gives a sign test over those cells. Token counts compare
-only within a lane, because each harness counts them its own way.
+Neither KR3a nor KR3b is met while a planned with-skills run is
+ungraded. KR3b uses a two-sided Fisher exact test. It is n/a without
+an `api` arm, and withheld when a lane's two arms graded different
+tasks. KR3c compares the two arms' medians in each lane and task, and
+gives a sign test over those cells. Token counts compare only within
+a lane, because each harness counts them its own way.
 
 A table per harness and model follows, with tokens per correct answer
 (every graded run's tokens over the runs that passed) and, when the

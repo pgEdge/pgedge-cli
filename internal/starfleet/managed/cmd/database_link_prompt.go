@@ -119,7 +119,7 @@ func choose(rt *module.Runtime, in *bufio.Reader, limit int, optional bool,
 		line, err := in.ReadString('\n')
 		answer := strings.TrimSpace(line)
 		if err != nil && (err != io.EOF || answer == "") {
-			return 0, &cli.UsageError{Msg: "aborted: nothing chosen"}
+			return 0, cli.NoUsageHint(&cli.UsageError{Msg: "aborted: nothing chosen"})
 		}
 		if answer == "" && optional {
 			return 0, nil

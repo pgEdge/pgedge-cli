@@ -127,10 +127,10 @@ func loadSpecBytes(raw []byte, dst any) error {
 func decodeSpecInto(raw []byte, dst any, unwrap bool) error {
 	var doc interface{}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return &ExitError{
+		return cli.NoUsageHint(&ExitError{
 			msg:  fmt.Sprintf("parse spec file: %v", err),
 			code: ExitUsage,
-		}
+		})
 	}
 	if unwrap {
 		if m, ok := doc.(map[string]interface{}); ok {
@@ -141,18 +141,18 @@ func decodeSpecInto(raw []byte, dst any, unwrap bool) error {
 	}
 	b, err := json.Marshal(doc)
 	if err != nil {
-		return &ExitError{
+		return cli.NoUsageHint(&ExitError{
 			msg:  fmt.Sprintf("normalize spec: %v", err),
 			code: ExitUsage,
-		}
+		})
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
-		return &ExitError{
+		return cli.NoUsageHint(&ExitError{
 			msg:  fmt.Sprintf("parse spec file: %s", specDecodeError(err)),
 			code: ExitUsage,
-		}
+		})
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ func requireSpecContent(path, databaseName string, nodeCount int) error {
 	if databaseName != "" && nodeCount > 0 {
 		return nil
 	}
-	return &ExitError{
+	return cli.NoUsageHint(&ExitError{
 		msg: fmt.Sprintf(
 			"%s does not contain a database spec: database_name and "+
 				"nodes are both required. If this file came from "+
@@ -192,7 +192,7 @@ func requireSpecContent(path, databaseName string, nodeCount int) error {
 				"section",
 			specSource(path)),
 		code: ExitUsage,
-	}
+	})
 }
 
 // requireRestoreContent is requireSpecContent for restore -f.
@@ -203,7 +203,7 @@ func requireRestoreContent(path string, cfg api.RestoreConfigSpec) error {
 		cfg.SourceNodeName != "" || cfg.Repository.Type != "" {
 		return nil
 	}
-	return &ExitError{
+	return cli.NoUsageHint(&ExitError{
 		msg: fmt.Sprintf(
 			"%s does not contain a restore spec: restore_config is "+
 				"required. 'database restore template' emits a "+
@@ -211,7 +211,7 @@ func requireRestoreContent(path string, cfg api.RestoreConfigSpec) error {
 				"applying it",
 			specSource(path)),
 		code: ExitUsage,
-	}
+	})
 }
 
 func specSource(path string) string {
@@ -366,11 +366,11 @@ type serviceConfig struct {
 // unfilledError gives every unedited placeholder one phrasing, so the
 // class of error stays recognisable.
 func unfilledError(field, remedy string) error {
-	return &ExitError{
+	return cli.NoUsageHint(&ExitError{
 		msg: fmt.Sprintf("%s is still %q; %s",
 			field, secretSentinel, remedy),
 		code: ExitUsage,
-	}
+	})
 }
 
 func createSpecPlaceholders(

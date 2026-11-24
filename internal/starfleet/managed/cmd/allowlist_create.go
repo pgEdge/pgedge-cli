@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/starfleet/managed/api"
 	"github.com/spf13/cobra"
@@ -87,13 +88,13 @@ func serviceCreateRules(
 		return nil, nil
 	}
 	if intent != intentDeploy {
-		return nil, newExitError(fmt.Sprintf(
+		return nil, cli.NoUsageHint(newExitError(fmt.Sprintf(
 			"--allow, --my-ip and --open set a new service's "+
 				"allowlist, and database %s already has a %q service; "+
 				"change its rules with %q",
 			db.Id, t, fmt.Sprintf("%s allowlist add %s --service %s",
 				strings.TrimSuffix(group, " "+string(t)), db.Id, t)),
-			ExitUsage)
+			ExitUsage))
 	}
 	return o.rules(rt, client)
 }

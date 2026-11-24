@@ -123,6 +123,9 @@ func run() int {
 		if !ranRunE && code == cli.ExitError && !errors.As(err, &se) {
 			code = cli.ExitUsage
 		}
+		if code == cli.ExitUsage && !cli.HintSuppressed(err) {
+			fmt.Fprint(os.Stderr, cli.UsageHint(executed))
+		}
 		return code
 	}
 	return cli.ExitOK

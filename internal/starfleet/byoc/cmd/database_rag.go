@@ -386,9 +386,9 @@ func applyRAGFlags(
 		}
 		pipelines, err := parsePipelineConfig(data)
 		if err != nil {
-			return newExitError(fmt.Sprintf(
+			return cli.NoUsageHint(newExitError(fmt.Sprintf(
 				"parse pipeline config %q: %v",
-				opts.pipelineConfigPath, err), ExitUsage)
+				opts.pipelineConfigPath, err), ExitUsage))
 		}
 		if err := validatePipelines(
 			opts.pipelineConfigPath, pipelines); err != nil {
@@ -467,8 +467,9 @@ const ragReservedPipelineName = "_default"
 func validatePipelines(path string, pipelines []api.RAGPipelineConfig) error {
 	fail := func(format string, args ...any) error {
 		// ExitUsage, the same code as the parse that precedes it.
-		return newExitError(fmt.Sprintf("pipeline config %q: ", path)+
-			fmt.Sprintf(format, args...), ExitUsage)
+		return cli.NoUsageHint(newExitError(
+			fmt.Sprintf("pipeline config %q: ", path)+
+				fmt.Sprintf(format, args...), ExitUsage))
 	}
 
 	if len(pipelines) == 0 {

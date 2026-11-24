@@ -485,7 +485,31 @@ func TestHTTPClientFor(t *testing.T) {
 			clientCert: bad, clientKey: bad,
 		})
 		assertExitUsage(t, err)
+		if !cli.HintSuppressed(err) {
+			t.Error("a file that fails to load is state, not form")
+		}
 	})
+
+	// Half a pair is a missing flag, so the usage hint stays.
+	for _, tc := range []struct {
+		name    string
+		c       connConfig
+		missing string
+	}{
+		{"cert without key", connConfig{clientCert: "c.pem"}, "--client-key"},
+		{"key without cert", connConfig{clientKey: "k.pem"}, "--client-cert"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := httpClientFor(rt, tc.c)
+			assertExitUsage(t, err)
+			if !strings.HasPrefix(err.Error(), tc.missing+" is required") {
+				t.Errorf("error does not name %s: %v", tc.missing, err)
+			}
+			if cli.HintSuppressed(err) {
+				t.Error("a missing companion flag must keep the hint")
+			}
+		})
+	}
 }
 
 // TestTLSMinVersionFloor asserts that every branch of httpClientFor —

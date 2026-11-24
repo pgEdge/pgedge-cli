@@ -719,11 +719,11 @@ func SessionTenant(rt *module.Runtime, profileTenant, flagTenant string,
 		return flagTenant, nil
 	case profileTenant != "":
 		if !claims.HasTenant(profileTenant) {
-			return "", NewExitError(fmt.Sprintf("the profile's tenant "+
-				"%s is not one this sign-in can reach (%s): run '%s "+
-				"--tenant <id>', or pass --tenant", profileTenant,
-				strings.Join(claims.Tenants(), ", "), LoginCommand(rt)),
-				ExitUsage)
+			return "", cli.NoUsageHint(NewExitError(fmt.Sprintf(
+				"the profile's tenant %s is not one this sign-in can "+
+					"reach (%s): run '%s --tenant <id>', or pass --tenant",
+				profileTenant, strings.Join(claims.Tenants(), ", "),
+				LoginCommand(rt)), ExitUsage))
 		}
 		return profileTenant, nil
 	}

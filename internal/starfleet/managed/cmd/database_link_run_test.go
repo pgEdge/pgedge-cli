@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	neturl "net/url"
@@ -114,11 +115,7 @@ func wantExit(t *testing.T, err error, code int, contains string) {
 }
 
 func asUsageError(err error, target **cli.UsageError) bool {
-	ue, ok := err.(*cli.UsageError)
-	if ok {
-		*target = ue
-	}
-	return ok
+	return errors.As(err, target)
 }
 
 // wantEnvURI is the value env pull writes for testConnPassword on

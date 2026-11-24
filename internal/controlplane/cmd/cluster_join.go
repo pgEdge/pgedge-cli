@@ -184,19 +184,19 @@ func readTokenFile(path string) (string, error) {
 	tok := strings.TrimSuffix(string(raw), "\n")
 	tok = strings.TrimSuffix(tok, "\r")
 	if tok == "" {
-		return "", &ExitError{
+		return "", cli.NoUsageHint(&ExitError{
 			msg:  fmt.Sprintf("--token-file %s is empty", path),
 			code: ExitUsage,
-		}
+		})
 	}
 	for _, r := range tok {
 		if r < 0x20 || r == 0x7f {
-			return "", &ExitError{
+			return "", cli.NoUsageHint(&ExitError{
 				msg: fmt.Sprintf("--token-file %s holds more than "+
 					"one line or a control character; it must hold "+
 					"the token alone", path),
 				code: ExitUsage,
-			}
+			})
 		}
 	}
 	return tok, nil

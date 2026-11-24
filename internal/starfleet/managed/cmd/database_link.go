@@ -84,9 +84,9 @@ func projectFolder() (string, error) {
 		return "", err
 	}
 	if projectlink.IsHome(wd) {
-		return "", newExitError("the home folder cannot be linked, because "+
-			"~/.pgedge is the shared pgEdge config folder; run this from a "+
-			"project folder", ExitUsage)
+		return "", cli.NoUsageHint(newExitError("the home folder cannot "+
+			"be linked, because ~/.pgedge is the shared pgEdge config "+
+			"folder; run this from a project folder", ExitUsage))
 	}
 	return wd, nil
 }

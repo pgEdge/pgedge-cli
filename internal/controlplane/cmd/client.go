@@ -325,7 +325,18 @@ func httpClientFor(
 		}
 		tlsCfg.RootCAs = pool
 	}
-	if c.clientCert != "" || c.clientKey != "" {
+	if (c.clientCert == "") != (c.clientKey == "") {
+		missing := "--client-key"
+		if c.clientCert == "" {
+			missing = "--client-cert"
+		}
+		return nil, &ExitError{
+			msg: fmt.Sprintf("%s is required alongside its pair: pass "+
+				"both --client-cert and --client-key, or neither", missing),
+			code: ExitUsage,
+		}
+	}
+	if c.clientCert != "" {
 		cert, err := tls.LoadX509KeyPair(c.clientCert, c.clientKey)
 		if err != nil {
 			return nil, cli.NoUsageHint(&ExitError{

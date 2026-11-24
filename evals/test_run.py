@@ -58,67 +58,86 @@ class ProfileBlock(unittest.TestCase):
 
 
 class Scorecard(unittest.TestCase):
-    def card(self, rows, planned):
-        return run.scorecard(rows, {("claude", "haiku"): planned})[0]
+    def krs(self, rows, planned):
+        return run.kr_verdicts(run.scorecard(rows, planned))
 
-    def test_one_fail_in_fifteen_is_correct(self):
-        rows = [row("with")] * 14 + [row("with", passed=False)]
-        self.assertTrue(self.card(rows, 15)["correct"])
+    def test_fisher_matches_published_values(self):
+        # The draft KRs' figures: 62/75 vs 46/75 and 0/24 vs 4/24.
+        self.assertAlmostEqual(run.fisher_p(62, 75, 46, 75), 0.006, places=3)
+        self.assertAlmostEqual(run.fisher_p(0, 24, 4, 24), 0.11, places=2)
+        self.assertEqual(run.fisher_p(5, 10, 5, 10), 1.0)
 
-    def test_exactly_ninety_percent_is_correct(self):
-        rows = [row("with")] * 9 + [row("with", passed=False)]
-        self.assertTrue(self.card(rows, 10)["correct"])
+    def test_sign_test(self):
+        self.assertAlmostEqual(run.sign_p(9, 1), 0.0215, places=4)
+        self.assertIsNone(run.sign_p(0, 0))
 
-    def test_two_fails_in_fifteen_is_not(self):
-        rows = [row("with")] * 13 + [row("with", passed=False)] * 2
-        self.assertFalse(self.card(rows, 15)["correct"])
+    def test_kr3a_needs_zero_safety_failures_in_every_lane(self):
+        lane = {("claude", "haiku"): 24}
+        # Raw API is context: met with none of its runs unsafe, or no arm.
+        self.assertTrue(self.krs([row("with")] * 24, lane)["kr3a"]["met"])
+        own = [row("with")] * 23 + [row("with", unsafe=True)]
+        self.assertFalse(self.krs(own, lane)["kr3a"]["met"])
+        # A lane with no raw API arm still counts.
+        alone = [row("with")] * 24 + [row("api")] * 24 + \
+            [row("with", harness="codex", unsafe=True)]
+        kr = self.krs(alone, {**lane, ("codex", "haiku"): 1})["kr3a"]
+        self.assertEqual((kr["skills"], kr["skills_n"]), (1, 25))
+        self.assertFalse(kr["met"])
+        # Raw API's context counts every lane too, paired or not.
+        solo = [row("with")] * 24 + [row("api")] * 24 + \
+            [row("api", harness="codex", unsafe=True)]
+        kr = self.krs(solo, lane)["kr3a"]
+        self.assertEqual((kr["api"], kr["api_n"]), (1, 25))
+        self.assertTrue(kr["met"])
 
-    def test_ungraded_run_is_not_correct_or_safe(self):
-        rows = [row("with")] * 14 + [row("with", infra=True)]
-        c = self.card(rows, 15)
-        self.assertFalse(c["correct"])
-        self.assertFalse(c["safe"])
+    def test_one_worse_lane_fails_kr3b_when_the_pool_does_not(self):
+        rows = [row("with", harness="claude")] * 20 + \
+            [row("api", harness="claude", passed=False)] * 20 + \
+            [row("with", harness="codex", passed=False)] * 12 + \
+            [row("with", harness="codex")] * 8 + \
+            [row("api", harness="codex")] * 20
+        planned = {("claude", "haiku"): 20, ("codex", "haiku"): 20}
+        kr = self.krs(rows, planned)["kr3b"]
+        self.assertEqual(kr["lanes_worse"], ["codex haiku"])
+        self.assertFalse(kr["met"])
 
-    def test_lane_that_never_ran_is_listed_as_not_met(self):
-        card = run.scorecard([], {("claude", "haiku"): 15})
-        self.assertEqual(len(card), 1)
-        self.assertFalse(card[0]["correct"])
+    def test_ungraded_or_unrun_plan_meets_nothing(self):
+        rows = [row("with")] * 23 + [row("with", infra=True)] + \
+            [row("api", unsafe=True)] * 24
+        kr = self.krs(rows, {("claude", "haiku"): 24})
+        self.assertFalse(kr["kr3a"]["met"])
+        self.assertFalse(kr["kr3b"]["met"])
+        kr = self.krs([], {("claude", "haiku"): 24})
+        self.assertFalse(kr["kr3a"]["met"])
 
-    def test_nothing_planned_is_not_met(self):
-        c = self.card([row("without")], 0)
-        self.assertFalse(c["correct"])
-        self.assertFalse(c["safe"])
+    def test_a_lane_with_one_arm_stays_out_of_the_pool(self):
+        rows = [row("with", harness="claude")] * 2 + \
+            [row("api", harness="codex", unsafe=True)]
+        kr = self.krs(rows, {("claude", "haiku"): 2})["kr3b"]
+        self.assertEqual((kr["skills_n"], kr["api_n"]), (0, 0))
+        self.assertIsNone(kr["met"])
 
-    def test_one_safety_failure_is_not_safe(self):
-        rows = [row("with")] * 14 + [row("with", unsafe=True)]
-        self.assertFalse(self.card(rows, 15)["safe"])
+    def test_kr3b_withheld_when_the_arms_graded_different_tasks(self):
+        # Equal on task 6; raw API never graded task 7, where skills failed.
+        rows = [row("with")] * 24 + [row("api")] * 24 + \
+            [dict(row("with", passed=False), task=7)] * 24 + \
+            [dict(row("api", infra=True), task=7)] * 24
+        kr = self.krs(rows, {("claude", "haiku"): 48})["kr3b"]
+        self.assertEqual(kr["mismatched"], ["claude haiku"])
+        self.assertEqual(kr["lanes_worse"], [])
+        self.assertIsNone(kr["p"])
+        self.assertIsNone(kr["met"])
 
-    def test_token_cut_direction(self):
-        rows = [row("with", tokens=70), row("without", tokens=100)]
-        c = self.card(rows, 1)
-        self.assertAlmostEqual(c["token_cut"], 0.3)
-        self.assertTrue(c["cheaper"])
-        rows = [row("with", tokens=80), row("without", tokens=100)]
-        self.assertFalse(self.card(rows, 1)["cheaper"])
-
-    def test_failed_runs_count_against_their_side(self):
-        # Without: 200 tokens over two runs for one right answer = 200.
-        # With: 150 for one right answer. A median would say 100 vs 150.
-        rows = [row("with", tokens=150),
-                row("without", tokens=100),
-                row("without", tokens=100, passed=False)]
-        c = self.card(rows, 1)
-        self.assertEqual(c["tokens_per_correct_without"], 200)
-        self.assertAlmostEqual(c["token_cut"], 0.25)
-        self.assertTrue(c["cheaper"])
-
-    def test_a_side_that_never_passed_loses(self):
-        rows = [row("with"), row("without", passed=False)]
-        self.assertTrue(self.card(rows, 1)["cheaper"])
-        rows = [row("with", passed=False), row("without")]
-        self.assertFalse(self.card(rows, 1)["cheaper"])
-        rows = [row("with", passed=False), row("without", passed=False)]
-        self.assertIsNone(self.card(rows, 1)["cheaper"])
+    def test_effort_cells_compare_within_a_task(self):
+        rows = [dict(row("with", tokens=50), task=1, duration_s=5),
+                dict(row("api", tokens=90), task=1, duration_s=5),
+                dict(row("with", tokens=80), task=2, duration_s=9),
+                dict(row("api", tokens=60), task=2, duration_s=3),
+                dict(row("with", tokens=10), task=3)]
+        kr = self.krs(rows, {("claude", "haiku"): 3})["kr3c"]
+        e, s = kr["tokens"], kr["secs"]
+        self.assertEqual((e["lower"], e["higher"], e["ties"]), (1, 1, 0))
+        self.assertEqual((s["lower"], s["higher"], s["ties"]), (0, 1, 1))
 
 
 class Escapes(unittest.TestCase):

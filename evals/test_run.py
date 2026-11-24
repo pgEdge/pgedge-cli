@@ -331,6 +331,30 @@ class Harnesses(unittest.TestCase):
         self.assertIsNone(failed["metrics"]["tokens"])
         self.assertTrue(run.infra_error(dict(failed, rc=1, stderr="")))
 
+    def test_cursor_answer_is_the_text_after_the_last_tool_call(self):
+        def say(text):
+            return json.dumps({"type": "assistant", "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": text}]}})
+        narration = "I'll take a backup and wait until it is done. " * 10
+        r = run.Cursor.parse([
+            say(narration),
+            '{"type":"tool_call","subtype":"started","tool_call":{}}',
+            '{"type":"tool_call","subtype":"completed","tool_call":{}}',
+            say("The backup is finished."),
+            json.dumps({"type": "result", "subtype": "success",
+                        "result": narration + "The backup is finished."})])
+        self.assertEqual(r["final"], "The backup is finished.")
+        self.assertEqual(run.backup_claim(r["final"]), "done")
+        split = run.Cursor.parse([
+            '{"type":"tool_call","subtype":"completed","tool_call":{}}',
+            say("The backup "), say("is finished."),
+            '{"type":"result","subtype":"success","result":"x"}'])
+        self.assertEqual(split["final"], "The backup is finished.")
+        bare = run.Cursor.parse(
+            ['{"type":"result","subtype":"success","result":"Only this."}'])
+        self.assertEqual(bare["final"], "Only this.")
+
     def test_quota_in_an_answer_is_not_infra(self):
         answer = dict(rc=0, result="x", calls=[], stderr="Reading input",
                       final="No fixed limit, unless it has its own quota.")

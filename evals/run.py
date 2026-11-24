@@ -922,12 +922,21 @@ class Cursor:
     @staticmethod
     def parse(lines):
         r = {"init": None, "calls": [], "final": "", "result": None}
+        # The result event joins every assistant message, narration
+        # included; the answer is the text after the last tool call.
+        tail = []
         for line in lines:
             try:
                 e = json.loads(line)
             except ValueError:
                 continue
             t = e.get("type")
+            if t == "tool_call":
+                tail = []
+            elif t == "assistant":
+                tail += [c.get("text", "") for c in
+                         (e.get("message") or {}).get("content", [])
+                         if c.get("type") == "text"]
             if t == "system" and e.get("subtype") == "init":
                 r["init"] = e
             elif t == "tool_call" and e.get("subtype") == "completed":
@@ -963,7 +972,7 @@ class Cursor:
                                        "is_error": not ok})
             elif t == "result":
                 r["result"] = e
-                r["final"] = e.get("result") or ""
+                r["final"] = "".join(tail) or e.get("result") or ""
         res = r["result"] or {}
         u = res.get("usage") or {}
         tin = (u.get("inputTokens", 0) + u.get("cacheReadTokens", 0) +
@@ -3282,6 +3291,7 @@ def regrade(dirpath):
             (d / "transcripts" / f"{row['id']}.jsonl").read_text()
             .splitlines())
         r["extra"] = {}
+        row["final_answer"] = r["final"][:4000]
         metrics_from_calls(r)
         # Codex's duration is the runner's clock, not in the transcript.
         row.update({k: v for k, v in r["metrics"].items()

@@ -97,13 +97,12 @@ func browserLogin(rt *module.Runtime, f *conn.Flags,
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	flow := signInFlow(rt, app, timeout)
-	if method == methodAuto {
-		if why := signin.RemoteSession(sessionGOOS, sessionEnv); why != "" {
-			fmt.Fprintf(rt.Stderr, "Not opening a browser: %s. Signing "+
-				"in with a code instead; use --browser to override.\n",
-				output.Sanitize(why))
-			device = true
-		}
+	remote := signin.RemoteSession(sessionGOOS, sessionEnv)
+	if method == methodAuto && remote != "" {
+		fmt.Fprintf(rt.Stderr, "Not opening a browser: %s. Signing "+
+			"in with a code instead; use --browser to override.\n",
+			output.Sanitize(remote))
+		device = true
 	}
 	if method == methodBrowser && flow.Open != nil {
 		// --browser keeps waiting on the printed URL, which a forwarded
@@ -121,12 +120,17 @@ func browserLogin(rt *module.Runtime, f *conn.Flags,
 	var toks *signin.Tokens
 	var err error
 	if device {
+		if remote != "" {
+			flow.Open = nil
+		}
 		toks, err = flow.RunDevice(ctx)
 	} else {
 		toks, err = flow.Run(ctx)
 		if errors.Is(err, signin.ErrNoBrowser) {
 			fmt.Fprintf(rt.Stderr, "%s; signing in with a code instead.\n",
 				output.Sanitize(err.Error()))
+			flow.Open = nil
+			device = true
 			toks, err = flow.RunDevice(ctx)
 		}
 	}
@@ -179,8 +183,13 @@ func browserLogin(rt *module.Runtime, f *conn.Flags,
 	// One profile, one kind of credential: an API client's secret goes.
 	// Saved before the secret goes, so a failed save keeps a working
 	// API client.
+	signedIn := config.SignInBrowser
+	if device {
+		signedIn = config.SignInDevice
+	}
 	rt.Config.SetStarfleetProfile(rt.Profile, &config.StarfleetProfile{
-		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID})
+		APIURL: apiURL, Auth: config.AuthBrowser, TenantID: tenantID,
+		SignIn: signedIn})
 	if err := rt.Config.Save(); err != nil {
 		return fmt.Errorf("save profile: %w", err)
 	}

@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
 	api "github.com/pgEdge/pgedge-cli/internal/starfleet/account/api"
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/spf13/cobra"
 )
 
@@ -101,26 +104,45 @@ Example:
 
 func newTenantGetCmd(rt *module.Runtime) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <tenant_id>",
+		Use:   "get [tenant_id]",
 		Short: "Show tenant details",
 		Long: `get shows the details of a single tenant.
 
 Use it to read a tenant's name, plan, and domain. The argument is
-the tenant's UUID.
+the tenant's UUID. Without it, get shows the tenant a browser sign-in
+acts in: the one 'pgedge starfleet auth status' prints as Tenant, or
+--tenant when given. An API client has no tenant on record, so with
+one, the argument is required (exit 2 without it).
 
 Example:
+  pgedge starfleet tenant get
   pgedge starfleet tenant get b0c1d2e3-f4a5-6789-bcde-890123456789
   pgedge starfleet tenant get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := cli.ParseUUIDArg(args[0], "tenant ID")
+			// Both usage errors come before resolving, which may call
+			// the API.
+			var id uuid.UUID
+			var err error
+			if len(args) == 1 {
+				if id, err = cli.ParseUUIDArg(args[0], "tenant ID"); err != nil {
+					return err
+				}
+			} else if err := requireSession(rt, cmd); err != nil {
+				return err
+			}
+			client, c, err := connClientFromCmd(rt, cmd)
 			if err != nil {
 				return err
 			}
-
-			client, err := clientFromCmd(rt, cmd)
-			if err != nil {
-				return err
+			if len(args) == 0 {
+				if c.Session == nil || c.Session.TenantID == "" {
+					return errNoSessionTenant()
+				}
+				if id, err = cli.ParseUUIDArg(
+					c.Session.TenantID, "tenant ID"); err != nil {
+					return err
+				}
 			}
 
 			resp, err := client.GetTenantWithResponse(
@@ -146,6 +168,43 @@ Example:
 			return rt.Output.Print(rows, tenantColumns)
 		},
 	}
+}
+
+// requireSession is the exit-2 failure for an API client, which keeps
+// no tenant of its own, and for a session whose cached token names
+// none. It reads the cache without renewing, so a token near expiry
+// gets the exit 2 rather than a renewal's failure. Anything it cannot
+// judge passes, for the caller's resolution to report.
+func requireSession(rt *module.Runtime, cmd *cobra.Command) error {
+	f := conn.ReadFlags(cmd.Flags())
+	res, err := conn.ResolveCredentials(
+		rt, f.ClientID, f.ClientSecret, f.APIURL)
+	if err != nil {
+		return nil
+	}
+	if !res.Session {
+		return newExitError("an API client has no tenant on record: "+
+			"pass the tenant ID; 'pgedge starfleet tenant list' shows it",
+			ExitUsage)
+	}
+	tok, err := conn.Store(rt).LoadToken()
+	if err != nil {
+		return nil
+	}
+	claims, err := auth.ParseClaims(tok.AccessToken)
+	if err != nil {
+		return nil
+	}
+	if t, err := conn.SessionTenant(rt, res.TenantID, f.Tenant,
+		claims); err == nil && t == "" {
+		return errNoSessionTenant()
+	}
+	return nil
+}
+
+func errNoSessionTenant() error {
+	return newExitError("this sign-in names no tenant: pass the "+
+		"tenant ID or --tenant", ExitUsage)
 }
 
 // --- update ---

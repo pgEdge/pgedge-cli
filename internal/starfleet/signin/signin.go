@@ -373,7 +373,7 @@ func browserCommand(goos, target string) (name string, args []string) {
 // OpenBrowser opens target in the platform's default browser.
 func OpenBrowser(target string) error {
 	name, args := browserCommand(runtime.GOOS, target)
-	cmd := exec.Command(name, args...) //nolint:gosec // G204: a fixed opener; target is our own authorize URL
+	cmd := exec.Command(name, args...) //nolint:gosec // G204: a fixed opener; target is an https URL from Auth0 or our authorize URL
 	if err := cmd.Start(); err != nil {
 		return err
 	}

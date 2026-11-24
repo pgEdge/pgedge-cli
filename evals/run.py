@@ -296,8 +296,8 @@ RELEASE = {}
 # KR3: every measure compares the skills with raw API (the api arm).
 ALPHA = 0.05
 # KR3c's effort metrics, by row key.
-EFFORT_KEYS = {"tokens": "tokens", "secs": "duration_s",
-               "shell": "bash_commands"}
+EFFORT_KEYS = {"tokens": "tokens", "calls": "model_calls",
+               "secs": "duration_s", "shell": "bash_commands"}
 
 
 def prepare_release(version, ref):
@@ -437,6 +437,8 @@ def scorecard(rows, planned):
             "correct_p": fisher_p(w["pass"], w["n"], api["pass"], api["n"]),
             "tokens_per_correct": per_correct(arm("with")),
             "tokens_per_correct_api": per_correct(arm("api")),
+            "calls": effort(arm("with"), "model_calls"),
+            "calls_api": effort(arm("api"), "model_calls"),
             "secs": w["duration"], "secs_api": api["duration"],
             "shell": effort(arm("with"), "bash_commands"),
             "shell_api": effort(arm("api"), "bash_commands"),
@@ -483,7 +485,9 @@ def kr_verdicts(card):
                   if not c.get("same_tasks", True)]
     effort = {}
     for k in EFFORT_KEYS:
+        # Codex's calls are an estimate biased low for the skills arm.
         pairs = [(cell["with"][k], cell["api"][k]) for c in card
+                 if not (k == "calls" and c["harness"] == "codex")
                  for cell in c["cells"].values()
                  if None not in (cell["with"][k], cell["api"][k])]
         lo = sum(1 for x, y in pairs if x < y)
@@ -571,7 +575,8 @@ def scorecard_md(card, release=None):
     if b["lanes_worse"]:
         out += ["Lanes passing fewer with skills beyond chance: "
                 + ", ".join(b["lanes_worse"]) + ".", ""]
-    words = {"tokens": "tokens", "secs": "time", "shell": "shell commands"}
+    words = {"tokens": "tokens", "calls": "model calls", "secs": "time",
+             "shell": "shell commands"}
     out += ["KR3c, reported: in each lane-task cell, the skills' median "
             "against raw API's, ties dropped, sign test. " + "; ".join(
                 f"{words[k]} lower in {e['lower']}, higher in {e['higher']}"
@@ -580,9 +585,9 @@ def scorecard_md(card, release=None):
             "",
             "| Harness, model | With skills | Raw API | p | Safety fails, "
             "skills / raw API | Tokens per correct, skills / raw API | "
-            "Median secs | Median shell commands | Lift over CLI alone "
-            "(pts) |",
-            "|---|---|---|---|---|---|---|---|---|"]
+            "Median model calls | Median secs | Median shell commands | "
+            "Lift over CLI alone (pts) |",
+            "|---|---|---|---|---|---|---|---|---|---|"]
     for c in card:
         lift = "n/a" if c["lift"] is None else f"{c['lift']:+d}"
         out.append(
@@ -591,9 +596,17 @@ def scorecard_md(card, release=None):
             f"{pv(c['correct_p'])} | {c['unsafe']} / {c['api_unsafe']} | "
             + pair(c["tokens_per_correct"], c["tokens_per_correct_api"],
                    lambda v: f"{v / 1000:.0f}k", "none passed") + " | "
+            + pair(c["calls"], c["calls_api"], lambda v: f"{v:g}")
+            + " | "
             + pair(c["secs"], c["secs_api"], lambda v: f"{v:.0f}") + " | "
             + pair(c["shell"], c["shell_api"], lambda v: f"{v:g}")
             + f" | {lift} |")
+    if any(c["harness"] == "codex" for c in card):
+        out += ["", "Codex's model calls are an estimate and stay out of "
+                "KR3c's sign test: its transcript records none, so they "
+                "are counted as rounds of output between tool results. A "
+                "call made while an earlier command still runs is missed, "
+                "which happens most with skills."]
     return out + [""]
 
 
@@ -830,7 +843,7 @@ class Claude:
     def parse(lines):
         """Normalise a stream-json transcript."""
         r = {"init": None, "calls": [], "final": "", "result": None}
-        by_id = {}
+        by_id, msg_ids, results = {}, set(), []
         for line in lines:
             try:
                 e = json.loads(line)
@@ -840,6 +853,8 @@ class Claude:
             if t == "system" and e.get("subtype") == "init":
                 r["init"] = e
             elif t == "assistant":
+                # One event per content block, so a call's id repeats.
+                msg_ids.add(e["message"].get("id"))
                 for c in e["message"].get("content", []):
                     if c.get("type") == "tool_use":
                         call = {"tool": c["name"], "input": c["input"],
@@ -861,19 +876,29 @@ class Claude:
             elif t == "result":
                 r["result"] = e
                 r["final"] = e.get("result") or ""
+                results.append(e)
         res = r["result"] or {}
-        u = res.get("usage") or {}
-        tin = (u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
-               + u.get("cache_creation_input_tokens", 0))
+
+        # A background task's notification starts a second init/result
+        # pair; usage, turns and duration are per pair, cost cumulative.
+        def total(f):
+            return sum(f(x) or 0 for x in results)
+        tin = total(lambda x: sum((x.get("usage") or {}).get(k, 0) for k in (
+            "input_tokens", "cache_read_input_tokens",
+            "cache_creation_input_tokens")))
+        tout = total(lambda x: (x.get("usage") or {}).get("output_tokens"))
+        ms = total(lambda x: x.get("duration_ms"))
         r["metrics"] = {
             "model": (r["init"] or {}).get("model"),
-            "turns": res.get("num_turns"),
+            # num_turns counts user messages, injected skill text
+            # included; each assistant message id is one API call.
+            "turns": total(lambda x: x.get("num_turns")) if res else None,
+            "model_calls": len(msg_ids) or None,
             "cost_usd": res.get("total_cost_usd"),
             "input_tokens": tin if res else None,
-            "output_tokens": u.get("output_tokens") if res else None,
-            "tokens": (tin + u.get("output_tokens", 0)) if res else None,
-            "duration_s": round(res["duration_ms"] / 1000, 1)
-            if res.get("duration_ms") else None,
+            "output_tokens": tout if res else None,
+            "tokens": tin + tout if res else None,
+            "duration_s": round(ms / 1000, 1) if ms else None,
             "stop": res.get("subtype"),
         }
         for c in r["calls"]:
@@ -1044,12 +1069,20 @@ class Cursor:
         # The result event joins every assistant message, narration
         # included; the answer is the text after the last tool call.
         tail = []
+        call_ids, thought, untagged = set(), 0, False
         for line in lines:
             try:
                 e = json.loads(line)
             except ValueError:
                 continue
             t = e.get("type")
+            if e.get("model_call_id"):
+                call_ids.add(e["model_call_id"])
+                untagged = False
+            elif t == "assistant":
+                untagged = True
+            if t == "thinking" and e.get("subtype") == "completed":
+                thought += 1
             if t == "tool_call":
                 tail = []
             elif t == "assistant":
@@ -1099,6 +1132,12 @@ class Cursor:
         r["metrics"] = {
             "model": (r["init"] or {}).get("model"),
             "turns": None,      # not reported by cursor-agent
+            # Only calls that use a tool carry a model_call_id. Every call
+            # held one thinking block in each transcript measured
+            # 2026-11-24; the tagged count plus a final answer is the
+            # floor for a model that does not think.
+            "model_calls": max(thought, len(call_ids) + (
+                untagged or not call_ids and bool(r["final"]))) or None,
             "cost_usd": None,   # not reported by cursor-agent
             "input_tokens": tin if u else None,
             "output_tokens": u.get("outputTokens") if u else None,
@@ -1310,12 +1349,27 @@ class Codex:
     def parse(lines):
         r = {"init": None, "calls": [], "final": "", "result": None}
         usage, errors = [], []
+        # The stream records no model calls, so this counts rounds: the
+        # model's output between tool results. Parallel calls share one
+        # only if all start before any finishes. A call with no output
+        # item, or made while an earlier command still runs, is missed.
+        started, rounds, fed = set(), 0, True
         for line in lines:
             try:
                 e = json.loads(line)
             except ValueError:
                 continue
             t, item = e.get("type"), e.get("item") or {}
+            kind = item.get("type")
+            if t == "item.started" or t == "item.completed" and (
+                    kind in ("agent_message", "reasoning") or
+                    kind != "error" and item.get("id") not in started):
+                rounds += fed
+                fed = False
+                started.add(item.get("id"))
+            if t == "item.completed" and kind not in (
+                    "agent_message", "reasoning", "error"):
+                fed = True
             if t == "thread.started":
                 r["init"] = e
             elif t == "turn.completed":
@@ -1348,6 +1402,7 @@ class Codex:
         r["metrics"] = {
             "model": None,      # not reported by codex exec
             "turns": None,
+            "model_calls": rounds or None,
             "cost_usd": None,   # subscription; not reported
             # input_tokens already counts the cached ones, and
             # output_tokens the reasoning ones.
@@ -2594,7 +2649,8 @@ def do_run(h, run, task, fx, secrets, creds):
                    setup_failed=True, model=None,
                    isolation_problems=[], safety_violations=[],
                    secret_in_transcript=False, turns=None, cost_usd=None,
-                   tokens=None, duration_s=None, final_answer="")
+                   tokens=None, model_calls=None, duration_s=None,
+                   final_answer="")
         return row
     pre = fx.state()
     prompt = task["prompt"].format(fixture=fx.name, nosuch=nosuch,
@@ -3451,7 +3507,8 @@ def regrade(dirpath):
                 changed.append((row["id"], "safety cleared", ok))
                 row.update(safety_violations=[], passed=ok,
                            why=inner + " [safety regraded]")
-        if row["task"] == 5 and not row["infra"] and row.get("script"):
+        if row["task"] == 5 and not row["infra"] and row.get("script") and \
+                (Path(row["workspace"]) / "list.sh").exists():
             ok, why = regrade_5(row)
             if ok != row["passed"]:
                 changed.append((row["id"], row["passed"], ok))

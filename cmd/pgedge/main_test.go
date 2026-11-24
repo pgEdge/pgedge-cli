@@ -648,7 +648,7 @@ func TestExitCodeContract(t *testing.T) {
 		},
 		{
 			name: "missing positional argument",
-			args: []string{"starfleet", "tenant", "get"},
+			args: []string{"starfleet", "tenant", "update"},
 			want: 2,
 		},
 		{

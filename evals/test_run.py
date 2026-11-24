@@ -129,15 +129,38 @@ class Scorecard(unittest.TestCase):
         self.assertIsNone(kr["met"])
 
     def test_effort_cells_compare_within_a_task(self):
-        rows = [dict(row("with", tokens=50), task=1, duration_s=5),
-                dict(row("api", tokens=90), task=1, duration_s=5),
-                dict(row("with", tokens=80), task=2, duration_s=9),
-                dict(row("api", tokens=60), task=2, duration_s=3),
+        rows = [dict(row("with", tokens=50), task=1, duration_s=5,
+                     model_calls=4),
+                dict(row("api", tokens=90), task=1, duration_s=5,
+                     model_calls=9),
+                dict(row("with", tokens=80), task=2, duration_s=9,
+                     model_calls=6),
+                dict(row("api", tokens=60), task=2, duration_s=3,
+                     model_calls=11),
                 dict(row("with", tokens=10), task=3)]
-        kr = self.krs(rows, {("claude", "haiku"): 3})["kr3c"]
-        e, s = kr["tokens"], kr["secs"]
+        card = run.scorecard(rows, {("claude", "haiku"): 3})
+        kr = run.kr_verdicts(card)["kr3c"]
+        e, s, c = kr["tokens"], kr["secs"], kr["calls"]
         self.assertEqual((e["lower"], e["higher"], e["ties"]), (1, 1, 0))
         self.assertEqual((s["lower"], s["higher"], s["ties"]), (0, 1, 1))
+        self.assertEqual((c["lower"], c["higher"], c["ties"]), (2, 0, 0))
+        # Codex's estimated calls stay out of the calls test only.
+        codex = [dict(r, harness="codex") for r in rows]
+        kr = run.kr_verdicts(run.scorecard(
+            rows + codex, {("claude", "haiku"): 3, ("codex", "haiku"): 3})
+        )["kr3c"]
+        self.assertEqual((kr["calls"]["lower"], kr["tokens"]["lower"]),
+                         (2, 2))
+        md = run.scorecard_md(card)
+        self.assertIn("model calls lower in 2, higher in 0", "\n".join(md))
+        def cells(line):
+            return [x.strip() for x in line.strip("|").split("|")]
+        at = next(i for i, x in enumerate(md)
+                  if x.startswith("| Harness, model"))
+        head = cells(md[at])
+        self.assertEqual(len(head), len(cells(md[at + 1])))
+        self.assertEqual(cells(md[at + 2])[head.index("Median model calls")],
+                         "5 / 10")
 
 
 class Escapes(unittest.TestCase):
@@ -373,6 +396,76 @@ class Harnesses(unittest.TestCase):
         bare = run.Cursor.parse(
             ['{"type":"result","subtype":"success","result":"Only this."}'])
         self.assertEqual(bare["final"], "Only this.")
+
+    def test_model_calls_per_harness(self):
+        def ev(**e):
+            return json.dumps(e)
+
+        def claude(mid, kind="tool_use"):
+            return ev(type="assistant", message={"id": mid, "content": [
+                {"type": kind, "name": "Bash", "id": mid + kind,
+                 "input": {}}]})
+
+        def claude_result(turns, tin, ms, cost):
+            return ev(type="result", subtype="success", num_turns=turns,
+                      duration_ms=ms, total_cost_usd=cost,
+                      usage={"input_tokens": tin, "output_tokens": 1})
+        think = ev(type="thinking", subtype="completed")
+
+        def tool(mid):
+            return ev(type="tool_call", subtype="completed",
+                      model_call_id=mid, tool_call={})
+        answer = ev(type="assistant", message={"content": [
+            {"type": "text", "text": "done"}]})
+
+        def codex(t, iid, kind="command_execution"):
+            return ev(type=t, item={"id": iid, "type": kind,
+                                    "command": "ls", "exit_code": 0})
+        cases = [
+            # A message's content blocks arrive as one event each.
+            ("claude blocks", run.Claude, [
+                claude("m1", "thinking"), claude("m1"), claude("m2", "text"),
+                claude_result(4, 10, 1000, 0.1)], 2),
+            ("claude none", run.Claude, [claude_result(1, 10, 1, 0)], None),
+            ("cursor parallel", run.Cursor, [
+                think, tool("r-0-a"), think, tool("r-1-b"), tool("r-1-b"),
+                think, answer], 3),
+            # The call before a background task's notification uses no tool.
+            ("cursor waiting", run.Cursor, [
+                think, tool("r-0-a"), think,
+                ev(type="system", subtype="task_notification"), think,
+                answer], 3),
+            ("cursor no thinking", run.Cursor, [
+                tool("r-0-a"), tool("r-1-b"), answer], 3),
+            # Narration before a tool belongs to that tool's call.
+            ("cursor narration", run.Cursor, [answer, tool("r-0-a"), ev(
+                type="result", subtype="success", result="done")], 1),
+            ("cursor result only", run.Cursor, [ev(
+                type="result", subtype="success", result="Only this.")], 1),
+            ("codex rounds", run.Codex, [
+                codex("item.completed", "i0", "agent_message"),
+                codex("item.started", "i1"), codex("item.completed", "i1"),
+                codex("item.started", "i2"), codex("item.started", "i3"),
+                codex("item.completed", "i3"), codex("item.completed", "i2"),
+                codex("item.completed", "i4", "agent_message")], 3),
+            ("codex error item", run.Codex, [
+                codex("item.started", "i0"), codex("item.completed", "i0"),
+                codex("item.completed", "i1", "error")], 1),
+            ("codex completed only", run.Codex, self.STREAM, 3),
+            ("codex failed", run.Codex, [
+                ev(type="turn.failed", error={"message": "x"})], None),
+        ]
+        for name, h, lines, want in cases:
+            with self.subTest(name):
+                self.assertEqual(h.parse(lines)["metrics"]["model_calls"],
+                                 want)
+        # A background task's notification starts a second result.
+        m = run.Claude.parse([
+            claude("m1"), claude_result(3, 100, 2000, 0.25), claude("m2"),
+            claude_result(1, 40, 500, 0.5)])["metrics"]
+        self.assertEqual(
+            (m["model_calls"], m["turns"], m["tokens"], m["duration_s"],
+             m["cost_usd"]), (2, 4, 142, 2.5, 0.5))
 
     def test_quota_in_an_answer_is_not_infra(self):
         answer = dict(rc=0, result="x", calls=[], stderr="Reading input",

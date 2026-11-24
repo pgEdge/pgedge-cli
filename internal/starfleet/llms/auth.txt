@@ -48,9 +48,9 @@ removes what the other way stored.
 It opens the pgEdge sign-in page and prints the same URL on stderr,
 then waits for the browser to return. A person has to complete the
 page, so an agent asks the user to run this command. The profile
-stores `api_url`, `auth: browser` and `tenant_id`; the user's access
-token goes to the token cache and the token that renews the session
-to the OS keychain. Every later command runs as that user. The
+stores `api_url`, `auth: browser`, `tenant_id` and `sign_in`
+(`browser` or `device`); the user's access token goes to the token
+cache and the token that renews the session to the OS keychain. Every later command runs as that user. The
 session renews itself while in use and ends after a period without
 use or after a fixed maximum however much it is used; where no
 keychain could hold it, it ends at the time login printed. Once it ends, a command fails at exit 5 and names the
@@ -69,18 +69,22 @@ that last case, sign in with an API client instead.
 usable browser on its machine** (SSH, Codespaces, dev containers,
 hosted IDEs). login prints a URL and a short code on stderr; the user
 opens the URL in a browser on any device, checks that it shows the
-same code, and confirms. Relay both to the user. Tell them to confirm
+same code, and confirms. Where login could open a browser itself, it
+also opens the URL there after printing both, and a failure to open
+prints nothing more. Relay both to the user. Tell them to confirm
 only a sign-in they started: anyone who confirms the code signs this
 terminal in as themselves. login waits until the user confirms or
 refuses, or the code expires, and Ctrl-C stops it. login uses a code
 without `--device`, and says why on stderr, in an SSH session
 (`SSH_CONNECTION` or `SSH_TTY` set) on macOS or Windows, in one on
 Linux or BSD with neither `DISPLAY` nor `WAYLAND_DISPLAY` set, and
-when it cannot start a browser. `--browser` overrides the SSH rule
-and, when no browser starts, prints the URL and waits for it to be
-opened by hand. The saved profile, the session and the closing lines
-are the same as a browser sign-in's. A refusal and an expired code are
-exit 5. `--browser` with `--device`, and either with any API client
+when it cannot start a browser; in those cases it opens nothing.
+`--browser` overrides the SSH rule and, when no browser starts,
+prints the URL and waits for it to be opened by hand. The saved
+profile, the session and the closing lines are the same as a browser
+sign-in's, except that the profile's `sign_in` is `device` and
+`auth status` reports `source: device`. A refusal and an
+expired code are exit 5. `--browser` with `--device`, and either with any API client
 flag, is exit 2.
 
 **With an API client, this command is scriptable.** Pass both
@@ -172,11 +176,17 @@ rendered as. `token_bound` is `false` whenever the cached token was
 minted with a different credential *or* for a different API URL; one
 digest covers both, so it does not say which.
 
-`source` is `flags`, `env`, `keychain`, `config` or `browser`. With
+`source` is `flags`, `env`, `keychain`, `config`, `browser` or
+`device`. With
 `env`, the text form prints `Token:        never cached (env credentials)`, and
 the token fields stay `false`, because env credentials never use the
-token cache. With `browser`, the text form opens with `User:` and
-carries a `Tenant:` line in place of `Client ID:`.
+token cache. `browser` and `device` are a user's session, signed in
+through the browser or with a device code; a session saved before
+login recorded which reports `browser`. With either, the text form
+opens with `User:` and carries a `Tenant:` line in place of
+`Client ID:`, and its `Auth source:` line prints `browser` or
+`device code`. `starfleet doctor` reports the same `source`, and its
+Auth row says `via browser` or `via device code`.
 
 **Exit codes:** 5 when no usable credentials resolve — the auth code,
 same as any other command that cannot authenticate. A keychain that

@@ -35,8 +35,9 @@ REPO_READY_AUDIT.md
 /ROADMAP.md
 NOTICE.txt.tmp
 
-# Skill evals: the tester's config and raw results stay local; only
-# evals/releases/<version>/SUMMARY.md is committed.
+# Skill evals: the tester's config, results and release scorecards stay
+# local.
 /evals/eval.toml
 /evals/results/
+/evals/releases/
 /evals/__pycache__/

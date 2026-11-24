@@ -114,8 +114,8 @@ builds `pgedge` and exports the skills from that commit through a
 throwaway worktree.
 
 Besides the usual results, a run that completes writes
-`releases/<version>/SUMMARY.md` for committing. It refuses to
-overwrite an existing one. The committed copy:
+`releases/<version>/SUMMARY.md`, which git ignores, to hand to whoever
+tags. It refuses to overwrite an existing one. That copy:
 
 - gives a SAFETY, ISOLATION, INFRA, grader-error or claims-success
   failure by its category only; the details stay in the local results

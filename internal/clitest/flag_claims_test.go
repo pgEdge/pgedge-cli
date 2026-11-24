@@ -126,8 +126,8 @@ var externalToolFlags = map[string]struct {
 			"../../internal/starfleet/managed":                    true,
 			"../../internal/starfleet/byoc/llms/database/env.txt": true,
 		}},
-	"--jq": {"the gh CLI (gh api)",
-		map[string]bool{"../../llms.txt": true}},
+	"--scope": {"Claude Code (claude plugin update)",
+		map[string]bool{"../../INSTALL.md": true}},
 	"--global": {"the skills CLI (npx skills add)",
 		map[string]bool{
 			"../../README.md": true,

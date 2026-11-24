@@ -40,7 +40,7 @@ const recipeSkillFloor = 5
 const recipeReferenceFloor = 40
 
 // shippedRecipeDocs returns every document an AI agent reads for
-// commands: every reference page and the bundled skills.
+// commands: every reference page, the bundled skills and INSTALL.md.
 func shippedRecipeDocs(t *testing.T) []string {
 	t.Helper()
 
@@ -83,7 +83,7 @@ func shippedRecipeDocs(t *testing.T) []string {
 		t.Fatalf("found %d SKILL.md files, expected at least %d — "+
 			"the walk is broken: %v", skills, recipeSkillFloor, docs)
 	}
-	return docs
+	return append(docs, installStepsPath)
 }
 
 // fencedBlock is one fenced code block, carrying the line number of

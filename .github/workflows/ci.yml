@@ -281,6 +281,100 @@ jobs:
           "$GITHUB_WORKSPACE/scripts/cask-install-test.sh" local \
             good/Casks/pgedge.rb "$GITHUB_WORKSPACE/dist"
 
+  # INSTALL.md's Windows route on this commit's build: the npm packages
+  # the release would publish, staged from the snapshot archives.
+  npm-pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+      - name: Load per-module versions
+        run: grep -E '^[A-Za-z_][A-Za-z0-9_]*=' versions.env >> "$GITHUB_ENV"
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7
+        with:
+          version: v2.18.2
+          args: release --snapshot --clean --skip=sign,sbom,publish,validate
+      - name: Stage and pack the Windows packages
+        run: |
+          version=$(jq -r .version dist/metadata.json)
+          go run ./cmd/npmpack -assets dist -version "$version" \
+            -out "$RUNNER_TEMP/npm"
+          mkdir -p "$RUNNER_TEMP/tgz"
+          cd "$RUNNER_TEMP/tgz"
+          npm pack "$RUNNER_TEMP/npm/cli" "$RUNNER_TEMP/npm/cli-win32-x64"
+          echo "$version" > version.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-windows
+          path: ${{ runner.temp }}/tgz
+          retention-days: 1
+
+  windows-install:
+    needs: npm-pack
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-windows
+          path: ${{ runner.temp }}/tgz
+      - name: npm install
+        run: |
+          $dir = "$env:RUNNER_TEMP\tgz"
+          $pkgs = Get-ChildItem $dir -Filter *.tgz | ForEach-Object FullName
+          if ($pkgs.Count -ne 2) { throw "expected 2 packages, found $($pkgs.Count)" }
+          npm install -g @pkgs
+          if ($LASTEXITCODE -ne 0) { throw "npm install exited $LASTEXITCODE" }
+      - name: pgedge version
+        run: |
+          $want = (Get-Content "$env:RUNNER_TEMP\tgz\version.txt").Trim()
+          $exe = (Get-Command pgedge).Source
+          $out = & $exe version
+          if ($LASTEXITCODE -ne 0) { throw "version exited $LASTEXITCODE" }
+          $out
+          if ($out[0] -ne $want) { throw "first line '$($out[0])', want '$want'" }
+      # INSTALL.md's update path: npm owns this binary, so self update
+      # must refuse, before any download, and name the npm command.
+      - name: self update names npm
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $out = & pgedge self update --force 2>&1 | Out-String
+          if ($LASTEXITCODE -eq 0) { throw "self update did not refuse" }
+          $out
+          if ($out -notmatch 'npm install -g @pgedge/cli@') { throw "no npm command named" }
+          # The runner exits with the last native status, which is the
+          # refusal this step expects.
+          $global:LASTEXITCODE = 0
+      - name: completion install
+        run: |
+          & pgedge completion install --shell powershell --force --write-rc
+          if ($LASTEXITCODE -ne 0) { throw "completion install exited $LASTEXITCODE" }
+          $script = Join-Path (Split-Path $PROFILE) pgedge.complete.ps1
+          if (-not (Test-Path $script)) { throw "$script was not written" }
+          if (-not (Select-String -Path $PROFILE -SimpleMatch $script -Quiet)) {
+            throw "$PROFILE does not load $script"
+          }
+      - name: npx skills add into a temporary home
+        run: |
+          $home2 = Join-Path $env:RUNNER_TEMP home
+          New-Item -ItemType Directory -Force $home2 | Out-Null
+          $env:USERPROFILE = $home2
+          $env:HOME = $home2
+          npx -y skills add 'pgEdge/pgedge-cli' -g -s pgedge -y
+          if ($LASTEXITCODE -ne 0) { throw "skills add exited $LASTEXITCODE" }
+          $skill = Join-Path $home2 '.agents\skills\pgedge\SKILL.md'
+          if (-not (Test-Path $skill)) { throw "$skill was not written" }
+
   # The release pushes the cask with this token, so an expired or
   # revoked one fails here rather than at a tag. Dependabot and fork PRs
   # get no secrets.

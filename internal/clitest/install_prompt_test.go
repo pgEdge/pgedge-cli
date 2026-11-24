@@ -1,70 +1,45 @@
 package clitest
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
 )
 
-// --- the install-prompt duplication check ------------------------------------
+// The install steps an agent runs live once, in INSTALL.md. Every
+// user-facing install section carries only one line that fetches
+// them, so the line never changes when the steps do.
 //
-// The AI-agent install prompt has to exist in two files. README.md is
-// rendered by GitHub and docs/getting-started.md by MkDocs, and no
-// include mechanism serves both: mkdocs.yml does not load
-// pymdownx.snippets, and GitHub would not honour a snippet if it did.
-// So the prompt is duplicated, and duplication without a gate drifts —
-// getting-started.md had already fallen four releases behind on the
-// release tag it names while pointing at README.md for the prompt
-// itself, so a reader on the docs site could not copy the thing the
-// page was describing.
-//
-// A drifted copy here is worse than ordinary doc rot. The prompt is
-// pasted into an agent that runs it unattended, so a stale step is
-// executed rather than read past.
-//
-// WHY BYTE-FOR-BYTE, AND WHAT THAT COSTS. The comparison is exact
-// rather than normalised. Whitespace inside the block is significant —
-// the prompt is an indented markdown code block, and the four-space
-// indent is what keeps it a code block in both renderers — so a check
-// that collapsed whitespace could pass a copy that renders as prose in
-// one of the two. The cost is that a purely cosmetic rewrap in one file
-// fails the build. That is the intended trade: the fix is to rewrap
-// both, which is the behaviour being enforced.
-//
-// SCOPE. This holds that the two copies AGREE. It cannot tell whether
-// what they agree on is correct — that the release tag named still
-// exists, that the download pattern still matches a published asset, or
-// that the skill names are real. Those need the network, and a gate
-// that reaches the network fails on a train. Re-verify the prompt
-// against a real release when cutting one.
+// "with curl" is part of the contract: an agent's own web-fetch tool
+// may hand the page to a smaller model to summarise, which garbles
+// exact commands. curl returns the bytes.
 
 const (
 	installPromptBegin = "<!-- install-prompt: begin -->"
 	installPromptEnd   = "<!-- install-prompt: end -->"
+
+	installStepsFile = "INSTALL.md"
+	installStepsPath = "../../" + installStepsFile
+	installStepsURL  = "https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/" +
+		installStepsFile
+	installLine = "Fetch " + installStepsURL + " with curl and follow it."
 )
 
-// installPromptFiles are the two documents carrying the prompt. Both
-// are checked for exactly one well-formed region.
-//
-// This list is not the authority on WHICH files carry a prompt —
-// TestInstallPromptCopiesAreDiscovered walks the tree and fails if the
-// two disagree. A hardcoded list alone is blind to a third copy added
-// elsewhere, which was demonstrated rather than argued: a drifted copy
-// in a new docs file passed the whole package.
-var installPromptFiles = []string{
+// installPromptRequired are the copies that must exist. The walk finds
+// any others, and holds them to the same line.
+var installPromptRequired = []string{
 	"../../README.md",
 	"../../docs/getting-started.md",
 }
 
-// installPromptSkipDirs are directories whose markdown never counts as
-// a copy. Agent worktrees under .claude are the reason this exists: a
-// reviewer's disposable checkout of this very repo contains both
-// documents, and walking into one would report the tree as carrying
-// four copies of a prompt that is really two.
+// installPromptSkipDirs keeps agent worktrees under .claude, which
+// hold a whole checkout of this repo, from reading as extra copies.
 var installPromptSkipDirs = map[string]bool{
 	".git":         true,
 	".claude":      true,
@@ -74,20 +49,14 @@ var installPromptSkipDirs = map[string]bool{
 	"vendor":       true,
 }
 
-// findInstallPromptFiles walks the repository for markdown carrying the
-// begin marker, returning paths in the same "../../"-relative spelling
-// as installPromptFiles.
+// findInstallPromptFiles returns every .md and .txt file in the repo
+// carrying the begin marker, spelled "../../"-relative.
 func findInstallPromptFiles(t *testing.T) []string {
 	t.Helper()
 
-	// Anchor the walk root rather than trusting "../..". If this
-	// package ever moves, an unanchored root silently scans the
-	// wrong tree — one level up is a directory of sibling checkouts,
-	// each containing a README that would read as a rogue copy.
 	const root = "../.."
 	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
-		t.Fatalf("%s is not the repository root (no go.mod): %v — this "+
-			"walk would scan the wrong tree", root, err)
+		t.Fatalf("%s is not the repository root (no go.mod): %v", root, err)
 	}
 
 	var found []string
@@ -101,11 +70,6 @@ func findInstallPromptFiles(t *testing.T) []string {
 			}
 			return nil
 		}
-		// .txt as well as .md: llms.txt is the most agent-facing
-		// install document this repo has, and a .md-only walk could
-		// not see it — which is not hypothetical, since llms.txt went
-		// on recommending `go install ...@latest` after the README
-		// stopped.
 		if !strings.HasSuffix(d.Name(), ".md") &&
 			!strings.HasSuffix(d.Name(), ".txt") {
 			return nil
@@ -126,269 +90,459 @@ func findInstallPromptFiles(t *testing.T) []string {
 	return found
 }
 
-// extractInstallPrompt returns the text between the markers in content,
-// or a violation describing why it could not. The markers themselves are
-// excluded from the returned region so that a rename of the marker pair
-// does not read as a content change.
-func extractInstallPrompt(path, content string) (region string, violations []string) {
+// checkInstallPrompt returns one violation per way the marked region
+// in content fails to be exactly the one install line.
+func checkInstallPrompt(path, content string) []string {
 	nBegin := strings.Count(content, installPromptBegin)
 	nEnd := strings.Count(content, installPromptEnd)
-
-	// Counting rather than searching once: a second begin marker would
-	// otherwise be invisible, and the region would silently be the span
-	// to the FIRST end marker. This repo has already shipped a gate
-	// whose anchor resolved onto the wrong span.
 	if nBegin != 1 || nEnd != 1 {
-		return "", []string{fmt.Sprintf(
-			"%s: expected exactly one %q and one %q, found %d and %d. "+
-				"The prompt region must be unambiguous, or the gate "+
-				"compares a span nobody intended",
+		return []string{fmt.Sprintf(
+			"%s: expected exactly one %q and one %q, found %d and %d",
 			path, installPromptBegin, installPromptEnd, nBegin, nEnd)}
 	}
-
 	i := strings.Index(content, installPromptBegin)
 	j := strings.Index(content, installPromptEnd)
 	if j < i {
-		return "", []string{fmt.Sprintf(
-			"%s: %q appears before %q", path,
-			installPromptEnd, installPromptBegin)}
+		return []string{fmt.Sprintf("%s: %q appears before %q",
+			path, installPromptEnd, installPromptBegin)}
 	}
 
-	return content[i+len(installPromptBegin) : j], nil
-}
+	var lines []string
+	for _, l := range strings.Split(content[i+len(installPromptBegin):j], "\n") {
+		if strings.TrimSpace(l) != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) != 1 {
+		return []string{fmt.Sprintf(
+			"%s: the install-prompt region holds %d non-blank lines; it "+
+				"must hold the one line that fetches %s, with the steps "+
+				"in that file", path, len(lines), installStepsFile)}
+	}
 
-// checkInstallPromptCopies returns one violation per way the regions
-// disagree, or per malformed region.
-func checkInstallPromptCopies(docs map[string]string) []string {
 	var violations []string
-
-	regions := make(map[string]string, len(docs))
-	for path, content := range docs {
-		region, errs := extractInstallPrompt(path, content)
-		if len(errs) > 0 {
-			violations = append(violations, errs...)
-			continue
-		}
-
-		// A gate over two empty regions passes while checking nothing,
-		// which looks exactly like a gate that is working. The prompt's
-		// first instruction is the cheapest thing that cannot be true
-		// of an empty or gutted region.
-		if !strings.Contains(region, "Install the pgEdge CLI on this machine") {
-			violations = append(violations, fmt.Sprintf(
-				"%s: the install-prompt region does not contain the "+
-					"prompt's opening instruction. Either the prompt was "+
-					"rewritten and this guard's anchor needs moving, or "+
-					"the region is empty and this gate was comparing "+
-					"nothing", path))
-			continue
-		}
-		regions[path] = region
+	line := lines[0]
+	if !strings.Contains(line, installStepsURL) {
+		violations = append(violations, fmt.Sprintf(
+			"%s: the install line does not fetch %s", path, installStepsURL))
 	}
-	// Fewer than two well-formed regions means there is nothing to
-	// compare. This is an explicit guard, not a shortcut: without it
-	// paths[0] below indexes an empty slice and the gate panics, which
-	// this repo forbids outright. A single-file map is also reported
-	// rather than passing silently, since a gate that compares one
-	// thing against nothing returns no violations and looks healthy.
-	if len(regions) < 2 {
-		if len(violations) == 0 {
-			violations = append(violations, fmt.Sprintf(
-				"only %d well-formed install-prompt region(s) found "+
-					"across %d document(s); at least two are needed for "+
-					"the comparison to mean anything",
-				len(regions), len(docs)))
-		}
-		return violations
+	if !strings.Contains(line, "with curl") {
+		violations = append(violations, fmt.Sprintf(
+			"%s: the install line does not say \"with curl\"; without "+
+				"it an agent may fetch the steps through a summarising "+
+				"tool that garbles the commands", path))
 	}
-
-	var paths []string
-	for p := range regions {
-		paths = append(paths, p)
+	// Four spaces keep it a code block in GitHub and MkDocs alike, so
+	// it renders as one copyable line rather than as prose.
+	if !strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "     ") {
+		violations = append(violations, fmt.Sprintf(
+			"%s: the install line must be a four-space indented code "+
+				"block", path))
 	}
-	sort.Strings(paths)
-	// Compare every copy against one arbitrary reference rather than
-	// pairwise: with two files these are the same, and with three the
-	// message stays readable.
-	ref := paths[0]
-	for _, p := range paths[1:] {
-		if regions[p] != regions[ref] {
-			violations = append(violations, fmt.Sprintf(
-				"%s and %s carry different install prompts. They are "+
-					"duplicated on purpose (no include mechanism serves "+
-					"both GitHub and MkDocs) and must be edited together. "+
-					"%s",
-				ref, p, firstInstallPromptDiff(regions[ref], regions[p])))
-		}
+	if strings.TrimSpace(line) != installLine {
+		violations = append(violations, fmt.Sprintf(
+			"%s: the install line reads\n  %q\nwant\n  %q",
+			path, strings.TrimSpace(line), installLine))
 	}
 	return violations
 }
 
-// firstInstallPromptDiff names the first differing line, so a failure
-// says where to look rather than only that two blocks differ.
-func firstInstallPromptDiff(a, b string) string {
-	la, lb := strings.Split(a, "\n"), strings.Split(b, "\n")
-	for i := 0; i < len(la) && i < len(lb); i++ {
-		if la[i] != lb[i] {
-			return fmt.Sprintf(
-				"First difference at region line %d:\n  %q\n  %q",
-				i+1, la[i], lb[i])
+// TestInstallPromptCopiesCarryTheOneLine holds every marked copy, and
+// at least the required ones, to the single fetch line.
+func TestInstallPromptCopiesCarryTheOneLine(t *testing.T) {
+	found := findInstallPromptFiles(t)
+	have := map[string]bool{}
+	for _, f := range found {
+		have[f] = true
+	}
+	for _, want := range installPromptRequired {
+		if !have[want] {
+			t.Errorf("%s carries no %s region; the walk found %v",
+				want, installPromptBegin, found)
 		}
 	}
-	return fmt.Sprintf(
-		"One region has %d lines and the other %d; the shorter is a "+
-			"prefix of the longer", len(la), len(lb))
-}
-
-// TestInstallPromptCopiesMatch holds the two copies of the AI-agent
-// install prompt byte-for-byte.
-func TestInstallPromptCopiesMatch(t *testing.T) {
-	docs := make(map[string]string, len(installPromptFiles))
-	for _, path := range installPromptFiles {
+	for _, path := range found {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		docs[path] = string(content)
+		for _, msg := range checkInstallPrompt(path, string(content)) {
+			t.Error(msg)
+		}
 	}
 
-	for _, msg := range checkInstallPromptCopies(docs) {
+	// The line fetches main's copy of the file this repo ships.
+	if _, err := os.Stat(installStepsPath); err != nil {
+		t.Errorf("the install line fetches %s, which is not at the "+
+			"repository root: %v", installStepsURL, err)
+	}
+}
+
+// TestInstallPromptCheckCatchesDrift is the positive control.
+func TestInstallPromptCheckCatchesDrift(t *testing.T) {
+	wrap := func(body string) string {
+		return "intro\n" + installPromptBegin + "\n\n" + body + "\n\n" +
+			installPromptEnd + "\n"
+	}
+	good := wrap("    " + installLine)
+
+	cases := []struct {
+		name, doc, want string
+	}{
+		{"the line passes", good, ""},
+		{"a missing region", "no markers", "expected exactly one"},
+		{"a second region", good + good, "expected exactly one"},
+		{"reversed markers", installPromptEnd + "\n" + installPromptBegin,
+			"appears before"},
+		{"an empty region", wrap(""), "holds 0 non-blank lines"},
+		{"the old multi-line prompt", wrap("    " + installLine +
+			"\n    1. Preflight: check curl"), "holds 2 non-blank lines"},
+		{"no \"with curl\"", wrap("    " + strings.Replace(installLine,
+			" with curl", "", 1)), "\"with curl\""},
+		{"a branch instead of main", wrap("    " + strings.Replace(
+			installLine, "/main/", "/v1/", 1)), "does not fetch"},
+		{"another file", wrap("    " + strings.Replace(installLine,
+			"INSTALL.md", "README.md", 1)), "does not fetch"},
+		{"prose, not a code block", wrap(installLine),
+			"four-space indented"},
+		{"a reworded line", wrap("    " + strings.Replace(installLine,
+			"follow it", "do it", 1)), "the install line reads"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := strings.Join(checkInstallPrompt("x.md", tc.doc), "\n")
+			if tc.want == "" {
+				if got != "" {
+					t.Fatalf("expected no violations, got:\n%s", got)
+				}
+				return
+			}
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("expected a violation containing %q, got:\n%s",
+					tc.want, got)
+			}
+		})
+	}
+}
+
+// installHandCommands are commands INSTALL.md runs, each with the
+// hand-install page that documents the same command for a person. A
+// command changed in one place and not the other fails here.
+var installHandCommands = []struct{ command, handDoc string }{
+	{"curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh",
+		"../../README.md"},
+	{"self update", "../../docs/updating.md"},
+	{"claude plugin marketplace update pgedge-cli", "../../docs/agent-skills.md"},
+	{"claude plugin update pgedge@pgedge-cli", "../../docs/agent-skills.md"},
+	{"codex plugin marketplace upgrade pgedge-cli", "../../docs/agent-skills.md"},
+	{"codex plugin add pgedge@pgedge-cli", "../../docs/agent-skills.md"},
+	{"skills add 'pgEdge/pgedge-cli#", "../../docs/agent-skills.md"},
+	// Windows: npm is the install route, and the windows CI job runs
+	// the same completion command.
+	{"npm install -g @pgedge/cli@beta", "../../README.md"},
+	{"completion install --shell powershell --force --write-rc",
+		"../../.github/workflows/ci.yml"},
+}
+
+// installWindows keeps a Windows agent off install.sh, which reports
+// MINGW and MSYS shells as unsupported, and off syntax PowerShell
+// rejects.
+var installWindows = []string{
+	"`MINGW`, `MSYS` or `CYGWIN`",
+	"never run it on Windows",
+	"`& \"<path>\" version`",
+	"`curl.exe`",
+}
+
+// installSkillsRules each stop a misreading agents made in live trials.
+var installSkillsRules = []string{
+	"word for word",
+	"\"Which pgEdge products do you use: pgEdge Starfleet, the Control Plane, both, or neither?\"",
+	"left at their current release",
+	"does not support global skill installation",
+}
+
+// installOrder pairs commands whose order INSTALL.md fixes: a plugin
+// updated before its marketplace is refreshed stays on the old release.
+var installOrder = [][2]string{
+	{"claude plugin marketplace update pgedge-cli",
+		"claude plugin update pgedge@pgedge-cli --scope <scope>"},
+	{"codex plugin marketplace upgrade pgedge-cli",
+		"codex plugin add pgedge@pgedge-cli"},
+}
+
+// installNoPrompt are spellings that keep a step from waiting on a
+// question the agent cannot answer, or from installing for one project
+// only. Each was measured to matter: without `| cat` the install script
+// blocks on its skills question in a terminal.
+var installNoPrompt = []string{
+	"install.sh | sh 2>&1 | cat",
+	"completion install --force --write-rc </dev/null",
+}
+
+var (
+	skillFlagRe   = regexp.MustCompile(`\s-s\s+([a-z][a-z0-9-]*)`)
+	skillsAddRe   = regexp.MustCompile("`npx -y skills add [^`]*`")
+	skillsFlagsRe = regexp.MustCompile(`\s-g(\s.*)?\s-y$`)
+)
+
+// checkInstallSteps returns one violation per way the steps disagree
+// with the hand-install pages, the shipped skills or the plugin
+// manifests, or fail to update an existing install.
+func checkInstallSteps(steps string, handDocs map[string]string,
+	skills []string, pluginIDs []string) []string {
+	var violations []string
+	steps = normalizeWhitespace(steps)
+
+	for _, c := range installHandCommands {
+		if !strings.Contains(steps, c.command) {
+			violations = append(violations, fmt.Sprintf(
+				"%s does not run %q", installStepsFile, c.command))
+		}
+		if !strings.Contains(normalizeWhitespace(handDocs[c.handDoc]), c.command) {
+			violations = append(violations, fmt.Sprintf(
+				"%s runs %q, which %s no longer documents for a person",
+				installStepsFile, c.command, c.handDoc))
+		}
+	}
+
+	for _, want := range installNoPrompt {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer runs %q", installStepsFile, want))
+		}
+	}
+	for _, want := range installWindows {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer says %q on its Windows route",
+				installStepsFile, want))
+		}
+	}
+	for _, want := range installSkillsRules {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer says %q in its skills step",
+				installStepsFile, want))
+		}
+	}
+	adds := skillsAddRe.FindAllString(steps, -1)
+	if len(adds) == 0 {
+		violations = append(violations, fmt.Sprintf(
+			"%s runs no `npx -y skills add`", installStepsFile))
+	}
+	for _, a := range adds {
+		if !skillsFlagsRe.MatchString(strings.Trim(a, "`")) {
+			violations = append(violations, fmt.Sprintf(
+				"%s: %s must pass -g, to install for the user, and end "+
+					"with -y, so it asks nothing", installStepsFile, a))
+		}
+	}
+
+	// Rule: run every step on an existing install, never skip one.
+	if !strings.Contains(steps, "Run every step even when `pgedge` is already installed") {
+		violations = append(violations, fmt.Sprintf(
+			"%s no longer tells the agent to run every step on an "+
+				"existing install; skipping one leaves it on an old "+
+				"release", installStepsFile))
+	}
+	for _, pair := range installOrder {
+		a, b := strings.Index(steps, pair[0]), strings.Index(steps, pair[1])
+		if a < 0 || b < 0 || a > b {
+			violations = append(violations, fmt.Sprintf(
+				"%s must run %q, then %q", installStepsFile, pair[0], pair[1]))
+		}
+	}
+
+	// The -s selections are real skills, and together cover them all.
+	named := map[string]bool{}
+	for _, m := range skillFlagRe.FindAllStringSubmatch(steps, -1) {
+		named[m[1]] = true
+	}
+	shipped := map[string]bool{}
+	for _, s := range skills {
+		shipped[s] = true
+		if !named[s] {
+			violations = append(violations, fmt.Sprintf(
+				"%s selects skills with -s but never names %q, so no "+
+					"product answer installs it", installStepsFile, s))
+		}
+	}
+	for s := range named {
+		if !shipped[s] {
+			violations = append(violations, fmt.Sprintf(
+				"%s names -s %q, which is not a shipped skill",
+				installStepsFile, s))
+		}
+	}
+
+	for _, id := range pluginIDs {
+		if !strings.Contains(steps, id) {
+			violations = append(violations, fmt.Sprintf(
+				"%s does not name the plugin %q that the marketplace "+
+					"manifests publish", installStepsFile, id))
+		}
+	}
+	sort.Strings(violations)
+	return violations
+}
+
+// shippedSkillNames lists the skill directories the plugin ships.
+func shippedSkillNames(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir("../../plugins/pgedge/skills")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	if len(names) == 0 {
+		t.Fatal("no skill directories found")
+	}
+	return names
+}
+
+// marketplacePluginIDs returns <plugin>@<marketplace> for every
+// plugin each marketplace manifest lists.
+func marketplacePluginIDs(t *testing.T) []string {
+	t.Helper()
+	var ids []string
+	for _, path := range []string{
+		"../../.claude-plugin/marketplace.json",
+		"../../.agents/plugins/marketplace.json",
+	} {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m struct {
+			Name    string `json:"name"`
+			Plugins []struct {
+				Name string `json:"name"`
+			} `json:"plugins"`
+		}
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		for _, p := range m.Plugins {
+			ids = append(ids, p.Name+"@"+m.Name)
+		}
+	}
+	if len(ids) == 0 {
+		t.Fatal("no plugins found in the marketplace manifests")
+	}
+	return ids
+}
+
+// TestInstallStepsMatchTheHandInstall holds INSTALL.md to the
+// hand-install pages, the shipped skills and the plugin manifests.
+func TestInstallStepsMatchTheHandInstall(t *testing.T) {
+	steps, err := os.ReadFile(installStepsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handDocs := map[string]string{}
+	for _, c := range installHandCommands {
+		raw, err := os.ReadFile(c.handDoc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		handDocs[c.handDoc] = string(raw)
+	}
+	for _, msg := range checkInstallSteps(string(steps), handDocs,
+		shippedSkillNames(t), marketplacePluginIDs(t)) {
 		t.Error(msg)
 	}
 }
 
-// TestInstallPromptCopiesAreDiscovered holds installPromptFiles to the
-// tree rather than to itself. Without this, a third copy added in a new
-// document is compared against nothing and drifts freely — measured, a
-// drifted copy carrying a hostile `curl | sudo sh` step passed the
-// entire package.
-func TestInstallPromptCopiesAreDiscovered(t *testing.T) {
-	found := findInstallPromptFiles(t)
-
-	if len(found) == 0 {
-		t.Fatal("no file in the tree carries " + installPromptBegin +
-			" — the walk is broken and every guard keyed on it is " +
-			"silently checking nothing")
+// TestInstallStepsCheckCatchesDrift is the positive control.
+func TestInstallStepsCheckCatchesDrift(t *testing.T) {
+	steps, err := os.ReadFile(installStepsPath)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	want := append([]string(nil), installPromptFiles...)
-	sort.Strings(want)
-
-	if strings.Join(found, "\n") != strings.Join(want, "\n") {
-		t.Errorf("the set of documents carrying the install prompt has "+
-			"changed.\n  walked the tree and found:\n    %s\n  "+
-			"installPromptFiles declares:\n    %s\n"+
-			"Add the new copy to installPromptFiles so it joins the "+
-			"byte-for-byte comparison, or remove its markers. A copy "+
-			"outside that list is compared against nothing.",
-			strings.Join(found, "\n    "), strings.Join(want, "\n    "))
+	good := string(steps)
+	handDocs := map[string]string{}
+	for _, c := range installHandCommands {
+		handDocs[c.handDoc] += c.command + "\n"
 	}
-}
+	skills := []string{"pgedge", "pgedge-starfleet", "pgedge-byoc",
+		"pgedge-managed", "pgedge-controlplane"}
+	ids := []string{"pgedge@pgedge-cli"}
 
-// TestInstallPromptCheckCatchesDrift is the positive control. Without
-// it, a checker that returned no violations for every input — because
-// its markers stopped matching, say — would be indistinguishable from
-// two documents that agree.
-func TestInstallPromptCheckCatchesDrift(t *testing.T) {
-	const opening = "Install the pgEdge CLI on this machine"
-
-	good := installPromptBegin + "\n" + opening + "\n    step one\n" +
-		installPromptEnd
-	drifted := installPromptBegin + "\n" + opening + "\n    step two\n" +
-		installPromptEnd
+	swap := func(s, a, b string) string {
+		const tmp = "\x00"
+		s = strings.Replace(s, a, tmp, 1)
+		s = strings.Replace(s, b, a, 1)
+		return strings.Replace(s, tmp, b, 1)
+	}
 
 	cases := []struct {
-		name string
-		docs map[string]string
-		want string
-	}{{
-		name: "identical regions pass",
-		docs: map[string]string{"a.md": good, "b.md": good},
-		want: "",
-	}, {
-		name: "a changed line is caught",
-		docs: map[string]string{"a.md": good, "b.md": drifted},
-		want: "different install prompts",
-	}, {
-		name: "a trailing-whitespace-only change is caught",
-		docs: map[string]string{"a.md": good, "b.md": strings.Replace(
-			good, "    step one", "    step one ", 1)},
-		want: "different install prompts",
-	}, {
-		name: "an indent change is caught, since it changes rendering",
-		docs: map[string]string{"a.md": good, "b.md": strings.Replace(
-			good, "    step one", "  step one", 1)},
-		want: "different install prompts",
-	}, {
-		name: "a missing region is caught",
-		docs: map[string]string{"a.md": good, "b.md": "no markers here"},
-		want: "expected exactly one",
-	}, {
-		name: "a duplicated begin marker is caught",
-		docs: map[string]string{
-			"a.md": good,
-			"b.md": installPromptBegin + "\n" + good,
-		},
-		want: "expected exactly one",
-	}, {
-		name: "an empty region is caught rather than passing vacuously",
-		docs: map[string]string{
-			"a.md": installPromptBegin + installPromptEnd,
-			"b.md": installPromptBegin + installPromptEnd,
-		},
-		want: "does not contain the prompt's opening instruction",
-	}, {
-		name: "reversed markers are caught",
-		docs: map[string]string{
-			"a.md": good,
-			"b.md": installPromptEnd + "\n" + opening + "\n" +
-				installPromptBegin,
-		},
-		want: "appears before",
-	}, {
-		// A case-insensitive comparison passed every other fixture
-		// here, because none of them varied case. Shell commands are
-		// case-sensitive, so a copy differing only in case is a real
-		// divergence.
-		name: "a case-only change is caught",
-		docs: map[string]string{"a.md": good, "b.md": strings.Replace(
-			good, "    step one", "    Step One", 1)},
-		want: "different install prompts",
-	}, {
-		// Guards paths[0] against an empty slice. This panicked before
-		// the length check was made explicit.
-		name: "no documents is reported, not panicked on",
-		docs: map[string]string{},
-		want: "at least two are needed",
-	}, {
-		name: "a single document is reported rather than passing",
-		docs: map[string]string{"a.md": good},
-		want: "at least two are needed",
-	}, {
-		name: "every region malformed reports only the malformations",
-		docs: map[string]string{
-			"a.md": "no markers", "b.md": "none here either",
-		},
-		want: "expected exactly one",
-	}}
-
+		name, steps string
+		hand        map[string]string
+		skills, ids []string
+		want        string
+	}{
+		{"the shipped steps pass", good, handDocs, skills, ids, ""},
+		{"a hand page drops a command", good,
+			map[string]string{"../../README.md": "nothing"}, skills, ids,
+			"no longer documents"},
+		{"the steps drop the install script", strings.ReplaceAll(good,
+			"install.sh | sh", "install.sh | bash"), handDocs, skills,
+			ids, "does not run"},
+		{"update before the marketplace refresh", swap(good,
+			"claude plugin marketplace update pgedge-cli",
+			"claude plugin update pgedge@pgedge-cli --scope <scope>"),
+			handDocs, skills, ids, "must run"},
+		{"the hang guard dropped", strings.Replace(good,
+			"install.sh | sh 2>&1 | cat", "install.sh | sh", 1),
+			handDocs, skills, ids, "no longer runs"},
+		{"completion may prompt", strings.Replace(good, " </dev/null", "", 1),
+			handDocs, skills, ids, "no longer runs"},
+		{"skills for one project", strings.Replace(good,
+			"-g -s pgedge -s pgedge-controlplane", "-s pgedge -s pgedge-controlplane", 1),
+			handDocs, skills, ids, "must pass -g"},
+		{"a Windows shell sent to install.sh", strings.Replace(good,
+			"`MINGW`, `MSYS` or `CYGWIN`", "`CYGWIN`", 1),
+			handDocs, skills, ids, "Windows route"},
+		{"the Windows npm route dropped", strings.Replace(good,
+			"npm install -g @pgedge/cli@beta", "npm install -g pgedge", 1),
+			handDocs, skills, ids, "does not run"},
+		{"a declined question reads as not installed", strings.Replace(
+			normalizeWhitespace(good),
+			"left at their current release", "not installed", 1),
+			handDocs, skills, ids, "skills step"},
+		{"skills CLI may prompt", strings.Replace(good,
+			"-s pgedge-controlplane -y`", "-s pgedge-controlplane`", 1),
+			handDocs, skills, ids, "must pass -g"},
+		{"the run-every-step rule is gone", strings.Replace(good,
+			"Run every step even when", "Skip a step when", 1),
+			handDocs, skills, ids, "run every step"},
+		{"a skill no answer installs", good, handDocs,
+			append(append([]string(nil), skills...), "pgedge-new"), ids,
+			"never names \"pgedge-new\""},
+		{"a skill that does not ship", good, handDocs, skills[1:], ids,
+			"not a shipped skill"},
+		{"a renamed marketplace", good, handDocs, skills,
+			[]string{"pgedge@pgedge-labs"}, "does not name the plugin"},
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := checkInstallPromptCopies(tc.docs)
+			got := strings.Join(
+				checkInstallSteps(tc.steps, tc.hand, tc.skills, tc.ids), "\n")
 			if tc.want == "" {
-				if len(got) != 0 {
-					t.Fatalf("expected no violations, got %v", got)
+				if got != "" {
+					t.Fatalf("expected no violations, got:\n%s", got)
 				}
 				return
 			}
-			if len(got) == 0 {
-				t.Fatalf("expected a violation containing %q, got none",
-					tc.want)
-			}
-			joined := strings.Join(got, "\n")
-			if !strings.Contains(joined, tc.want) {
+			if !strings.Contains(got, tc.want) {
 				t.Errorf("expected a violation containing %q, got:\n%s",
-					tc.want, joined)
+					tc.want, got)
 			}
 		})
 	}

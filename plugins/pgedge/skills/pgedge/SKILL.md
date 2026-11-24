@@ -120,10 +120,11 @@ It verifies the archive's checksum, and the release signature when
 completion. The other options are documented in
 `docs/getting-started.md` of the pgEdge/pgedge-cli repository:
 
-- **Hand it to an agent** — that document and `README.md` each carry
-  the same install prompt, written for exactly this reader. It runs
-  the install script, enables shell completion and installs these
-  skills in one pass, asking which products the user wants.
+- **Hand it to an agent** — `INSTALL.md` at the root of the
+  repository holds the steps, written for exactly this reader. They
+  install or update the CLI, enable shell completion and install these
+  skills in one pass, asking which products the user wants. Fetch it
+  with `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md`.
 - **A release archive** — download it from the repository's
   [GitHub Releases](https://github.com/pgEdge/pgedge-cli/releases)
   page, verify it, then extract it. This is the Windows route.

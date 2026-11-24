@@ -77,15 +77,10 @@ Unified CLI for the pgEdge product suite
 
 You are reading this from an installed binary, so the CLI is already
 installed here. To install it on another machine, hand the install to
-an AI agent there: `README.md` in the pgEdge/pgedge-cli repository
-opens its Install section with a prompt written for one. This document
-is embedded in the binary, so you may be reading it with no checkout —
-fetch the prompt without one:
+an AI agent there. `INSTALL.md` in the pgEdge/pgedge-cli repository
+holds the steps, written for an agent. Fetch it with curl:
 
-    gh api repos/pgEdge/pgedge-cli/contents/README.md --jq .content \
-      | base64 -d
-
-It needs an authenticated `gh` unless the repository is public.
+    curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md
 
 ## Shell completion
 

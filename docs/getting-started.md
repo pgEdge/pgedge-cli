@@ -167,62 +167,24 @@ problem, open a [GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
 
 ### Handing the Install to Your AI Agent
 
-Paste the prompt below into your coding agent, such as Claude Code or
-Cursor. The agent runs the install script and sets up shell
-completion. It then asks which products you use, and adds the agent
-skills for them. The only prerequisites are `curl`, and Node.js for
-the skills step.
-
-If the CLI install fails, the agent stops. If a completion or skills
-step fails, or you decline it, the agent carries on:
+A coding agent, such as Claude Code, Codex or Cursor, installs the CLI
+and sets up shell completion. It then asks which products you use, and
+adds the agent skills for them. The only prerequisites are
+`curl`, and Node.js for the skills step. Paste this line into your
+agent:
 
 <!-- install-prompt: begin -->
-<!-- This block is duplicated between README.md and
-     docs/getting-started.md: GitHub renders one and MkDocs the other,
-     and no include mechanism serves both. TestInstallPromptCopiesMatch
-     holds the two byte-for-byte, so edit both, or neither. -->
 
-    Install the pgEdge CLI on this machine and set up its agent skills.
-    Follow these steps exactly, in order, and do not improvise an
-    alternative to any of them. Step 2 installs the CLI: if it fails,
-    stop and show me the error. Steps 3 and 4 are optional: if one
-    fails, or I decline it, tell me why and carry on with the next step.
+    Fetch https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md with curl and follow it.
 
-    1. Preflight: check `curl` and `npx` exist. If `curl` is missing,
-       stop and tell me it is needed for step 2. If `npx` is missing,
-       tell me Node.js is needed for step 4, and skip step 4.
-    2. Install the CLI (no sudo, ever): run
-       `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh`.
-       The script verifies the release before installing it. Its
-       `Installed pgedge <tag> to <path>` line names the binary's full
-       path: use that path for `pgedge` in the rest of these steps. If
-       the script warns that the directory is not on my PATH, append the
-       `export PATH=...` line it prints to the rc file of my login shell
-       (`~/.zshrc` for zsh, `~/.bashrc` for bash, creating it if missing,
-       and skipping if the line is already there), and tell me you did.
-    3. Shell completion: the script runs `pgedge completion install`,
-       unless `CI` is set. If its output says a line still needs adding
-       to my rc file, add that line once.
-    4. Ask me this question and wait for my answer. Do not guess it:
-       "Which pgEdge products do you use: Starfleet, Control Plane,
-       both, or neither?" For neither, skip this step. Otherwise install
-       the matching agent skills for my user, so every project has
-       them. Replace `<tag>` with the tag from step 2's `Installed`
-       line, so the skills match the binary:
-       - starfleet: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
-       - control plane: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-controlplane -y`
-       - both: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -y`
-    5. Verify, and show me the output of each: `pgedge version` and
-       `pgedge doctor` (both at the full path from step 2), and
-       `npx -y skills list -g` if step 4 ran. A doctor warning about
-       missing credentials is expected on a fresh install. If step 4
-       ran, tell me the skills load in a new agent session, or after
-       `/reload-plugins` in Claude Code. List each
-       step you skipped, with the command that completes it later. The
-       next step after this setup is `pgedge starfleet auth login`
-       (starfleet) or reading `pgedge llms controlplane` (control
-       plane).
 <!-- install-prompt: end -->
+
+The agent follows the steps in
+[INSTALL.md](https://github.com/pgEdge/pgedge-cli/blob/main/INSTALL.md),
+which you can read before you paste the line. If the CLI install
+fails, the agent stops. If a completion or skills step fails, or you
+decline it, the agent carries on. To update the CLI and the skills
+later, paste the same line again.
 
 ### Installing with Homebrew
 

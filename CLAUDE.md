@@ -37,10 +37,10 @@ self-hosted Control Plane).
 >   branch without testing the read's own status — in prose, which no
 >   shell parser can see.
 >
-> Both walk `plugins/pgedge/skills/` and every reference page (the
-> root `llms.txt`, each module's `llms.txt` index and its
-> `llms/**/*.txt` pages), so a new document is covered the day it
-> lands. They read fenced blocks, including
+> Both walk `plugins/pgedge/skills/`, `INSTALL.md` and every
+> reference page (the root `llms.txt`, each module's `llms.txt` index
+> and its `llms/**/*.txt` pages), so a new document is covered the
+> day it lands. They read fenced blocks, including
 > unlabelled ones, but not those labelled `json`, `yaml` or `text`,
 > where a `pgedge` line is quoted rather than run. They do NOT read
 > the 4-space indented blocks `README.md` and `docs/*.md` use, no rule

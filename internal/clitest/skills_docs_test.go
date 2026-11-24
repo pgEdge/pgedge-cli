@@ -24,6 +24,7 @@ import (
 // the modules, so neither omission can be made again.
 var namedDocs = append([]string{
 	"../../README.md",
+	"../../INSTALL.md",
 	"../../examples/config.yaml",
 	// The spec-vendoring and generated-parser notes moved here from
 	// docs/index.md; without this entry the move would have taken

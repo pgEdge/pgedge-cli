@@ -42,10 +42,10 @@ func (f *Flow) RunDevice(ctx context.Context) (*Tokens, error) {
 		return nil, err
 	}
 	f.showDeviceCode(dc)
-	if f.Open != nil {
+	if target := dc.openURL(); f.Open != nil && isWebURL(target) {
 		// The URL and code are already printed, so a failure needs no
 		// word of its own.
-		_ = f.Open(dc.openURL())
+		_ = f.Open(target)
 	}
 
 	now := f.Now
@@ -142,6 +142,13 @@ func (dc *deviceCode) openURL() string {
 		return dc.VerificationURIComplete
 	}
 	return dc.VerificationURI
+}
+
+// isWebURL keeps the opener to an https page: the URL comes from
+// Auth0, and the opener would pass a flag or a file: URL on as one.
+func isWebURL(s string) bool {
+	u, err := url.Parse(s)
+	return err == nil && u.Scheme == "https" && u.Host != ""
 }
 
 func (f *Flow) showDeviceCode(dc *deviceCode) {

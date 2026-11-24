@@ -216,6 +216,14 @@ func TestRunDeviceOpensTheURLAfterPrintingIt(t *testing.T) {
 		{name: "a failed open is silent", code: complete,
 			openErr: errors.New("xdg-open: not found"),
 			want:    "https://auth.example/activate?user_code=ABCD-EFGH"},
+		{name: "a file URL is not opened", code: map[string]any{
+			"device_code": "dev-code", "user_code": "ABCD-EFGH",
+			"verification_uri": "file:///etc/passwd", "interval": 5,
+			"expires_in": 900}},
+		{name: "a flag is not opened", code: map[string]any{
+			"device_code": "dev-code", "user_code": "ABCD-EFGH",
+			"verification_uri": "-a Calculator", "interval": 5,
+			"expires_in": 900}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := &fakeDevice{code: tc.code}
@@ -231,8 +239,15 @@ func TestRunDeviceOpensTheURLAfterPrintingIt(t *testing.T) {
 			if _, err := f.RunDevice(context.Background()); err != nil {
 				t.Fatalf("RunDevice: %v", err)
 			}
-			if !slices.Equal(opened, []string{tc.want}) {
-				t.Errorf("opened %q, want %q", opened, tc.want)
+			var want []string
+			if tc.want != "" {
+				want = []string{tc.want}
+			}
+			if !slices.Equal(opened, want) {
+				t.Errorf("opened %q, want %q", opened, want)
+			}
+			if want == nil {
+				return
 			}
 			for _, s := range []string{"ABCD-EFGH",
 				"only if you started this sign-in yourself"} {

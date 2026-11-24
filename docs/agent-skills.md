@@ -69,6 +69,7 @@ command installs all five skills as the `pgedge` plugin:
     /plugin install pgedge --marketplace pgEdge/pgedge-cli
 
 To update the plugin to a newer release, run
+`claude plugin marketplace update pgedge-cli`, then
 `claude plugin update pgedge@pgedge-cli`, then restart Claude Code. To
 remove it, run `claude plugin uninstall pgedge@pgedge-cli`.
 

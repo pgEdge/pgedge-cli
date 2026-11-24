@@ -182,8 +182,8 @@ agent:
 The agent follows the steps in
 [INSTALL.md](https://github.com/pgEdge/pgedge-cli/blob/main/INSTALL.md),
 which you can read before you paste the line. If the CLI install
-fails, the agent stops. If a completion or skills step fails, or you
-decline it, the agent carries on. To update the CLI and the skills
+fails, the agent stops. If the completion step fails, or the skills
+step fails or you decline it, the agent carries on. To update the CLI and the skills
 later, paste the same line again.
 
 ### Installing with Homebrew

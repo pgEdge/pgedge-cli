@@ -232,25 +232,36 @@ var installHandCommands = []struct{ command, handDoc string }{
 	{"curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh",
 		"../../README.md"},
 	{"self update", "../../docs/updating.md"},
+	{"claude plugin marketplace update pgedge-cli", "../../docs/agent-skills.md"},
 	{"claude plugin update pgedge@pgedge-cli", "../../docs/agent-skills.md"},
 	{"codex plugin marketplace upgrade pgedge-cli", "../../docs/agent-skills.md"},
 	{"codex plugin add pgedge@pgedge-cli", "../../docs/agent-skills.md"},
 	{"skills add 'pgEdge/pgedge-cli#", "../../docs/agent-skills.md"},
 }
 
-// installOrder pairs commands whose order INSTALL.md fixes: the first
-// of each pair runs before the second. An update step placed before
-// its install step, or a plugin updated before its marketplace is
-// refreshed, leaves an older install in place.
+// installOrder pairs commands whose order INSTALL.md fixes: a plugin
+// updated before its marketplace is refreshed stays on the old release.
 var installOrder = [][2]string{
-	{"install.sh | sh", "self update --force"},
 	{"claude plugin marketplace update pgedge-cli",
-		"claude plugin update pgedge@pgedge-cli --scope user"},
+		"claude plugin update pgedge@pgedge-cli --scope <scope>"},
 	{"codex plugin marketplace upgrade pgedge-cli",
 		"codex plugin add pgedge@pgedge-cli"},
 }
 
-var skillFlagRe = regexp.MustCompile(`\s-s\s+([a-z][a-z0-9-]*)`)
+// installNoPrompt are spellings that keep a step from waiting on a
+// question the agent cannot answer, or from installing for one project
+// only. Each was measured to matter: without `| cat` the install script
+// blocks on its skills question in a terminal.
+var installNoPrompt = []string{
+	"install.sh | sh 2>&1 | cat",
+	"completion install --force --write-rc </dev/null",
+}
+
+var (
+	skillFlagRe   = regexp.MustCompile(`\s-s\s+([a-z][a-z0-9-]*)`)
+	skillsAddRe   = regexp.MustCompile("`npx -y skills add [^`]*`")
+	skillsFlagsRe = regexp.MustCompile(`\s-g(\s.*)?\s-y$`)
+)
 
 // checkInstallSteps returns one violation per way the steps disagree
 // with the hand-install pages, the shipped skills or the plugin
@@ -269,6 +280,25 @@ func checkInstallSteps(steps string, handDocs map[string]string,
 			violations = append(violations, fmt.Sprintf(
 				"%s runs %q, which %s no longer documents for a person",
 				installStepsFile, c.command, c.handDoc))
+		}
+	}
+
+	for _, want := range installNoPrompt {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer runs %q", installStepsFile, want))
+		}
+	}
+	adds := skillsAddRe.FindAllString(steps, -1)
+	if len(adds) == 0 {
+		violations = append(violations, fmt.Sprintf(
+			"%s runs no `npx -y skills add`", installStepsFile))
+	}
+	for _, a := range adds {
+		if !skillsFlagsRe.MatchString(strings.Trim(a, "`")) {
+			violations = append(violations, fmt.Sprintf(
+				"%s: %s must pass -g, to install for the user, and end "+
+					"with -y, so it asks nothing", installStepsFile, a))
 		}
 	}
 
@@ -427,10 +457,21 @@ func TestInstallStepsCheckCatchesDrift(t *testing.T) {
 		{"the steps drop the install script", strings.ReplaceAll(good,
 			"install.sh | sh", "install.sh | bash"), handDocs, skills,
 			ids, "does not run"},
-		{"update before install", swap(good,
+		{"update before the marketplace refresh", swap(good,
 			"claude plugin marketplace update pgedge-cli",
-			"claude plugin update pgedge@pgedge-cli --scope user"),
+			"claude plugin update pgedge@pgedge-cli --scope <scope>"),
 			handDocs, skills, ids, "must run"},
+		{"the hang guard dropped", strings.Replace(good,
+			"install.sh | sh 2>&1 | cat", "install.sh | sh", 1),
+			handDocs, skills, ids, "no longer runs"},
+		{"completion may prompt", strings.Replace(good, " </dev/null", "", 1),
+			handDocs, skills, ids, "no longer runs"},
+		{"skills for one project", strings.Replace(good,
+			"-g -s pgedge -s pgedge-controlplane", "-s pgedge -s pgedge-controlplane", 1),
+			handDocs, skills, ids, "must pass -g"},
+		{"skills CLI may prompt", strings.Replace(good,
+			"-s pgedge-controlplane -y`", "-s pgedge-controlplane`", 1),
+			handDocs, skills, ids, "must pass -g"},
 		{"the run-every-step rule is gone", strings.Replace(good,
 			"Run every step even when", "Skip a step when", 1),
 			handDocs, skills, ids, "run every step"},

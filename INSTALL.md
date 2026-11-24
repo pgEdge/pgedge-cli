@@ -7,7 +7,8 @@ improvise an alternative to any of them. Never use `sudo`.
 Run every step even when `pgedge` is already installed. Each step
 updates an older install and changes nothing on a current one.
 
-If step 3 fails, stop and show the user the error. Steps 4 and 5 are
+If step 3 fails, stop and show the user the error. A refusal that step
+3 tells you how to handle is not a failure. Steps 4 and 5 are
 optional. If one fails, or the user declines it, tell the user why and
 carry on with the next step. If a command reports that something is
 missing, stop that step and tell the user what is missing. Do not
@@ -47,14 +48,14 @@ build a file by hand or edit code to work around it.
    user's login shell. That file is `~/.zshrc` for zsh and `~/.bashrc`
    for bash. Create the file if it is missing, skip the line if it is
    already there, and tell the user what you did.
-4. **Set up shell completion.** Run `"<path>" completion install`.
-   - If it reports that the completion script already exists,
-     completion is set up, and `self update` keeps it current.
-   - If its output names a line to add to the user's rc file, add that
-     line once.
+4. **Set up shell completion.** Run
+   `"<path>" completion install --force --write-rc </dev/null`. It
+   rewrites the completion script from the current binary, and adds
+   any line the user's shell needs to load it, once. The `</dev/null`
+   stops it asking a question that you cannot answer.
 5. **Install or update the agent skills.** Ask the user this question,
    and wait for the answer. Do not guess it: "Which pgEdge products do
-   you use: Starfleet, Control Plane, both, or neither?" For neither,
+   you use: pgEdge Starfleet, the Control Plane, both, or neither?" For neither,
    skip this step.
 
    Otherwise, take the first route below that matches, and only that
@@ -63,7 +64,9 @@ build a file by hand or edit code to work around it.
    - **Claude Code, with the plugin installed.** Run
      `claude plugin list`. If it lists `pgedge@pgedge-cli`, run
      `claude plugin marketplace update pgedge-cli`, then
-     `claude plugin update pgedge@pgedge-cli --scope user`. The plugin
+     `claude plugin update pgedge@pgedge-cli --scope <scope>`. Take
+     `<scope>` from the scope that `claude plugin list` shows for the
+     plugin. The plugin
      carries all five skills, pinned to the newest release.
    - **Codex, with the plugin installed.** If the directory
      `${CODEX_HOME:-$HOME/.codex}/plugins/cache/pgedge-cli/pgedge`
@@ -73,13 +76,15 @@ build a file by hand or edit code to work around it.
    - **Any other case.** Install with the skills CLI for the user, so
      every project has the skills. If `npx` is missing, skip this step
      and tell the user it needs Node.js. A re-run replaces an older
-     copy of each skill it names.
+     copy of each skill it names. If `npx -y skills list -g` already
+     shows a `pgedge` skill that the command below leaves out, add
+     `-s <skill-name>` for it, so that it is updated too.
 
      Pin the skills to the binary's release. Run `"<path>" version`.
      If its first line is a release version such as `0.5.1-beta.1`,
      `<tag>` is that version with a `v` in front. If the first line is
-     `dev` or starts with `v`, the binary was built from source: drop
-     `#<tag>` from the command. Run the command for the user's answer:
+     anything else, such as `dev`, the binary was built from source:
+     drop `#<tag>` from the command. Run the command for the user's answer:
      - pgEdge Starfleet:
        `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
      - Control Plane:

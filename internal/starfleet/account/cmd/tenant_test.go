@@ -9,7 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/auth"
+	"github.com/pgEdge/pgedge-cli/internal/keychain"
 	"github.com/pgEdge/pgedge-cli/internal/module"
+	"github.com/pgEdge/pgedge-cli/internal/starfleet/conn"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
@@ -241,6 +244,14 @@ func TestTenantGetWithoutAnID(t *testing.T) {
 					time.Now().Add(time.Hour))
 			},
 			wantCode: ExitUsage, wantErr: "names no tenant"},
+		// Inside the refresh window with nothing to renew with: a
+		// renewal first would end the session at exit 5.
+		{name: "a near-expiry sign-in that names no tenant",
+			seed: func(t *testing.T, rt *module.Runtime, api string) {
+				testsupport.SeedSession(t, rt, api, "u1",
+					time.Now().Add(auth.RefreshWindow/2))
+			},
+			wantCode: ExitUsage, wantErr: "names no tenant"},
 		{name: "an API client",
 			args:     []string{"--client-id", "i", "--client-secret", "s"},
 			wantCode: ExitUsage, wantErr: "API client has no tenant"},
@@ -277,6 +288,29 @@ func TestTenantGetWithoutAnID(t *testing.T) {
 				t.Errorf("requests = %q, want %q", paths, want)
 			}
 		})
+	}
+}
+
+// TestTenantGetWithoutAnIDRenewsANearExpirySession: the tenant check
+// reads the cache without renewing, and the command still renews.
+func TestTenantGetWithoutAnIDRenewsANearExpirySession(t *testing.T) {
+	s := newSignInStubs(t, testTenantID)
+	s.issueRefresh = true
+	rt, out, _ := testsupport.NewRuntime(t, "", "json")
+	rt.Keychain = &keychain.Fake{}
+	testsupport.SeedSession(t, rt, s.api, "u1",
+		time.Now().Add(auth.RefreshWindow/2), testTenantID)
+	if err := conn.Store(rt).SaveSessionRefreshToken("refresh~0"); err != nil {
+		t.Fatal(err)
+	}
+	// The stub answers every other path with [], which get cannot
+	// decode, so only the requests are checked.
+	_ = runAccount(t, rt, out, "tenant", "get")
+	if !slices.Equal(s.refreshedWith, []string{"refresh~0"}) {
+		t.Errorf("refreshed with %q, want one renewal", s.refreshedWith)
+	}
+	if n := s.apiHits["/account/v1/tenants/"+testTenantID]; n != 1 {
+		t.Errorf("tenant read %d times, want 1", n)
 	}
 }
 

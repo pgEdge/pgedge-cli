@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/pgEdge/pgedge-cli/internal/auth"
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
@@ -136,8 +137,7 @@ Example:
 			}
 			if len(args) == 0 {
 				if c.Session == nil || c.Session.TenantID == "" {
-					return newExitError("this sign-in names no tenant: "+
-						"pass the tenant ID or --tenant", ExitUsage)
+					return errNoSessionTenant()
 				}
 				if id, err = cli.ParseUUIDArg(
 					c.Session.TenantID, "tenant ID"); err != nil {
@@ -171,18 +171,40 @@ Example:
 }
 
 // requireSession is the exit-2 failure for an API client, which keeps
-// no tenant of its own. A credential that does not resolve passes, so
-// the caller's resolution reports it with its own code.
+// no tenant of its own, and for a session whose cached token names
+// none. It reads the cache without renewing, so a token near expiry
+// gets the exit 2 rather than a renewal's failure. Anything it cannot
+// judge passes, for the caller's resolution to report.
 func requireSession(rt *module.Runtime, cmd *cobra.Command) error {
 	f := conn.ReadFlags(cmd.Flags())
 	res, err := conn.ResolveCredentials(
 		rt, f.ClientID, f.ClientSecret, f.APIURL)
-	if err == nil && !res.Session {
+	if err != nil {
+		return nil
+	}
+	if !res.Session {
 		return newExitError("an API client has no tenant on record: "+
 			"pass the tenant ID; 'pgedge starfleet tenant list' shows it",
 			ExitUsage)
 	}
+	tok, err := conn.Store(rt).LoadToken()
+	if err != nil {
+		return nil
+	}
+	claims, err := auth.ParseClaims(tok.AccessToken)
+	if err != nil {
+		return nil
+	}
+	if t, err := conn.SessionTenant(rt, res.TenantID, f.Tenant,
+		claims); err == nil && t == "" {
+		return errNoSessionTenant()
+	}
 	return nil
+}
+
+func errNoSessionTenant() error {
+	return newExitError("this sign-in names no tenant: pass the "+
+		"tenant ID or --tenant", ExitUsage)
 }
 
 // --- update ---

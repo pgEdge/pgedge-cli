@@ -87,10 +87,18 @@ build a file by hand or edit code to work around it.
      line when bash-completion is loaded. If it prints an error, they
      need to install that package and load it from their bash startup
      file.
-5. **Install or update the agent skills.** Ask the user this question,
-   and wait for the answer. Do not guess it: "Which pgEdge products do
-   you use: pgEdge Starfleet, the Control Plane, both, or neither?"
-   For neither, skip this step.
+5. **Install or update the agent skills.** Ask the user this question
+   word for word, and wait for the answer. Do not reword it or guess
+   it: "Which pgEdge products do you use: pgEdge Starfleet, the Control
+   Plane, both, or neither?"
+   - If the answer is neither, skip this step.
+   - If the user declines, or no answer comes, skip this step. Then
+     check whether skills are already installed: `npx -y skills list -g`
+     shows a `pgedge` skill, or a plugin from the routes below is
+     installed. If they are, do not say that the skills were not
+     installed. Tell the user that they were left at their current
+     release, naming it if you know it. Give the user the command from
+     the routes below that updates them, with `<tag>` filled in.
 
    Otherwise, take the first route below that matches, and only that
    one. A second route would give the agent a second copy of the
@@ -118,12 +126,17 @@ build a file by hand or edit code to work around it.
      If its first line is a release version such as `0.5.1-beta.1`,
      `<tag>` is that version with a `v` in front. If the first line is
      anything else, such as `dev`, the binary was built from source:
-     drop `#<tag>` from the command. Run the command for the user's answer:
+     drop `#<tag>` from the command. Run the command for the user's
+     answer:
      - pgEdge Starfleet:
        `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-starfleet -s pgedge-byoc -s pgedge-managed -y`
      - Control Plane:
        `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -s pgedge -s pgedge-controlplane -y`
      - Both: `npx -y skills add 'pgEdge/pgedge-cli#<tag>' -g -y`
+
+     The skills CLI may print that another agent does not support
+     global skill installation. If the command ends with exit status 0,
+     that line is not a failure, so do not report it as one.
 6. **Check the install.** Run `"<path>" version` and `"<path>" doctor`,
    and show the user both outputs. A doctor warning about missing
    credentials is expected on a new install.

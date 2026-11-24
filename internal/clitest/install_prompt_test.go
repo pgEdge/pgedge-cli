@@ -254,6 +254,14 @@ var installWindows = []string{
 	"`curl.exe`",
 }
 
+// installSkillsRules each stop a misreading agents made in live trials.
+var installSkillsRules = []string{
+	"word for word",
+	"\"Which pgEdge products do you use: pgEdge Starfleet, the Control Plane, both, or neither?\"",
+	"left at their current release",
+	"does not support global skill installation",
+}
+
 // installOrder pairs commands whose order INSTALL.md fixes: a plugin
 // updated before its marketplace is refreshed stays on the old release.
 var installOrder = [][2]string{
@@ -308,6 +316,13 @@ func checkInstallSteps(steps string, handDocs map[string]string,
 		if !strings.Contains(steps, want) {
 			violations = append(violations, fmt.Sprintf(
 				"%s no longer says %q on its Windows route",
+				installStepsFile, want))
+		}
+	}
+	for _, want := range installSkillsRules {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer says %q in its skills step",
 				installStepsFile, want))
 		}
 	}
@@ -497,6 +512,10 @@ func TestInstallStepsCheckCatchesDrift(t *testing.T) {
 		{"the Windows npm route dropped", strings.Replace(good,
 			"npm install -g @pgedge/cli@beta", "npm install -g pgedge", 1),
 			handDocs, skills, ids, "does not run"},
+		{"a declined question reads as not installed", strings.Replace(
+			normalizeWhitespace(good),
+			"left at their current release", "not installed", 1),
+			handDocs, skills, ids, "skills step"},
 		{"skills CLI may prompt", strings.Replace(good,
 			"-s pgedge-controlplane -y`", "-s pgedge-controlplane`", 1),
 			handDocs, skills, ids, "must pass -g"},

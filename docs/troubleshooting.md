@@ -42,9 +42,10 @@ file or pipeline config that cannot be read or parsed is also exit
 A near miss offers the correction at any depth: `pgedge starfleet tenat`
 names `tenant`.
 
-The error ends with the command's `Usage:` line, then usually an
-`Example:` line or, for a group, a `Commands:` line listing its
-subcommands.
+When the command line is at fault, the error ends with the command's
+`Usage:` line, then usually an `Example:` line or, for a group, a
+`Commands:` line listing its subcommands. An error about state, such
+as a profile, a file's contents or a prompt answer, prints neither.
 
 ## Exit 3: timed out
 

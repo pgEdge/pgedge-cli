@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/controlplane/api"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/spf13/cobra"
@@ -65,10 +66,10 @@ Example:
 				// Before detection, so a non-TTY 'init -i' fails on the
 				// usage error without paying for a network probe.
 				if !term.IsTerminal(int(os.Stdin.Fd())) {
-					return &ExitError{
+					return cli.NoUsageHint(&ExitError{
 						msg:  "interactive mode requires a terminal",
 						code: ExitUsage,
-					}
+					})
 				}
 				det := detectOrchestrator(rt, cmd)
 				spec, err := runInterview(rt.Stdin, rt.Stderr, nodes, det)

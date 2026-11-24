@@ -1,11 +1,44 @@
 package cli_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/spf13/cobra"
 )
+
+func TestNoUsageHint(t *testing.T) {
+	if cli.NoUsageHint(nil) != nil {
+		t.Error("NoUsageHint(nil) != nil")
+	}
+	form := &cli.UsageError{Msg: "bad flag"}
+	marked := cli.NoUsageHint(&cli.UsageError{Msg: "bad file"})
+	cases := []struct {
+		name     string
+		err      error
+		suppress bool
+		msg      string
+	}{
+		{"form error", form, false, "bad flag"},
+		{"marked", marked, true, "bad file"},
+		{"marked, wrapped again", fmt.Errorf("ctx: %w", marked), true,
+			"ctx: bad file"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := cli.HintSuppressed(tc.err); got != tc.suppress {
+				t.Errorf("HintSuppressed = %v, want %v", got, tc.suppress)
+			}
+			if got := cli.ExitCode(tc.err); got != cli.ExitUsage {
+				t.Errorf("ExitCode = %d, want %d", got, cli.ExitUsage)
+			}
+			if tc.err.Error() != tc.msg {
+				t.Errorf("Error() = %q, want %q", tc.err.Error(), tc.msg)
+			}
+		})
+	}
+}
 
 func TestUsageHint(t *testing.T) {
 	run := func(*cobra.Command, []string) {}

@@ -66,5 +66,5 @@ func confirmWith(
 		return nil
 	}
 
-	return &UsageError{Msg: "aborted: not confirmed"}
+	return NoUsageHint(&UsageError{Msg: "aborted: not confirmed"})
 }

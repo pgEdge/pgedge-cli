@@ -17,6 +17,7 @@ import (
 
 	"github.com/pgEdge/pgedge-cli/internal/apidefaults"
 	"github.com/pgEdge/pgedge-cli/internal/auth"
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/config"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/output"
@@ -336,12 +337,14 @@ func promptTenant(rt *module.Runtime, ids []string,
 	fmt.Fprintf(rt.Stderr, "Tenant [1-%d]: ", len(ids))
 	line, err := bufio.NewReader(rt.Stdin).ReadString('\n')
 	if err != nil && line == "" {
-		return "", newExitError("no tenant chosen", ExitUsage)
+		return "", cli.NoUsageHint(
+			newExitError("no tenant chosen", ExitUsage))
 	}
 	n, err := strconv.Atoi(strings.TrimSpace(line))
 	if err != nil || n < 1 || n > len(ids) {
-		return "", newExitError(fmt.Sprintf("%q is not a number from 1 "+
-			"to %d", strings.TrimSpace(line), len(ids)), ExitUsage)
+		return "", cli.NoUsageHint(newExitError(fmt.Sprintf(
+			"%q is not a number from 1 to %d",
+			strings.TrimSpace(line), len(ids)), ExitUsage))
 	}
 	return ids[n-1], nil
 }

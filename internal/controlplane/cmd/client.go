@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/controlplane/api"
 	"github.com/pgEdge/pgedge-cli/internal/dryrun"
 	"github.com/pgEdge/pgedge-cli/internal/errbody"
@@ -276,7 +277,7 @@ func resolveConnection(
 			// request verbs propagate the error, while config view and
 			// doctor show it as a row, since they are what an operator
 			// runs to find out what is wrong with the profile.
-			return c, &ExitError{
+			return c, cli.NoUsageHint(&ExitError{
 				msg: fmt.Sprintf(
 					"profile %q: timeout %q is not a duration — use a "+
 						"Go duration such as 30s, 5m or 1h, remove the "+
@@ -284,7 +285,7 @@ func resolveConnection(
 						"--timeout to override it for one command",
 					rt.Profile, p.Timeout),
 				code: ExitUsage,
-			}
+			})
 		}
 		c.timeout = d
 	}
@@ -310,27 +311,27 @@ func httpClientFor(
 	if c.caCert != "" {
 		pem, err := os.ReadFile(c.caCert) //nolint:gosec // G304: operator-configured cert path
 		if err != nil {
-			return nil, &ExitError{
+			return nil, cli.NoUsageHint(&ExitError{
 				msg:  fmt.Sprintf("read ca-cert: %v", err),
 				code: ExitUsage,
-			}
+			})
 		}
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(pem) {
-			return nil, &ExitError{
+			return nil, cli.NoUsageHint(&ExitError{
 				msg:  fmt.Sprintf("ca-cert %s: no certificates found", c.caCert),
 				code: ExitUsage,
-			}
+			})
 		}
 		tlsCfg.RootCAs = pool
 	}
 	if c.clientCert != "" || c.clientKey != "" {
 		cert, err := tls.LoadX509KeyPair(c.clientCert, c.clientKey)
 		if err != nil {
-			return nil, &ExitError{
+			return nil, cli.NoUsageHint(&ExitError{
 				msg:  fmt.Sprintf("load client cert/key: %v", err),
 				code: ExitUsage,
-			}
+			})
 		}
 		tlsCfg.Certificates = []tls.Certificate{cert}
 	}

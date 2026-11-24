@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -181,7 +182,8 @@ func TestCheckUnfilledSecrets(t *testing.T) {
 				if err == nil {
 					t.Fatal("want error, got nil")
 				}
-				exitErr, ok := err.(*ExitError)
+				var exitErr *ExitError
+				ok := errors.As(err, &exitErr)
 				if !ok || exitErr.code != ExitUsage {
 					t.Fatalf("want ExitUsage, got %T %v", err, err)
 				}
@@ -208,7 +210,8 @@ func TestCheckUnfilledSecretsNested(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error for nested sentinel, got nil")
 	}
-	exitErr, ok := err.(*ExitError)
+	var exitErr *ExitError
+	ok := errors.As(err, &exitErr)
 	if !ok || exitErr.code != ExitUsage {
 		t.Fatalf("want ExitUsage, got %T %v", err, err)
 	}
@@ -260,7 +263,8 @@ func TestValidatePostgresVersions(t *testing.T) {
 				}
 				return
 			}
-			exitErr, ok := err.(*ExitError)
+			var exitErr *ExitError
+			ok := errors.As(err, &exitErr)
 			if !ok || exitErr.code != ExitUsage {
 				t.Fatalf("want ExitUsage, got %T %v", err, err)
 			}
@@ -502,7 +506,8 @@ func TestCheckUnfilledPlaceholdersCoversTemplateFields(t *testing.T) {
 			if err == nil {
 				t.Fatal("want an error, got nil")
 			}
-			exitErr, ok := err.(*ExitError)
+			var exitErr *ExitError
+			ok := errors.As(err, &exitErr)
 			if !ok || exitErr.code != ExitUsage {
 				t.Fatalf("want ExitUsage, got %T %v", err, err)
 			}

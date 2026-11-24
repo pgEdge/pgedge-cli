@@ -334,7 +334,8 @@ func loginSecret(rt *module.Runtime, c *cobra.Command, flagSecret string,
 	s := strings.TrimSuffix(string(raw), "\n")
 	s = strings.TrimSuffix(s, "\r")
 	if s == "" {
-		return "", newExitError(name+": the secret is empty", ExitUsage)
+		return "", cli.NoUsageHint(
+			newExitError(name+": the secret is empty", ExitUsage))
 	}
 	return s, nil
 }

@@ -900,7 +900,7 @@ func writeScriptFile(
 		}
 		if !confirmPrompt(cmd,
 			fmt.Sprintf("%s exists. Overwrite?", path), isTTY) {
-			return &UsageError{Msg: "aborted: not confirmed"}
+			return NoUsageHint(&UsageError{Msg: "aborted: not confirmed"})
 		}
 	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {

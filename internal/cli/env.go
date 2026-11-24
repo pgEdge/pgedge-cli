@@ -60,10 +60,11 @@ Example:
 				return fmt.Errorf("read project link: %w", err)
 			}
 			if f == nil {
-				return &UsageError{Msg: "no " + projectlink.Dir + "/" +
-					projectlink.File + " found here or above; link this " +
-					"folder with 'pgedge starfleet managed database link " +
-					"<database_id>'"}
+				return NoUsageHint(&UsageError{Msg: "no " +
+					projectlink.Dir + "/" + projectlink.File +
+					" found here or above; link this folder with " +
+					"'pgedge starfleet managed database link " +
+					"<database_id>'"})
 			}
 			path := projectlink.CommandPaths[f.Module]
 			target, rest, err := cmd.Root().Find(path)

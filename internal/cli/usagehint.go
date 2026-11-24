@@ -1,12 +1,34 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/pgEdge/pgedge-cli/internal/docgen"
 	"github.com/spf13/cobra"
 )
+
+// NoUsageHint marks an exit-2 error caused by state rather than by how
+// the command was typed: a profile, a file's contents, a prompt answer.
+// A usage hint under it would say the command line was wrong. The exit
+// code and message stay the wrapped error's.
+func NoUsageHint(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &noHintError{err}
+}
+
+type noHintError struct{ error }
+
+func (e *noHintError) Unwrap() error { return e.error }
+
+// HintSuppressed reports whether err was marked by NoUsageHint.
+func HintSuppressed(err error) bool {
+	var n *noHintError
+	return errors.As(err, &n)
+}
 
 // UsageHint returns the lines printed under a usage error: the
 // command's usage line, then its first example of itself or, for a

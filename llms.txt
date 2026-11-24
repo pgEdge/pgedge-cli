@@ -122,10 +122,11 @@ only when it runs.
 A near miss offers the correction, at every depth and with `--help`
 appended: `pgedge starfleet tenat` names `tenant`.
 
-Every exit-2 error ends with a `Usage:` line for the command, then
-usually an `Example:` line or, for a group, a `Commands:` line listing
-its subcommands. When the error names the command line itself, correct
-it from those lines.
+An exit-2 error about the command line ends with a `Usage:` line for
+the command, then usually an `Example:` line or, for a group, a
+`Commands:` line listing its subcommands; correct the command from
+those lines. An exit-2 error about state, such as a profile, a file's
+contents or a prompt answer, prints neither.
 
 ## Dry Runs
 

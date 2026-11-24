@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/pgEdge/pgedge-cli/internal/cli"
 	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -31,10 +32,10 @@ Example:
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if interactive {
 				if !term.IsTerminal(int(os.Stdin.Fd())) {
-					return &ExitError{
+					return cli.NoUsageHint(&ExitError{
 						msg:  "interactive mode requires a terminal",
 						code: ExitUsage,
-					}
+					})
 				}
 				spec, err := runRestoreInterview(rt.Stdin, rt.Stderr)
 				if err != nil {

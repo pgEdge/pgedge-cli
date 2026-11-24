@@ -28,10 +28,11 @@ covers an unknown command, an unknown flag, a missing required flag, a missing
 or extra argument, an unsupported `--output` value, an empty value for a flag
 that needs one, a flag value outside the bounds the flag documents, an update
 command given no flag to update with, and `--client-id` supplied without
-`--client-secret`. Read stderr to find out which one fired. Below the
-error, stderr shows the command's `Usage:` line, then usually an
-`Example:` line or, for a group, a `Commands:` line listing its
-subcommands.
+`--client-secret`. Read stderr to find out which one fired. When the
+command line is at fault, stderr then shows the command's `Usage:`
+line, then usually an `Example:` line or, for a group, a `Commands:`
+line listing its subcommands. An error about state, such as a profile,
+a file's contents or a prompt answer, prints neither.
 
 Neither of the last two looks like a typo. A value outside its bounds is
 spelled correctly and is still refused locally, as `--db-pool 0`, `--max-rows

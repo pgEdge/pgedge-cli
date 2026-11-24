@@ -84,6 +84,32 @@ func TestUsageErrorShowsTheForm(t *testing.T) {
 	}
 }
 
+// TestStateErrorShowsNoForm: a spec file that does not parse is exit 2,
+// but the command line was right, so no form is printed under it.
+func TestStateErrorShowsNoForm(t *testing.T) {
+	testsupport.ClearEnv(t)
+	home := t.TempDir()
+	writeProfilesConfig(t, home, "alpha", []string{"alpha"})
+	spec := filepath.Join(home, "spec.yaml")
+	if err := os.WriteFile(spec, []byte("not: [valid"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runSubprocess(t, home, []string{"pgedge",
+		"controlplane", "database", "create", "storefront", "-f", spec})
+	if code != 2 {
+		t.Errorf("exit = %d, want 2; stderr=%q", code, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, "parse spec file") {
+		t.Errorf("not the spec error: %q", stderr)
+	}
+	if strings.Contains(stderr, "Usage:") {
+		t.Errorf("state error printed the form:\n%s", stderr)
+	}
+}
+
 // TestRuntimeErrorShowsNoForm is the inverse: an exit-1 error is not
 // the caller's typing, so the form would only add noise.
 func TestRuntimeErrorShowsNoForm(t *testing.T) {

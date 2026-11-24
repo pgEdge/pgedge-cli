@@ -508,8 +508,8 @@ func runDoctorStrict(rt *module.Runtime, f *conn.Flags, strict bool) error {
 		return err
 	}
 	if strict && code != ExitOK {
-		return newExitError(
-			"starfleet doctor --strict: verdict is "+verdict, code)
+		return cli.NoUsageHint(newExitError(
+			"starfleet doctor --strict: verdict is "+verdict, code))
 	}
 	return nil
 }

@@ -44,19 +44,31 @@ build a file by hand or edit code to work around it.
 
    Use the binary's full path for `pgedge` in the rest of these steps.
    If the script warns that the directory is not on the user's PATH,
-   append the `export PATH=...` line it prints to the rc file of the
-   user's login shell. That file is `~/.zshrc` for zsh and `~/.bashrc`
-   for bash. Create the file if it is missing, skip the line if it is
-   already there, and tell the user what you did.
+   add the `export PATH=...` line it prints to the user's shell
+   startup files. Skip a file that already has the line, and tell the
+   user what you changed.
+   - zsh: append it to `~/.zshrc`, creating the file if it is missing.
+   - bash: append it to `~/.bashrc`, creating the file if it is
+     missing. A login shell, the default in macOS Terminal, reads only
+     the first of `~/.bash_profile`, `~/.bash_login` and `~/.profile`
+     that exists. If that file does not mention `.bashrc`, append the
+     line to it as well. If none of the three exists, create
+     `~/.bash_profile` with the line.
 4. **Set up shell completion.** Run
    `"<path>" completion install --force --write-rc </dev/null`. It
-   rewrites the completion script from the current binary, and adds
-   any line the user's shell needs to load it, once. The `</dev/null`
-   stops it asking a question that you cannot answer.
+   rewrites the completion script from the current binary. For zsh
+   and PowerShell, it also adds the line that loads the script, once.
+   The `</dev/null` stops it asking a question that you cannot answer.
+   - For bash, the script loads only where the bash-completion package
+     is installed and loaded. Do not report bash completion as working.
+     Tell the user that `complete -p -D` in a new bash shell prints a
+     line when bash-completion is loaded. If it prints an error, they
+     need to install that package and load it from their bash startup
+     file.
 5. **Install or update the agent skills.** Ask the user this question,
    and wait for the answer. Do not guess it: "Which pgEdge products do
-   you use: pgEdge Starfleet, the Control Plane, both, or neither?" For neither,
-   skip this step.
+   you use: pgEdge Starfleet, the Control Plane, both, or neither?"
+   For neither, skip this step.
 
    Otherwise, take the first route below that matches, and only that
    one. A second route would give the agent a second copy of the

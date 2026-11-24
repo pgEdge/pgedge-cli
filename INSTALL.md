@@ -14,24 +14,42 @@ carry on with the next step. If a command reports that something is
 missing, stop that step and tell the user what is missing. Do not
 build a file by hand or edit code to work around it.
 
-1. **Check the prerequisites.** Run `command -v curl` and
-   `command -v npx`.
-   - If `curl` is missing, stop. Tell the user that step 3 needs
-     `curl`.
+1. **Check the platform and the prerequisites.** Run `uname -s`.
+   - It prints `Linux` or `Darwin`: you are on Linux or macOS. This
+     includes WSL. Check that `curl` is on the PATH.
+   - It prints a name starting with `MINGW`, `MSYS` or `CYGWIN`, or the
+     command does not exist: you are on Windows. This includes Git
+     Bash, where `install.sh` reports an unsupported platform, so never
+     run it on Windows. Check that `npm` is on the PATH.
+   - To check a command, run `command -v <name>`, or
+     `Get-Command <name>` in PowerShell.
+   - If `curl` is missing on Linux or macOS, or `npm` is missing on
+     Windows, stop. Tell the user that step 3 needs it. On Windows,
+     `npm` comes with Node.js 18 or newer (<https://nodejs.org>).
    - If `npx` is missing, tell the user that step 5 may need Node.js
      (<https://nodejs.org>), and carry on.
+   - On Windows, read `~` and `$HOME` below as `%USERPROFILE%`. In
+     PowerShell, run a quoted path with `&` in front, such as
+     `& "<path>" version`, and use `curl.exe` where you need curl,
+     because `curl` there is another command.
 2. **Work out which agent you are:** Claude Code, Codex, Cursor or
    another agent. Step 5 depends on the answer.
-3. **Install or update the CLI.** Run `command -v pgedge`.
-   - If it prints nothing, install the newest release with this
-     command:
+3. **Install or update the CLI.** Check whether `pgedge` is on the
+   PATH.
+   - If it is not, on Windows, install it with npm:
+     `npm install -g @pgedge/cli@beta`. Then check for `pgedge` again.
+     If it is still missing, tell the user to add the directory that
+     `npm prefix -g` prints to their PATH, and use `pgedge.cmd` in that
+     directory as the binary's full path.
+   - If it is not, on Linux or macOS, install the newest release with
+     this command:
      `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh 2>&1 | cat`.
      Keep the `| cat`: it stops the script asking the user a question
      that you cannot answer. The script verifies the release before it
      installs it. Its `Installed pgedge <tag> to <path>` line names the
      binary's full path. If the output has no `Installed` line, the
      install failed.
-   - If it prints a path, update that binary with
+   - If it is, update that binary with
      `"<path>" self update --force`. It verifies the newest release and
      swaps it in, or reports that `pgedge` is already up to date.
    - If `self update` refuses because Homebrew or npm owns the binary,
@@ -59,6 +77,10 @@ build a file by hand or edit code to work around it.
    rewrites the completion script from the current binary. For zsh
    and PowerShell, it also adds the line that loads the script, once.
    The `</dev/null` stops it asking a question that you cannot answer.
+   - In PowerShell, run
+     `& "<path>" completion install --shell powershell --force --write-rc`
+     instead. PowerShell does not accept `</dev/null`, and the two
+     flags already stop any question.
    - For bash, the script loads only where the bash-completion package
      is installed and loaded. Do not report bash completion as working.
      Tell the user that `complete -p -D` in a new bash shell prints a

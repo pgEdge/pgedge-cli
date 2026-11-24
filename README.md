@@ -31,7 +31,7 @@ Each install method suits a different platform and update routine:
 
 | Method | Platforms | Also needs | Updates with |
 |---|---|---|---|
-| [AI agent](#handing-the-install-to-an-ai-agent) | Linux, macOS | `curl`, and Node.js for the skills step | The same line, pasted again |
+| [AI agent](#handing-the-install-to-an-ai-agent) | Linux, macOS, Windows | `curl` on Linux and macOS, and Node.js on Windows and for the skills step | The same line, pasted again |
 | [Install script](#installing-with-the-script-linux-macos) | Linux, macOS | `curl`, `tar`, and `sha256sum` or `shasum` | `pgedge self update` |
 | [GitHub Actions](#installing-in-github-actions) | Linux and macOS runners | Nothing else | A new tag in `uses:` |
 | [Homebrew](#installing-with-homebrew-linux-macos) | Linux, macOS | Homebrew | `brew upgrade pgedge` |
@@ -45,8 +45,9 @@ Each install method suits a different platform and update routine:
 A coding agent, such as Claude Code, Codex or Cursor, can install the
 CLI for you. It also sets up shell completion and adds the agent
 skills for the products you use, after asking you which those are.
-The install needs `curl`, plus Node.js for the skills step. Paste this
-line into your agent:
+On Linux and macOS the install needs `curl`. On Windows it installs
+with npm, so it needs Node.js. The skills step needs Node.js
+everywhere. Paste this line into your agent:
 
 <!-- install-prompt: begin -->
 

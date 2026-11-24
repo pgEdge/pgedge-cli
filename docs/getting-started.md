@@ -150,7 +150,7 @@ lists what each route needs:
 
 | Install path | Also needs |
 |---|---|
-| Hand it to your AI agent | Node.js, for the agent-skills step |
+| Hand it to your AI agent | Node.js, for the agent-skills step and on Windows |
 | Homebrew | Homebrew, on Linux or macOS |
 | npm, with `npm install -g @pgedge/cli@beta` | Node.js 18 or newer |
 | GitHub Actions | A Linux or macOS runner |
@@ -169,8 +169,9 @@ problem, open a [GitHub issue](https://github.com/pgEdge/pgedge-cli/issues).
 
 A coding agent, such as Claude Code, Codex or Cursor, installs the CLI
 and sets up shell completion. It then asks which products you use, and
-adds the agent skills for them. The only prerequisites are
-`curl`, and Node.js for the skills step. Paste this line into your
+adds the agent skills for them. On Linux and macOS the install needs
+`curl`. On Windows it installs with npm, so it needs Node.js. The
+skills step needs Node.js everywhere. Paste this line into your
 agent:
 
 <!-- install-prompt: begin -->

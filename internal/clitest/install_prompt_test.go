@@ -237,6 +237,21 @@ var installHandCommands = []struct{ command, handDoc string }{
 	{"codex plugin marketplace upgrade pgedge-cli", "../../docs/agent-skills.md"},
 	{"codex plugin add pgedge@pgedge-cli", "../../docs/agent-skills.md"},
 	{"skills add 'pgEdge/pgedge-cli#", "../../docs/agent-skills.md"},
+	// Windows: npm is the install route, and the windows CI job runs
+	// the same completion command.
+	{"npm install -g @pgedge/cli@beta", "../../README.md"},
+	{"completion install --shell powershell --force --write-rc",
+		"../../.github/workflows/ci.yml"},
+}
+
+// installWindows keeps a Windows agent off install.sh, which reports
+// MINGW and MSYS shells as unsupported, and off syntax PowerShell
+// rejects.
+var installWindows = []string{
+	"`MINGW`, `MSYS` or `CYGWIN`",
+	"never run it on Windows",
+	"`& \"<path>\" version`",
+	"`curl.exe`",
 }
 
 // installOrder pairs commands whose order INSTALL.md fixes: a plugin
@@ -287,6 +302,13 @@ func checkInstallSteps(steps string, handDocs map[string]string,
 		if !strings.Contains(steps, want) {
 			violations = append(violations, fmt.Sprintf(
 				"%s no longer runs %q", installStepsFile, want))
+		}
+	}
+	for _, want := range installWindows {
+		if !strings.Contains(steps, want) {
+			violations = append(violations, fmt.Sprintf(
+				"%s no longer says %q on its Windows route",
+				installStepsFile, want))
 		}
 	}
 	adds := skillsAddRe.FindAllString(steps, -1)
@@ -469,6 +491,12 @@ func TestInstallStepsCheckCatchesDrift(t *testing.T) {
 		{"skills for one project", strings.Replace(good,
 			"-g -s pgedge -s pgedge-controlplane", "-s pgedge -s pgedge-controlplane", 1),
 			handDocs, skills, ids, "must pass -g"},
+		{"a Windows shell sent to install.sh", strings.Replace(good,
+			"`MINGW`, `MSYS` or `CYGWIN`", "`CYGWIN`", 1),
+			handDocs, skills, ids, "Windows route"},
+		{"the Windows npm route dropped", strings.Replace(good,
+			"npm install -g @pgedge/cli@beta", "npm install -g pgedge", 1),
+			handDocs, skills, ids, "does not run"},
 		{"skills CLI may prompt", strings.Replace(good,
 			"-s pgedge-controlplane -y`", "-s pgedge-controlplane`", 1),
 			handDocs, skills, ids, "must pass -g"},

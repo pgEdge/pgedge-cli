@@ -75,6 +75,32 @@ func TestResolveCredentials(t *testing.T) {
 	}
 }
 
+func TestResolveCredentialsNamesTheSessionSignIn(t *testing.T) {
+	for _, tc := range []struct{ signIn, want string }{
+		{"", SourceBrowser},
+		{config.SignInBrowser, SourceBrowser},
+		{config.SignInDevice, SourceDevice},
+	} {
+		t.Setenv("HOME", t.TempDir())
+		clearCredentialEnv(t)
+		a := &Auth{Profile: "default", Module: "starfleet"}
+		creds, source, err := a.ResolveCredentials(
+			&config.StarfleetProfile{Auth: config.AuthBrowser,
+				SignIn: tc.signIn}, "", "")
+		if err != nil || creds != nil || source != tc.want ||
+			!IsSession(source) {
+			t.Errorf("sign_in %q: %v, %q, %v; want nil, %q", tc.signIn,
+				creds, source, err, tc.want)
+		}
+	}
+	for _, s := range []string{SourceFlags, SourceEnv, SourceKeychain,
+		SourceConfig} {
+		if IsSession(s) {
+			t.Errorf("IsSession(%q) = true", s)
+		}
+	}
+}
+
 // TestResolveCredentialsHalfFlagPairNamesTheMissingFlag checks the
 // message, not just the error: "no credentials found" would be a lie
 // here — a complete pair is sitting in config, and the resolver is

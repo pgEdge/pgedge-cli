@@ -82,7 +82,8 @@ when it cannot start a browser; in those cases it opens nothing.
 `--browser` overrides the SSH rule and, when no browser starts,
 prints the URL and waits for it to be opened by hand. The saved
 profile, the session and the closing lines are the same as a browser
-sign-in's, except that `sign_in` is `device`. A refusal and an
+sign-in's, except that the profile's `sign_in` is `device` and
+`auth status` reports `source: device`. A refusal and an
 expired code are exit 5. `--browser` with `--device`, and either with any API client
 flag, is exit 2.
 
@@ -159,14 +160,13 @@ Show current authentication state
 <!-- END GENERATED -->
 
 `-o json` renders `authenticated`, `source`, `problem`, `client_id`,
-`user`, `tenant_id`, `sign_in`, `api_url`, `token_valid`,
-`token_bound`, `expires_at` and `renews` as a single object, every
-field but `authenticated`/`token_valid`/`token_bound`/`renews`
-`omitempty`. `user`, `tenant_id`, `sign_in` and `renews` describe a
-browser session and `client_id` an API client; `renews` is `true`
-when the session can renew its own access token, and the text form
-prints it as `Renews:`.
-`-o yaml` carries the same twelve facts under the same
+`user`, `tenant_id`, `api_url`, `token_valid`, `token_bound`,
+`expires_at` and `renews` as a single object, every field but
+`authenticated`/`token_valid`/`token_bound`/`renews` `omitempty`.
+`user`, `tenant_id` and `renews` describe a browser session and
+`client_id` an API client; `renews` is `true` when the session can
+renew its own access token, and the text form prints it as `Renews:`.
+`-o yaml` carries the same eleven facts under the same
 names and omits the same fields, so `yq '.client_id'` and
 `jq '.client_id'` are interchangeable. `client_id` is printed (an
 identifier, not a credential); the client secret's value never
@@ -176,16 +176,17 @@ rendered as. `token_bound` is `false` whenever the cached token was
 minted with a different credential *or* for a different API URL; one
 digest covers both, so it does not say which.
 
-`source` is `flags`, `env`, `keychain`, `config` or `browser`. With
+`source` is `flags`, `env`, `keychain`, `config`, `browser` or
+`device`. With
 `env`, the text form prints `Token:        never cached (env credentials)`, and
 the token fields stay `false`, because env credentials never use the
-token cache. With `browser`, the text form opens with `User:` and
-carries a `Tenant:` line in place of `Client ID:`. `source` is
-`browser` for every user session; `sign_in` says how it was signed
-in, `browser` or `device`. A session saved without `sign_in` reports
-`browser`. The text form's `Auth source:` line prints `browser` or
-`device code` to match, and `starfleet doctor` names the same in its
-Auth row (`via device code`).
+token cache. `browser` and `device` are a user's session, signed in
+through the browser or with a device code; a session saved before
+login recorded which reports `browser`. With either, the text form
+opens with `User:` and carries a `Tenant:` line in place of
+`Client ID:`, and its `Auth source:` line prints `browser` or
+`device code`. `starfleet doctor` reports the same `source`, and its
+Auth row says `via browser` or `via device code`.
 
 **Exit codes:** 5 when no usable credentials resolve — the auth code,
 same as any other command that cannot authenticate. A keychain that

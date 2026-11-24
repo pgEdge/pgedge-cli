@@ -141,11 +141,11 @@ with:
 `pgedge starfleet auth status` answers a narrower question than
 doctor: which credential resolved, without calling any endpoint. It
 prints `authenticated`, `source`, `problem`, `client_id`, `user`,
-`tenant_id`, `sign_in`, `api_url`, `token_valid`, `token_bound`,
-`expires_at` and `renews`, and the client secret's value never appears
-in any format. `user`, `tenant_id`, `sign_in` and `renews` describe a
-browser session; `sign_in` is `browser` or `device`. Only the
-four booleans are always there: the eight string fields are omitted
+`tenant_id`, `api_url`, `token_valid`, `token_bound`, `expires_at` and
+`renews`, and the client secret's value never appears in any format.
+`user`, `tenant_id` and `renews` describe a browser session, whose
+`source` is `browser`, or `device` after a device-code sign-in. Only
+the four booleans are always there: the seven string fields are omitted
 when empty, so a run with no credentials configured answers with
 `authenticated`, `token_valid`, `token_bound`, `renews` and the
 `api_url` that resolved anyway.

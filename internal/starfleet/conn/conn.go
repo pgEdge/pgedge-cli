@@ -588,9 +588,6 @@ type Resolved struct {
 	// user's token lives in the cache. TenantID is the profile's.
 	Session  bool
 	TenantID string
-	// SignIn is a session's config.SignIn* value, SignInBrowser for a
-	// session saved without one.
-	SignIn string
 }
 
 // ProfileConflictError reports --profile given while the env pair is
@@ -636,13 +633,9 @@ func ResolveCredentials(rt *module.Runtime,
 		return r, nil
 	}
 	r.APIURL = ResolveAPIURL(ap, flagAPIURL)
-	if source == auth.SourceBrowser {
+	if auth.IsSession(source) {
 		r.Session = true
 		r.TenantID = ap.TenantID
-		r.SignIn = ap.SignIn
-		if r.SignIn == "" {
-			r.SignIn = config.SignInBrowser
-		}
 	}
 	return r, nil
 }

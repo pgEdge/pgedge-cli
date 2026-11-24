@@ -32,7 +32,7 @@ type StarfleetProfile struct {
 	// TenantID is the tenant a browser session acts in.
 	TenantID string `yaml:"tenant_id,omitempty"`
 	// SignIn is how a browser session was signed in: SignInBrowser or
-	// SignInDevice. Sessions saved before the field read as "".
+	// SignInDevice. A session saved before the field reads as browser.
 	SignIn string `yaml:"sign_in,omitempty"`
 }
 

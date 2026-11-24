@@ -711,62 +711,81 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 	}
 }
 
-// TestStatusAndDoctorNameTheSignIn: a device-code session reads as one
-// in text, while source stays browser for every session, including
-// one saved before sign_in was recorded.
-func TestStatusAndDoctorNameTheSignIn(t *testing.T) {
+// TestSourceNamesTheSignIn: source is device after a device-code
+// sign-in and browser otherwise, including a profile saved before
+// sign_in was recorded, and every session check accepts both.
+func TestSourceNamesTheSignIn(t *testing.T) {
 	s := newSignInStubs(t, "t-a")
 	for _, tc := range []struct {
-		name, stored, label, signIn string
+		name, stored, source, label string
 	}{
-		{"saved without sign_in", "", "browser", config.SignInBrowser},
-		{"browser", config.SignInBrowser, "browser", config.SignInBrowser},
-		{"device", config.SignInDevice, "device code", config.SignInDevice},
+		{"saved without sign_in", "", auth.SourceBrowser, "browser"},
+		{"browser", config.SignInBrowser, auth.SourceBrowser, "browser"},
+		{"device", config.SignInDevice, auth.SourceDevice, "device code"},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
+		// seed signs rt in as tc.stored, its token expiring at exp.
+		seed := func(t *testing.T, exp time.Time, renews bool) (
+			*module.Runtime, *bytes.Buffer) {
+			t.Helper()
 			rt, out, _ := testsupport.NewRuntime(t, "", "text")
-			testsupport.SeedSession(t, rt, s.api, "u1",
-				time.Now().Add(time.Hour), "t-a")
+			if renews {
+				seedRenewableSession(t, rt, s.api, exp)
+			} else {
+				testsupport.SeedSession(t, rt, s.api, "u1", exp, "t-a")
+			}
 			p := *rt.Config.StarfleetProfile(rt.Profile)
 			p.SignIn = tc.stored
 			rt.Config.SetStarfleetProfile(rt.Profile, &p)
-
-			run := func(format string, args ...string) []byte {
-				t.Helper()
-				out.Reset()
-				rt.Output.Format = format
-				if err := runAccount(t, rt, &bytes.Buffer{},
-					args...); err != nil {
-					t.Fatalf("%v: %v", args, err)
-				}
-				return out.Bytes()
+			return rt, out
+		}
+		run := func(t *testing.T, rt *module.Runtime, out *bytes.Buffer,
+			format string, args ...string) ([]byte, error) {
+			t.Helper()
+			out.Reset()
+			rt.Output.Format = format
+			err := runAccount(t, rt, &bytes.Buffer{}, args...)
+			return out.Bytes(), err
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(time.Hour), false)
+			if text, err := run(t, rt, out, "text", "auth",
+				"status"); err != nil || !bytes.Contains(text,
+				[]byte("Auth source:  "+tc.label+"\n")) {
+				t.Errorf("status (%v):\n%s", err, text)
 			}
-			if text := run("text", "auth", "status"); !bytes.Contains(
-				text, []byte("Auth source:  "+tc.label+"\n")) {
-				t.Errorf("status:\n%s", text)
+			if text, err := run(t, rt, out, "text", "doctor"); err != nil ||
+				!bytes.Contains(text, []byte("via "+tc.label+" (")) {
+				t.Errorf("doctor (%v):\n%s", err, text)
 			}
-			if text := run("text", "doctor"); !bytes.Contains(
-				text, []byte("via "+tc.label+" (")) {
-				t.Errorf("doctor:\n%s", text)
-			}
+			raw, err := run(t, rt, out, "json", "auth", "status")
 			var status authStatusReport
-			if err := json.Unmarshal(run("json", "auth", "status"),
-				&status); err != nil {
-				t.Fatal(err)
+			if err != nil || json.Unmarshal(raw, &status) != nil ||
+				status.Source != tc.source || status.TenantID != "t-a" {
+				t.Errorf("status json (%v):\n%s", err, raw)
 			}
+			raw, err = run(t, rt, out, "json", "doctor")
 			var doc accountDoctorReport
-			if err := json.Unmarshal(run("json", "doctor"),
-				&doc); err != nil {
-				t.Fatal(err)
+			if err != nil || json.Unmarshal(raw, &doc) != nil ||
+				doc.Auth.Source != tc.source || doc.Verdict != verdictReady {
+				t.Errorf("doctor json (%v):\n%s", err, raw)
 			}
-			for _, got := range [][2]string{
-				{status.Source, status.SignIn},
-				{doc.Auth.Source, doc.Auth.SignIn},
-			} {
-				if got != [2]string{auth.SourceBrowser, tc.signIn} {
-					t.Errorf("source, sign_in = %q, want %q, %q", got,
-						auth.SourceBrowser, tc.signIn)
-				}
+		})
+		t.Run(tc.name+", expired", func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(-time.Minute), false)
+			raw, _ := run(t, rt, out, "json", "doctor")
+			var doc accountDoctorReport
+			if json.Unmarshal(raw, &doc) != nil ||
+				doc.Verdict != verdictSessionNeedsLogin {
+				t.Errorf("doctor json:\n%s", raw)
+			}
+		})
+		t.Run(tc.name+", renews", func(t *testing.T) {
+			rt, out := seed(t, time.Now().Add(-time.Minute), true)
+			raw, _ := run(t, rt, out, "json", "doctor")
+			var doc accountDoctorReport
+			if json.Unmarshal(raw, &doc) != nil ||
+				doc.Verdict != verdictSessionUnverified {
+				t.Errorf("doctor json:\n%s", raw)
 			}
 		})
 	}

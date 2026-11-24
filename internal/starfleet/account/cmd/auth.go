@@ -387,10 +387,9 @@ type authStatusReport struct {
 	// keychain, absent when there are simply no credentials.
 	Problem  string `json:"problem,omitempty"`
 	ClientID string `json:"client_id,omitempty"`
-	// User, TenantID and SignIn describe a browser session.
+	// User and TenantID describe a browser session.
 	User       string `json:"user,omitempty"`
 	TenantID   string `json:"tenant_id,omitempty"`
-	SignIn     string `json:"sign_in,omitempty"`
 	APIURL     string `json:"api_url,omitempty"`
 	TokenValid bool   `json:"token_valid"`
 	// TokenBound means what authInfo.TokenBound (doctor.go) means.
@@ -415,8 +414,8 @@ as a single object, so a script can check them without parsing prose.
 For a browser sign-in it reports the user, the tenant, when the
 current access token expires and whether the session renews itself;
 for an API client, its client ID. A sign-in with a device code prints
-"Auth source:  device code"; in -o json and -o yaml its source stays
-"browser" and sign_in is "device".
+"Auth source:  device code", and its source in -o json and -o yaml is
+"device".
 
 It exits 5 (the auth-failure code) when no usable
 credentials resolve, 2 if you supplied half a credential pair, and 0
@@ -627,7 +626,6 @@ func sessionStatus(
 	report := authStatusReport{
 		Authenticated: s.problem == nil,
 		Source:        res.Source,
-		SignIn:        res.SignIn,
 		APIURL:        res.APIURL,
 		TenantID:      s.tenant,
 		TokenValid:    s.valid,
@@ -643,7 +641,7 @@ func sessionStatus(
 	}
 	lines := []string{
 		fmt.Sprintf("User:         %s", output.Sanitize(report.User)),
-		fmt.Sprintf("Auth source:  %s", signInLabel(res.SignIn)),
+		fmt.Sprintf("Auth source:  %s", signInLabel(report.Source)),
 		fmt.Sprintf("API URL:      %s", report.APIURL),
 		fmt.Sprintf("Tenant:       %s", output.Sanitize(report.TenantID)),
 	}
@@ -672,12 +670,12 @@ func sessionStatus(
 	return printVerifiedStatus(rt, report, lines, verify, verifyErr)
 }
 
-// signInLabel names a session's sign-in for the text forms.
-func signInLabel(signIn string) string {
-	if signIn == config.SignInDevice {
+// signInLabel names a session's source for the text forms.
+func signInLabel(source string) string {
+	if source == auth.SourceDevice {
 		return "device code"
 	}
-	return "browser"
+	return source
 }
 
 // printAuthStatus renders report through rt.Output for json/yaml, or

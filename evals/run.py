@@ -485,7 +485,9 @@ def kr_verdicts(card):
                   if not c.get("same_tasks", True)]
     effort = {}
     for k in EFFORT_KEYS:
+        # Codex's calls are an estimate biased low for the skills arm.
         pairs = [(cell["with"][k], cell["api"][k]) for c in card
+                 if not (k == "calls" and c["harness"] == "codex")
                  for cell in c["cells"].values()
                  if None not in (cell["with"][k], cell["api"][k])]
         lo = sum(1 for x, y in pairs if x < y)
@@ -600,9 +602,11 @@ def scorecard_md(card, release=None):
             + pair(c["shell"], c["shell_api"], lambda v: f"{v:g}")
             + f" | {lift} |")
     if any(c["harness"] == "codex" for c in card):
-        out += ["", "Codex's model calls are an estimate: its transcript "
-                "records none, so they are counted as rounds of output "
-                "between tool results."]
+        out += ["", "Codex's model calls are an estimate and stay out of "
+                "KR3c's sign test: its transcript records none, so they "
+                "are counted as rounds of output between tool results. A "
+                "call made while an earlier command still runs is missed, "
+                "which happens most with skills."]
     return out + [""]
 
 
@@ -1129,7 +1133,7 @@ class Cursor:
             "model": (r["init"] or {}).get("model"),
             "turns": None,      # not reported by cursor-agent
             # Only calls that use a tool carry a model_call_id. Every call
-            # held one thinking block in the 214 transcripts measured
+            # held one thinking block in each transcript measured
             # 2026-11-24; the tagged count plus a final answer is the
             # floor for a model that does not think.
             "model_calls": max(thought, len(call_ids) + untagged) or None,
@@ -1346,8 +1350,8 @@ class Codex:
         usage, errors = [], []
         # The stream records no model calls, so this counts rounds: the
         # model's output between tool results. Parallel calls share one
-        # only if all start before any finishes; a call with no output
-        # item is missed.
+        # only if all start before any finishes. A call with no output
+        # item, or made while an earlier command still runs, is missed.
         started, rounds, fed = set(), 0, True
         for line in lines:
             try:

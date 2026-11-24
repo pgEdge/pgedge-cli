@@ -36,7 +36,9 @@ whole conversation again. Each harness records them differently:
   carry an ID, so the count of those IDs, plus a final answer, is the
   floor.
 - Codex: an estimate. Its transcript records no calls, so the runner
-  counts rounds of output between tool results.
+  counts rounds of output between tool results. A call made while an
+  earlier command still runs is missed, which happens most in the with
+  arm, so Codex stays out of KR3c's sign test for model calls.
 
 A table per harness and model follows, with tokens per correct answer
 (every graded run's tokens over the runs that passed) and, when the

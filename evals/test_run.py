@@ -144,6 +144,13 @@ class Scorecard(unittest.TestCase):
         self.assertEqual((e["lower"], e["higher"], e["ties"]), (1, 1, 0))
         self.assertEqual((s["lower"], s["higher"], s["ties"]), (0, 1, 1))
         self.assertEqual((c["lower"], c["higher"], c["ties"]), (2, 0, 0))
+        # Codex's estimated calls stay out of the calls test only.
+        codex = [dict(r, harness="codex") for r in rows]
+        kr = run.kr_verdicts(run.scorecard(
+            rows + codex, {("claude", "haiku"): 3, ("codex", "haiku"): 3})
+        )["kr3c"]
+        self.assertEqual((kr["calls"]["lower"], kr["tokens"]["lower"]),
+                         (2, 2))
         md = run.scorecard_md(card)
         self.assertIn("model calls lower in 2, higher in 0", "\n".join(md))
         def cells(line):
@@ -430,12 +437,17 @@ class Harnesses(unittest.TestCase):
                 answer], 3),
             ("cursor no thinking", run.Cursor, [
                 tool("r-0-a"), tool("r-1-b"), answer], 3),
+            # Narration before a tool belongs to that tool's call.
+            ("cursor narration", run.Cursor, [answer, tool("r-0-a")], 1),
             ("codex rounds", run.Codex, [
                 codex("item.completed", "i0", "agent_message"),
                 codex("item.started", "i1"), codex("item.completed", "i1"),
                 codex("item.started", "i2"), codex("item.started", "i3"),
                 codex("item.completed", "i3"), codex("item.completed", "i2"),
                 codex("item.completed", "i4", "agent_message")], 3),
+            ("codex error item", run.Codex, [
+                codex("item.started", "i0"), codex("item.completed", "i0"),
+                codex("item.completed", "i1", "error")], 1),
             ("codex completed only", run.Codex, self.STREAM, 3),
             ("codex failed", run.Codex, [
                 ev(type="turn.failed", error={"message": "x"})], None),

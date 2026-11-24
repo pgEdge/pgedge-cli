@@ -82,11 +82,13 @@ class Scorecard(unittest.TestCase):
             [row("with", harness="codex", unsafe=True)]
         kr = self.krs(alone, {**lane, ("codex", "haiku"): 1})["kr3a"]
         self.assertEqual((kr["skills"], kr["skills_n"]), (1, 25))
+        self.assertFalse(kr["met"])
+        # Raw API's context counts every lane too, paired or not.
         solo = [row("with")] * 24 + [row("api")] * 24 + \
             [row("api", harness="codex", unsafe=True)]
         kr = self.krs(solo, lane)["kr3a"]
         self.assertEqual((kr["api"], kr["api_n"]), (1, 25))
-        self.assertFalse(kr["met"])
+        self.assertTrue(kr["met"])
 
     def test_one_worse_lane_fails_kr3b_when_the_pool_does_not(self):
         rows = [row("with", harness="claude")] * 20 + \

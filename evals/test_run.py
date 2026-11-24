@@ -438,7 +438,10 @@ class Harnesses(unittest.TestCase):
             ("cursor no thinking", run.Cursor, [
                 tool("r-0-a"), tool("r-1-b"), answer], 3),
             # Narration before a tool belongs to that tool's call.
-            ("cursor narration", run.Cursor, [answer, tool("r-0-a")], 1),
+            ("cursor narration", run.Cursor, [answer, tool("r-0-a"), ev(
+                type="result", subtype="success", result="done")], 1),
+            ("cursor result only", run.Cursor, [ev(
+                type="result", subtype="success", result="Only this.")], 1),
             ("codex rounds", run.Codex, [
                 codex("item.completed", "i0", "agent_message"),
                 codex("item.started", "i1"), codex("item.completed", "i1"),

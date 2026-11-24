@@ -1136,7 +1136,8 @@ class Cursor:
             # held one thinking block in each transcript measured
             # 2026-11-24; the tagged count plus a final answer is the
             # floor for a model that does not think.
-            "model_calls": max(thought, len(call_ids) + untagged) or None,
+            "model_calls": max(thought, len(call_ids) + (
+                untagged or not call_ids and bool(r["final"]))) or None,
             "cost_usd": None,   # not reported by cursor-agent
             "input_tokens": tin if u else None,
             "output_tokens": u.get("outputTokens") if u else None,

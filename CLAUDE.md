@@ -104,8 +104,8 @@ is theirs, never the script's.
         --release <version> --ref <sha>
 
 Setup, the config and what each scorecard column means are in
-`evals/README.md`. The run writes `evals/releases/<version>/SUMMARY.md`;
-commit it in the next PR.
+`evals/README.md`. The run writes `evals/releases/<version>/SUMMARY.md`,
+which git ignores: hand it over, never commit it.
 
 ## Verifying a change — the compiler is the authority
 

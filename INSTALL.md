@@ -83,10 +83,10 @@ build a file by hand or edit code to work around it.
      flags already stop any question.
    - For bash, the script loads only where the bash-completion package
      is installed and loaded. Do not report bash completion as working.
-     Tell the user that `complete -p -D` in a new bash shell prints a
-     line when bash-completion is loaded. If it prints an error, they
-     need to install that package and load it from their bash startup
-     file.
+     Tell the user that `declare -F _get_comp_words_by_ref` in a new
+     bash shell prints that name when bash-completion is loaded. If it
+     prints nothing, they need to install that package and load it
+     from their bash startup file.
 5. **Install or update the agent skills.** Ask the user this question
    word for word, and wait for the answer. Do not reword it or guess
    it: "Which pgEdge products do you use: pgEdge Starfleet, the Control

@@ -199,6 +199,57 @@ func TestRunDeviceShowsTheBareURIWithoutACompleteOne(t *testing.T) {
 	}
 }
 
+func TestRunDeviceOpensTheURLAfterPrintingIt(t *testing.T) {
+	complete := deviceCodeBody(5, 900)
+	bare := deviceCodeBody(5, 900)
+	delete(bare, "verification_uri_complete")
+	for _, tc := range []struct {
+		name    string
+		code    map[string]any
+		openErr error
+		want    string
+	}{
+		{name: "complete URI", code: complete,
+			want: "https://auth.example/activate?user_code=ABCD-EFGH"},
+		{name: "bare URI", code: bare,
+			want: "https://auth.example/activate"},
+		{name: "a failed open is silent", code: complete,
+			openErr: errors.New("xdg-open: not found"),
+			want:    "https://auth.example/activate?user_code=ABCD-EFGH"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := &fakeDevice{code: tc.code}
+			var opened []string
+			var printed string
+			f, out := newFlow(a.serve(t), nil)
+			f.Open = func(target string) error {
+				opened = append(opened, target)
+				printed = out.String()
+				return tc.openErr
+			}
+			f.Sleep = func(context.Context, time.Duration) error { return nil }
+			if _, err := f.RunDevice(context.Background()); err != nil {
+				t.Fatalf("RunDevice: %v", err)
+			}
+			if !slices.Equal(opened, []string{tc.want}) {
+				t.Errorf("opened %q, want %q", opened, tc.want)
+			}
+			for _, s := range []string{"ABCD-EFGH",
+				"only if you started this sign-in yourself"} {
+				if !strings.Contains(printed, s) {
+					t.Errorf("opened before printing %q:\n%s", s, printed)
+				}
+			}
+			if strings.Contains(out.String(), "xdg-open") {
+				t.Errorf("a failed open printed:\n%s", out.String())
+			}
+			if len(a.tokForms) != 1 {
+				t.Errorf("polled %d times, want 1", len(a.tokForms))
+			}
+		})
+	}
+}
+
 func TestRunDeviceStopsWhenCancelled(t *testing.T) {
 	for _, tc := range []struct {
 		name         string

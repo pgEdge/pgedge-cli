@@ -79,14 +79,16 @@ login fails with exit 5 and asks for an API client.
 machine has no browser you can use, such as an SSH session, a
 Codespace or a dev container. login prints a URL and a short code on
 stderr; open the URL in a browser on any device, check that it shows
-the same code, and confirm. Confirm a code only when you started the
+the same code, and confirm. Where login could open a browser itself,
+it also opens the URL there. Confirm a code only when you started the
 sign-in yourself. login waits until you confirm, refuse or the code
 expires, and Ctrl-C stops it. login also uses a code without
 --device in an SSH session (SSH_CONNECTION or SSH_TTY set) on macOS
 or Windows, or on Linux and BSD when neither DISPLAY nor
 WAYLAND_DISPLAY is set, and when it cannot start a browser; it says
-why on stderr. Either way the result is the same session a browser
-sign-in saves.
+why on stderr, and opens nothing. Either way the result is the same
+session a browser sign-in saves, and 'auth status' names which way
+it was signed in.
 
 --browser forces the browser sign-in in an SSH session, for example
 when the callback port is forwarded to the machine your browser runs
@@ -385,9 +387,10 @@ type authStatusReport struct {
 	// keychain, absent when there are simply no credentials.
 	Problem  string `json:"problem,omitempty"`
 	ClientID string `json:"client_id,omitempty"`
-	// User and TenantID describe a browser session.
+	// User, TenantID and SignIn describe a browser session.
 	User       string `json:"user,omitempty"`
 	TenantID   string `json:"tenant_id,omitempty"`
+	SignIn     string `json:"sign_in,omitempty"`
 	APIURL     string `json:"api_url,omitempty"`
 	TokenValid bool   `json:"token_valid"`
 	// TokenBound means what authInfo.TokenBound (doctor.go) means.
@@ -411,7 +414,9 @@ as a single object, so a script can check them without parsing prose.
 
 For a browser sign-in it reports the user, the tenant, when the
 current access token expires and whether the session renews itself;
-for an API client, its client ID.
+for an API client, its client ID. A sign-in with a device code prints
+"Auth source:  device code"; in -o json and -o yaml its source stays
+"browser" and sign_in is "device".
 
 It exits 5 (the auth-failure code) when no usable
 credentials resolve, 2 if you supplied half a credential pair, and 0
@@ -622,6 +627,7 @@ func sessionStatus(
 	report := authStatusReport{
 		Authenticated: s.problem == nil,
 		Source:        res.Source,
+		SignIn:        res.SignIn,
 		APIURL:        res.APIURL,
 		TenantID:      s.tenant,
 		TokenValid:    s.valid,
@@ -637,7 +643,7 @@ func sessionStatus(
 	}
 	lines := []string{
 		fmt.Sprintf("User:         %s", output.Sanitize(report.User)),
-		fmt.Sprintf("Auth source:  %s", report.Source),
+		fmt.Sprintf("Auth source:  %s", signInLabel(res.SignIn)),
 		fmt.Sprintf("API URL:      %s", report.APIURL),
 		fmt.Sprintf("Tenant:       %s", output.Sanitize(report.TenantID)),
 	}
@@ -664,6 +670,14 @@ func sessionStatus(
 		verifyErr = s.problem
 	}
 	return printVerifiedStatus(rt, report, lines, verify, verifyErr)
+}
+
+// signInLabel names a session's sign-in for the text forms.
+func signInLabel(signIn string) string {
+	if signIn == config.SignInDevice {
+		return "device code"
+	}
+	return "browser"
 }
 
 // printAuthStatus renders report through rt.Output for json/yaml, or

@@ -60,6 +60,8 @@ type signInStubs struct {
 	atAPI func(*http.Request)
 	// openErr, when set, is what opening the browser fails with.
 	openErr error
+	// opened lists each URL the browser was asked to open.
+	opened []string
 
 	mu            sync.Mutex
 	refreshedWith []string
@@ -168,11 +170,17 @@ func newSignInStubs(t *testing.T, tenants ...string) *signInStubs {
 				return nil
 			},
 			Open: func(target string) error {
+				s.mu.Lock()
+				s.opened = append(s.opened, target)
+				s.mu.Unlock()
 				if s.openErr != nil {
 					return s.openErr
 				}
 				u, _ := url.Parse(target)
 				q := u.Query()
+				if q.Get("redirect_uri") == "" {
+					return nil // a device code's URL: nothing to answer
+				}
 				resp, err := http.Get(q.Get("redirect_uri") + "?" +
 					s.reply(q).Encode())
 				if err == nil {
@@ -698,6 +706,67 @@ func TestLogoutRevokesTheSession(t *testing.T) {
 			if warned != (status != http.StatusOK) {
 				t.Errorf("warning = %v for %d:\n%s", warned, status,
 					errb.String())
+			}
+		})
+	}
+}
+
+// TestStatusAndDoctorNameTheSignIn: a device-code session reads as one
+// in text, while source stays browser for every session, including
+// one saved before sign_in was recorded.
+func TestStatusAndDoctorNameTheSignIn(t *testing.T) {
+	s := newSignInStubs(t, "t-a")
+	for _, tc := range []struct {
+		name, stored, label, signIn string
+	}{
+		{"saved without sign_in", "", "browser", config.SignInBrowser},
+		{"browser", config.SignInBrowser, "browser", config.SignInBrowser},
+		{"device", config.SignInDevice, "device code", config.SignInDevice},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rt, out, _ := testsupport.NewRuntime(t, "", "text")
+			testsupport.SeedSession(t, rt, s.api, "u1",
+				time.Now().Add(time.Hour), "t-a")
+			p := *rt.Config.StarfleetProfile(rt.Profile)
+			p.SignIn = tc.stored
+			rt.Config.SetStarfleetProfile(rt.Profile, &p)
+
+			run := func(format string, args ...string) []byte {
+				t.Helper()
+				out.Reset()
+				rt.Output.Format = format
+				if err := runAccount(t, rt, &bytes.Buffer{},
+					args...); err != nil {
+					t.Fatalf("%v: %v", args, err)
+				}
+				return out.Bytes()
+			}
+			if text := run("text", "auth", "status"); !bytes.Contains(
+				text, []byte("Auth source:  "+tc.label+"\n")) {
+				t.Errorf("status:\n%s", text)
+			}
+			if text := run("text", "doctor"); !bytes.Contains(
+				text, []byte("via "+tc.label+" (")) {
+				t.Errorf("doctor:\n%s", text)
+			}
+			var status authStatusReport
+			if err := json.Unmarshal(run("json", "auth", "status"),
+				&status); err != nil {
+				t.Fatal(err)
+			}
+			var doc accountDoctorReport
+			if err := json.Unmarshal(run("json", "doctor"),
+				&doc); err != nil {
+				t.Fatal(err)
+			}
+			for _, got := range [][2]string{
+				{status.Source, status.SignIn},
+				{doc.Auth.Source, doc.Auth.SignIn},
+			} {
+				if got != [2]string{auth.SourceBrowser, tc.signIn} {
+					t.Errorf("source, sign_in = %q, want %q, %q", got,
+						auth.SourceBrowser, tc.signIn)
+				}
 			}
 		})
 	}

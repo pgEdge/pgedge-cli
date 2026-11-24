@@ -22,9 +22,10 @@ A profile signs in one of three ways:
   --device` when the terminal runs on a machine with no browser you
   can use, such as an SSH session, a Codespace or a dev container.
   Login prints a URL and a short code; open the URL in a browser on
-  any device, check that it shows the same code, and confirm. Confirm
-  a code only when you started that sign-in yourself, because whoever
-  confirms it signs that terminal in as themselves. Login uses a code
+  any device, check that it shows the same code, and confirm. Where
+  login could open a browser itself, it also opens the URL there.
+  Confirm a code only when you started that sign-in yourself, because
+  whoever confirms it signs that terminal in as themselves. Login uses a code
   without `--device` in an SSH session on macOS or Windows, in an SSH
   session on Linux or BSD with no display forwarded, and when it
   cannot start a browser. Pass `--browser` to sign in through the

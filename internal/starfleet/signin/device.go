@@ -30,8 +30,9 @@ type deviceCode struct {
 }
 
 // RunDevice signs in with the OAuth device authorization grant: it
-// prints a URL and a code for a browser on any machine, then polls
-// until the user confirms or refuses, the code expires, or ctx ends.
+// prints a URL and a code for a browser on any machine, opens the URL
+// when Open is set, then polls until the user confirms or refuses, the
+// code expires, or ctx ends.
 func (f *Flow) RunDevice(ctx context.Context) (*Tokens, error) {
 	dc, err := f.requestDeviceCode(ctx)
 	if err != nil {
@@ -41,6 +42,11 @@ func (f *Flow) RunDevice(ctx context.Context) (*Tokens, error) {
 		return nil, err
 	}
 	f.showDeviceCode(dc)
+	if f.Open != nil {
+		// The URL and code are already printed, so a failure needs no
+		// word of its own.
+		_ = f.Open(dc.openURL())
+	}
 
 	now := f.Now
 	if now == nil {
@@ -127,6 +133,15 @@ func (f *Flow) requestDeviceCode(ctx context.Context) (*deviceCode, error) {
 			"incomplete response")
 	}
 	return &dc, nil
+}
+
+// openURL is the URL a browser opens: the one carrying the code when
+// Auth0 gives it.
+func (dc *deviceCode) openURL() string {
+	if dc.VerificationURIComplete != "" {
+		return dc.VerificationURIComplete
+	}
+	return dc.VerificationURI
 }
 
 func (f *Flow) showDeviceCode(dc *deviceCode) {

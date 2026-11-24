@@ -77,18 +77,23 @@ d1e2f3a4-b5c6-7890-def0-123456789abc  acme  scale  no     acme.example  2026-02-
 <!-- BEGIN GENERATED: pgedge starfleet tenant get -->
 #### pgedge starfleet tenant get
 
-**Usage:** `pgedge starfleet tenant get <tenant_id>`
+**Usage:** `pgedge starfleet tenant get [tenant_id]`
 
 Show tenant details
 
 <!-- END GENERATED -->
 
 Get details for a specific tenant. Same fields and column order as
-`tenant list`, for one tenant.
+`tenant list`, for one tenant. With no argument, get reads the tenant
+a browser sign-in acts in: the one `auth status` prints as `Tenant:`,
+or `--tenant` when given. With an API client the argument is required,
+and leaving it out is exit 2 before any request. A sign-in whose token
+names no tenant is exit 2 as well.
 
 **Example:**
 
 ```bash
+pgedge starfleet tenant get
 pgedge starfleet tenant get d1e2f3a4-b5c6-7890-def0-123456789abc
 pgedge starfleet tenant get d1e2f3a4-b5c6-7890-def0-123456789abc -o yaml
 ```

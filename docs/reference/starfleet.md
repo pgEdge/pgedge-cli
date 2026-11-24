@@ -455,13 +455,14 @@ pgedge starfleet tenant update b0c1d2e3-f4a5-6789-bcde-890123456789 --name acme
 
 #### pgedge starfleet tenant get
 
-**Usage:** `pgedge starfleet tenant get <tenant_id>`
+**Usage:** `pgedge starfleet tenant get [tenant_id]`
 
 Show tenant details
 
 **Example:**
 
 ```
+pgedge starfleet tenant get
 pgedge starfleet tenant get b0c1d2e3-f4a5-6789-bcde-890123456789
 pgedge starfleet tenant get b0c1d2e3-f4a5-6789-bcde-890123456789 -o yaml
 ```

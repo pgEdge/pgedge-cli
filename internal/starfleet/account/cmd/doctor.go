@@ -43,7 +43,8 @@ type authInfo struct {
 	TokenBound bool   `json:"token_bound"`
 	ExpiresAt  string `json:"expires_at,omitempty"`
 	// User is a browser session's email or subject.
-	User string `json:"user,omitempty"`
+	User   string `json:"user,omitempty"`
+	SignIn string `json:"sign_in,omitempty"`
 	// Renews reports a browser session that can renew its own token.
 	Renews bool `json:"renews"`
 }
@@ -243,6 +244,7 @@ func checkSessionAuth(rt *module.Runtime, res *conn.Resolved,
 	}
 	info.TokenValid, info.TokenBound = s.valid, s.bound
 	info.Renews = s.renews
+	info.SignIn = res.SignIn
 	if s.problem != nil {
 		info.Authenticated = false
 		info.Problem = s.problem.Error()
@@ -539,8 +541,9 @@ func printDoctor(rt *module.Runtime, report accountDoctorReport) error {
 		case report.Auth.Renews:
 			state += ", renews itself"
 		}
-		authDetail = fmt.Sprintf("signed in as %s via browser (%s)",
-			output.Sanitize(report.Auth.User), state)
+		authDetail = fmt.Sprintf("signed in as %s via %s (%s)",
+			output.Sanitize(report.Auth.User),
+			signInLabel(report.Auth.SignIn), state)
 	case report.Auth.Authenticated && report.Auth.Source == auth.SourceEnv:
 		authStatus = "ok"
 		authDetail = fmt.Sprintf("authenticated via %s and %s "+

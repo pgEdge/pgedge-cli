@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pgEdge/pgedge-cli/internal/module"
 	"github.com/pgEdge/pgedge-cli/internal/testsupport"
 )
 
@@ -198,6 +201,83 @@ func TestTenantGetRun(t *testing.T) {
 			t.Fatal("expected an error on 500")
 		}
 	})
+}
+
+// TestTenantGetWithoutAnID covers get with no argument: the tenant a
+// browser sign-in acts in, resolved as auth status resolves it.
+func TestTenantGetWithoutAnID(t *testing.T) {
+	const other = "11112222-3333-4444-5555-666677778888"
+	for _, tc := range []struct {
+		name string
+		// seed signs rt in against api; nil leaves it signed out.
+		seed     func(t *testing.T, rt *module.Runtime, api string)
+		args     []string
+		wantPath string // "" means no tenant request is made
+		wantCode int    // 0 means success
+		wantErr  string
+	}{
+		{name: "the profile's tenant",
+			seed: func(t *testing.T, rt *module.Runtime, api string) {
+				testsupport.SeedSession(t, rt, api, "u1",
+					time.Now().Add(time.Hour), other, testTenantID)
+				p := *rt.Config.StarfleetProfile(rt.Profile)
+				p.TenantID = testTenantID
+				rt.Config.SetStarfleetProfile(rt.Profile, &p)
+				if err := rt.Config.Save(); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantPath: "/account/v1/tenants/" + testTenantID},
+		{name: "--tenant over the profile's",
+			seed: func(t *testing.T, rt *module.Runtime, api string) {
+				testsupport.SeedSession(t, rt, api, "u1",
+					time.Now().Add(time.Hour), other, testTenantID)
+			},
+			args:     []string{"--tenant", testTenantID},
+			wantPath: "/account/v1/tenants/" + testTenantID},
+		{name: "a sign-in that names no tenant",
+			seed: func(t *testing.T, rt *module.Runtime, api string) {
+				testsupport.SeedSession(t, rt, api, "u1",
+					time.Now().Add(time.Hour))
+			},
+			wantCode: ExitUsage, wantErr: "names no tenant"},
+		{name: "an API client",
+			args:     []string{"--client-id", "i", "--client-secret", "s"},
+			wantCode: ExitUsage, wantErr: "API client has no tenant"},
+		{name: "no credentials", wantCode: ExitAuth},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rt, out, _ := testsupport.NewRuntime(t, "", "json")
+			var paths []string
+			api := testsupport.NewAuthedServer(t, func(
+				w http.ResponseWriter, r *http.Request) {
+				paths = append(paths, r.URL.Path)
+				testsupport.JSONHandler(200, tenantFullBody)(w, r)
+			})
+			if tc.seed != nil {
+				tc.seed(t, rt, api)
+			}
+			args := append([]string{"tenant", "get", "--api-url", api},
+				tc.args...)
+			err := runAccount(t, rt, out, args...)
+			if tc.wantCode != 0 {
+				if exitCode(err) != tc.wantCode ||
+					!strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("err = %v, want exit %d with %q", err,
+						tc.wantCode, tc.wantErr)
+				}
+			} else if err != nil {
+				t.Fatalf("tenant get: %v", err)
+			}
+			var want []string
+			if tc.wantPath != "" {
+				want = []string{tc.wantPath}
+			}
+			if !slices.Equal(paths, want) {
+				t.Errorf("requests = %q, want %q", paths, want)
+			}
+		})
+	}
 }
 
 func TestTenantUpdateRun(t *testing.T) {

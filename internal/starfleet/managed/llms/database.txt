@@ -53,9 +53,10 @@ name, reads every page itself, and combines with `--region`.
 sent. A name that matches nothing prints `No databases found.` on
 stderr and exits 0, and `-o json` prints `[]`.
 
-Text output prints the table on stdout and a count line such as
-`3 databases` on stderr. Compare the count with the rows you read to
-tell whether any were cut from the output.
+Text output prints the table on stdout and a count line on stderr:
+`1 database` or `N databases`. If you read fewer rows than the count
+line states, your tool cut the output: re-run with `--name` or
+`-o json`.
 
 This endpoint applies no default page. Omitting `--limit` reads every
 database in the account, so an unbounded list cannot have been truncated

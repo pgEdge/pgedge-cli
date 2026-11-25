@@ -86,8 +86,8 @@ command then sets up completion in one of two ways:
 
 - **File install (default).** The command writes a completion script
   into the directory your shell loads completions from. The command
-  then prints any step left for you to take. Examples are a zsh `fpath`
-  line and a PowerShell profile line. Your shell loads the script like
+  then prints any step left for you to take. Examples are the zsh
+  `fpath` and compdef lines and a PowerShell profile line. Your shell loads the script like
   any other completion file, and `pgedge self update` regenerates it.
 - **rc line (`--rc-only`).** The command appends one line to your
   shell's startup file in place of the script. Completion then always

@@ -110,8 +110,8 @@ func newCompletionInstallCmd() *cobra.Command {
 		Short: "Install shell completion for your shell",
 		Long: `install detects your shell, writes the pgedge completion
 script to the directory that shell loads completions from, and
-prints any remaining step (such as a zsh fpath line or a
-PowerShell profile line).
+prints any remaining step (such as the zsh fpath and compdef lines
+or a PowerShell profile line).
 
 With --rc-only, install adds a single line to your shell's startup
 file in place of the script. That line evaluates this binary's
@@ -594,12 +594,11 @@ func installBashCompletion(
 	fmt.Fprintf(cmd.OutOrStdout(),
 		"Detected shell: bash\n"+
 			"Wrote completion script to %s\n\n"+
-			"The script loads only where the bash-completion package "+
-			"is installed\nand loaded. In a new bash shell, "+
-			"'declare -F _get_comp_words_by_ref'\nprints that name "+
-			"when it is. If it prints nothing, install\n"+
-			"bash-completion and load it from your bash startup "+
-			"file.\n",
+			"The script loads only where bash-completion 2 is "+
+			"installed and loaded.\nIn a new bash shell, "+
+			"'echo ${BASH_COMPLETION_VERSINFO[0]}' prints 2 when it\n"+
+			"is. If it prints nothing, install bash-completion 2 and "+
+			"load it from\nyour bash startup file.\n",
 		displayPath(path, home))
 	return nil
 }
@@ -714,7 +713,7 @@ const (
 	zshFpathLine   = "fpath=(~/.zsh/completions $fpath)"
 	zshCompdefLine = "if (( $+functions[compdef] )); then " +
 		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
-		"else autoload -Uz compinit && compinit; fi"
+		"else autoload -Uz compinit && compinit -i; fi"
 )
 
 // pwshScriptName is the completion script written next to the

@@ -38,8 +38,8 @@ Install shell completion for your shell
 
 Detect your shell, write the pgedge completion script to the directory
 that shell loads completions from, and print any remaining step (such
-as a zsh fpath line or a PowerShell profile line). Supports bash, zsh,
-fish and PowerShell. `--rc-only` adds one rc-file loader line instead
+as the zsh fpath and compdef lines or a PowerShell profile line).
+Supports bash, zsh, fish and PowerShell. `--rc-only` adds one rc-file loader line instead
 of a script.
 
 **Example:**

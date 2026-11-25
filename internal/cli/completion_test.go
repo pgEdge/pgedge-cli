@@ -109,16 +109,21 @@ func TestInstallBashWritesScript(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Detected shell: bash",
-		"only where the bash-completion package",
-		"'declare -F _get_comp_words_by_ref'",
+		"only where bash-completion 2 is",
+		"'echo ${BASH_COMPLETION_VERSINFO[0]}' prints 2",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output missing %q: %q", want, out.String())
 		}
 	}
-	if strings.Contains(out.String(), "loads this automatically") {
-		t.Errorf("output claims bash-completion is loaded: %q",
-			out.String())
+	// bash-completion 1.x defines _get_comp_words_by_ref too but never
+	// loads the script from this directory.
+	for _, bad := range []string{
+		"loads this automatically", "_get_comp_words_by_ref",
+	} {
+		if strings.Contains(out.String(), bad) {
+			t.Errorf("output carries %q: %q", bad, out.String())
+		}
 	}
 }
 
@@ -368,7 +373,7 @@ func TestZshRCLines(t *testing.T) {
 	const fpath = "fpath=(~/.zsh/completions $fpath)"
 	const compdef = "if (( $+functions[compdef] )); then " +
 		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
-		"else autoload -Uz compinit && compinit; fi"
+		"else autoload -Uz compinit && compinit -i; fi"
 	const already = "~/.zshrc already has the fpath line"
 	cases := []struct {
 		name        string
@@ -445,6 +450,63 @@ func TestZshRCLines(t *testing.T) {
 				strings.Contains(out.String(), "[y/N]") {
 				t.Errorf("already-configured run prompted:\n%s",
 					out.String())
+			}
+		})
+	}
+}
+
+// TestZshGuardRegistersInZsh runs the appended lines in a real zsh. A
+// compprefuncs hook set by an earlier compinit must survive: a second
+// compinit clears it.
+func TestZshGuardRegistersInZsh(t *testing.T) {
+	zsh, err := exec.LookPath("zsh")
+	if err != nil {
+		t.Skip("zsh not on PATH")
+	}
+	cases := []struct {
+		name   string
+		before string
+		want   string
+	}{
+		{name: "no earlier compinit", want: "_pgedge|"},
+		{name: "compinit earlier with a hook",
+			before: "autoload -Uz compinit && compinit\n" +
+				"myhook() { : }\ncompprefuncs+=(myhook)\n",
+			want: "_pgedge|myhook"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("ZDOTDIR", home)
+			dir, path := completionScriptPath(home, "zsh")
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			var script bytes.Buffer
+			if err := writeCompletionScript(NewRootCmd(&module.Runtime{}),
+				"zsh", &script); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, script.Bytes(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := appendRCLine(filepath.Join(home, ".zshrc"),
+				tc.before+zshFpathLine, zshCompdefLine); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 30*time.Second)
+			defer cancel()
+			// -d skips the global rc files, which differ by platform
+			// and on some run compinit themselves.
+			out, err := exec.CommandContext(ctx, zsh, "-d", "-i", "-c",
+				`print -r -- "${_comps[pgedge]}|${compprefuncs[*]}"`).Output()
+			if err != nil {
+				t.Fatalf("zsh: %v", err)
+			}
+			if got := strings.TrimSpace(string(out)); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
 			}
 		})
 	}

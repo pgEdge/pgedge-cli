@@ -315,6 +315,11 @@ func listDatabasePage(
 	return *resp.JSON200, nil
 }
 
+// databaseNamePageCap is a million databases at 1000 a page, far past
+// any tenant, so reaching it means paging never ends. A var so tests
+// can reach it without serving a million rows.
+var databaseNamePageCap = 1000
+
 // findDatabasesByName filters on the client because the API takes no
 // name parameter, reading full pages until a short one ends the list.
 func findDatabasesByName(
@@ -324,12 +329,27 @@ func findDatabasesByName(
 	matches := []api.ManagedDatabase{}
 	pageSize := databaseLimitMax
 	params.Limit = &pageSize
+	firstIDs := map[string]bool{}
 	offset := 0
-	for {
+	for pages := 0; ; pages++ {
+		if pages == databaseNamePageCap {
+			return nil, fmt.Errorf("list databases: stopped after %d "+
+				"pages without reaching the end of the list",
+				databaseNamePageCap)
+		}
 		params.Offset = &offset
 		page, err := listDatabasePage(client, params)
 		if err != nil {
 			return nil, err
+		}
+		if len(page) > 0 {
+			first := page[0].Id
+			if firstIDs[first] {
+				return nil, fmt.Errorf("list databases: the API "+
+					"returned the same page again at offset %d, so "+
+					"paging did not advance", offset)
+			}
+			firstIDs[first] = true
 		}
 		for _, d := range page {
 			if d.Name == name {

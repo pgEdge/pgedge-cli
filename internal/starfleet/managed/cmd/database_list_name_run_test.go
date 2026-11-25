@@ -222,6 +222,92 @@ func TestDatabaseListByNameRefusesConflictingFlags(t *testing.T) {
 	}
 }
 
+// offsetIgnoringServer answers every request with the first full page,
+// as an API that drops the offset parameter would.
+func offsetIgnoringServer(t *testing.T) (
+	srvURL string, queries func() []url.Values,
+) {
+	t.Helper()
+	var (
+		mu   sync.Mutex
+		seen []url.Values
+	)
+	srvURL = testsupport.NewAuthedServer(t,
+		func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			seen = append(seen, r.URL.Query())
+			mu.Unlock()
+			rows := make([]string, 0, databaseLimitMax)
+			for i := 0; i < databaseLimitMax; i++ {
+				rows = append(rows, namedDatabaseJSON(i))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte("[" + strings.Join(rows, ",") + "]"))
+		})
+	return srvURL, func() []url.Values {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]url.Values(nil), seen...)
+	}
+}
+
+func TestDatabaseListByNameStopsAWalkThatNeverEnds(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		ignoreOffset bool
+		total        int
+		pageCap      int
+		wantRequests int
+		wantErr      string // "" for success
+	}{
+		{name: "api ignores offset", ignoreOffset: true, pageCap: 1000,
+			wantRequests: 2, wantErr: "same page again"},
+		{name: "page cap reached", total: 10000, pageCap: 3,
+			wantRequests: 3, wantErr: "stopped after 3 pages"},
+		{name: "list ends on the last page the cap allows", total: 2500,
+			pageCap: 3, wantRequests: 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			saved := databaseNamePageCap
+			databaseNamePageCap = tc.pageCap
+			t.Cleanup(func() { databaseNamePageCap = saved })
+
+			rt, out, _ := testsupport.NewRuntime(t, "", "text")
+			var (
+				srvURL  string
+				queries func() []url.Values
+			)
+			if tc.ignoreOffset {
+				srvURL, queries = offsetIgnoringServer(t)
+			} else {
+				srvURL, queries = pagedDatabaseServer(t, tc.total)
+			}
+
+			err := runAuthedSilent(t, rt, out, srvURL,
+				"database", "list", "--name", "nope")
+			if n := len(queries()); n != tc.wantRequests {
+				t.Errorf("%d requests, want %d", n, tc.wantRequests)
+			}
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("list: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("walk ended without an error; want %q",
+					tc.wantErr)
+			}
+			if got := cli.ExitCode(err); got != cli.ExitError {
+				t.Errorf("exit = %d, want %d", got, cli.ExitError)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("error %q does not contain %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 // The count line goes to stderr so stdout stays table rows only.
 func TestDatabaseListPrintsCountOnStderr(t *testing.T) {
 	rt, out, errOut := testsupport.NewRuntime(t, "", "text")

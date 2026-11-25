@@ -84,7 +84,7 @@ Install shell completion for your shell
 | `--force` | No |  | Skip the prompt: overwrite a script, or append the --rc-only line |
 | `--rc-only` | No |  | Add the one-line loader to your shell startup file and write no script |
 | `--shell string` | No |  | Shell to install for: bash, zsh, fish or powershell (default: autodetect $SHELL) |
-| `--write-rc` | No |  | Append the zsh fpath and compinit lines, the PowerShell profile line or the --rc-only loader line without prompting |
+| `--write-rc` | No |  | Append the zsh fpath and compdef lines, the PowerShell profile line or the --rc-only loader line without prompting |
 
 **Example:**
 

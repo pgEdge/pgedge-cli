@@ -70,10 +70,9 @@ Remove whichever of the remaining pieces your install has:
   `~/.config/fish/completions/pgedge.fish` for fish, or
   `pgedge.complete.ps1` next to your PowerShell profile.
 - the startup-file lines, if the completion install told you to add
-  them: the `fpath=(~/.zsh/completions $fpath)` line in `~/.zshrc`, or
-  the dot-source line in your PowerShell profile. Keep the
-  `autoload -Uz compinit && compinit` line if another zsh completion
-  uses it.
+  them: the `fpath=(~/.zsh/completions $fpath)` line in `~/.zshrc` and
+  the `if (( $+functions[compdef] ))` line below it, or the dot-source
+  line in your PowerShell profile.
 - the agent skills, if you installed them. `npx skills add` wrote them
   to `.agents/skills/` in the project (or under your home directory
   for a global install) with a `skills-lock.json` beside them, and

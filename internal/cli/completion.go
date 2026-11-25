@@ -138,7 +138,7 @@ Example:
 		"Skip the prompt: overwrite a script, or append the "+
 			"--rc-only line")
 	cmd.Flags().BoolVar(&writeRC, "write-rc", false,
-		"Append the zsh fpath and compinit lines, the PowerShell "+
+		"Append the zsh fpath and compdef lines, the PowerShell "+
 			"profile line or the --rc-only loader line without prompting")
 	cmd.Flags().BoolVar(&rcOnly, "rc-only", false,
 		"Add the one-line loader to your shell startup file and "+
@@ -350,9 +350,9 @@ func newCompletionUninstallCmd() *cobra.Command {
 		Long: `uninstall detects your shell (or use --shell) and removes the pgedge
 completion script it installed, together with the --rc-only loader
 line if present. Supports bash, zsh, fish and PowerShell. Safe to
-re-run; anything not present is reported and nothing is removed. A
-zsh fpath line or a PowerShell dot-source line remains in place;
-remove it by hand.
+re-run; anything not present is reported and nothing is removed. The
+zsh fpath and compdef lines, or a PowerShell dot-source line, remain
+in place; remove them by hand.
 
 Example:
   pgedge completion uninstall
@@ -467,8 +467,8 @@ func runCompletionUninstall(
 		switch shell {
 		case "zsh":
 			fmt.Fprintln(out,
-				"If you added the fpath line to ~/.zshrc, remove it "+
-					"by hand.")
+				"If you added the fpath and compdef lines to ~/.zshrc, "+
+					"remove them by hand.")
 		case "powershell":
 			fmt.Fprintln(out,
 				"If you added the dot-source line to your PowerShell "+
@@ -629,7 +629,7 @@ func installFishCompletion(
 }
 
 // installZshCompletion writes the script, prints whichever of the
-// fpath and compinit lines ~/.zshrc lacks, and optionally appends them
+// fpath and compdef lines ~/.zshrc lacks, and optionally appends them
 // (on a TTY when confirmed, or unconditionally with --write-rc). The
 // append is idempotent.
 func installZshCompletion(
@@ -655,32 +655,33 @@ func installZshCompletion(
 	if err != nil {
 		return err
 	}
-	// Stock zsh on Debian runs no compinit, and without it nothing on
-	// $fpath is registered.
-	hasCompinit, err := fileMentionsCompinit(rcPath)
+	hasCompdef, err := fileContainsLine(rcPath, zshCompdefLine)
 	if err != nil {
 		return err
 	}
 	var missing []string
 	if !hasFpath {
-		missing = append(missing, zshFpathLine)
-	}
-	if !hasCompinit {
-		missing = append(missing, zshCompinitLine)
+		// The compdef line only works below the fpath line, so a
+		// missing fpath line brings a fresh compdef line with it.
+		missing = []string{zshFpathLine, zshCompdefLine}
+	} else if !hasCompdef {
+		missing = []string{zshCompdefLine}
 	}
 	if len(missing) == 0 {
 		fmt.Fprint(out,
 			"~/.zshrc already has the fpath line for "+
-				"~/.zsh/completions and a\ncompinit line. Restart your "+
-				"shell (or run: exec zsh).\n")
+				"~/.zsh/completions and the\nline that registers "+
+				"_pgedge. Restart your shell (or run: exec zsh).\n")
 		return nil
 	}
 
 	// Always print the self-contained instruction.
 	fmt.Fprintf(out,
-		"zsh loads completions from the directories in $fpath once "+
-			"compinit\nruns. To enable completion, add to ~/.zshrc:"+
-			"\n\n    %s\n\nThen restart your shell (or run: exec zsh).\n",
+		"zsh loads completions from the directories in $fpath. To "+
+			"enable\ncompletion, add to ~/.zshrc:\n\n    %s\n\n"+
+			"The compdef line registers _pgedge, and runs compinit "+
+			"only if nothing\nhas yet. Then restart your shell "+
+			"(or run: exec zsh).\n",
 		strings.Join(missing, "\n    "))
 
 	doAppend := writeRC
@@ -703,29 +704,18 @@ func installZshCompletion(
 	return nil
 }
 
+// zshCompdefLine decides at shell start rather than at install time,
+// because a framework sourced from ~/.zshrc can run compinit without
+// ~/.zshrc naming it. A second compinit clears that framework's
+// compprefuncs hooks, and a compinit that already ran never sees an
+// fpath entry added after it, so: register directly if compinit ran,
+// otherwise run it.
 const (
-	zshFpathLine    = "fpath=(~/.zsh/completions $fpath)"
-	zshCompinitLine = "autoload -Uz compinit && compinit"
+	zshFpathLine   = "fpath=(~/.zsh/completions $fpath)"
+	zshCompdefLine = "if (( $+functions[compdef] )); then " +
+		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
+		"else autoload -Uz compinit && compinit; fi"
 )
-
-// fileMentionsCompinit reports whether an uncommented line of path
-// mentions compinit. A missing file reports false.
-func fileMentionsCompinit(path string) (bool, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // G304: fixed, home-relative rc path
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("read %s: %w", path, err)
-	}
-	for _, l := range strings.Split(string(data), "\n") {
-		l = strings.TrimSpace(l)
-		if !strings.HasPrefix(l, "#") && strings.Contains(l, "compinit") {
-			return true, nil
-		}
-	}
-	return false, nil
-}
 
 // pwshScriptName is the completion script written next to the
 // PowerShell profile; the profile dot-sources it by absolute path.

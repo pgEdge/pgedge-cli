@@ -366,34 +366,36 @@ func TestZshWriteRCAppendsLine(t *testing.T) {
 
 func TestZshRCLines(t *testing.T) {
 	const fpath = "fpath=(~/.zsh/completions $fpath)"
-	const compinit = "autoload -Uz compinit && compinit"
+	const compdef = "if (( $+functions[compdef] )); then " +
+		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
+		"else autoload -Uz compinit && compinit; fi"
 	const already = "~/.zshrc already has the fpath line"
 	cases := []struct {
-		name         string
-		zshrc        string // "" writes no file
-		runs         int
-		writeRC      bool
-		wantFpath    int
-		wantCompinit int
-		wantOut      []string
+		name        string
+		zshrc       string // "" writes no file
+		runs        int
+		writeRC     bool
+		wantFpath   int
+		wantCompdef int
+		wantOut     []string
 	}{
 		{name: "no zshrc gets both lines once", runs: 1,
-			writeRC: true, wantFpath: 1, wantCompinit: 1,
-			wantOut: []string{fpath, compinit, "Added the lines above"}},
+			writeRC: true, wantFpath: 1, wantCompdef: 1,
+			wantOut: []string{fpath, compdef, "Added the lines above"}},
 		{name: "re-run appends nothing", runs: 2, writeRC: true,
-			wantFpath: 1, wantCompinit: 1, wantOut: []string{already}},
-		{name: "existing compinit is not repeated",
+			wantFpath: 1, wantCompdef: 1, wantOut: []string{already}},
+		{name: "a compinit in zshrc still gets the compdef line",
 			zshrc: "autoload -U compinit; compinit -i\n", runs: 1,
-			writeRC: true, wantFpath: 1, wantCompinit: 0},
-		{name: "commented compinit does not count",
-			zshrc: "# compinit\n", runs: 1, writeRC: true,
-			wantFpath: 1, wantCompinit: 1},
-		{name: "fpath from an earlier install gains compinit",
+			writeRC: true, wantFpath: 1, wantCompdef: 1},
+		{name: "fpath from an earlier install gains compdef",
 			zshrc: rcMarker + "\n" + fpath + "\n", runs: 1,
-			writeRC: true, wantFpath: 1, wantCompinit: 1},
+			writeRC: true, wantFpath: 1, wantCompdef: 1},
+		{name: "compdef without fpath gets both below",
+			zshrc: compdef + "\n", runs: 1, writeRC: true,
+			wantFpath: 1, wantCompdef: 2},
 		{name: "both present skips the prompt",
-			zshrc: fpath + "\n" + compinit + "\n", runs: 1,
-			wantFpath: 1, wantCompinit: 1, wantOut: []string{already}},
+			zshrc: fpath + "\n" + compdef + "\n", runs: 1,
+			wantFpath: 1, wantCompdef: 1, wantOut: []string{already}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -422,13 +424,13 @@ func TestZshRCLines(t *testing.T) {
 				t.Errorf("fpath line appears %d times, want %d:\n%s",
 					got, tc.wantFpath, rc)
 			}
-			if got := strings.Count(rc, compinit); got != tc.wantCompinit {
-				t.Errorf("compinit line appears %d times, want %d:\n%s",
-					got, tc.wantCompinit, rc)
+			if got := strings.Count(rc, compdef); got != tc.wantCompdef {
+				t.Errorf("compdef line appears %d times, want %d:\n%s",
+					got, tc.wantCompdef, rc)
 			}
-			if tc.wantFpath == 1 && tc.wantCompinit == 1 &&
-				strings.Index(rc, compinit) < strings.Index(rc, fpath) {
-				t.Errorf("compinit must follow the fpath line:\n%s", rc)
+			if strings.LastIndex(rc, compdef) < strings.Index(rc, fpath) {
+				t.Errorf("a compdef line must follow the fpath line:\n%s",
+					rc)
 			}
 			for _, w := range tc.wantOut {
 				if !strings.Contains(out.String(), w) {

@@ -75,7 +75,7 @@ build a file by hand or edit code to work around it.
 4. **Set up shell completion.** Run
    `"<path>" completion install --force --write-rc </dev/null`. It
    rewrites the completion script from the current binary. For zsh
-   and PowerShell, it also adds the line that loads the script, once.
+   and PowerShell, it also adds the lines that load the script, once.
    The `</dev/null` stops it asking a question that you cannot answer.
    - In PowerShell, run
      `& "<path>" completion install --shell powershell --force --write-rc`

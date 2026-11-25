@@ -107,8 +107,18 @@ func TestInstallBashWritesScript(t *testing.T) {
 	if !strings.Contains(string(data), "__start_pgedge") {
 		t.Error("bash script missing marker")
 	}
-	if !strings.Contains(out.String(), "Detected shell: bash") {
-		t.Errorf("output missing detection line: %q", out.String())
+	for _, want := range []string{
+		"Detected shell: bash",
+		"only where the bash-completion package",
+		"'declare -F _get_comp_words_by_ref'",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output missing %q: %q", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "loads this automatically") {
+		t.Errorf("output claims bash-completion is loaded: %q",
+			out.String())
 	}
 }
 
@@ -354,25 +364,87 @@ func TestZshWriteRCAppendsLine(t *testing.T) {
 	}
 }
 
-func TestZshAppendIsIdempotent(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	var out, in bytes.Buffer
-	cmd := installCmd(t, &out, &in)
-
-	for i := 0; i < 2; i++ {
-		// Use --force so the second run doesn't trip the overwrite
-		// guard, and --write-rc to append.
-		if err := runCompletionInstallWith(
-			cmd, "zsh", true, true, false, false); err != nil {
-			t.Fatalf("install %d: %v", i, err)
-		}
+func TestZshRCLines(t *testing.T) {
+	const fpath = "fpath=(~/.zsh/completions $fpath)"
+	const compinit = "autoload -Uz compinit && compinit"
+	const already = "~/.zshrc already has the fpath line"
+	cases := []struct {
+		name         string
+		zshrc        string // "" writes no file
+		runs         int
+		writeRC      bool
+		wantFpath    int
+		wantCompinit int
+		wantOut      []string
+	}{
+		{name: "no zshrc gets both lines once", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompinit: 1,
+			wantOut: []string{fpath, compinit, "Added the lines above"}},
+		{name: "re-run appends nothing", runs: 2, writeRC: true,
+			wantFpath: 1, wantCompinit: 1, wantOut: []string{already}},
+		{name: "existing compinit is not repeated",
+			zshrc: "autoload -U compinit; compinit -i\n", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompinit: 0},
+		{name: "commented compinit does not count",
+			zshrc: "# compinit\n", runs: 1, writeRC: true,
+			wantFpath: 1, wantCompinit: 1},
+		{name: "fpath from an earlier install gains compinit",
+			zshrc: rcMarker + "\n" + fpath + "\n", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompinit: 1},
+		{name: "both present skips the prompt",
+			zshrc: fpath + "\n" + compinit + "\n", runs: 1,
+			wantFpath: 1, wantCompinit: 1, wantOut: []string{already}},
 	}
-	data, _ := os.ReadFile(zshrcPath(home))
-	got := strings.Count(string(data),
-		"fpath=(~/.zsh/completions $fpath)")
-	if got != 1 {
-		t.Errorf("fpath line appears %d times, want 1", got)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			if tc.zshrc != "" {
+				if err := os.WriteFile(zshrcPath(home),
+					[]byte(tc.zshrc), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var out, in bytes.Buffer
+			cmd := installCmd(t, &out, &in)
+			for i := 0; i < tc.runs; i++ {
+				out.Reset()
+				// isTTY=true with empty stdin: a prompt would print
+				// "[y/N]" and read a decline.
+				if err := runCompletionInstallWith(
+					cmd, "zsh", true, tc.writeRC, false, true); err != nil {
+					t.Fatalf("install %d: %v", i, err)
+				}
+			}
+			data, _ := os.ReadFile(zshrcPath(home))
+			rc := string(data)
+			if got := strings.Count(rc, fpath); got != tc.wantFpath {
+				t.Errorf("fpath line appears %d times, want %d:\n%s",
+					got, tc.wantFpath, rc)
+			}
+			if got := strings.Count(rc, compinit); got != tc.wantCompinit {
+				t.Errorf("compinit line appears %d times, want %d:\n%s",
+					got, tc.wantCompinit, rc)
+			}
+			if tc.wantFpath == 1 && tc.wantCompinit == 1 &&
+				strings.Index(rc, compinit) < strings.Index(rc, fpath) {
+				t.Errorf("compinit must follow the fpath line:\n%s", rc)
+			}
+			for _, w := range tc.wantOut {
+				if !strings.Contains(out.String(), w) {
+					t.Errorf("last run's output missing %q:\n%s",
+						w, out.String())
+				}
+			}
+			if strings.Contains(out.String(), "[y/N]") && tc.writeRC {
+				t.Errorf("--write-rc must not prompt:\n%s", out.String())
+			}
+			if strings.Contains(out.String(), already) &&
+				strings.Contains(out.String(), "[y/N]") {
+				t.Errorf("already-configured run prompted:\n%s",
+					out.String())
+			}
+		})
 	}
 }
 
@@ -395,27 +467,8 @@ func TestZshInteractiveDeclineLeavesRCUnchanged(t *testing.T) {
 	if _, err := os.Stat(zshrcPath(home)); err == nil {
 		t.Error("~/.zshrc should not have been created on decline")
 	}
-	if !strings.Contains(out.String(), "add the line above") {
+	if !strings.Contains(out.String(), "add the lines above") {
 		t.Errorf("expected DIY hint, got %q", out.String())
-	}
-}
-
-func TestZshAlreadyConfiguredSkipsPrompt(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.WriteFile(zshrcPath(home),
-		[]byte("fpath=(~/.zsh/completions $fpath)\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var out, in bytes.Buffer
-	cmd := installCmd(t, &out, &in)
-	if err := runCompletionInstallWith(
-		cmd, "zsh", false, false, false, true); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	if !strings.Contains(out.String(), "already") {
-		t.Errorf("expected 'already configured' note, got %q",
-			out.String())
 	}
 }
 

@@ -138,8 +138,8 @@ Example:
 		"Skip the prompt: overwrite a script, or append the "+
 			"--rc-only line")
 	cmd.Flags().BoolVar(&writeRC, "write-rc", false,
-		"Append the zsh fpath, PowerShell profile or --rc-only "+
-			"loader line without prompting")
+		"Append the zsh fpath and compinit lines, the PowerShell "+
+			"profile line or the --rc-only loader line without prompting")
 	cmd.Flags().BoolVar(&rcOnly, "rc-only", false,
 		"Add the one-line loader to your shell startup file and "+
 			"write no script")
@@ -594,8 +594,12 @@ func installBashCompletion(
 	fmt.Fprintf(cmd.OutOrStdout(),
 		"Detected shell: bash\n"+
 			"Wrote completion script to %s\n\n"+
-			"bash-completion loads this automatically. Restart your "+
-			"shell\n(or run: exec bash) to enable it.\n",
+			"The script loads only where the bash-completion package "+
+			"is installed\nand loaded. In a new bash shell, "+
+			"'declare -F _get_comp_words_by_ref'\nprints that name "+
+			"when it is. If it prints nothing, install\n"+
+			"bash-completion and load it from your bash startup "+
+			"file.\n",
 		displayPath(path, home))
 	return nil
 }
@@ -624,9 +628,9 @@ func installFishCompletion(
 	return nil
 }
 
-// installZshCompletion writes the script, always prints the fpath
-// instruction, and optionally appends the fpath line to ~/.zshrc (on
-// a TTY when confirmed, or unconditionally with --write-rc). The
+// installZshCompletion writes the script, prints whichever of the
+// fpath and compinit lines ~/.zshrc lacks, and optionally appends them
+// (on a TTY when confirmed, or unconditionally with --write-rc). The
 // append is idempotent.
 func installZshCompletion(
 	cmd *cobra.Command, force, writeRC, isTTY bool,
@@ -647,46 +651,80 @@ func installZshCompletion(
 		displayPath(path, home))
 
 	rcPath := filepath.Join(home, ".zshrc")
-	const fpathLine = "fpath=(~/.zsh/completions $fpath)"
-
-	already, err := fileContainsLine(rcPath, fpathLine)
+	hasFpath, err := fileContainsLine(rcPath, zshFpathLine)
 	if err != nil {
 		return err
 	}
-	if already {
+	// Stock zsh on Debian runs no compinit, and without it nothing on
+	// $fpath is registered.
+	hasCompinit, err := fileMentionsCompinit(rcPath)
+	if err != nil {
+		return err
+	}
+	var missing []string
+	if !hasFpath {
+		missing = append(missing, zshFpathLine)
+	}
+	if !hasCompinit {
+		missing = append(missing, zshCompinitLine)
+	}
+	if len(missing) == 0 {
 		fmt.Fprint(out,
-			"~/.zshrc already sources ~/.zsh/completions.\n"+
-				"Restart your shell (or run: exec zsh) to enable "+
-				"completion.\n")
+			"~/.zshrc already has the fpath line for "+
+				"~/.zsh/completions and a\ncompinit line. Restart your "+
+				"shell (or run: exec zsh).\n")
 		return nil
 	}
 
 	// Always print the self-contained instruction.
 	fmt.Fprintf(out,
-		"zsh only loads completions from directories listed in "+
-			"$fpath,\nand ~/.zsh/completions is not one of them yet. "+
-			"To enable\ncompletion, add this line to ~/.zshrc:\n\n"+
-			"    %s\n\nThen restart your shell (or run: exec zsh).\n",
-		fpathLine)
+		"zsh loads completions from the directories in $fpath once "+
+			"compinit\nruns. To enable completion, add to ~/.zshrc:"+
+			"\n\n    %s\n\nThen restart your shell (or run: exec zsh).\n",
+		strings.Join(missing, "\n    "))
 
 	doAppend := writeRC
 	if !writeRC {
 		doAppend = confirmPrompt(cmd,
-			"Want me to add that line to ~/.zshrc for you now?", isTTY)
+			"Want me to add that to ~/.zshrc for you now?", isTTY)
 	}
 	if !doAppend {
 		fmt.Fprint(out,
-			"Left ~/.zshrc unchanged — add the line above when "+
+			"Left ~/.zshrc unchanged — add the lines above when "+
 				"you're ready.\n")
 		return nil
 	}
-	if err := appendRCLine(rcPath, fpathLine); err != nil {
+	if err := appendRCLine(rcPath, missing...); err != nil {
 		return err
 	}
 	fmt.Fprint(out,
-		"Added the fpath line to ~/.zshrc. Restart your shell "+
+		"Added the lines above to ~/.zshrc. Restart your shell "+
 			"(or run: exec zsh).\n")
 	return nil
+}
+
+const (
+	zshFpathLine    = "fpath=(~/.zsh/completions $fpath)"
+	zshCompinitLine = "autoload -Uz compinit && compinit"
+)
+
+// fileMentionsCompinit reports whether an uncommented line of path
+// mentions compinit. A missing file reports false.
+func fileMentionsCompinit(path string) (bool, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // G304: fixed, home-relative rc path
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", path, err)
+	}
+	for _, l := range strings.Split(string(data), "\n") {
+		l = strings.TrimSpace(l)
+		if !strings.HasPrefix(l, "#") && strings.Contains(l, "compinit") {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // pwshScriptName is the completion script written next to the
@@ -782,9 +820,9 @@ func fileContainsLine(path, line string) (bool, error) {
 // own comment away with the line it introduces.
 const rcMarker = "# Added by 'pgedge completion install'"
 
-// appendRCLine appends line to path (creating it, and its directory,
-// if needed) with a marker comment.
-func appendRCLine(path, line string) error {
+// appendRCLine appends lines to path (creating it, and its directory,
+// if needed) under one marker comment.
+func appendRCLine(path string, lines ...string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
 	}
@@ -794,7 +832,7 @@ func appendRCLine(path, line string) error {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
 	if _, err := fmt.Fprintf(f, "\n%s\n%s\n",
-		rcMarker, line); err != nil {
+		rcMarker, strings.Join(lines, "\n")); err != nil {
 		_ = f.Close()
 		return fmt.Errorf("write %s: %w", path, err)
 	}

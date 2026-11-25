@@ -10,6 +10,7 @@ See README.md for the arms, what each control proves and the safety rules.
 
 import argparse
 import base64
+import contextlib
 import concurrent.futures as cf
 import datetime as dt
 import hashlib
@@ -1459,6 +1460,21 @@ def kill_group(p):
         pass
 
 
+def drain(p, wait=30):
+    """What a killed run printed. A helper that left the process group
+    can hold the pipe open for ever (a Codex run hung 2.5 h this way),
+    so stop waiting and keep what was read."""
+    try:
+        return p.communicate(timeout=wait)[0]
+    except subprocess.TimeoutExpired as e:
+        for f in (p.stdout, p.stderr):
+            with contextlib.suppress(OSError):
+                f.close()
+        out = e.output or ""
+        # Bytes even in text mode, per the subprocess docs.
+        return out.decode(errors="replace") if isinstance(out, bytes) else out
+
+
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
     if hasattr(h, "start"):
         h.start(run)
@@ -1479,8 +1495,7 @@ def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
             rc = p.returncode
         except subprocess.TimeoutExpired:
             kill_group(p)
-            out, _ = p.communicate()
-            err, rc = "timeout", -1
+            out, err, rc = drain(p), "timeout", -1
         finally:
             with ACTIVE_LOCK:
                 ACTIVE.discard(p)

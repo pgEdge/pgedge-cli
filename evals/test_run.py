@@ -72,12 +72,25 @@ class Drain(unittest.TestCase):
             [sys.executable, "-c", child],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, start_new_session=True)
-        time.sleep(1)
+        # Kill only once the helper exists, or the pipe closes anyway.
+        r = threading.Thread(target=p.stdout.readline, daemon=True)
+        r.start()
+        r.join(10)
+        self.assertFalse(r.is_alive(), "the child never started")
         run.kill_group(p)
-        t = threading.Thread(target=run.drain, args=(p, 1), daemon=True)
+        got = []
+        t = threading.Thread(target=lambda: got.append(run.drain(p, 1)),
+                             daemon=True)
         t.start()
         t.join(10)
         self.assertFalse(t.is_alive(), "drain waited on the held pipe")
+        self.assertIsInstance(got[0], str)
+
+    def test_a_timed_out_drain_keeps_what_was_read(self):
+        p = mock.Mock()
+        p.communicate.side_effect = subprocess.TimeoutExpired(
+            "agent", 1, output=b"partial")
+        self.assertEqual(run.drain(p, 1), "partial")
 
 
 class Scorecard(unittest.TestCase):

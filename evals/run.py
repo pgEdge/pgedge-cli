@@ -1466,11 +1466,13 @@ def drain(p, wait=30):
     so stop waiting and keep what was read."""
     try:
         return p.communicate(timeout=wait)[0]
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         for f in (p.stdout, p.stderr):
             with contextlib.suppress(OSError):
                 f.close()
-        return ""
+        out = e.output or ""
+        # Bytes even in text mode, per the subprocess docs.
+        return out.decode(errors="replace") if isinstance(out, bytes) else out
 
 
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):

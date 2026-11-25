@@ -1459,6 +1459,21 @@ def kill_group(p):
         pass
 
 
+def drain(p, wait=30):
+    """What a killed run printed. A helper that left the process group
+    can hold the pipe open for ever (a Codex run hung 2.5 h this way),
+    so stop waiting and keep what was read."""
+    try:
+        return p.communicate(timeout=wait)[0]
+    except subprocess.TimeoutExpired:
+        for f in (p.stdout, p.stderr):
+            try:
+                f.close()
+            except OSError:
+                pass
+        return ""
+
+
 def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
     if hasattr(h, "start"):
         h.start(run)
@@ -1479,8 +1494,7 @@ def run_agent(h, run, prompt, secrets, creds, max_turns=MAX_TURNS):
             rc = p.returncode
         except subprocess.TimeoutExpired:
             kill_group(p)
-            out, _ = p.communicate()
-            err, rc = "timeout", -1
+            out, err, rc = drain(p), "timeout", -1
         finally:
             with ACTIVE_LOCK:
                 ACTIVE.discard(p)

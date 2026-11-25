@@ -57,6 +57,26 @@ class ProfileBlock(unittest.TestCase):
             self.read("profiles:\n  other:\n    x: 1\n")
 
 
+class Drain(unittest.TestCase):
+    def test_a_helper_holding_the_pipe_does_not_hang_the_run(self):
+        import subprocess
+        import sys
+        import threading
+        import time
+        child = ("import subprocess,sys,time;"
+                 "subprocess.Popen(['sleep','60'],start_new_session=True);"
+                 "print('partial',flush=True);time.sleep(60)")
+        p = subprocess.Popen([sys.executable, "-c", child],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, start_new_session=True)
+        time.sleep(1)
+        run.kill_group(p)
+        t = threading.Thread(target=run.drain, args=(p, 1), daemon=True)
+        t.start()
+        t.join(10)
+        self.assertFalse(t.is_alive(), "drain waited on the held pipe")
+
+
 class Scorecard(unittest.TestCase):
     def krs(self, rows, planned):
         return run.kr_verdicts(run.scorecard(rows, planned))

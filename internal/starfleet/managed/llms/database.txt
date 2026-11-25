@@ -55,8 +55,9 @@ stderr and exits 0, and `-o json` prints `[]`.
 
 Text output prints the table on stdout and a count line on stderr:
 `1 database` or `N databases`. If you read fewer rows than the count
-line states, your tool cut the output: re-run with `--name` or
-`-o json`.
+line states, your tool cut the output. To find one database, re-run
+with `--name`. To read the whole list, read it in smaller pages with
+`--limit` and `--offset`.
 
 This endpoint applies no default page. Omitting `--limit` reads every
 database in the account, so an unbounded list cannot have been truncated

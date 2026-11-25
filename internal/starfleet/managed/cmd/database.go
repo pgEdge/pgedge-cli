@@ -168,6 +168,7 @@ Example:
 func newDatabaseListCmd(rt *module.Runtime) *cobra.Command {
 	var (
 		region     string
+		name       string
 		limit      int
 		offset     int
 		descending bool
@@ -181,11 +182,34 @@ Use it to find a database's ID before running get, update, resize or
 delete. Filter with --region, and page through large accounts with
 --limit and --offset.
 
+Pass --name to find one database by its exact name. It reads every
+page itself, so it cannot be combined with --limit or --offset, and it
+combines with --region. A name that matches nothing prints "No
+databases found." on stderr and exits 0.
+
+Text output ends with a count line on stderr, such as "3 databases".
+Stdout carries only the table.
+
 Example:
   pgedge starfleet managed database list
+  pgedge starfleet managed database list --name mydb
   pgedge starfleet managed database list --region us-east-1 -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			byName := cmd.Flags().Changed("name")
+			if byName {
+				if name == "" {
+					return &cli.UsageError{Msg: "--name given an " +
+						"empty value: name a database, or omit the " +
+						"flag to list every database"}
+				}
+				if cmd.Flags().Changed("limit") ||
+					cmd.Flags().Changed("offset") {
+					return &cli.UsageError{Msg: "--name reads every " +
+						"page itself, so it cannot be combined with " +
+						"--limit or --offset"}
+				}
+			}
 			// databaseLimitMax, not the module's own idea of a page:
 			// /managed/v1/databases declares {min 1, max 1000} while
 			// /managed/v1/backups declares {min 1, max 100} for the
@@ -206,7 +230,7 @@ Example:
 				return err
 			}
 
-			params := &api.ListManagedDatabasesParams{}
+			params := api.ListManagedDatabasesParams{}
 			if region != "" {
 				params.Region = &region
 			}
@@ -220,41 +244,47 @@ Example:
 				params.Descending = &descending
 			}
 
-			resp, err := client.ListManagedDatabasesWithResponse(
-				context.Background(), params)
-			if err != nil {
-				return fmt.Errorf("list databases: %w", err)
+			var databases []api.ManagedDatabase
+			if byName {
+				databases, err = findDatabasesByName(client, params, name)
+			} else {
+				databases, err = listDatabasePage(client, params)
 			}
-			if err := checkResponse(resp.StatusCode(),
-				string(resp.Body)); err != nil {
+			if err != nil {
 				return err
 			}
 
 			if rt.Output.Structured() {
-				return rt.Output.Print(resp.JSON200, nil)
+				return rt.Output.Print(databases, nil)
 			}
 
-			databases := resp.JSON200
-			if databases == nil || len(*databases) == 0 {
+			if len(databases) == 0 {
 				fmt.Fprintln(rt.Stderr, "No databases found.")
 				return nil
 			}
 
-			rows := make([]output.Row, 0, len(*databases))
-			for _, d := range *databases {
+			rows := make([]output.Row, 0, len(databases))
+			for _, d := range databases {
 				rows = append(rows, databaseRowFrom(d))
 			}
 			if err := rt.Output.Print(rows, databaseColumns); err != nil {
 				return err
 			}
+			if len(databases) == 1 {
+				fmt.Fprintln(rt.Stderr, "1 database")
+			} else {
+				fmt.Fprintf(rt.Stderr, "%d databases\n", len(databases))
+			}
 			cli.PrintTruncationHint(
-				rt, len(*databases), limit, databasePageDefaults,
+				rt, len(databases), limit, databasePageDefaults,
 				"results")
 			return nil
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&region, "region", "", "Filter by region")
+	f.StringVar(&name, "name", "",
+		"Show only the database with this exact name")
 	f.IntVar(&limit, "limit", 0,
 		fmt.Sprintf("Maximum number of results to return (%d-%d)",
 			cli.LimitLowest, databaseLimitMax))
@@ -263,6 +293,54 @@ Example:
 	f.BoolVar(&descending, "descending", false,
 		"Sort in descending order")
 	return cmd
+}
+
+// listDatabasePage never returns nil, so structured output of an empty
+// result is [] rather than null.
+func listDatabasePage(
+	client *api.ClientWithResponses, params api.ListManagedDatabasesParams,
+) ([]api.ManagedDatabase, error) {
+	resp, err := client.ListManagedDatabasesWithResponse(
+		context.Background(), &params)
+	if err != nil {
+		return nil, fmt.Errorf("list databases: %w", err)
+	}
+	if err := checkResponse(resp.StatusCode(),
+		string(resp.Body)); err != nil {
+		return nil, err
+	}
+	if resp.JSON200 == nil {
+		return []api.ManagedDatabase{}, nil
+	}
+	return *resp.JSON200, nil
+}
+
+// findDatabasesByName filters on the client because the API takes no
+// name parameter, reading full pages until a short one ends the list.
+func findDatabasesByName(
+	client *api.ClientWithResponses, params api.ListManagedDatabasesParams,
+	name string,
+) ([]api.ManagedDatabase, error) {
+	matches := []api.ManagedDatabase{}
+	pageSize := databaseLimitMax
+	params.Limit = &pageSize
+	offset := 0
+	for {
+		params.Offset = &offset
+		page, err := listDatabasePage(client, params)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range page {
+			if d.Name == name {
+				matches = append(matches, d)
+			}
+		}
+		if len(page) < pageSize {
+			return matches, nil
+		}
+		offset += len(page)
+	}
 }
 
 // --- get ---

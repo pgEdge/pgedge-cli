@@ -683,6 +683,7 @@ List managed databases
 |------|----------|---------|-------------|
 | `--descending` | No |  | Sort in descending order |
 | `--limit int` | No |  | Maximum number of results to return (1-1000) |
+| `--name string` | No |  | Show only the database with this exact name |
 | `--offset int` | No |  | Offset into the results for pagination |
 | `--region string` | No |  | Filter by region |
 
@@ -690,6 +691,7 @@ List managed databases
 
 ```
 pgedge starfleet managed database list
+pgedge starfleet managed database list --name mydb
 pgedge starfleet managed database list --region us-east-1 -o json
 ```
 

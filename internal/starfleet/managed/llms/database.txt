@@ -35,6 +35,7 @@ List managed databases
 |------|----------|---------|-------------|
 | `--descending` | No |  | Sort in descending order |
 | `--limit int` | No |  | Maximum number of results to return (1-1000) |
+| `--name string` | No |  | Show only the database with this exact name |
 | `--offset int` | No |  | Offset into the results for pagination |
 | `--region string` | No |  | Filter by region |
 
@@ -45,6 +46,16 @@ List managed databases
 List the managed databases in the active account. This is how you find
 the ID every other command takes. Filter with `--region`, page with
 `--limit` and `--offset`, and choose the format with the global `-o`.
+
+To find a database by name, pass `--name <name>`. It matches the exact
+name, reads every page itself, and combines with `--region`.
+`--name` with `--limit` or `--offset` is exit status 2 with nothing
+sent. A name that matches nothing prints `No databases found.` on
+stderr and exits 0, and `-o json` prints `[]`.
+
+Text output prints the table on stdout and a count line such as
+`3 databases` on stderr. Compare the count with the rows you read to
+tell whether any were cut from the output.
 
 This endpoint applies no default page. Omitting `--limit` reads every
 database in the account, so an unbounded list cannot have been truncated
@@ -60,6 +71,7 @@ configuration or an allowlist from one.
 
 ```bash
 pgedge starfleet managed database list
+pgedge starfleet managed database list --name mydb -o json
 pgedge starfleet managed database list --region us-east-1 --limit 20 -o json
 ```
 

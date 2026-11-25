@@ -4,7 +4,11 @@ python3 -m unittest discover -s evals
 """
 
 import json
+import subprocess  # nosec B404
+import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -59,12 +63,9 @@ class ProfileBlock(unittest.TestCase):
 
 class Drain(unittest.TestCase):
     def test_a_helper_holding_the_pipe_does_not_hang_the_run(self):
-        import subprocess
-        import sys
-        import threading
-        import time
         child = ("import subprocess,sys,time;"
-                 "subprocess.Popen(['sleep','60'],start_new_session=True);"
+                 "subprocess.Popen([sys.executable,'-c','import time;"
+                 "time.sleep(60)'],start_new_session=True);"
                  "print('partial',flush=True);time.sleep(60)")
         p = subprocess.Popen([sys.executable, "-c", child],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,

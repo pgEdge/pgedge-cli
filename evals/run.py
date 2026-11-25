@@ -10,6 +10,7 @@ See README.md for the arms, what each control proves and the safety rules.
 
 import argparse
 import base64
+import contextlib
 import concurrent.futures as cf
 import datetime as dt
 import hashlib
@@ -1467,10 +1468,8 @@ def drain(p, wait=30):
         return p.communicate(timeout=wait)[0]
     except subprocess.TimeoutExpired:
         for f in (p.stdout, p.stderr):
-            try:
+            with contextlib.suppress(OSError):
                 f.close()
-            except OSError:
-                pass
         return ""
 
 

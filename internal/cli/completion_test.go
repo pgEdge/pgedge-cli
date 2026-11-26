@@ -1041,22 +1041,45 @@ func TestZshInstallRefusesAnOpenCompletionDir(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("no group or world write bits on Windows")
 	}
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	dir, path := completionScriptPath(home, "zsh")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
+	cases := []struct {
+		name     string
+		makeLeaf bool
+		open     func(dir string) string
+		want     string
+	}{
+		{name: "open leaf", makeLeaf: true,
+			open: func(dir string) string { return dir },
+			want: "chmod go-w ~/.zsh/completions'"},
+		{name: "open parent", makeLeaf: true,
+			open: filepath.Dir, want: "chmod go-w ~/.zsh'"},
+		{name: "open parent, no leaf yet",
+			open: filepath.Dir, want: "chmod go-w ~/.zsh'"},
 	}
-	if err := os.Chmod(dir, 0o777); err != nil { // #nosec G302 -- the open dir is the case under test
-		t.Fatal(err)
-	}
-	var out, in bytes.Buffer
-	err := runCompletionInstallWith(
-		installCmd(t, &out, &in), "zsh", true, true, false, true)
-	if err == nil || !strings.Contains(err.Error(), "chmod go-w") {
-		t.Fatalf("want a chmod go-w error, got %v", err)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
-		t.Errorf("_pgedge was written into the open directory: %v", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			dir, path := completionScriptPath(home, "zsh")
+			if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if tc.makeLeaf {
+				if err := os.Mkdir(dir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Chmod(tc.open(dir), 0o777); err != nil { // #nosec G302 -- the open dir is the case under test
+				t.Fatal(err)
+			}
+			var out, in bytes.Buffer
+			err := runCompletionInstallWith(
+				installCmd(t, &out, &in), "zsh", true, true, false, true)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want an error naming %q, got %v", tc.want, err)
+			}
+			if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("_pgedge was written: %v", err)
+			}
+		})
 	}
 }

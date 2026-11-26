@@ -720,24 +720,27 @@ const (
 		"else autoload -Uz compinit && compinit -i; fi"
 )
 
-// checkZshDirPrivate refuses a completion directory other users can
-// write to. The compdef branch of zshCompdefLine autoloads _pgedge
-// without compinit's audit, so a planted _pgedge would run.
+// checkZshDirPrivate refuses a completion directory, or its parent,
+// that other users can write to: compaudit's rule. The compdef branch
+// of zshCompdefLine autoloads _pgedge without compinit's audit, so a
+// planted _pgedge would run.
 func checkZshDirPrivate(dir, home string) error {
 	if runtime.GOOS == "windows" {
 		return nil
 	}
-	info, err := os.Stat(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("check completion directory: %w", err)
-	}
-	if info.Mode().Perm()&0o022 != 0 {
-		return fmt.Errorf("%s is writable by other users, so they "+
-			"could replace _pgedge; run 'chmod go-w %s' and re-run",
-			displayPath(dir, home), displayPath(dir, home))
+	for _, d := range []string{filepath.Dir(dir), dir} {
+		info, err := os.Stat(d)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("check completion directory: %w", err)
+		}
+		if info.Mode().Perm()&0o022 != 0 {
+			return fmt.Errorf("%s is writable by other users, so they "+
+				"could replace _pgedge; run 'chmod go-w %s' and re-run",
+				displayPath(d, home), displayPath(d, home))
+		}
 	}
 	return nil
 }

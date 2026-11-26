@@ -396,13 +396,13 @@ jobs:
           owner: pgEdge
           repositories: homebrew-tap
           permission-contents: write
-      # The cask write is a direct push, which only an "always" bypass
-      # lets past a rule that blocks pushes.
+      # The cask write is a direct push, which only an "always" or
+      # "exempt" bypass lets past a rule that blocks pushes.
       - name: The tap app can bypass the rulesets on main
         env:
           GH_TOKEN: ${{ steps.tap.outputs.token }}
         run: |
-          ids=$(gh api repos/pgEdge/homebrew-tap/rules/branches/main \
+          ids=$(gh api --paginate repos/pgEdge/homebrew-tap/rules/branches/main \
             --jq '[.[] | select(.type != "deletion" and .type != "non_fast_forward") | .ruleset_id] | unique | .[]')
           fail=0
           for id in $ids; do
@@ -410,7 +410,7 @@ jobs:
               --jq '"\(.current_user_can_bypass) \(.name)"')
             echo "$r"
             case "$r" in
-              always\ *) ;;
+              always\ *|exempt\ *) ;;
               *) echo "::error::the tap app cannot always bypass: $r"; fail=1 ;;
             esac
           done

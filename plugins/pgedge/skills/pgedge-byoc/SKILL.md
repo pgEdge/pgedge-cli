@@ -22,20 +22,10 @@ rules an agent must not miss. The pages carry the detail.
 ## If the CLI is missing
 
 Every step below runs `pgedge`. If `command -v pgedge` finds nothing,
-tell the user you are installing it, then install it before anything
-else. Where Homebrew is present:
-
-```bash
-brew install pgEdge/tap/pgedge
-```
-
-Otherwise, on Linux or macOS, run the install script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
-```
-
-On Windows, or if both fail, stop and send the user to
+tell the user you are installing it, then fetch
+https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md
+with curl and follow it before anything else. If the fetch fails or
+its steps cannot install it, send the user to
 https://github.com/pgEdge/pgedge-cli/releases for a release archive.
 
 ## Read the reference first
@@ -69,8 +59,9 @@ pgedge starfleet doctor
 tenant, and the tenant's plan decides which byoc verbs work.
 
 A database the user names without saying BYOC may be managed, so
-look the name up in both `database list` and `pgedge starfleet managed
-database list`, paging each with `--limit` and `--offset` to its end.
+look the name up in both lists. Page `database list` with `--limit`
+and `--offset` to its end, and run `pgedge starfleet managed database
+list --name <name>`, which reads every page itself.
 If only the managed list holds it, switch to the pgedge-managed skill.
 If both lists hold it, or neither does, ask the user.
 

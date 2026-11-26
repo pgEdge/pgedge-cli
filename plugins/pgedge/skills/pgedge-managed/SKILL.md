@@ -25,20 +25,10 @@ rules an agent must not miss. The pages carry the detail.
 ## If the CLI is missing
 
 Every step below runs `pgedge`. If `command -v pgedge` finds nothing,
-tell the user you are installing it, then install it before anything
-else. Where Homebrew is present:
-
-```bash
-brew install pgEdge/tap/pgedge
-```
-
-Otherwise, on Linux or macOS, run the install script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
-```
-
-On Windows, or if both fail, stop and send the user to
+tell the user you are installing it, then fetch
+https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md
+with curl and follow it before anything else. If the fetch fails or
+its steps cannot install it, send the user to
 https://github.com/pgEdge/pgedge-cli/releases for a release archive.
 
 ## Read the reference first
@@ -71,8 +61,9 @@ tenant, so a database name means different databases under different
 profiles. Identify a database by its UUID, never by its name.
 
 A database the user names without saying Managed may be a BYOC one,
-so look the name up in both `database list` and `pgedge starfleet byoc
-database list`, paging each with `--limit` and `--offset` to its end.
+so look the name up in both lists. Run `database list --name <name>`,
+which reads every page itself, and `pgedge starfleet byoc database
+list`, paging with `--limit` and `--offset` to its end.
 If only the BYOC list holds it, switch to the pgedge-byoc skill. If
 both lists hold it, or neither does, ask the user.
 

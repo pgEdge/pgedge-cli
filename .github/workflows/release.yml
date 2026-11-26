@@ -81,17 +81,21 @@ jobs:
       - uses: Homebrew/actions/setup-homebrew@ceec4e8419bb3c97ce96e9dda7738499ed5f869d # main
       - name: Check the cask with brew style
         run: brew style dist/tap/Casks/pgedge.rb
-      # A PAT with write access to pgEdge/homebrew-tap. Unset, the
-      # release still succeeds and the tap keeps its previous cask.
+      # This app is a bypass actor on the rulesets for the tap's main.
+      - name: Get a token for homebrew-tap
+        id: tap-token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ secrets.HOMEBREW_TAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          owner: pgEdge
+          repositories: homebrew-tap
+          permission-contents: write
       - name: Push the cask to pgEdge/homebrew-tap
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ steps.tap-token.outputs.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::HOMEBREW_TAP_TOKEN is unset; the cask was not published"
-            exit 0
-          fi
           path=repos/pgEdge/homebrew-tap/contents/Casks/pgedge.rb
           sha=$(gh api "$path" --jq .sha)
           content=$(base64 -w0 dist/tap/Casks/pgedge.rb)

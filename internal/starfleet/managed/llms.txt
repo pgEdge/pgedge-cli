@@ -75,7 +75,7 @@ authentication failed.
 
 Every ID input takes a full UUID. An ID prefix or a database name is
 exit status 2 with nothing sent; run
-`database list` to map a name to its ID. An empty filter such as
+`database list --name <name>` to map a name to its ID. An empty filter such as
 `backup list --database-id ""` is exit status 2 too, so omit the flag
 to list across every subject.
 

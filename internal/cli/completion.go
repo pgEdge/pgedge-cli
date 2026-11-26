@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -639,6 +640,9 @@ func installZshCompletion(
 		return fmt.Errorf("resolve home directory: %w", err)
 	}
 	dir, path := completionScriptPath(home, "zsh")
+	if err := checkZshDirPrivate(dir, home); err != nil {
+		return err
+	}
 	if err := writeScriptFile(
 		cmd, "zsh", dir, path, force, isTTY); err != nil {
 		return err
@@ -715,6 +719,28 @@ const (
 		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
 		"else autoload -Uz compinit && compinit -i; fi"
 )
+
+// checkZshDirPrivate refuses a completion directory other users can
+// write to. The compdef branch of zshCompdefLine autoloads _pgedge
+// without compinit's audit, so a planted _pgedge would run.
+func checkZshDirPrivate(dir, home string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	info, err := os.Stat(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check completion directory: %w", err)
+	}
+	if info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("%s is writable by other users, so they "+
+			"could replace _pgedge; run 'chmod go-w %s' and re-run",
+			displayPath(dir, home), displayPath(dir, home))
+	}
+	return nil
+}
 
 // pwshScriptName is the completion script written next to the
 // PowerShell profile; the profile dot-sources it by absolute path.

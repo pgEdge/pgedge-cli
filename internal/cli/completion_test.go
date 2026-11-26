@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -424,34 +426,40 @@ func TestZshRCLines(t *testing.T) {
 				}
 			}
 			data, _ := os.ReadFile(zshrcPath(home))
-			rc := string(data)
-			if got := strings.Count(rc, fpath); got != tc.wantFpath {
-				t.Errorf("fpath line appears %d times, want %d:\n%s",
-					got, tc.wantFpath, rc)
-			}
-			if got := strings.Count(rc, compdef); got != tc.wantCompdef {
-				t.Errorf("compdef line appears %d times, want %d:\n%s",
-					got, tc.wantCompdef, rc)
-			}
-			if strings.LastIndex(rc, compdef) < strings.Index(rc, fpath) {
-				t.Errorf("a compdef line must follow the fpath line:\n%s",
-					rc)
-			}
-			for _, w := range tc.wantOut {
-				if !strings.Contains(out.String(), w) {
-					t.Errorf("last run's output missing %q:\n%s",
-						w, out.String())
-				}
-			}
-			if strings.Contains(out.String(), "[y/N]") && tc.writeRC {
-				t.Errorf("--write-rc must not prompt:\n%s", out.String())
-			}
-			if strings.Contains(out.String(), already) &&
-				strings.Contains(out.String(), "[y/N]") {
-				t.Errorf("already-configured run prompted:\n%s",
-					out.String())
-			}
+			checkZshRC(t, string(data), out.String(), tc.wantFpath,
+				tc.wantCompdef, tc.writeRC, tc.wantOut)
 		})
+	}
+}
+
+// checkZshRC asserts the line counts and order in ~/.zshrc and that
+// the last run's output did not prompt when it should not have.
+func checkZshRC(t *testing.T, rc, out string, wantFpath, wantCompdef int,
+	writeRC bool, wantOut []string) {
+	t.Helper()
+	fpath, compdef := zshFpathLine, zshCompdefLine
+	if got := strings.Count(rc, fpath); got != wantFpath {
+		t.Errorf("fpath line appears %d times, want %d:\n%s",
+			got, wantFpath, rc)
+	}
+	if got := strings.Count(rc, compdef); got != wantCompdef {
+		t.Errorf("compdef line appears %d times, want %d:\n%s",
+			got, wantCompdef, rc)
+	}
+	if strings.LastIndex(rc, compdef) < strings.Index(rc, fpath) {
+		t.Errorf("a compdef line must follow the fpath line:\n%s", rc)
+	}
+	for _, w := range wantOut {
+		if !strings.Contains(out, w) {
+			t.Errorf("last run's output missing %q:\n%s", w, out)
+		}
+	}
+	prompted := strings.Contains(out, "[y/N]")
+	if prompted && writeRC {
+		t.Errorf("--write-rc must not prompt:\n%s", out)
+	}
+	if prompted && strings.Contains(out, "already has the fpath line") {
+		t.Errorf("already-configured run prompted:\n%s", out)
 	}
 }
 
@@ -500,7 +508,8 @@ func TestZshGuardRegistersInZsh(t *testing.T) {
 			defer cancel()
 			// -d skips the global rc files, which differ by platform
 			// and on some run compinit themselves.
-			out, err := exec.CommandContext(ctx, zsh, "-d", "-i", "-c",
+			// zsh comes from LookPath and every argument is fixed.
+			out, err := exec.CommandContext(ctx, zsh, "-d", "-i", "-c", // #nosec G204 // nosemgrep
 				`print -r -- "${_comps[pgedge]}|${compprefuncs[*]}"`).Output()
 			if err != nil {
 				t.Fatalf("zsh: %v", err)
@@ -1025,5 +1034,29 @@ func TestUninstallRemovesPowershellScript(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "dot-source line") {
 		t.Errorf("expected profile-line reminder, got %q", out.String())
+	}
+}
+
+func TestZshInstallRefusesAnOpenCompletionDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no group or world write bits on Windows")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir, path := completionScriptPath(home, "zsh")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o777); err != nil { // #nosec G302 -- the open dir is the case under test
+		t.Fatal(err)
+	}
+	var out, in bytes.Buffer
+	err := runCompletionInstallWith(
+		installCmd(t, &out, &in), "zsh", true, true, false, true)
+	if err == nil || !strings.Contains(err.Error(), "chmod go-w") {
+		t.Fatalf("want a chmod go-w error, got %v", err)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("_pgedge was written into the open directory: %v", err)
 	}
 }

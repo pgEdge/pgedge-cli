@@ -388,6 +388,7 @@ jobs:
       # Minting is the check: it fails unless the app is installed on
       # the tap with contents write.
       - name: The tap app is installed with contents write
+        id: tap
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ secrets.HOMEBREW_TAP_APP_CLIENT_ID }}
@@ -395,6 +396,25 @@ jobs:
           owner: pgEdge
           repositories: homebrew-tap
           permission-contents: write
+      # The cask write is a direct push, which only an "always" bypass
+      # lets past a rule that blocks pushes.
+      - name: The tap app can bypass the rulesets on main
+        env:
+          GH_TOKEN: ${{ steps.tap.outputs.token }}
+        run: |
+          ids=$(gh api repos/pgEdge/homebrew-tap/rules/branches/main \
+            --jq '[.[] | select(.type != "deletion" and .type != "non_fast_forward") | .ruleset_id] | unique | .[]')
+          fail=0
+          for id in $ids; do
+            r=$(gh api "repos/pgEdge/homebrew-tap/rulesets/$id" \
+              --jq '"\(.current_user_can_bypass) \(.name)"')
+            echo "$r"
+            case "$r" in
+              always\ *) ;;
+              *) echo "::error::the tap app cannot always bypass: $r"; fail=1 ;;
+            esac
+          done
+          exit "$fail"
 
   # Cross-compilation depends on the commit and nothing else, so this
   # no longer waits on the jobs above. Gating it behind them put the

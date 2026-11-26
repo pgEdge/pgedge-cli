@@ -387,7 +387,7 @@ jobs:
     steps:
       # Minting is the check: it fails unless the app is installed on
       # the tap with contents write.
-      - name: The tap app can write to pgEdge/homebrew-tap
+      - name: The tap app is installed with contents write
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ secrets.HOMEBREW_TAP_APP_CLIENT_ID }}

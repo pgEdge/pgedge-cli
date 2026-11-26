@@ -24,7 +24,9 @@ rules an agent must not miss. The pages carry the detail.
 Every step below runs `pgedge`. If `command -v pgedge` finds nothing,
 tell the user you are installing it, then fetch
 https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md
-with curl and follow it before anything else.
+with curl and follow it before anything else. If its steps cannot
+install it, send the user to
+https://github.com/pgEdge/pgedge-cli/releases for a release archive.
 
 ## Read the reference first
 

@@ -114,6 +114,10 @@ Otherwise, where `npm` is present, including on Windows:
 npm install -g @pgedge/cli@beta
 ```
 
+Then run `command -v pgedge` again. If it still finds nothing, use
+the binary in the directory that `npm prefix -g` prints: `bin/pgedge`
+on Linux and macOS, `pgedge.cmd` on Windows.
+
 Otherwise, fetch `INSTALL.md` from the root of the repository and
 follow it. Its steps are written for an agent: they install or update
 the CLI, enable shell completion and install these skills in one pass,

@@ -375,9 +375,9 @@ jobs:
           $skill = Join-Path $home2 '.agents\skills\pgedge\SKILL.md'
           if (-not (Test-Path $skill)) { throw "$skill was not written" }
 
-  # The release pushes the cask with this token, so an expired or
-  # revoked one fails here rather than at a tag. Dependabot and fork PRs
-  # get no secrets.
+  # The release pushes the cask with this app, so missing secrets or a
+  # lost installation fail here rather than at a tag. Dependabot and
+  # fork PRs get no secrets.
   tap-token:
     if: >-
       github.actor != 'dependabot[bot]' &&
@@ -385,19 +385,16 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
-      - name: HOMEBREW_TAP_TOKEN can push to pgEdge/homebrew-tap
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::error::HOMEBREW_TAP_TOKEN is unset"
-            exit 1
-          fi
-          push=$(gh api repos/pgEdge/homebrew-tap --jq .permissions.push)
-          if [ "$push" != true ]; then
-            echo "::error::HOMEBREW_TAP_TOKEN cannot push to the tap"
-            exit 1
-          fi
+      # Minting is the check: it fails unless the app is installed on
+      # the tap with contents write.
+      - name: The tap app can write to pgEdge/homebrew-tap
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ secrets.HOMEBREW_TAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.HOMEBREW_TAP_APP_PRIVATE_KEY }}
+          owner: pgEdge
+          repositories: homebrew-tap
+          permission-contents: write
 
   # Cross-compilation depends on the commit and nothing else, so this
   # no longer waits on the jobs above. Gating it behind them put the

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -107,8 +109,23 @@ func TestInstallBashWritesScript(t *testing.T) {
 	if !strings.Contains(string(data), "__start_pgedge") {
 		t.Error("bash script missing marker")
 	}
-	if !strings.Contains(out.String(), "Detected shell: bash") {
-		t.Errorf("output missing detection line: %q", out.String())
+	for _, want := range []string{
+		"Detected shell: bash",
+		"only where bash-completion 2 is",
+		"'echo ${BASH_COMPLETION_VERSINFO[0]}' prints 2",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output missing %q: %q", want, out.String())
+		}
+	}
+	// bash-completion 1.x defines _get_comp_words_by_ref too but never
+	// loads the script from this directory.
+	for _, bad := range []string{
+		"loads this automatically", "_get_comp_words_by_ref",
+	} {
+		if strings.Contains(out.String(), bad) {
+			t.Errorf("output carries %q: %q", bad, out.String())
+		}
 	}
 }
 
@@ -354,25 +371,153 @@ func TestZshWriteRCAppendsLine(t *testing.T) {
 	}
 }
 
-func TestZshAppendIsIdempotent(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	var out, in bytes.Buffer
-	cmd := installCmd(t, &out, &in)
+func TestZshRCLines(t *testing.T) {
+	const fpath = "fpath=(~/.zsh/completions $fpath)"
+	const compdef = "if (( $+functions[compdef] )); then " +
+		"autoload -Uz _pgedge && compdef _pgedge pgedge; " +
+		"else autoload -Uz compinit && compinit -i; fi"
+	const already = "~/.zshrc already has the fpath line"
+	cases := []struct {
+		name        string
+		zshrc       string // "" writes no file
+		runs        int
+		writeRC     bool
+		wantFpath   int
+		wantCompdef int
+		wantOut     []string
+	}{
+		{name: "no zshrc gets both lines once", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompdef: 1,
+			wantOut: []string{fpath, compdef, "Added the lines above"}},
+		{name: "re-run appends nothing", runs: 2, writeRC: true,
+			wantFpath: 1, wantCompdef: 1, wantOut: []string{already}},
+		{name: "a compinit in zshrc still gets the compdef line",
+			zshrc: "autoload -U compinit; compinit -i\n", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompdef: 1},
+		{name: "fpath from an earlier install gains compdef",
+			zshrc: rcMarker + "\n" + fpath + "\n", runs: 1,
+			writeRC: true, wantFpath: 1, wantCompdef: 1},
+		{name: "compdef without fpath gets both below",
+			zshrc: compdef + "\n", runs: 1, writeRC: true,
+			wantFpath: 1, wantCompdef: 2},
+		{name: "both present skips the prompt",
+			zshrc: fpath + "\n" + compdef + "\n", runs: 1,
+			wantFpath: 1, wantCompdef: 1, wantOut: []string{already}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			if tc.zshrc != "" {
+				if err := os.WriteFile(zshrcPath(home),
+					[]byte(tc.zshrc), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var out, in bytes.Buffer
+			cmd := installCmd(t, &out, &in)
+			for i := 0; i < tc.runs; i++ {
+				out.Reset()
+				// isTTY=true with empty stdin: a prompt would print
+				// "[y/N]" and read a decline.
+				if err := runCompletionInstallWith(
+					cmd, "zsh", true, tc.writeRC, false, true); err != nil {
+					t.Fatalf("install %d: %v", i, err)
+				}
+			}
+			data, _ := os.ReadFile(zshrcPath(home))
+			checkZshRC(t, string(data), out.String(), tc.wantFpath,
+				tc.wantCompdef, tc.writeRC, tc.wantOut)
+		})
+	}
+}
 
-	for i := 0; i < 2; i++ {
-		// Use --force so the second run doesn't trip the overwrite
-		// guard, and --write-rc to append.
-		if err := runCompletionInstallWith(
-			cmd, "zsh", true, true, false, false); err != nil {
-			t.Fatalf("install %d: %v", i, err)
+// checkZshRC asserts the line counts and order in ~/.zshrc and that
+// the last run's output did not prompt when it should not have.
+func checkZshRC(t *testing.T, rc, out string, wantFpath, wantCompdef int,
+	writeRC bool, wantOut []string) {
+	t.Helper()
+	fpath, compdef := zshFpathLine, zshCompdefLine
+	if got := strings.Count(rc, fpath); got != wantFpath {
+		t.Errorf("fpath line appears %d times, want %d:\n%s",
+			got, wantFpath, rc)
+	}
+	if got := strings.Count(rc, compdef); got != wantCompdef {
+		t.Errorf("compdef line appears %d times, want %d:\n%s",
+			got, wantCompdef, rc)
+	}
+	if strings.LastIndex(rc, compdef) < strings.Index(rc, fpath) {
+		t.Errorf("a compdef line must follow the fpath line:\n%s", rc)
+	}
+	for _, w := range wantOut {
+		if !strings.Contains(out, w) {
+			t.Errorf("last run's output missing %q:\n%s", w, out)
 		}
 	}
-	data, _ := os.ReadFile(zshrcPath(home))
-	got := strings.Count(string(data),
-		"fpath=(~/.zsh/completions $fpath)")
-	if got != 1 {
-		t.Errorf("fpath line appears %d times, want 1", got)
+	prompted := strings.Contains(out, "[y/N]")
+	if prompted && writeRC {
+		t.Errorf("--write-rc must not prompt:\n%s", out)
+	}
+	if prompted && strings.Contains(out, "already has the fpath line") {
+		t.Errorf("already-configured run prompted:\n%s", out)
+	}
+}
+
+// TestZshGuardRegistersInZsh runs the appended lines in a real zsh. A
+// compprefuncs hook set by an earlier compinit must survive: a second
+// compinit clears it.
+func TestZshGuardRegistersInZsh(t *testing.T) {
+	zsh, err := exec.LookPath("zsh")
+	if err != nil {
+		t.Skip("zsh not on PATH")
+	}
+	cases := []struct {
+		name   string
+		before string
+		want   string
+	}{
+		{name: "no earlier compinit", want: "_pgedge|"},
+		{name: "compinit earlier with a hook",
+			before: "autoload -Uz compinit && compinit\n" +
+				"myhook() { : }\ncompprefuncs+=(myhook)\n",
+			want: "_pgedge|myhook"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("ZDOTDIR", home)
+			dir, path := completionScriptPath(home, "zsh")
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			var script bytes.Buffer
+			if err := writeCompletionScript(NewRootCmd(&module.Runtime{}),
+				"zsh", &script); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, script.Bytes(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := appendRCLine(filepath.Join(home, ".zshrc"),
+				tc.before+zshFpathLine, zshCompdefLine); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(
+				context.Background(), 30*time.Second)
+			defer cancel()
+			// -d skips the global rc files, which differ by platform
+			// and on some run compinit themselves.
+			// zsh comes from LookPath and every argument is fixed.
+			out, err := exec.CommandContext(ctx, zsh, "-d", "-i", "-c", // #nosec G204 // nosemgrep
+				`print -r -- "${_comps[pgedge]}|${compprefuncs[*]}"`).Output()
+			if err != nil {
+				t.Fatalf("zsh: %v", err)
+			}
+			if got := strings.TrimSpace(string(out)); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
@@ -395,27 +540,8 @@ func TestZshInteractiveDeclineLeavesRCUnchanged(t *testing.T) {
 	if _, err := os.Stat(zshrcPath(home)); err == nil {
 		t.Error("~/.zshrc should not have been created on decline")
 	}
-	if !strings.Contains(out.String(), "add the line above") {
+	if !strings.Contains(out.String(), "add the lines above") {
 		t.Errorf("expected DIY hint, got %q", out.String())
-	}
-}
-
-func TestZshAlreadyConfiguredSkipsPrompt(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	if err := os.WriteFile(zshrcPath(home),
-		[]byte("fpath=(~/.zsh/completions $fpath)\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var out, in bytes.Buffer
-	cmd := installCmd(t, &out, &in)
-	if err := runCompletionInstallWith(
-		cmd, "zsh", false, false, false, true); err != nil {
-		t.Fatalf("install: %v", err)
-	}
-	if !strings.Contains(out.String(), "already") {
-		t.Errorf("expected 'already configured' note, got %q",
-			out.String())
 	}
 }
 
@@ -908,5 +1034,52 @@ func TestUninstallRemovesPowershellScript(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "dot-source line") {
 		t.Errorf("expected profile-line reminder, got %q", out.String())
+	}
+}
+
+func TestZshInstallRefusesAnOpenCompletionDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no group or world write bits on Windows")
+	}
+	cases := []struct {
+		name     string
+		makeLeaf bool
+		open     func(dir string) string
+		want     string
+	}{
+		{name: "open leaf", makeLeaf: true,
+			open: func(dir string) string { return dir },
+			want: "chmod go-w ~/.zsh/completions'"},
+		{name: "open parent", makeLeaf: true,
+			open: filepath.Dir, want: "chmod go-w ~/.zsh'"},
+		{name: "open parent, no leaf yet",
+			open: filepath.Dir, want: "chmod go-w ~/.zsh'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			dir, path := completionScriptPath(home, "zsh")
+			if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if tc.makeLeaf {
+				if err := os.Mkdir(dir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Chmod(tc.open(dir), 0o777); err != nil { // #nosec G302 -- the open dir is the case under test
+				t.Fatal(err)
+			}
+			var out, in bytes.Buffer
+			err := runCompletionInstallWith(
+				installCmd(t, &out, &in), "zsh", true, true, false, true)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want an error naming %q, got %v", tc.want, err)
+			}
+			if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("_pgedge was written: %v", err)
+			}
+		})
 	}
 }

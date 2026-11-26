@@ -189,8 +189,8 @@ one of two ways:
 
 - **File install (default).** It writes a completion script into the
   directory your shell loads completions from. Then it prints any
-  step that remains, such as a zsh `fpath` line or a PowerShell
-  profile line. Your shell loads the script like any other completion
+  step that remains, such as the zsh `fpath` and compdef lines or a
+  PowerShell profile line. Your shell loads the script like any other completion
   file. `pgedge self update` regenerates the script, so it keeps up
   with the binary.
 - **rc line (`--rc-only`).** It adds one line to your shell's startup

@@ -108,24 +108,28 @@ it, then install it before anything else. Where Homebrew is present:
 brew install pgEdge/tap/pgedge
 ```
 
-Otherwise, on Linux or macOS, the install script installs the newest
-release:
+Otherwise, where `npm` is present, including on Windows:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/install.sh | sh
+npm install -g @pgedge/cli@beta
 ```
 
-It verifies the archive's checksum, and the release signature when
-`cosign` is installed. It installs to `/usr/local/bin`, or to
-`~/.local/bin` when that is not writable, and sets up shell
-completion. The other options are documented in
-`docs/getting-started.md` of the pgEdge/pgedge-cli repository:
+Then run `command -v pgedge` again. If it still finds nothing, use
+the binary in the directory that `npm prefix -g` prints: `bin/pgedge`
+on Linux and macOS, `pgedge.cmd` on Windows.
 
-- **Hand it to an agent** — `INSTALL.md` at the root of the
-  repository holds the steps, written for exactly this reader. They
-  install or update the CLI, enable shell completion and install these
-  skills in one pass, asking which products the user wants. Fetch it
-  with `curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md`.
+Otherwise, fetch `INSTALL.md` from the root of the repository and
+follow it. Its steps are written for an agent: they install or update
+the CLI, enable shell completion and install these skills in one pass,
+asking which products the user wants.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pgEdge/pgedge-cli/main/INSTALL.md
+```
+
+The other options are documented in `docs/getting-started.md` of the
+pgEdge/pgedge-cli repository:
+
 - **A release archive** — download it from the repository's
   [GitHub Releases](https://github.com/pgEdge/pgedge-cli/releases)
   page, verify it, then extract it. This is the Windows route.
